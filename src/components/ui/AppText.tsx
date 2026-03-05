@@ -39,15 +39,22 @@ const variantStyles: Record<TextVariant, TextStyle> = {
   },
 };
 
+const fontFamilyStyles: Record<Language, TextStyle> = {
+  en: {
+    fontFamily: theme.typography.fonts.en,
+  },
+  th: {
+    fontFamily: theme.typography.fonts.th,
+  },
+};
+
 export function AppText({
   variant = 'body',
   language = 'en',
   style,
   ...rest
 }: AppTextProps) {
-  const fontFamily = language === 'th' ? theme.typography.fonts.th : theme.typography.fonts.en;
-
-  return <Text {...rest} style={[styles.base, { fontFamily }, variantStyles[variant], style]} />;
+  return <Text {...rest} style={[styles.base, fontFamilyStyles[language], variantStyles[variant], style]} />;
 }
 
 const styles = StyleSheet.create({
@@ -55,4 +62,3 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
 });
-
