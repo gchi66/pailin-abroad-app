@@ -57,7 +57,7 @@
   - `app/(tabs)/_layout.tsx`
 - Home page reads `uiLanguage` from context.
 
-## Lessons Work (Started, Now Paused)
+## Lessons Work (In Progress)
 
 ### Added
 - Env scaffold:
@@ -71,18 +71,18 @@
   - `app/lessons/index.tsx`
   - `app/lessons/[id].tsx`
 
-### Important Pause Decision
-- Supabase integration is currently **paused** by product decision.
-- Do not prioritize env setup/data wiring right now.
-- Continue porting other pages/components first.
+### Current Decision
+- Prioritize wiring Supabase/env into `app/lessons/index.tsx` now.
+- Use live lesson list data on the lessons index page.
+- Pause deep lesson detail implementation in `app/lessons/[id].tsx` for later.
 
 ## Env Notes
 - Real `.env` should live at project root:
   - `pailin-abroad-app/.env`
 - Only expose client-safe keys as `EXPO_PUBLIC_*`.
-- If Supabase remains paused, lessons routes may be left untouched or hidden.
+- Supabase keys are required for lessons index data fetching.
 
-## Rich Renderer Risk (Lesson Port)
+## Rich Renderer Risk (Lesson Detail Port)
 - `RichSectionRenderer` is the highest-risk port area and should be isolated as its own task.
 - Keep backend resolver/data shape as source of truth:
   - web backend `resolver.py` + `merge_jsonb.py`
@@ -90,8 +90,9 @@
 - Defer sticky audio/player behavior (`expo-av`) to a later phase if needed.
 
 ## Next Priority (Per Latest Decision)
-- Skip/park Supabase + lesson deep work for now.
-- Continue configuring/porting other app pages first.
+- Wire Supabase + env for `app/lessons/index.tsx` now.
+- Keep `app/lessons/[id].tsx` paused until a later phase.
+- Continue porting other pages/components in parallel where useful.
 - Keep design flexible since cofounder may change direction.
 
 ## Source of Truth for Future Chats
