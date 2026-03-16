@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppSessionProvider } from '@/src/context/app-session-context';
 import { UiLanguageProvider } from '@/src/context/ui-language-context';
 
 export const unstable_settings = {
@@ -14,14 +15,16 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <UiLanguageProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </UiLanguageProvider>
+    <AppSessionProvider>
+      <UiLanguageProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </UiLanguageProvider>
+    </AppSessionProvider>
   );
 }

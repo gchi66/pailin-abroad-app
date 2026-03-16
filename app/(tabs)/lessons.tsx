@@ -2,6 +2,6 @@ import React from 'react';
 
 import { LessonsLibraryScreen } from '@/src/screens/LessonsLibraryScreen';
 
-export default function LessonsIndexScreen() {
+export default function LessonsTabScreen() {
   return <LessonsLibraryScreen />;
 }
