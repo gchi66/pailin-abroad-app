@@ -101,6 +101,17 @@
   - `src/screens/AboutScreen.tsx`
   - `app/account/about.tsx`
   - `src/screens/AccountScreen.tsx` now routes About from Account
+- Added native Profile shell work tied to preview member state:
+  - `src/screens/ProfileScreen.tsx`
+  - `app/account/profile.tsx`
+  - `src/screens/AccountScreen.tsx` now routes Profile from Account when preview is in member mode
+- Current Profile shell is frontend-only and intentionally uses preview data from `hasAccount` rather than real auth.
+- Added native Membership frontend shell with live pricing fetch:
+  - `src/api/pricing.ts`
+  - `src/screens/MembershipScreen.tsx`
+  - `app/account/membership.tsx`
+  - `src/screens/AccountScreen.tsx` and `src/screens/ProfileScreen.tsx` now route Membership into the shell
+- Membership intentionally mirrors the web page structure closely, but `JOIN NOW!` remains frontend-only and does not start checkout yet.
 - `EXPO_PUBLIC_API_BASE_URL` is now expected for backend-backed app routes like Contact.
 - Next easy task after this is replacing About placeholders with imported assets and tightening the team copy if needed.
 - Keep design flexible since cofounder may change direction.

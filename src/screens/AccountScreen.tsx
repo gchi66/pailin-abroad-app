@@ -113,6 +113,14 @@ export function AccountScreen() {
                 accessibilityRole="button"
                 style={styles.linkRow}
                 onPress={() => {
+                  if (label === 'Membership') {
+                    router.push('/account/membership');
+                    return;
+                  }
+                  if (label === 'Profile') {
+                    router.push('/account/profile');
+                    return;
+                  }
                   if (label === 'About') {
                     router.push('/account/about');
                     return;
