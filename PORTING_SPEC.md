@@ -112,8 +112,17 @@
   - `app/account/membership.tsx`
   - `src/screens/AccountScreen.tsx` and `src/screens/ProfileScreen.tsx` now route Membership into the shell
 - Membership intentionally mirrors the web page structure closely, but `JOIN NOW!` remains frontend-only and does not start checkout yet.
+- Membership styling notes:
+  - App background should stay aligned with web `--app-bg` (`#F7FAFD`)
+  - Membership pricing uses cached pricing data after first load in the current app session
+  - Pricing cards now match the web treatment more closely:
+    - unselected border/shadow use `#9D9D9D`
+    - selected state uses blue border/shadow `#3CA0FE` with `#F8FCFF` background
+    - 1-month card now shows the red crossed-out comparison price and adjusted vertical alignment
 - `EXPO_PUBLIC_API_BASE_URL` is now expected for backend-backed app routes like Contact.
-- Next easy task after this is replacing About placeholders with imported assets and tightening the team copy if needed.
+- Next priority:
+  - Port the Resources page frontend next
+  - Keep it as the next major shell/page-parity task before returning to auth wiring or lesson-detail complexity
 - Keep design flexible since cofounder may change direction.
 
 ## Source of Truth for Future Chats
