@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -11,6 +12,7 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
 export function AccountScreen() {
+  const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, setHasAccount } = useAppSession();
 
@@ -110,7 +112,17 @@ export function AccountScreen() {
                 key={label}
                 accessibilityRole="button"
                 style={styles.linkRow}
-                onPress={() => Alert.alert(label, uiLanguage === 'th' ? 'หน้านี้จะถูกเชื่อมต่อในขั้นตอนถัดไป' : 'This page will be connected in a later step.')}>
+                onPress={() => {
+                  if (label === 'About') {
+                    router.push('/account/about');
+                    return;
+                  }
+                  if (label === 'Contact') {
+                    router.push('/account/contact');
+                    return;
+                  }
+                  Alert.alert(label, uiLanguage === 'th' ? 'หน้านี้จะถูกเชื่อมต่อในขั้นตอนถัดไป' : 'This page will be connected in a later step.');
+                }}>
                 <AppText language={uiLanguage} variant="body" style={styles.linkText}>
                   {label}
                 </AppText>

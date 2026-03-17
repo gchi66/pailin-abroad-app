@@ -90,9 +90,19 @@
 - Defer sticky audio/player behavior (`expo-av`) to a later phase if needed.
 
 ## Next Priority (Per Latest Decision)
-- Wire Supabase + env for `app/lessons/index.tsx` now.
-- Keep `app/lessons/[id].tsx` paused until a later phase.
-- Continue porting other pages/components in parallel where useful.
+- Lessons index live data is already wired through `LessonsLibraryScreen`.
+- `app/lessons/[id].tsx` remains a shell; resolved payload + native section renderer is still deferred.
+- Added native Contact page work:
+  - `src/api/contact.ts`
+  - `src/screens/ContactScreen.tsx`
+  - `app/account/contact.tsx`
+  - `src/screens/AccountScreen.tsx` now routes Contact from Account
+- Added native About page work with image placeholders:
+  - `src/screens/AboutScreen.tsx`
+  - `app/account/about.tsx`
+  - `src/screens/AccountScreen.tsx` now routes About from Account
+- `EXPO_PUBLIC_API_BASE_URL` is now expected for backend-backed app routes like Contact.
+- Next easy task after this is replacing About placeholders with imported assets and tightening the team copy if needed.
 - Keep design flexible since cofounder may change direction.
 
 ## Source of Truth for Future Chats
