@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
+import { homeHeroImage } from '@/src/assets/app-images';
 import { pickText } from '../../mocks/home';
 import { HeroData, UiLanguage } from '../../types/home';
 import { theme } from '../../theme/theme';
@@ -20,11 +21,7 @@ export function HeroSection({ data, ui, onPrimaryPress }: HeroSectionProps) {
     <Card padding="lg" radius="lg" style={styles.card}>
       <Stack gap="lg">
         <View style={styles.artworkWrap}>
-          <View style={styles.artworkCircle}>
-            <AppText language={ui} variant="title" style={styles.artworkText}>
-              PA
-            </AppText>
-          </View>
+          <Image source={homeHeroImage} style={styles.heroImage} resizeMode="contain" />
         </View>
 
         <Stack gap="md" style={styles.contentWrap}>
@@ -49,21 +46,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  artworkCircle: {
-    width: 136,
-    height: 136,
-    borderRadius: 68,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  artworkText: {
-    fontSize: theme.typography.sizes.xl,
-    lineHeight: theme.typography.lineHeights.lg,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.primary,
+  heroImage: {
+    width: '100%',
+    height: 220,
   },
   contentWrap: {
     width: '100%',

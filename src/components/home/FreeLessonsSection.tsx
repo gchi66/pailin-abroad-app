@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Image, PanResponder, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { freeLessonImages } from '@/src/assets/app-images';
 import { pickText } from '../../mocks/home';
 import { FreeLessonsData, UiLanguage } from '../../types/home';
 import { theme } from '../../theme/theme';
@@ -15,13 +16,15 @@ type FreeLessonsSectionProps = {
 
 export function FreeLessonsSection({ data, ui }: FreeLessonsSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
-  const cardWidth = Math.min(330, Math.round(windowWidth * 0.72));
+  const cardWidth = Math.min(310, Math.round(windowWidth * 0.68));
   const cardGap = theme.spacing.sm;
   const sideInset = theme.spacing.xs;
+  const viewportInset = theme.spacing.md;
+  const trackSidePadding = viewportInset + sideInset;
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const trackWidth = data.cards.length * cardWidth + Math.max(0, data.cards.length - 1) * cardGap;
-  const maxTranslate = Math.max(0, trackWidth - containerWidth + sideInset * 2);
+  const trackWidth = data.cards.length * cardWidth + Math.max(0, data.cards.length - 1) * cardGap + trackSidePadding * 2;
+  const maxTranslate = Math.max(0, trackWidth - containerWidth);
 
   const translateX = useRef(new Animated.Value(0)).current;
   const currentXRef = useRef(0);
@@ -63,21 +66,20 @@ export function FreeLessonsSection({ data, ui }: FreeLessonsSectionProps) {
     () =>
       StyleSheet.create({
         carouselViewport: {
-          marginHorizontal: -theme.spacing.md,
-          paddingHorizontal: theme.spacing.md,
+          marginHorizontal: -viewportInset,
           overflow: 'hidden',
         },
         cardsTrack: {
           flexDirection: 'row',
           width: trackWidth,
-          paddingHorizontal: sideInset,
+          paddingHorizontal: trackSidePadding,
           gap: cardGap,
         },
         lessonCard: {
           width: cardWidth,
         },
       }),
-    [cardGap, cardWidth, sideInset, trackWidth]
+    [cardGap, cardWidth, trackSidePadding, trackWidth, viewportInset]
   );
 
   return (
@@ -105,7 +107,7 @@ export function FreeLessonsSection({ data, ui }: FreeLessonsSectionProps) {
               padding="md"
               radius="lg"
               style={[dynamicStyles.lessonCard, card.comingSoon ? styles.lessonCardDisabled : styles.lessonCardEnabled]}>
-              <Stack gap="xs">
+              <View style={styles.cardShell}>
                 {card.comingSoon ? (
                   <View style={styles.badgeWrap}>
                     <AppText language={ui} variant="caption" style={styles.badgeText}>
@@ -114,24 +116,22 @@ export function FreeLessonsSection({ data, ui }: FreeLessonsSectionProps) {
                   </View>
                 ) : null}
 
-                <AppText language={ui} variant="caption" style={styles.levelText}>
-                  {pickText(card.level, ui)}
-                </AppText>
-                <AppText language={ui} variant="body" style={styles.cardTitle}>
-                  {pickText(card.title, ui)}
-                </AppText>
-                <View style={styles.imagePlaceholder}>
-                  <AppText language={ui} variant="caption" style={styles.imagePlaceholderText}>
+                <Stack gap="xs">
+                  <AppText language={ui} variant="caption" style={styles.levelText}>
                     {pickText(card.level, ui)}
                   </AppText>
-                </View>
-                <AppText language={ui} variant="caption" style={styles.focusLabel}>
-                  {pickText(card.focusLabel, ui)}
-                </AppText>
-                <AppText language={ui} variant="muted">
-                  {pickText(card.description, ui)}
-                </AppText>
-              </Stack>
+                  <AppText language={ui} variant="body" style={styles.cardTitle}>
+                    {pickText(card.title, ui)}
+                  </AppText>
+                  <Image source={getFreeLessonImage(card.id)} style={styles.lessonImage} resizeMode="cover" />
+                  <AppText language={ui} variant="caption" style={styles.focusLabel}>
+                    {pickText(card.focusLabel, ui)}
+                  </AppText>
+                  <AppText language={ui} variant="muted">
+                    {pickText(card.description, ui)}
+                  </AppText>
+                </Stack>
+              </View>
             </Card>
           ))}
         </Animated.View>
@@ -172,9 +172,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F3F3',
     opacity: 0.78,
   },
+  cardShell: {
+    position: 'relative',
+  },
   badgeWrap: {
-    alignItems: 'flex-end',
-    marginBottom: theme.spacing.xs,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
   },
   badgeText: {
     color: theme.colors.primary,
@@ -193,20 +198,16 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.lg,
     lineHeight: theme.typography.lineHeights.md,
   },
-  imagePlaceholder: {
-    height: 104,
+  lessonImage: {
+    height: 92,
+    width: '92%',
+    alignSelf: 'center',
     borderRadius: theme.radii.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    marginTop: 0,
+    marginBottom: theme.spacing.md,
     backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.xs,
-  },
-  imagePlaceholderText: {
-    color: theme.colors.primary,
-    fontWeight: theme.typography.weights.semibold,
   },
   focusLabel: {
     color: theme.colors.text,
@@ -214,3 +215,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
 });
+
+function getFreeLessonImage(id: string) {
+  return freeLessonImages[id as keyof typeof freeLessonImages];
+}

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
+import { characterImages } from '@/src/assets/app-images';
 import { pickText } from '../../mocks/home';
 import { CharactersData, UiLanguage } from '../../types/home';
 import { theme } from '../../theme/theme';
@@ -16,6 +17,7 @@ type CharactersSectionProps = {
 export function CharactersSection({ data, ui }: CharactersSectionProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selected = useMemo(() => data.entries[selectedIndex] ?? data.entries[0], [data.entries, selectedIndex]);
+  const selectedImages = getCharacterImages(selected.id);
 
   return (
     <Card padding="lg" radius="lg" style={styles.card}>
@@ -24,11 +26,7 @@ export function CharactersSection({ data, ui }: CharactersSectionProps) {
           {pickText(data.title, ui)}
         </AppText>
         <Stack gap="sm" style={styles.selectedWrap}>
-          <View style={styles.heroAvatar}>
-            <AppText language={ui} variant="title" style={styles.heroAvatarText}>
-              {pickText(selected.name, ui).slice(0, 2).toUpperCase()}
-            </AppText>
-          </View>
+          <Image source={selectedImages.hero} style={styles.heroAvatarImage} resizeMode="contain" />
           <AppText language={ui} variant="body" style={styles.characterName}>
             {pickText(selected.name, ui)}
           </AppText>
@@ -39,18 +37,18 @@ export function CharactersSection({ data, ui }: CharactersSectionProps) {
         <Stack direction="horizontal" gap="sm" style={styles.thumbnailRow}>
           {data.entries.map((entry, index) => {
             const isSelected = index === selectedIndex;
+            const entryImages = getCharacterImages(entry.id);
             return (
               <Pressable
                 key={entry.id}
                 accessibilityRole="button"
                 onPress={() => setSelectedIndex(index)}
                 style={[styles.thumbnailButton, isSelected ? styles.thumbnailButtonSelected : styles.thumbnailButtonDefault]}>
-                <AppText
-                  language={ui}
-                  variant="caption"
-                  style={[styles.thumbnailText, isSelected ? styles.thumbnailTextSelected : styles.thumbnailTextDefault]}>
-                  {pickText(entry.name, ui).slice(0, 2).toUpperCase()}
-                </AppText>
+                <Image
+                  source={isSelected ? entryImages.thumbnailActive : entryImages.thumbnailDefault}
+                  style={styles.thumbnailImage}
+                  resizeMode="contain"
+                />
               </Pressable>
             );
           })}
@@ -70,19 +68,9 @@ const styles = StyleSheet.create({
   selectedWrap: {
     alignItems: 'center',
   },
-  heroAvatar: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroAvatarText: {
-    color: theme.colors.primary,
-    fontWeight: theme.typography.weights.bold,
+  heroAvatarImage: {
+    width: 172,
+    height: 172,
   },
   characterName: {
     fontWeight: theme.typography.weights.semibold,
@@ -107,16 +95,15 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   thumbnailButtonSelected: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
   },
-  thumbnailText: {
-    fontWeight: theme.typography.weights.bold,
-  },
-  thumbnailTextDefault: {
-    color: theme.colors.text,
-  },
-  thumbnailTextSelected: {
-    color: theme.colors.surface,
+  thumbnailImage: {
+    width: 36,
+    height: 36,
   },
 });
+
+function getCharacterImages(id: string) {
+  return characterImages[id as keyof typeof characterImages];
+}

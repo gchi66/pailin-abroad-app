@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { aboutImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -230,29 +231,6 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
   };
 };
 
-function ImagePlaceholder({
-  uiLanguage,
-  label,
-  caption,
-}: {
-  uiLanguage: UiLanguage;
-  label: string;
-  caption?: string;
-}) {
-  return (
-    <View style={styles.imagePlaceholder}>
-      <AppText language={uiLanguage} variant="caption" style={styles.imagePlaceholderLabel}>
-        {label}
-      </AppText>
-      {caption ? (
-        <AppText language={uiLanguage} variant="muted" style={styles.imagePlaceholderCaption}>
-          {caption}
-        </AppText>
-      ) : null}
-    </View>
-  );
-}
-
 export function AboutScreen() {
   const { uiLanguage } = useUiLanguage();
   const copy = useMemo(() => getAboutPageCopy(uiLanguage), [uiLanguage]);
@@ -323,11 +301,7 @@ export function AboutScreen() {
                   {isExpanded ? (
                     <Stack gap="sm">
                       {card.imagePlaceholderLabel ? (
-                        <ImagePlaceholder
-                          caption={copy.imagePlaceholder}
-                          label={card.imagePlaceholderLabel}
-                          uiLanguage={uiLanguage}
-                        />
+                        <Image source={aboutImages.methodPailin} style={styles.methodImage} resizeMode="contain" />
                       ) : null}
                       {card.paragraphs.map((paragraph) => (
                         <AppText key={paragraph} language={uiLanguage} variant="body" style={styles.bodyText}>
@@ -353,11 +327,7 @@ export function AboutScreen() {
             {copy.teamMembers.map((member) => (
               <Card key={member.name} padding="lg" radius="lg">
                 <Stack gap="md">
-                  <ImagePlaceholder
-                    caption={copy.imagePlaceholder}
-                    label={member.imagePlaceholderLabel}
-                    uiLanguage={uiLanguage}
-                  />
+                  <Image source={getTeamImage(member.name)} style={styles.teamImage} resizeMode="cover" />
                   <View style={styles.teamHeading}>
                     <AppText language={uiLanguage} variant="body" style={styles.teamName}>
                       {member.name}
@@ -465,26 +435,19 @@ const styles = StyleSheet.create({
   bulletText: {
     flex: 1,
   },
-  imagePlaceholder: {
-    minHeight: 160,
+  methodImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: theme.radii.lg,
+    backgroundColor: '#F4F0E6',
+  },
+  teamImage: {
+    width: '100%',
+    height: 220,
     borderRadius: theme.radii.lg,
     borderWidth: 1,
-    borderStyle: 'dashed',
     borderColor: theme.colors.border,
     backgroundColor: '#F4F0E6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-  },
-  imagePlaceholderLabel: {
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    textAlign: 'center',
-  },
-  imagePlaceholderCaption: {
-    marginTop: theme.spacing.xs,
-    textAlign: 'center',
   },
   teamHeading: {
     gap: theme.spacing.xs,
@@ -503,3 +466,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.border,
   },
 });
+
+function getTeamImage(name: string) {
+  return name === 'CARISSA' ? aboutImages.carissa : aboutImages.grant;
+}

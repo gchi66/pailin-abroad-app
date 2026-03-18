@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
+import { membershipImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -113,8 +114,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
         'เกร็ดความรู้ทางวัฒนธรรมที่จะช่วยให้คุณเข้าใจบริบทการใช้ภาษาอังกฤษ',
         'ทิ้งความคิดเห็นของคุณไว้ได้ในทุกบทเรียน พร้อมรับการตอบกลับจากเรา!',
       ],
-      bannerText: 'Membership launch pricing banner',
-      loadingImageText: 'Pailin placeholder',
+      loadingImageAlt: 'Pailin membership illustration',
     };
   }
 
@@ -172,8 +172,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       'Cultural notes to help you understand English in context',
       'Comment on any lesson and get feedback from us!',
     ],
-    bannerText: 'Membership launch pricing banner',
-    loadingImageText: 'Pailin placeholder',
+    loadingImageAlt: 'Pailin membership illustration',
   };
 };
 
@@ -425,11 +424,7 @@ export function MembershipScreen() {
     return (
       <View style={styles.stateScreen}>
         <View style={styles.loadingInner}>
-          <View style={styles.loadingImagePlaceholder}>
-            <AppText language={uiLanguage} variant="caption" style={styles.loadingImageText}>
-              {copy.loadingImageText}
-            </AppText>
-          </View>
+          <Image source={membershipImages.state} style={styles.loadingImage} resizeMode="contain" accessibilityLabel={copy.loadingImageAlt} />
           <ActivityIndicator color={theme.colors.primary} />
           <AppText language={uiLanguage} variant="body" style={styles.loadingText}>
             {copy.loadingTitle}
@@ -443,11 +438,7 @@ export function MembershipScreen() {
     return (
       <View style={styles.stateScreen}>
         <View style={styles.loadingInner}>
-          <View style={styles.loadingImagePlaceholder}>
-            <AppText language={uiLanguage} variant="caption" style={styles.loadingImageText}>
-              {copy.loadingImageText}
-            </AppText>
-          </View>
+          <Image source={membershipImages.state} style={styles.loadingImage} resizeMode="contain" accessibilityLabel={copy.loadingImageAlt} />
           <AppText language={uiLanguage} variant="title" style={styles.errorTitle}>
             {copy.loadingErrorTitle}
           </AppText>
@@ -474,11 +465,7 @@ export function MembershipScreen() {
           </AppText>
         </View>
 
-        <View style={styles.bannerPlaceholder}>
-          <AppText language={uiLanguage} variant="caption" style={styles.bannerText}>
-            {copy.bannerText}
-          </AppText>
-        </View>
+        <Image source={membershipImages.banner} style={styles.bannerImage} resizeMode="cover" />
 
         <Stack gap="md">
           {allPlans.map((plan, index) => (
@@ -589,20 +576,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: theme.spacing.md,
   },
-  loadingImagePlaceholder: {
+  loadingImage: {
     width: 180,
     height: 180,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#D4E9FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
-  },
-  loadingImageText: {
-    textAlign: 'center',
-    fontWeight: theme.typography.weights.semibold,
   },
   loadingText: {
     textAlign: 'center',
@@ -634,20 +610,13 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     marginTop: theme.spacing.sm,
   },
-  bannerPlaceholder: {
+  bannerImage: {
+    width: '100%',
     minHeight: 150,
+    height: 150,
     borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: '#F9D9B8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  bannerText: {
-    fontWeight: theme.typography.weights.bold,
-    textAlign: 'center',
-    color: theme.colors.text,
   },
   cardPressable: {
     width: '100%',

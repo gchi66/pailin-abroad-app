@@ -1,6 +1,7 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { resourceCardImages } from '@/src/assets/resource-images';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -9,14 +10,14 @@ import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
 type ResourceTone = 'exercise' | 'topic' | 'mistakes' | 'phrases' | 'culture';
+type ResourceCardId = 'exercise-bank' | 'topic-library' | 'common-mistakes' | 'phrases-verbs' | 'culture-notes';
 
 type ResourceCardCopy = {
-  id: string;
+  id: ResourceCardId;
   title: string;
   description: string;
   enabled: boolean;
   badge?: string;
-  placeholderLabel: string;
   tone: ResourceTone;
 };
 
@@ -38,7 +39,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         title: 'Exercise Bank',
         description: 'Additional practice exercises for those difficult grammar topics',
         enabled: true,
-        placeholderLabel: 'EX',
         tone: 'exercise',
       },
       {
@@ -46,7 +46,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         title: 'Topic Library',
         description: 'Further explanations on a range of interesting ESL topics',
         enabled: true,
-        placeholderLabel: 'TL',
         tone: 'topic',
       },
       {
@@ -55,7 +54,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         description: 'View our full library of common mistakes made by Thai speakers and how to fix them',
         enabled: false,
         badge: 'Coming soon!',
-        placeholderLabel: 'CM',
         tone: 'mistakes',
       },
       {
@@ -64,7 +62,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         description: 'Explore our bank of phrases, phrasal verbs, and slang used in our lessons',
         enabled: false,
         badge: 'Coming soon!',
-        placeholderLabel: 'PV',
         tone: 'phrases',
       },
       {
@@ -73,7 +70,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         description: 'View our full collection of Culture Notes from our lessons',
         enabled: false,
         badge: 'Coming soon!',
-        placeholderLabel: 'CN',
         tone: 'culture',
       },
     ],
@@ -88,7 +84,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         title: 'คลังแบบฝึกหัด',
         description: 'แบบฝึกหัดเพิ่มเติมสำหรับกฎไวยากรณ์ที่เข้าใจยาก',
         enabled: true,
-        placeholderLabel: 'EX',
         tone: 'exercise',
       },
       {
@@ -96,7 +91,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         title: 'คลังหัวข้อการเรียนรู้',
         description: 'คำอธิบายเพิ่มเติมเกี่ยวกับห้อข้อการใช้ภาษาอังกฤษที่น่าสนใจ',
         enabled: true,
-        placeholderLabel: 'TL',
         tone: 'topic',
       },
       {
@@ -105,7 +99,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         description: 'ดูคลังข้อผิดพลาดพบบ่อยที่คนไทยมักใช้ผิด พร้อมวิธีการแก้ไขให้ถูกต้อง',
         enabled: false,
         badge: 'เร็วๆนี้!',
-        placeholderLabel: 'CM',
         tone: 'mistakes',
       },
       {
@@ -114,7 +107,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         description: 'สำรวจคลังวลี, Phrasal Verbs และคำสแลงที่ใช้ในบทเรียนต่างๆของเรา',
         enabled: false,
         badge: 'เร็วๆนี้!',
-        placeholderLabel: 'PV',
         tone: 'phrases',
       },
       {
@@ -123,7 +115,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         description: 'ดูคลังข้อมูลวัฒนธรรมอเมริกันทั้งหมดจากบทเรียนของเรา',
         enabled: false,
         badge: 'เร็วๆนี้!',
-        placeholderLabel: 'CN',
         tone: 'culture',
       },
     ],
@@ -160,11 +151,7 @@ export function ResourcesScreen() {
                 <View style={[styles.cardInner, card.badge ? styles.cardInnerWithBadge : null, !card.enabled ? styles.cardInnerDisabled : null]}>
                   <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
                     <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
-                    <View style={styles.mediaLabelWrap}>
-                      <AppText language="en" variant="caption" style={styles.mediaLabel}>
-                        {card.placeholderLabel}
-                      </AppText>
-                    </View>
+                    <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
                   </View>
 
                   <View style={styles.cardCopy}>
@@ -272,6 +259,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
   },
+  mediaImage: {
+    width: '100%',
+    height: '100%',
+  },
   mediaShellExercise: {
     backgroundColor: '#F8E3BF',
   },
@@ -310,21 +301,6 @@ const styles = StyleSheet.create({
   },
   mediaAccentCulture: {
     backgroundColor: '#74C690',
-  },
-  mediaLabelWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mediaLabel: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.8,
   },
   cardCopy: {
     flex: 1,
