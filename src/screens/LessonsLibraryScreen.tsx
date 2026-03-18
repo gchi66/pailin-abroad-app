@@ -313,14 +313,14 @@ const styles = StyleSheet.create({
   title: {
     color: theme.colors.text,
     textAlign: 'center',
-    fontSize: 56,
-    lineHeight: 64,
+    fontSize: 44,
+    lineHeight: 52,
   },
   subtitle: {
     color: theme.colors.mutedText,
     textAlign: 'center',
-    fontSize: 20,
-    lineHeight: 32,
+    fontSize: 17,
+    lineHeight: 26,
   },
   stageSelector: {
     paddingHorizontal: theme.spacing.md,

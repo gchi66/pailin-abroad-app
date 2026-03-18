@@ -47,6 +47,19 @@
   - Characters
   - Take the leap CTA
   - FAQ
+- Homepage parity notes:
+  - Home now uses bundled local image assets instead of placeholder art for:
+    - hero image
+    - free lesson cards
+    - choose-us blue checkmarks
+    - how-it-works number images
+    - characters hero/thumbnail images
+  - `SignUpCTASection` no longer uses the card/bubble shell; it is now plain text + button, with `all` kept inline and red
+  - Free lessons carousel tuned further:
+    - cards are slightly narrower
+    - lesson image sizing/spacing adjusted
+    - expert `COMING SOON!` badge is overlaid so card layout matches the other cards
+    - left/right carousel gutter behavior adjusted to be more symmetric
 
 ### Language + Sidebar (Mobile)
 - Added global UI language context:
@@ -97,10 +110,14 @@
   - `src/screens/ContactScreen.tsx`
   - `app/account/contact.tsx`
   - `src/screens/AccountScreen.tsx` now routes Contact from Account
-- Added native About page work with image placeholders:
+- Added native About page work:
   - `src/screens/AboutScreen.tsx`
   - `app/account/about.tsx`
   - `src/screens/AccountScreen.tsx` now routes About from Account
+  - About now uses bundled local images for:
+    - Pailin image in the method section
+    - Carissa team image
+    - Grant team image
 - Added native Profile shell work tied to preview member state:
   - `src/screens/ProfileScreen.tsx`
   - `app/account/profile.tsx`
@@ -115,14 +132,35 @@
 - Membership styling notes:
   - App background should stay aligned with web `--app-bg` (`#F7FAFD`)
   - Membership pricing uses cached pricing data after first load in the current app session
+  - Membership now uses bundled local images for:
+    - launch pricing banner
+    - loading/error state illustration
   - Pricing cards now match the web treatment more closely:
     - unselected border/shadow use `#9D9D9D`
     - selected state uses blue border/shadow `#3CA0FE` with `#F8FCFF` background
     - 1-month card now shows the red crossed-out comparison price and adjusted vertical alignment
 - `EXPO_PUBLIC_API_BASE_URL` is now expected for backend-backed app routes like Contact.
+- Added native Resources page parity pass:
+  - `src/screens/ResourcesScreen.tsx`
+  - `app/(tabs)/resources.tsx`
+  - Uses full 5-card web structure
+  - Uses bundled local image assets for all resource cards
+  - `Exercise Bank` and `Topic Library` remain placeholder destinations for now
+  - Disabled cards keep top-right red `Coming soon` treatment
+- Asset workflow notes:
+  - Bundled app images live under `assets/images/*`
+  - Added:
+    - `src/assets/app-images.ts`
+    - `src/assets/resource-images.ts`
+    - `assets/images/README.md`
+    - `images.d.ts`
+  - For app-owned design assets, keep them committed to the repo rather than gitignored
+- Current known TS issues that predate or sit outside this image/home pass:
+  - `src/components/ui/Stack.tsx`
+  - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
-  - Port the Resources page frontend next
-  - Keep it as the next major shell/page-parity task before returning to auth wiring or lesson-detail complexity
+  - Decide whether to port `Exercise Bank` or `Topic Library` next as the next Resources-linked destination shell
+  - Keep `app/lessons/[id].tsx` rich renderer work deferred until after simpler page-parity shells are done
 - Keep design flexible since cofounder may change direction.
 
 ## Source of Truth for Future Chats
