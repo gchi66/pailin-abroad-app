@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 import { pickText } from '../../mocks/home';
 import { HowItWorksData, UiLanguage } from '../../types/home';
@@ -7,6 +7,10 @@ import { theme } from '../../theme/theme';
 import { AppText } from '../ui/AppText';
 import { Card } from '../ui/Card';
 import { Stack } from '../ui/Stack';
+
+import howItWorks1Image from '@/assets/images/how_it_works_1.png';
+import howItWorks2Image from '@/assets/images/how_it_works_2.png';
+import howItWorks3Image from '@/assets/images/how_it_works_3.png';
 
 type HowItWorksSectionProps = {
   data: HowItWorksData;
@@ -20,14 +24,10 @@ export function HowItWorksSection({ data, ui }: HowItWorksSectionProps) {
         {pickText(data.title, ui)}
       </AppText>
       <Stack gap="md">
-        {data.steps.map((step) => (
+        {data.steps.map((step, index) => (
           <Card key={step.number} padding="md" radius="lg" style={styles.stepCard}>
             <Stack gap="sm" style={styles.stepContent}>
-              <View style={styles.numberCircle}>
-                <AppText language={ui} variant="body" style={styles.numberText}>
-                  {step.number}
-                </AppText>
-              </View>
+              <Image source={getHowItWorksImage(index)} style={styles.numberImage} resizeMode="contain" />
               <AppText language={ui} variant="body" style={styles.stepHeader}>
                 {pickText(step.header, ui)}
               </AppText>
@@ -52,19 +52,9 @@ const styles = StyleSheet.create({
   stepContent: {
     alignItems: 'center',
   },
-  numberCircle: {
+  numberImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  numberText: {
-    color: theme.colors.primary,
-    fontWeight: theme.typography.weights.bold,
   },
   stepHeader: {
     textAlign: 'center',
@@ -74,3 +64,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+function getHowItWorksImage(index: number) {
+  switch (index) {
+    case 0:
+      return howItWorks1Image;
+    case 1:
+      return howItWorks2Image;
+    default:
+      return howItWorks3Image;
+  }
+}

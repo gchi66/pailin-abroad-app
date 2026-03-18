@@ -86,21 +86,18 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbnailButtonDefault: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    backgroundColor: 'transparent',
   },
   thumbnailButtonSelected: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    backgroundColor: 'transparent',
   },
   thumbnailImage: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
   },
 });
 

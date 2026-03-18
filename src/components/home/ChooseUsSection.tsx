@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 import { pickText } from '../../mocks/home';
 import { ChooseUsData, UiLanguage } from '../../types/home';
@@ -7,6 +7,8 @@ import { theme } from '../../theme/theme';
 import { AppText } from '../ui/AppText';
 import { Card } from '../ui/Card';
 import { Stack } from '../ui/Stack';
+
+import blueCheckImage from '@/assets/images/graphics_check_blue.webp';
 
 type ChooseUsSectionProps = {
   data: ChooseUsData;
@@ -23,11 +25,7 @@ export function ChooseUsSection({ data, ui }: ChooseUsSectionProps) {
         <Stack gap="sm">
           {data.reasons.map((reason, index) => (
             <Stack key={`${pickText(reason.text, ui)}-${index}`} direction="horizontal" gap="sm" style={styles.reasonRow}>
-              <View style={styles.iconDot}>
-                <AppText language={ui} variant="caption" style={styles.iconText}>
-                  ✓
-                </AppText>
-              </View>
+              <Image source={blueCheckImage} style={styles.iconImage} resizeMode="contain" />
               <View style={styles.reasonTextWrap}>
                 <AppText language={ui} variant="body">{pickText(reason.text, ui)}</AppText>
               </View>
@@ -50,19 +48,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-start',
   },
-  iconDot: {
+  iconImage: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: {
-    color: theme.colors.primary,
-    fontWeight: theme.typography.weights.bold,
   },
   reasonTextWrap: {
     flex: 1,

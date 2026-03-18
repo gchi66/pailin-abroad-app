@@ -1,12 +1,11 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { pickText } from '../../mocks/home';
 import { SignUpCTAData, UiLanguage } from '../../types/home';
 import { theme } from '../../theme/theme';
 import { AppText } from '../ui/AppText';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 import { Stack } from '../ui/Stack';
 
 type SignUpCTASectionProps = {
@@ -17,28 +16,27 @@ type SignUpCTASectionProps = {
 
 export function SignUpCTASection({ data, ui, onPrimaryPress }: SignUpCTASectionProps) {
   return (
-    <Card padding="lg" radius="lg" style={styles.card}>
+    <View style={styles.container}>
       <Stack gap="md">
-        <Stack gap="xs" style={styles.titleWrap}>
+        <Stack gap="sm" style={styles.titleWrap}>
           <AppText language={ui} variant="title" style={styles.title}>
-            {pickText(data.titleParts.beforeEm, ui)}
-          </AppText>
-          <AppText language={ui} variant="title" style={styles.titleEmphasis}>
-            {pickText(data.titleParts.emphasis, ui)}
-          </AppText>
-          <AppText language={ui} variant="title" style={styles.title}>
+            {pickText(data.titleParts.beforeEm, ui)}{' '}
+            <AppText language={ui} variant="title" style={styles.titleEmphasis}>
+              {pickText(data.titleParts.emphasis, ui)}
+            </AppText>{' '}
             {pickText(data.titleParts.afterEm, ui)}
           </AppText>
         </Stack>
         <Button language={ui} title={pickText(data.cta, ui)} onPress={onPrimaryPress} />
       </Stack>
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     width: '100%',
+    paddingVertical: theme.spacing.md,
   },
   titleWrap: {
     alignItems: 'center',
