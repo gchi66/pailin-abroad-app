@@ -79,39 +79,9 @@ const getCopy = (uiLanguage: UiLanguage) => {
 export function ProfileScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, setHasAccount } = useAppSession();
+  const { hasMembership, setHasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
   const previewData = getProfilePreviewData(uiLanguage);
-
-  if (!hasAccount) {
-    return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-        <Stack gap="md">
-          <View style={styles.headerBlock}>
-            <Stack gap="sm">
-              <AppText language={uiLanguage} variant="title" style={styles.title}>
-                {copy.title}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-                {copy.subtitle}
-              </AppText>
-            </Stack>
-          </View>
-
-          <Card padding="lg" radius="lg">
-            <Stack gap="sm">
-              <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                {copy.guestTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="muted">
-                {copy.guestBody}
-              </AppText>
-            </Stack>
-          </Card>
-        </Stack>
-      </ScrollView>
-    );
-  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
@@ -207,7 +177,7 @@ export function ProfileScreen() {
               accessibilityRole="button"
               style={styles.linkRow}
               onPress={() => {
-                setHasAccount(false);
+                setHasMembership(false);
                 Alert.alert(copy.signOut, copy.signOutSuccess);
                 router.replace('/(tabs)/account');
               }}>

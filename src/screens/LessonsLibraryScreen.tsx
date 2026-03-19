@@ -260,19 +260,24 @@ export function LessonsLibraryScreen() {
                   onPress={() => router.push(`/lessons/${lesson.id}`)}>
                   <Card padding="md" radius="md" style={styles.lessonCard}>
                     <View style={styles.lessonRow}>
-                      <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
-                        {lessonNumber}
-                      </AppText>
-                      <View style={styles.lessonTextGroup}>
-                        <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
-                          {titleText}
+                      <View style={styles.lessonLeft}>
+                        <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
+                          {lessonNumber}
                         </AppText>
-                        {focusText ? (
-                          <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
-                            {focusText}
+                        <View style={styles.lessonTextGroup}>
+                          <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
+                            {titleText}
                           </AppText>
-                        ) : null}
+                          {focusText ? (
+                            <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
+                              {focusText}
+                            </AppText>
+                          ) : null}
+                        </View>
                       </View>
+                      <AppText language={uiLanguage} variant="body" style={styles.lessonChevron}>
+                        ›
+                      </AppText>
                     </View>
                   </Card>
                 </Pressable>
@@ -424,33 +429,40 @@ const styles = StyleSheet.create({
   lessonCard: {
     width: '100%',
     borderRadius: theme.radii.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
   },
   lessonRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  lessonLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
   },
   lessonNumber: {
-    width: 34,
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.medium,
+    minWidth: 36,
+    fontWeight: theme.typography.weights.semibold,
     color: theme.colors.text,
   },
   lessonTextGroup: {
     flex: 1,
+    gap: 2,
   },
   lessonTitle: {
     fontWeight: theme.typography.weights.semibold,
-    fontSize: 22,
-    lineHeight: 30,
   },
   lessonSubtitle: {
-    marginTop: theme.spacing.xs,
-    fontSize: 16,
+    color: theme.colors.mutedText,
+  },
+  lessonChevron: {
+    fontSize: 20,
     lineHeight: 24,
+    color: theme.colors.mutedText,
   },
   emptyStateText: {
     textAlign: 'center',

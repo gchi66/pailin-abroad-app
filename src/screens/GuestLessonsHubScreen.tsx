@@ -22,8 +22,8 @@ export function GuestLessonsHubScreen() {
             </AppText>
             <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
               {uiLanguage === 'th'
-                ? 'สำหรับผู้ใช้ที่ยังไม่มีบัญชี ตอนนี้เริ่มได้จาก 4 บทเรียนฟรีก่อน'
-                : 'For guests, start with the 4 free lessons first.'}
+                ? 'สำหรับผู้ใช้แพ็กเกจฟรี คุณสามารถลอง 4 บทเรียนตัวอย่างหรือเข้าสู่คลังบทเรียนฟรีได้'
+                : 'On the free plan, you can try the 4 sample lessons or open the free lesson library.'}
             </AppText>
           </Stack>
         </View>
@@ -46,23 +46,21 @@ export function GuestLessonsHubScreen() {
               </AppText>
             </Pressable>
 
-            <View style={[styles.linkRow, styles.linkRowLocked]}>
+            <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/library')}>
               <View style={styles.linkCopy}>
                 <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
                   {uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library'}
                 </AppText>
                 <AppText language={uiLanguage} variant="muted" style={styles.linkDescription}>
                   {uiLanguage === 'th'
-                    ? 'จะแสดงเป็นสถานะล็อกสำหรับผู้ใช้ที่ยังไม่มีบัญชี'
-                    : 'This will render as locked for guests for now.'}
+                    ? 'เข้าถึงบทเรียนแรกของทุกระดับการเรียนในแพ็กเกจฟรี'
+                    : 'Access the first lesson of each level on the free plan.'}
                 </AppText>
               </View>
-              <View style={styles.lockBadge}>
-                <AppText language={uiLanguage} variant="caption" style={styles.lockBadgeText}>
-                  {uiLanguage === 'th' ? 'ล็อก' : 'Locked'}
-                </AppText>
-              </View>
-            </View>
+              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
+                ›
+              </AppText>
+            </Pressable>
           </Stack>
         </Card>
       </Stack>
@@ -106,10 +104,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },
-  linkRowLocked: {
-    opacity: 0.7,
-    backgroundColor: '#F3F3F3',
-  },
   linkCopy: {
     flex: 1,
     gap: theme.spacing.xs,
@@ -124,16 +118,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     color: theme.colors.mutedText,
-  },
-  lockBadge: {
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#ECECEC',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-  },
-  lockBadgeText: {
-    fontWeight: theme.typography.weights.semibold,
   },
 });

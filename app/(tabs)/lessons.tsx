@@ -1,14 +1,14 @@
 import React from 'react';
 
-import { GuestLessonsHubScreen } from '@/src/screens/GuestLessonsHubScreen';
+import { GuestLessonLibraryScreen } from '@/src/screens/GuestLessonLibraryScreen';
 import { useAppSession } from '@/src/context/app-session-context';
 import { LessonsLibraryScreen } from '@/src/screens/LessonsLibraryScreen';
 
 export default function LessonsTabScreen() {
-  const { hasAccount } = useAppSession();
+  const { hasMembership } = useAppSession();
 
-  if (!hasAccount) {
-    return <GuestLessonsHubScreen />;
+  if (!hasMembership) {
+    return <GuestLessonLibraryScreen />;
   }
 
   return <LessonsLibraryScreen />;

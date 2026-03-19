@@ -14,15 +14,16 @@ import { theme } from '@/src/theme/theme';
 export function AccountScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, setHasAccount } = useAppSession();
+  const { hasMembership, setHasMembership } = useAppSession();
 
-  const guestActions = [
+  const freePlanActions = [
+    uiLanguage === 'th' ? 'Profile' : 'Profile',
     uiLanguage === 'th' ? 'Membership' : 'Membership',
     uiLanguage === 'th' ? 'About' : 'About',
     uiLanguage === 'th' ? 'Contact' : 'Contact',
   ];
 
-  const memberActions = [
+  const paidActions = [
     uiLanguage === 'th' ? 'Profile' : 'Profile',
     uiLanguage === 'th' ? 'About' : 'About',
     uiLanguage === 'th' ? 'Contact' : 'Contact',
@@ -37,13 +38,13 @@ export function AccountScreen() {
               {uiLanguage === 'th' ? 'Account' : 'Account'}
             </AppText>
             <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {hasAccount
+              {hasMembership
                 ? uiLanguage === 'th'
-                  ? 'เมื่อผู้ใช้มีบัญชีแล้ว ปุ่มภาษาจะย้ายมาอยู่ที่นี่'
-                  : 'Once the user has an account, language moves here.'
+                  ? 'นี่คือมุมมองสำหรับผู้ใช้ที่มีสมาชิกแบบชำระเงิน'
+                  : 'This is the preview state for a paid membership user.'
                 : uiLanguage === 'th'
-                  ? 'สำหรับคนที่ยังไม่มีบัญชี หน้านี้รวม membership, about และ contact'
-                  : 'For guests, this page holds membership, about, and contact.'}
+                  ? 'นี่คือมุมมองสำหรับผู้ใช้ที่มีบัญชีแบบแพ็กเกจฟรี'
+                  : 'This is the preview state for a signed-in user on the free plan.'}
             </AppText>
           </Stack>
         </View>
@@ -55,59 +56,37 @@ export function AccountScreen() {
             </AppText>
             <AppText language={uiLanguage} variant="muted">
               {uiLanguage === 'th'
-                ? 'ตอนนี้ใช้ตัวสลับชั่วคราวเพื่อ preview โครงสร้างก่อนเชื่อม auth จริง'
+                ? 'ตอนนี้ใช้ตัวสลับชั่วคราวเพื่อดูโครงสร้างระหว่างแพ็กเกจฟรีกับสมาชิกแบบชำระเงินก่อนเชื่อม auth จริง'
                 : 'This temporary switch previews the navigation structure until real auth is connected.'}
             </AppText>
             <View style={styles.previewSwitchWrap}>
               <Pressable
                 accessibilityRole="button"
-                style={[styles.previewSwitchOption, !hasAccount ? styles.previewSwitchOptionActive : null]}
-                onPress={() => setHasAccount(false)}>
-                <AppText language={uiLanguage} variant="caption" style={!hasAccount ? styles.previewSwitchTextActive : styles.previewSwitchText}>
-                  {uiLanguage === 'th' ? 'Guest' : 'Guest'}
+                style={[styles.previewSwitchOption, !hasMembership ? styles.previewSwitchOptionActive : null]}
+                onPress={() => setHasMembership(false)}>
+                <AppText language={uiLanguage} variant="caption" style={!hasMembership ? styles.previewSwitchTextActive : styles.previewSwitchText}>
+                  {uiLanguage === 'th' ? 'Free Plan' : 'Free Plan'}
                 </AppText>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                style={[styles.previewSwitchOption, hasAccount ? styles.previewSwitchOptionActive : null]}
-                onPress={() => setHasAccount(true)}>
-                <AppText language={uiLanguage} variant="caption" style={hasAccount ? styles.previewSwitchTextActive : styles.previewSwitchText}>
-                  {uiLanguage === 'th' ? 'Member' : 'Member'}
+                style={[styles.previewSwitchOption, hasMembership ? styles.previewSwitchOptionActive : null]}
+                onPress={() => setHasMembership(true)}>
+                <AppText language={uiLanguage} variant="caption" style={hasMembership ? styles.previewSwitchTextActive : styles.previewSwitchText}>
+                  {uiLanguage === 'th' ? 'Paid' : 'Paid'}
                 </AppText>
               </Pressable>
             </View>
           </Stack>
         </Card>
 
-        {!hasAccount ? (
-          <Card padding="lg" radius="lg">
-            <Stack gap="sm">
-              <Button
-                language={uiLanguage}
-                title={uiLanguage === 'th' ? 'Sign up' : 'Sign up'}
-                onPress={() =>
-                  Alert.alert(uiLanguage === 'th' ? 'Sign up' : 'Sign up', uiLanguage === 'th' ? 'จะเชื่อม flow นี้ในขั้นตอนถัดไป' : 'This flow will be connected in a later step.')
-                }
-              />
-              <Button
-                language={uiLanguage}
-                variant="outline"
-                title={uiLanguage === 'th' ? 'Log in' : 'Log in'}
-                onPress={() =>
-                  Alert.alert(uiLanguage === 'th' ? 'Log in' : 'Log in', uiLanguage === 'th' ? 'จะเชื่อม flow นี้ในขั้นตอนถัดไป' : 'This flow will be connected in a later step.')
-                }
-              />
-            </Stack>
-          </Card>
-        ) : (
-          <View style={styles.languageRow}>
-            <LanguageToggle />
-          </View>
-        )}
+        <View style={styles.languageRow}>
+          <LanguageToggle />
+        </View>
 
         <Card padding="lg" radius="lg">
           <Stack gap="sm">
-            {(hasAccount ? memberActions : guestActions).map((label) => (
+            {(hasMembership ? paidActions : freePlanActions).map((label) => (
               <Pressable
                 key={label}
                 accessibilityRole="button"

@@ -37,7 +37,7 @@ const MEMBERSHIP_FEATURES: Record<UiLanguage, string[]> = {
 export function TryLessonsScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount } = useAppSession();
+  const { hasMembership } = useAppSession();
   const freeLessons = homeMockData.freeLessons;
   const cardWidth = Math.min(280, Math.round(windowWidth * 0.68));
 
@@ -145,29 +145,21 @@ export function TryLessonsScreen() {
             </AppText>
 
             <AppText language={uiLanguage} variant="muted" style={styles.noticeText}>
-              {hasAccount
+              {hasMembership
                 ? uiLanguage === 'th'
                   ? 'เข้าถึงบทเรียนมากกว่า 200 บททั้งหมด และพัฒนายกระดับภาษาอังกฤษของคุณขึ้นไปอีกขั้นด้วยการเป็นสมาชิก'
                   : 'Get full access to all 150+ lessons and take your English to the next level with a full membership.'
                 : uiLanguage === 'th'
-                  ? 'คุณสามารถสร้างบัญชีผู้ใช้ฟรีเพื่อปลดล็อกคลังบทเรียนฟรีทั้งหมดของเรา หรืออัปเกรดเป็นสมาชิกเพื่อเข้าถึงบทเรียนทั้งหมด'
-                  : 'You can create a free account to unlock our entire library of free lessons, or become a member for full access.'}
+                  ? 'คุณมีสิทธิ์เข้าถึงบทเรียนฟรีแล้ว และสามารถอัปเกรดเป็นสมาชิกเพื่อเข้าถึงบทเรียนทั้งหมด'
+                  : 'Your free plan already gives you access to free lessons. Upgrade to membership for the full library.'}
             </AppText>
 
-            {!hasAccount ? (
-              <Stack gap="sm">
-                <Button
-                  language={uiLanguage}
-                  title={uiLanguage === 'th' ? 'สมัครสมาชิกฟรี' : 'SIGN UP FOR FREE'}
-                  onPress={() => handlePlaceholderAction('signup')}
-                />
-                <Button
-                  language={uiLanguage}
-                  variant="outline"
-                  title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
-                  onPress={() => handlePlaceholderAction('membership')}
-                />
-              </Stack>
+            {hasMembership ? (
+              <Button
+                language={uiLanguage}
+                title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
+                onPress={() => handlePlaceholderAction('membership')}
+              />
             ) : (
               <Button
                 language={uiLanguage}

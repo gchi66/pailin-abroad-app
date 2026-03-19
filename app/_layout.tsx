@@ -21,6 +21,7 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="lessons/try" options={{ title: 'Try Lessons' }} />
+            <Stack.Screen name="lessons/library" options={{ title: 'Lesson Library' }} />
             <Stack.Screen name="account/membership" options={{ title: 'Membership' }} />
             <Stack.Screen name="account/profile" options={{ title: 'Profile' }} />
             <Stack.Screen name="account/about" options={{ title: 'About' }} />

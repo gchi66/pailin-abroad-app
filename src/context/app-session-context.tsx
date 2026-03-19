@@ -3,6 +3,8 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 type AppSessionContextValue = {
   hasAccount: boolean;
   setHasAccount: (value: boolean) => void;
+  hasMembership: boolean;
+  setHasMembership: (value: boolean) => void;
 };
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
@@ -12,14 +14,17 @@ type AppSessionProviderProps = {
 };
 
 export function AppSessionProvider({ children }: AppSessionProviderProps) {
-  const [hasAccount, setHasAccount] = useState(false);
+  const [hasAccount, setHasAccount] = useState(true);
+  const [hasMembership, setHasMembership] = useState(false);
 
   const value = useMemo(
     () => ({
       hasAccount,
       setHasAccount,
+      hasMembership,
+      setHasMembership,
     }),
-    [hasAccount]
+    [hasAccount, hasMembership]
   );
 
   return <AppSessionContext.Provider value={value}>{children}</AppSessionContext.Provider>;
