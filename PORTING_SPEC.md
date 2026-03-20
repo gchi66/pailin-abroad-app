@@ -88,6 +88,14 @@
 - Prioritize wiring Supabase/env into `app/lessons/index.tsx` now.
 - Use live lesson list data on the lessons index page.
 - Pause deep lesson detail implementation in `app/lessons/[id].tsx` for later.
+- App preview state now follows web entitlement more closely:
+  - `free plan` = signed-in user without membership
+  - `paid` = signed-in user with membership
+- In the app, free-plan users now go straight to a native free lesson library instead of a no-account locked state.
+- Free lesson library behavior now mirrors the web `FreeLessonsIndex` model:
+  - first lesson of each level is available on the free plan
+  - `Expert` remains coming soon
+  - lesson detail taps are still placeholder-only until `app/lessons/[id].tsx` is ported
 
 ## Env Notes
 - Real `.env` should live at project root:
@@ -105,6 +113,15 @@
 ## Next Priority (Per Latest Decision)
 - Lessons index live data is already wired through `LessonsLibraryScreen`.
 - `app/lessons/[id].tsx` remains a shell; resolved payload + native section renderer is still deferred.
+- Added native free-plan lessons flow:
+  - `src/screens/GuestLessonLibraryScreen.tsx`
+  - `app/lessons/library.tsx`
+  - `app/(tabs)/lessons.tsx` now routes free-plan users into the free lesson library and paid users into the full library
+  - Free lesson library now keeps its original page structure, but lesson rows visually align with the main lesson library list while keeping right-side checkmarks
+- App session preview state now separates account presence from membership entitlement:
+  - `src/context/app-session-context.tsx`
+  - default preview now assumes a signed-in user on the free plan
+  - Account preview toggle is now `Free Plan` vs `Paid`
 - Added native Contact page work:
   - `src/api/contact.ts`
   - `src/screens/ContactScreen.tsx`
@@ -121,8 +138,8 @@
 - Added native Profile shell work tied to preview member state:
   - `src/screens/ProfileScreen.tsx`
   - `app/account/profile.tsx`
-  - `src/screens/AccountScreen.tsx` now routes Profile from Account when preview is in member mode
-- Current Profile shell is frontend-only and intentionally uses preview data from `hasAccount` rather than real auth.
+  - `src/screens/AccountScreen.tsx` now routes Profile from Account in both free-plan and paid preview states
+- Current Profile shell is frontend-only and intentionally uses preview entitlement state rather than real auth.
 - Added native Membership frontend shell with live pricing fetch:
   - `src/api/pricing.ts`
   - `src/screens/MembershipScreen.tsx`
@@ -159,9 +176,43 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
-  - Decide whether to port `Exercise Bank` or `Topic Library` next as the next Resources-linked destination shell
-  - Keep `app/lessons/[id].tsx` rich renderer work deferred until after simpler page-parity shells are done
+  - `My Pathway` native MVP is now in progress as the signed-in primary surface
+  - Keep `app/lessons/[id].tsx` rich renderer work deferred until after `My Pathway`
+  - Decide whether the next page after `My Pathway` should come from Resources or lesson detail
 - Keep design flexible since cofounder may change direction.
+
+## My Pathway (Current Native Direction)
+- Added web-aligned theme tokens in `src/theme/theme.ts` for:
+  - accent blue `#3CA0FE`
+  - accent surface / muted blue backgrounds
+  - success / warning surface helpers
+  - explicit shadow color token
+- Added native `My Pathway` shell work:
+  - `src/screens/MyPathwayScreen.tsx`
+  - `src/screens/CompletedLessonsScreen.tsx`
+  - `app/pathway/completed.tsx`
+- Signed-in primary tab now routes to native `My Pathway` instead of the older placeholder:
+  - `src/screens/PrimaryScreen.tsx`
+- Current `My Pathway` implementation notes:
+  - keeps the guest/no-account homepage flow unchanged
+  - uses the preview member/free-plan state from `src/context/app-session-context.tsx`
+  - uses live lesson index data as the content source for lesson cards where possible
+  - uses frontend-owned preview progress rules for resume/completed state until real auth-backed pathway data exists
+  - keeps visual styling aligned with the web palette:
+    - app background `#F7FAFD`
+    - black borders/text
+    - red primary CTA
+    - blue highlight/progress surfaces
+  - avoids the web mobile dropdown/tab pattern and instead uses one vertical native flow:
+    - header + plan/state
+    - continue learning
+    - free-plan notice
+    - pathway preview
+    - completed preview
+- Current Pathway limitations:
+  - `Continue learning` is still preview-derived, not auth-backed
+  - completed lesson history screen is preview/static for now
+  - `liked lessons` and `comment history` remain intentionally excluded from the app MVP
 
 ## Source of Truth for Future Chats
 - This file should be used as the first context document in new chats.

@@ -5,7 +5,13 @@ export const theme = {
     text: '#1E1E1E',
     mutedText: '#3D3D3D',
     primary: '#FF4545',
+    accent: '#3CA0FE',
+    accentSurface: '#F8FCFF',
+    accentMuted: '#DCEEFF',
+    success: '#CDEB8B',
+    warningSurface: '#FFF4E8',
     border: '#1E1E1E',
+    shadow: '#1E1E1E',
   },
 
   spacing: {
