@@ -176,9 +176,9 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
-  - `My Pathway` native MVP is now in progress as the signed-in primary surface
-  - Keep `app/lessons/[id].tsx` rich renderer work deferred until after `My Pathway`
-  - Decide whether the next page after `My Pathway` should come from Resources or lesson detail
+  - `My Pathway` native MVP is now implemented as the signed-in primary surface and should be reviewed with cofounder/UI design feedback before the next polish pass
+  - Next major implementation step: wire up real app auth/login and replace the preview session slider with real session state
+  - Keep `app/lessons/[id].tsx` rich renderer work scoped as a separate beast-sized task when it starts
 - Keep design flexible since cofounder may change direction.
 
 ## My Pathway (Current Native Direction)
@@ -213,6 +213,7 @@
   - `Continue learning` is still preview-derived, not auth-backed
   - completed lesson history screen is preview/static for now
   - `liked lessons` and `comment history` remain intentionally excluded from the app MVP
+  - final structure/spacing/content order should still be treated as provisional until cofounder review
 
 ## Source of Truth for Future Chats
 - This file should be used as the first context document in new chats.

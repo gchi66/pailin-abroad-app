@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { AppText } from '@/src/components/ui/AppText';
@@ -7,6 +7,7 @@ import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
@@ -18,21 +19,38 @@ type ProfilePreviewData = {
   joinedLabel: string;
 };
 
-const getProfilePreviewData = (uiLanguage: UiLanguage): ProfilePreviewData => {
+const formatJoinedLabel = (value: string | null, uiLanguage: UiLanguage) => {
+  if (!value) {
+    return uiLanguage === 'th' ? 'เพิ่งเชื่อมต่อบัญชีในแอป' : 'Recently connected in the app';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const getProfilePreviewData = (uiLanguage: UiLanguage, params: { displayName: string; email: string; hasMembership: boolean; createdAt: string | null }): ProfilePreviewData => {
   if (uiLanguage === 'th') {
     return {
-      displayName: 'Pailin Preview',
-      email: 'preview@pailinabroad.com',
-      membershipLabel: 'สมาชิกตัวอย่าง',
-      joinedLabel: 'เข้าร่วมเมื่อเร็วๆ นี้ในโหมดพรีวิว',
+      displayName: params.displayName,
+      email: params.email,
+      membershipLabel: params.hasMembership ? 'สมาชิกแบบชำระเงิน' : 'แพ็กเกจฟรี',
+      joinedLabel: formatJoinedLabel(params.createdAt, uiLanguage),
     };
   }
 
   return {
-    displayName: 'Pailin Preview',
-    email: 'preview@pailinabroad.com',
-    membershipLabel: 'Preview Member',
-    joinedLabel: 'Recently joined in preview mode',
+    displayName: params.displayName,
+    email: params.email,
+    membershipLabel: params.hasMembership ? 'Paid member' : 'Free plan',
+    joinedLabel: formatJoinedLabel(params.createdAt, uiLanguage),
   };
 };
 
@@ -40,38 +58,38 @@ const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
       title: 'โปรไฟล์',
-      subtitle: 'ภาพรวมบัญชีของสมาชิกจะอยู่ที่นี่ เมื่อเชื่อม auth จริงแล้วหน้านี้จะดึงข้อมูลผู้ใช้จาก backend',
-      guestTitle: 'ยังไม่มีบัญชีในพรีวิวนี้',
-      guestBody: 'สลับกลับไปที่หน้า Account และเลือก Member เพื่อดูหน้าโปรไฟล์แบบตัวอย่าง',
+      subtitle: 'นี่คือภาพรวมบัญชีจริงจาก session ปัจจุบันและข้อมูลโปรไฟล์จาก backend',
+      guestTitle: 'ยังไม่ได้เข้าสู่ระบบ',
+      guestBody: 'กลับไปที่หน้า Account เพื่อเข้าสู่ระบบหรือสมัครสมาชิกก่อน',
       profileCardTitle: 'ข้อมูลสมาชิก',
       membershipLabel: 'สถานะสมาชิก',
       languageLabel: 'ภาษาหน้าแอป',
-      joinedLabel: 'สถานะพรีวิว',
+      joinedLabel: 'เข้าร่วมเมื่อ',
       editProfile: 'แก้ไขโปรไฟล์',
       membership: 'Membership',
       signOut: 'ออกจากระบบ',
       actionPlaceholder: 'จะเชื่อม action นี้ในขั้นตอนถัดไป',
       languageValue: 'ไทย',
-      signOutSuccess: 'ออกจากโหมด Member preview แล้ว',
+      signOutSuccess: 'ออกจากระบบแล้ว',
       avatarLabel: 'PP',
     };
   }
 
   return {
     title: 'Profile',
-    subtitle: 'This is the member account summary shell. Once auth is wired, this page can read the real user profile from the backend.',
-    guestTitle: 'No member account in this preview',
-    guestBody: 'Go back to Account and switch the preview to Member to see the profile shell.',
+    subtitle: 'This screen now reads from the current auth session and backend profile data.',
+    guestTitle: 'You are not signed in',
+    guestBody: 'Go back to Account to sign in or create an account first.',
     profileCardTitle: 'Member Snapshot',
     membershipLabel: 'Membership',
     languageLabel: 'App Language',
-    joinedLabel: 'Preview State',
+    joinedLabel: 'Joined',
     editProfile: 'Edit Profile',
     membership: 'Membership',
     signOut: 'Sign Out',
     actionPlaceholder: 'This action will be connected in a later step.',
     languageValue: 'English',
-    signOutSuccess: 'Signed out of member preview mode.',
+    signOutSuccess: 'Signed out successfully.',
     avatarLabel: 'PP',
   };
 };
@@ -79,9 +97,35 @@ const getCopy = (uiLanguage: UiLanguage) => {
 export function ProfileScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership, setHasMembership } = useAppSession();
+  const { hasAccount, hasMembership, profile, signOut, user } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const previewData = getProfilePreviewData(uiLanguage);
+  const displayName = profile?.name?.trim() || profile?.username?.trim() || user?.user_metadata?.username || user?.email || 'Pailin Abroad';
+  const email = profile?.email?.trim() || user?.email || '—';
+  const avatarSource = resolveAvatarSource(profile?.avatar_image);
+  const previewData = getProfilePreviewData(uiLanguage, {
+    displayName,
+    email,
+    hasMembership,
+    createdAt: profile?.created_at ?? null,
+  });
+  const avatarLabel = displayName.slice(0, 2).toUpperCase();
+
+  if (!hasAccount) {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+        <Card padding="lg" radius="lg">
+          <Stack gap="sm">
+            <AppText language={uiLanguage} variant="title" style={styles.title}>
+              {copy.guestTitle}
+            </AppText>
+            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
+              {copy.guestBody}
+            </AppText>
+          </Stack>
+        </Card>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
@@ -101,9 +145,13 @@ export function ProfileScreen() {
           <Stack gap="md">
             <View style={styles.profileHeaderRow}>
               <View style={styles.avatar}>
-                <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
-                  {copy.avatarLabel}
-                </AppText>
+                {avatarSource ? (
+                  <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
+                ) : (
+                  <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
+                    {avatarLabel || copy.avatarLabel}
+                  </AppText>
+                )}
               </View>
               <View style={styles.profileIdentity}>
                 <AppText language={uiLanguage} variant="body" style={styles.profileName}>
@@ -177,9 +225,14 @@ export function ProfileScreen() {
               accessibilityRole="button"
               style={styles.linkRow}
               onPress={() => {
-                setHasMembership(false);
-                Alert.alert(copy.signOut, copy.signOutSuccess);
-                router.replace('/(tabs)/account');
+                void signOut().then(({ error }) => {
+                  if (error) {
+                    Alert.alert(copy.signOut, error);
+                    return;
+                  }
+                  Alert.alert(copy.signOut, copy.signOutSuccess);
+                  router.replace('/(tabs)/account');
+                });
               }}>
               <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
                 {copy.signOut}
@@ -235,6 +288,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#91CAFF',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: theme.colors.text,

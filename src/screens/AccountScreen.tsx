@@ -2,8 +2,8 @@ import React from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { AuthScreen } from '@/src/screens/AuthScreen';
 import { AppText } from '@/src/components/ui/AppText';
-import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
@@ -14,7 +14,7 @@ import { theme } from '@/src/theme/theme';
 export function AccountScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership, setHasMembership } = useAppSession();
+  const { hasAccount, hasMembership } = useAppSession();
 
   const freePlanActions = [
     uiLanguage === 'th' ? 'Profile' : 'Profile',
@@ -29,56 +29,36 @@ export function AccountScreen() {
     uiLanguage === 'th' ? 'Contact' : 'Contact',
   ];
 
+  const copy =
+    uiLanguage === 'th'
+      ? {
+          title: 'Account',
+          freeSubtitle: 'คุณลงชื่อเข้าใช้แล้วและกำลังใช้งานแพ็กเกจฟรี',
+          paidSubtitle: 'คุณลงชื่อเข้าใช้แล้วและมีสิทธิ์สมาชิกแบบชำระเงิน',
+        }
+      : {
+          title: 'Account',
+          freeSubtitle: 'You are signed in on the free plan.',
+          paidSubtitle: 'You are signed in with paid membership access.',
+        };
+
+  if (!hasAccount) {
+    return <AuthScreen />;
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
         <View style={styles.headerBlock}>
           <Stack gap="sm">
             <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {uiLanguage === 'th' ? 'Account' : 'Account'}
+              {copy.title}
             </AppText>
             <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {hasMembership
-                ? uiLanguage === 'th'
-                  ? 'นี่คือมุมมองสำหรับผู้ใช้ที่มีสมาชิกแบบชำระเงิน'
-                  : 'This is the preview state for a paid membership user.'
-                : uiLanguage === 'th'
-                  ? 'นี่คือมุมมองสำหรับผู้ใช้ที่มีบัญชีแบบแพ็กเกจฟรี'
-                  : 'This is the preview state for a signed-in user on the free plan.'}
+              {hasMembership ? copy.paidSubtitle : copy.freeSubtitle}
             </AppText>
           </Stack>
         </View>
-
-        <Card padding="lg" radius="lg">
-          <Stack gap="md">
-            <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-              {uiLanguage === 'th' ? 'Preview State' : 'Preview State'}
-            </AppText>
-            <AppText language={uiLanguage} variant="muted">
-              {uiLanguage === 'th'
-                ? 'ตอนนี้ใช้ตัวสลับชั่วคราวเพื่อดูโครงสร้างระหว่างแพ็กเกจฟรีกับสมาชิกแบบชำระเงินก่อนเชื่อม auth จริง'
-                : 'This temporary switch previews the navigation structure until real auth is connected.'}
-            </AppText>
-            <View style={styles.previewSwitchWrap}>
-              <Pressable
-                accessibilityRole="button"
-                style={[styles.previewSwitchOption, !hasMembership ? styles.previewSwitchOptionActive : null]}
-                onPress={() => setHasMembership(false)}>
-                <AppText language={uiLanguage} variant="caption" style={!hasMembership ? styles.previewSwitchTextActive : styles.previewSwitchText}>
-                  {uiLanguage === 'th' ? 'Free Plan' : 'Free Plan'}
-                </AppText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                style={[styles.previewSwitchOption, hasMembership ? styles.previewSwitchOptionActive : null]}
-                onPress={() => setHasMembership(true)}>
-                <AppText language={uiLanguage} variant="caption" style={hasMembership ? styles.previewSwitchTextActive : styles.previewSwitchText}>
-                  {uiLanguage === 'th' ? 'Paid' : 'Paid'}
-                </AppText>
-              </Pressable>
-            </View>
-          </Stack>
-        </Card>
 
         <View style={styles.languageRow}>
           <LanguageToggle />
@@ -150,35 +130,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: theme.typography.weights.semibold,
-  },
-  previewSwitchWrap: {
-    flexDirection: 'row',
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    padding: 4,
-    gap: 4,
-  },
-  previewSwitchOption: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: theme.radii.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewSwitchOptionActive: {
-    backgroundColor: '#91CAFF',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  previewSwitchText: {
-    color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  previewSwitchTextActive: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
   },
   languageRow: {
     alignItems: 'flex-end',
