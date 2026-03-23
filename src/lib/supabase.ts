@@ -1,20 +1,19 @@
 import 'react-native-url-polyfill/auto';
 
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 
 import { assertSupabaseEnv, env } from '@/src/config/env';
 
 const storageKeyPrefix = 'pailin-abroad-auth';
-
-const secureStorage = {
+const authStorage = {
   async getItem(key: string) {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       return window.localStorage.getItem(key);
     }
 
-    return SecureStore.getItemAsync(key);
+    return AsyncStorage.getItem(key);
   },
   async setItem(key: string, value: string) {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -22,7 +21,7 @@ const secureStorage = {
       return;
     }
 
-    await SecureStore.setItemAsync(key, value);
+    await AsyncStorage.setItem(key, value);
   },
   async removeItem(key: string) {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -30,7 +29,7 @@ const secureStorage = {
       return;
     }
 
-    await SecureStore.deleteItemAsync(key);
+    await AsyncStorage.removeItem(key);
   },
 };
 
@@ -38,7 +37,7 @@ assertSupabaseEnv();
 
 export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
   auth: {
-    storage: secureStorage,
+    storage: authStorage,
     storageKey: storageKeyPrefix,
     autoRefreshToken: true,
     persistSession: true,

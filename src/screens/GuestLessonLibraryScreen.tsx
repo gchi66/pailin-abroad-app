@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Vie
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
 import { getLessonsIndex } from '@/src/api/lessons';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -124,18 +125,15 @@ export function GuestLessonLibraryScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <View style={styles.headerBlock}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {uiLanguage === 'th'
-                ? 'เข้าสำรวจบทเรียนที่คุณเข้าได้เรียนได้ด้วยแพ็กเกจเรียนฟรี'
-                : 'Explore the lessons available to you on your free plan'}
-            </AppText>
-          </Stack>
-        </View>
+        <StandardPageHeader
+          language={uiLanguage}
+          title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}
+          subtitle={
+            uiLanguage === 'th'
+              ? 'เข้าสำรวจบทเรียนที่คุณเข้าได้เรียนได้ด้วยแพ็กเกจเรียนฟรี'
+              : 'Explore the lessons available to you on your free plan'
+          }
+        />
 
         <View style={styles.freePlanMessage}>
           <AppText language={uiLanguage} variant="body" style={styles.freePlanLine}>
@@ -253,28 +251,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: theme.spacing.xl,
-  },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    color: theme.colors.text,
-    textAlign: 'center',
-    fontSize: 44,
-    lineHeight: 52,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
-    textAlign: 'center',
-    fontSize: 17,
-    lineHeight: 26,
   },
   freePlanMessage: {
     marginTop: theme.spacing.lg,

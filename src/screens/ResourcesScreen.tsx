@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -127,54 +128,47 @@ export function ResourcesScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <Stack gap="lg" style={styles.page}>
-        <View style={styles.headerBlock}>
-          <Stack gap="sm" align="center">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {copy.title}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {copy.subtitle}
-            </AppText>
-          </Stack>
-        </View>
+      <Stack gap="md">
+        <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
 
-        <Stack gap="md" style={styles.cardsShell}>
-          {copy.cards.map((card) => (
-            <Pressable
-              key={card.id}
-              accessibilityRole="button"
-              disabled={!card.enabled}
-              style={styles.cardPressable}
-              onPress={() => Alert.alert(card.title, copy.placeholderAlert)}>
-              <Card padding="lg" radius="lg" style={[styles.resourceCard, !card.enabled ? styles.resourceCardDisabled : null]}>
-                <View style={[styles.cardInner, card.badge ? styles.cardInnerWithBadge : null, !card.enabled ? styles.cardInnerDisabled : null]}>
-                  <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
-                    <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
-                    <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
-                  </View>
+        <View style={styles.contentWrap}>
+          <Stack gap="md" style={styles.cardsShell}>
+            {copy.cards.map((card) => (
+              <Pressable
+                key={card.id}
+                accessibilityRole="button"
+                disabled={!card.enabled}
+                style={styles.cardPressable}
+                onPress={() => Alert.alert(card.title, copy.placeholderAlert)}>
+                <Card padding="lg" radius="lg" style={[styles.resourceCard, !card.enabled ? styles.resourceCardDisabled : null]}>
+                  <View style={[styles.cardInner, card.badge ? styles.cardInnerWithBadge : null, !card.enabled ? styles.cardInnerDisabled : null]}>
+                    <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
+                      <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
+                      <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
+                    </View>
 
-                  <View style={styles.cardCopy}>
-                    <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
-                      {card.title}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="body" style={styles.cardDescription}>
-                      {card.description}
-                    </AppText>
-                  </View>
-
-                  {card.badge ? (
-                    <View style={styles.badgeWrap}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
-                        {card.badge}
+                    <View style={styles.cardCopy}>
+                      <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
+                        {card.title}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="body" style={styles.cardDescription}>
+                        {card.description}
                       </AppText>
                     </View>
-                  ) : null}
-                </View>
-              </Card>
-            </Pressable>
-          ))}
-        </Stack>
+
+                    {card.badge ? (
+                      <View style={styles.badgeWrap}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
+                          {card.badge}
+                        </AppText>
+                      </View>
+                    ) : null}
+                  </View>
+                </Card>
+              </Pressable>
+            ))}
+          </Stack>
+        </View>
       </Stack>
     </ScrollView>
   );
@@ -186,32 +180,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl * 2,
   },
-  page: {
-    alignItems: 'center',
-  },
-  headerBlock: {
-    width: '100%',
-    maxWidth: 980,
-    backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-  },
-  title: {
-    color: theme.colors.text,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
-    textAlign: 'center',
-    maxWidth: 720,
+  contentWrap: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
   },
   cardsShell: {
+    width: '100%',
     maxWidth: 980,
   },
   cardPressable: {

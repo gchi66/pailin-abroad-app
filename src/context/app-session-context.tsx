@@ -58,7 +58,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const createSessionFromUrl = useCallback(async (url: string) => {
-    logAuth('createSessionFromUrl:start', url);
+    logAuth('createSessionFromUrl:start');
     const { params, errorCode } = QueryParams.getQueryParams(url);
 
     if (errorCode) {
@@ -70,7 +70,10 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
 
     if (!accessToken || !refreshToken) {
-      logAuth('createSessionFromUrl:missingTokens', params);
+      logAuth('createSessionFromUrl:missingTokens', {
+        hasAccessToken: Boolean(accessToken),
+        hasRefreshToken: Boolean(refreshToken),
+      });
       return;
     }
 
@@ -190,7 +193,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     });
 
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
-      logAuth('linking:url', url);
+      logAuth('linking:url');
       void createSessionFromUrl(url).catch((error: unknown) => {
         if (error instanceof Error) {
           logAuth('linking:error', error.message);
@@ -275,7 +278,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     const authUrl = data?.url;
-    logAuth('google:signInWithOAuth:url', authUrl ?? null);
+    logAuth('google:signInWithOAuth:urlReady', Boolean(authUrl));
     if (!authUrl) {
       const message = 'Missing Google sign-in URL.';
       logAuth('google:missingUrl');
@@ -284,7 +287,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
-    logAuth('google:openAuthSessionAsync:result', result);
+    logAuth('google:openAuthSessionAsync:result', { type: result.type });
     if (result.type === 'success') {
       try {
         await createSessionFromUrl(result.url);
