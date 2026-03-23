@@ -1,30 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
 import lockImage from '@/assets/images/lock.webp';
-import { fetchUserCompletedLessons, fetchUserPathwayLessons, fetchUserStats } from '@/src/api/user';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { usePathwayData } from '@/src/hooks/use-pathway-data';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type UiLanguage = 'en' | 'th';
-type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
-type LessonRowState = 'available' | 'completed' | 'locked';
 
-type PathwayLessonRow = {
-  lesson: LessonListItem;
-  state: LessonRowState;
-};
-
-type PathwayPreviewData = {
+type PathwayCopy = {
   headerEyebrow: string;
   welcomeBack: string;
   freePlanBadge: string;
@@ -45,20 +38,11 @@ type PathwayPreviewData = {
   seeCompleted: string;
   completedTitle: string;
   completedEmpty: string;
-  lessonFallback: string;
-  focusFallback: string;
   untitledLesson: string;
-  loading: string;
-  lessonLoadError: string;
-  checkpoint: string;
-  locked: string;
-  completed: string;
   noResumeLesson: string;
 };
 
-const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-
-const getCopy = (uiLanguage: UiLanguage): PathwayPreviewData => {
+const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
   if (uiLanguage === 'th') {
     return {
       headerEyebrow: 'เส้นทางของฉัน',
@@ -68,12 +52,12 @@ const getCopy = (uiLanguage: UiLanguage): PathwayPreviewData => {
       lessonsCompletedLabel: 'บทเรียนที่เรียนจบ',
       levelsCompletedLabel: 'เลเวลที่เรียนจบ',
       continueLearning: 'เรียนต่อ',
-      resumeHint: 'กลับไปยังบทเรียนที่เหมาะที่สุดสำหรับการเรียนต่อบนแอป',
+      resumeHint: 'กลับไปยังบทเรียนที่เหมาะที่สุดสำหรับการเรียนต่อในแอป',
       freePlanHeading: 'แพ็กเกจฟรีของคุณยังใช้งานได้',
-      freePlanBody: 'คุณยังเข้าถึงบทเรียนแรกของแต่ละเลเวลได้ตามปกติ และสามารถอัปเกรดเมื่อพร้อมเพื่อเปิดคลังบทเรียนทั้งหมด',
+      freePlanBody: 'คุณยังเข้าถึงบทเรียนแรกของแต่ละเลเวลได้ตามปกติ และอัปเกรดได้ทุกเมื่อเพื่อปลดล็อกคลังบทเรียนทั้งหมด',
       becomeMember: 'เป็นสมาชิก',
       pathwayTitle: 'เส้นทางบทเรียน',
-      pathwaySubtitleFree: 'แสดงบทเรียนที่เรียนได้ก่อน แล้วค่อยพรีวิวบทเรียนที่ต้องปลดล็อก',
+      pathwaySubtitleFree: 'บทเรียนที่เปิดได้ในแพ็กเกจปัจจุบันจะแสดงที่นี่ พร้อมบทเรียนถัดไปที่ต้องอัปเกรดเพื่อปลดล็อก',
       pathwaySubtitlePaid: 'บทเรียนถัดไปที่แนะนำสำหรับการเรียนต่อในลำดับปัจจุบันของคุณ',
       openLesson: 'เปิดบทเรียน',
       openLibrary: 'เปิดคลังบทเรียน',
@@ -81,15 +65,8 @@ const getCopy = (uiLanguage: UiLanguage): PathwayPreviewData => {
       seeCompleted: 'ดูบทเรียนที่เรียนจบ',
       completedTitle: 'เรียนจบแล้ว',
       completedEmpty: 'เมื่อคุณเรียนจบบทเรียน รายการล่าสุดจะปรากฏที่นี่',
-      lessonFallback: 'บทเรียน',
-      focusFallback: '',
       untitledLesson: 'ไม่มีชื่อบทเรียน',
-      loading: 'กำลังโหลดเส้นทางของคุณ...',
-      lessonLoadError: 'ยังโหลดบทเรียนไม่ได้',
-      checkpoint: 'เช็กพอยต์',
-      locked: 'ล็อก',
-      completed: 'เรียนจบแล้ว',
-      noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในพรีวิวนี้',
+      noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
     };
   }
 
@@ -106,7 +83,7 @@ const getCopy = (uiLanguage: UiLanguage): PathwayPreviewData => {
     freePlanBody: 'You can still access the first lesson of each level, and upgrade whenever you are ready for the full library.',
     becomeMember: 'Become a member',
     pathwayTitle: 'Pathway lessons',
-    pathwaySubtitleFree: 'Unlocked lessons come first, followed by a soft preview of what membership opens up.',
+    pathwaySubtitleFree: 'Lessons available on your current plan appear here, alongside the next lessons membership unlocks.',
     pathwaySubtitlePaid: 'Your next recommended lessons in the order you are currently moving through.',
     openLesson: 'Open lesson',
     openLibrary: 'Open lesson library',
@@ -114,32 +91,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayPreviewData => {
     seeCompleted: 'See completed lessons',
     completedTitle: 'Completed',
     completedEmpty: 'Once lessons are completed, your latest progress will show here.',
-    lessonFallback: 'Lesson',
-    focusFallback: '',
     untitledLesson: 'Untitled lesson',
-    loading: 'Loading your pathway...',
-    lessonLoadError: 'We could not load lessons yet.',
-    checkpoint: 'Checkpoint',
-    locked: 'Locked',
-    completed: 'Completed',
-    noResumeLesson: 'There is no next lesson in this preview yet.',
+    noResumeLesson: 'There is no next lesson right now.',
   };
-};
-
-const compareLessons = (left: LessonListItem, right: LessonListItem) => {
-  const leftStageIndex = STAGE_ORDER.indexOf((left.stage ?? 'Beginner') as StageName);
-  const rightStageIndex = STAGE_ORDER.indexOf((right.stage ?? 'Beginner') as StageName);
-  const stageOrder = leftStageIndex - rightStageIndex;
-  if (stageOrder !== 0) {
-    return stageOrder;
-  }
-
-  const levelOrder = (left.level ?? Number.MAX_SAFE_INTEGER) - (right.level ?? Number.MAX_SAFE_INTEGER);
-  if (levelOrder !== 0) {
-    return levelOrder;
-  }
-
-  return (left.lesson_order ?? Number.MAX_SAFE_INTEGER) - (right.lesson_order ?? Number.MAX_SAFE_INTEGER);
 };
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
@@ -147,10 +101,12 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
   if (preferredText) {
     return preferredText;
   }
+
   const fallbackText = fallback?.trim();
   if (fallbackText) {
     return fallbackText;
   }
+
   return emptyFallback;
 };
 
@@ -172,87 +128,36 @@ const getLessonNumber = (lesson: LessonListItem) => {
   if (typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number') {
     return `${lesson.level}.${lesson.lesson_order}`;
   }
+
   return '–';
 };
 
 export function MyPathwayScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership, profile, user } = useAppSession();
+  const { hasAccount, hasMembership, profile, user } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const [pathwayLessons, setPathwayLessons] = useState<LessonListItem[]>([]);
-  const [completedLessons, setCompletedLessons] = useState<LessonListItem[]>([]);
-  const [stats, setStats] = useState<{ lessons_completed: number; levels_completed: number } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { completedLessons, completedProgress, errorMessage, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
+    enabled: hasAccount,
+    hasMembership,
+  });
+
   const displayName = profile?.name?.trim() || profile?.username?.trim() || user?.user_metadata?.username || user?.email || 'Pailin Abroad';
   const avatarSource = resolveAvatarSource(profile?.avatar_image);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const run = async () => {
-      setIsLoading(true);
-      setErrorMessage(null);
-      try {
-        const [statsResult, completedResult, pathwayResult] = await Promise.all([
-          fetchUserStats(),
-          fetchUserCompletedLessons(),
-          fetchUserPathwayLessons(),
-        ]);
-        if (isMounted) {
-          setStats(statsResult);
-          setCompletedLessons(
-            completedResult
-              .map((row) => row.lessons)
-              .filter((lesson): lesson is LessonListItem => Boolean(lesson))
-              .sort(compareLessons)
-          );
-          setPathwayLessons(pathwayResult.sort(compareLessons));
-        }
-      } catch (error) {
-        if (isMounted) {
-          setErrorMessage(error instanceof Error ? error.message : copy.lessonLoadError);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    run();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [copy.lessonLoadError]);
-
-  const completedIds = useMemo(() => new Set(completedLessons.map((lesson) => lesson.id)), [completedLessons]);
-  const rows = useMemo(
-    () =>
-      pathwayLessons.map((lesson) => ({
-        lesson,
-        state: completedIds.has(lesson.id) ? 'completed' : 'available',
-      })) satisfies PathwayLessonRow[],
-    [completedIds, pathwayLessons]
-  );
-
-  const resumeLesson = pathwayLessons[0] ?? null;
-
   const completedPreview = useMemo(() => {
-    return [...completedLessons].reverse().slice(0, 3);
-  }, [completedLessons]);
+    return completedProgress
+      .map((entry) => entry.lessons)
+      .filter((lesson): lesson is LessonListItem => Boolean(lesson))
+      .slice(0, 3);
+  }, [completedProgress]);
 
   const handleOpenLesson = (lessonId: string | null) => {
     if (!lessonId) {
       return;
     }
-    router.push(`/lessons/${lessonId}`);
-  };
 
-  const handleOpenLibrary = () => {
-    router.push('/lessons');
+    router.push(`/lessons/${lessonId}`);
   };
 
   return (
@@ -288,22 +193,23 @@ export function MyPathwayScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-                <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                  {copy.lessonsCompletedLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="title" style={styles.statValue}>
-                  {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
-                </AppText>
-              </View>
-              <View style={styles.statCard}>
-                <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                  {copy.levelsCompletedLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="title" style={styles.statValue}>
-                  {stats?.levels_completed ?? 0}
-                </AppText>
-              </View>
+              <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
+                {copy.lessonsCompletedLabel}
+              </AppText>
+              <AppText language={uiLanguage} variant="title" style={styles.statValue}>
+                {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
+              </AppText>
             </View>
+
+            <View style={styles.statCard}>
+              <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
+                {copy.levelsCompletedLabel}
+              </AppText>
+              <AppText language={uiLanguage} variant="title" style={styles.statValue}>
+                {stats?.levels_completed ?? 0}
+              </AppText>
+            </View>
+          </View>
         </Card>
 
         <Card padding="lg" radius="lg" style={styles.heroCard}>
@@ -320,23 +226,24 @@ export function MyPathwayScreen() {
             <View style={styles.centerState}>
               <ActivityIndicator color={theme.colors.accent} />
             </View>
-          ) : resumeLesson ? (
+          ) : resumeRow ? (
             <View style={styles.resumeCard}>
               <View style={styles.resumeMeta}>
-                {isCheckpointLesson(resumeLesson) ? (
+                {isCheckpointLesson(resumeRow.lesson) ? (
                   <Image source={checkCircleImage} style={styles.resumeCheckpointIcon} resizeMode="contain" />
                 ) : (
                   <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
-                    {getLessonNumber(resumeLesson)}
+                    {getLessonNumber(resumeRow.lesson)}
                   </AppText>
                 )}
+
                 <View style={styles.resumeTextGroup}>
                   <AppText language={uiLanguage} variant="body" style={styles.resumeTitle}>
-                    {getLessonTitle(resumeLesson, uiLanguage, copy.untitledLesson)}
+                    {getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
                   </AppText>
-                  {getLessonFocus(resumeLesson, uiLanguage) ? (
+                  {getLessonFocus(resumeRow.lesson, uiLanguage) ? (
                     <AppText language={uiLanguage} variant="muted" style={styles.resumeFocus}>
-                      {getLessonFocus(resumeLesson, uiLanguage)}
+                      {getLessonFocus(resumeRow.lesson, uiLanguage)}
                     </AppText>
                   ) : null}
                 </View>
@@ -344,8 +251,15 @@ export function MyPathwayScreen() {
 
               <Button
                 language={uiLanguage}
-                title={copy.openLesson}
-                onPress={() => handleOpenLesson(resumeLesson.id ?? null)}
+                title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                onPress={() => {
+                  if (resumeRow.state === 'locked') {
+                    router.push('/account/membership');
+                    return;
+                  }
+
+                  handleOpenLesson(resumeRow.lesson.id ?? null);
+                }}
               />
             </View>
           ) : (
@@ -385,7 +299,7 @@ export function MyPathwayScreen() {
             </View>
           ) : (
             <Stack gap="sm">
-              {rows.map((row, index) => {
+              {pathwayRows.map((row, index) => {
                 const title = getLessonTitle(row.lesson, uiLanguage, copy.untitledLesson);
                 const focus = getLessonFocus(row.lesson, uiLanguage);
                 const isLocked = row.state === 'locked';
@@ -405,6 +319,7 @@ export function MyPathwayScreen() {
                         router.push('/account/membership');
                         return;
                       }
+
                       handleOpenLesson(row.lesson.id);
                     }}>
                     <View style={styles.lessonMain}>
@@ -443,7 +358,7 @@ export function MyPathwayScreen() {
                 );
               })}
 
-              <Pressable accessibilityRole="button" style={styles.linkButton} onPress={handleOpenLibrary}>
+              <Pressable accessibilityRole="button" style={styles.linkButton} onPress={() => router.push('/lessons')}>
                 <AppText language={uiLanguage} variant="caption" style={styles.linkButtonText}>
                   {hasMembership ? copy.openLibrary : copy.openFreeLibrary}
                 </AppText>
@@ -490,7 +405,7 @@ export function MyPathwayScreen() {
             </Stack>
           ) : (
             <AppText language={uiLanguage} variant="muted" style={styles.sectionSubtitle}>
-              {copy.completedEmpty}
+              {errorMessage || copy.completedEmpty}
             </AppText>
           )}
         </Card>

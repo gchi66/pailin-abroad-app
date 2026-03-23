@@ -12,7 +12,7 @@ import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
 
-type ProfilePreviewData = {
+type ProfileDisplayData = {
   displayName: string;
   email: string;
   membershipLabel: string;
@@ -36,7 +36,7 @@ const formatJoinedLabel = (value: string | null, uiLanguage: UiLanguage) => {
   });
 };
 
-const getProfilePreviewData = (uiLanguage: UiLanguage, params: { displayName: string; email: string; hasMembership: boolean; createdAt: string | null }): ProfilePreviewData => {
+const getProfileDisplayData = (uiLanguage: UiLanguage, params: { displayName: string; email: string; hasMembership: boolean; createdAt: string | null }): ProfileDisplayData => {
   if (uiLanguage === 'th') {
     return {
       displayName: params.displayName,
@@ -102,7 +102,7 @@ export function ProfileScreen() {
   const displayName = profile?.name?.trim() || profile?.username?.trim() || user?.user_metadata?.username || user?.email || 'Pailin Abroad';
   const email = profile?.email?.trim() || user?.email || '—';
   const avatarSource = resolveAvatarSource(profile?.avatar_image);
-  const previewData = getProfilePreviewData(uiLanguage, {
+  const profileData = getProfileDisplayData(uiLanguage, {
     displayName,
     email,
     hasMembership,
@@ -155,10 +155,10 @@ export function ProfileScreen() {
               </View>
               <View style={styles.profileIdentity}>
                 <AppText language={uiLanguage} variant="body" style={styles.profileName}>
-                  {previewData.displayName}
+                  {profileData.displayName}
                 </AppText>
                 <AppText language={uiLanguage} variant="muted">
-                  {previewData.email}
+                  {profileData.email}
                 </AppText>
               </View>
             </View>
@@ -172,7 +172,7 @@ export function ProfileScreen() {
                   {copy.membershipLabel}
                 </AppText>
                 <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                  {previewData.membershipLabel}
+                  {profileData.membershipLabel}
                 </AppText>
               </View>
               <View style={styles.metaRow}>
@@ -188,7 +188,7 @@ export function ProfileScreen() {
                   {copy.joinedLabel}
                 </AppText>
                 <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                  {previewData.joinedLabel}
+                  {profileData.joinedLabel}
                 </AppText>
               </View>
             </Stack>

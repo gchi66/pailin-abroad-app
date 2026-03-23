@@ -2,31 +2,36 @@ import { supabase } from '@/src/lib/supabase';
 import { env } from '@/src/config/env';
 import { LessonListItem } from '@/src/types/lesson';
 
-type UserProfileResponse = {
-  profile: {
-    id: string;
-    name: string | null;
-    username: string | null;
-    email: string | null;
-    avatar_image: string | null;
-    is_admin: boolean;
-    created_at: string | null;
-    lessons_complete: number;
-  };
+export type UserProfile = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  avatar_image: string | null;
+  is_admin: boolean;
+  created_at: string | null;
+  lessons_complete: number;
 };
 
-type UserStatsResponse = {
+type UserProfileResponse = {
+  profile: UserProfile;
+};
+
+export type UserStats = {
   lessons_completed: number;
   levels_completed: number;
 };
 
-type CompletedLessonRow = {
-  lesson_id?: string | null;
+export type CompletedLessonProgress = {
+  id?: string | null;
+  lesson_id: string;
+  is_completed?: boolean | null;
+  completed_at?: string | null;
   lessons?: LessonListItem | null;
 };
 
 type CompletedLessonsResponse = {
-  completed_lessons: CompletedLessonRow[];
+  completed_lessons: CompletedLessonProgress[];
 };
 
 type PathwayLessonsResponse = {
@@ -85,15 +90,43 @@ export async function fetchUserProfile() {
 }
 
 export async function fetchUserStats() {
-  return fetchAuthedJson<UserStatsResponse>('/api/user/stats');
+  return fetchAuthedJson<UserStats>('/api/user/stats');
 }
 
 export async function fetchUserCompletedLessons() {
   const json = await fetchAuthedJson<CompletedLessonsResponse>('/api/user/completed-lessons');
-  return json.completed_lessons ?? [];
+  return (json.completed_lessons ?? []).filter(
+    (entry): entry is CompletedLessonProgress => typeof entry.lesson_id === 'string'
+  );
 }
 
 export async function fetchUserPathwayLessons() {
   const json = await fetchAuthedJson<PathwayLessonsResponse>('/api/user/pathway-lessons');
   return json.pathway_lessons ?? [];
+}
+
+export async function upsertLessonCompletion(params: { lessonId: string; completed: boolean }) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('You must be signed in to update lesson progress.');
+  }
+
+  const { error } = await supabase.from('user_lesson_progress').upsert(
+    {
+      user_id: user.id,
+      lesson_id: params.lessonId,
+      is_completed: params.completed,
+      completed_at: params.completed ? new Date().toISOString() : null,
+    },
+    {
+      onConflict: 'user_id,lesson_id',
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

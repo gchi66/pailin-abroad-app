@@ -5,26 +5,17 @@ import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
-import { fetchUserProfile } from '@/src/api/user';
+import { UserProfile, fetchUserProfile } from '@/src/api/user';
 import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type UserProfile = {
-  id: string | null;
-  name: string | null;
-  username: string | null;
-  email: string | null;
-  avatar_image: string | null;
-  created_at: string | null;
-  is_paid: boolean;
-  lessons_complete: number;
-};
+type AppProfile = UserProfile & { is_paid: boolean };
 
 type AppSessionContextValue = {
   session: Session | null;
   user: User | null;
-  profile: UserProfile | null;
+  profile: AppProfile | null;
   isLoading: boolean;
   authError: string | null;
   hasAccount: boolean;
@@ -44,7 +35,7 @@ type AppSessionProviderProps = {
 
 export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<AppProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -110,6 +101,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         username: data.username ?? currentUser.user_metadata?.username ?? null,
         email: data.email ?? currentUser.email ?? null,
         avatar_image: data.avatar_image ?? null,
+        is_admin: data.is_admin ?? false,
         created_at: data.created_at ?? null,
         is_paid: membershipData?.is_paid === true,
         lessons_complete: data.lessons_complete ?? 0,
@@ -119,7 +111,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     catch (error) {
       const { data, error: usersError } = await supabase
         .from('users')
-        .select('id, username, email, avatar_image, created_at, is_paid')
+        .select('id, username, email, avatar_image, is_admin, created_at, is_paid')
         .eq('id', currentUser.id)
         .maybeSingle();
 
@@ -131,6 +123,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           username: currentUser.user_metadata?.username ?? null,
           email: currentUser.email ?? null,
           avatar_image: null,
+          is_admin: false,
           created_at: null,
           is_paid: false,
           lessons_complete: 0,
@@ -145,6 +138,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         username: data?.username ?? currentUser.user_metadata?.username ?? null,
         email: data?.email ?? currentUser.email ?? null,
         avatar_image: data?.avatar_image ?? null,
+        is_admin: data?.is_admin ?? false,
         created_at: data?.created_at ?? null,
         is_paid: data?.is_paid === true,
         lessons_complete: 0,

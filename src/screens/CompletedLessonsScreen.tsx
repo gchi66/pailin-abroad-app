@@ -1,103 +1,123 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { usePathwayData } from '@/src/hooks/use-pathway-data';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
 
-type CompletedLesson = {
-  id: string;
-  number: string;
-  title: { en: string; th: string };
-  focus: { en: string; th: string };
-};
+const pickText = (preferred: string | null, fallback: string | null, emptyFallback = '') => {
+  const preferredText = preferred?.trim();
+  if (preferredText) {
+    return preferredText;
+  }
 
-const COMPLETED_LESSONS: CompletedLesson[] = [
-  {
-    id: 'completed-1',
-    number: '1.1',
-    title: { en: 'Starting a Conversation', th: 'เริ่มต้นบทสนทนา' },
-    focus: { en: 'Greetings and easy follow-up questions', th: 'คำทักทายและคำถามต่อยอดง่ายๆ' },
-  },
-  {
-    id: 'completed-2',
-    number: '1.2',
-    title: { en: 'Talking About Your Day', th: 'คุยเรื่องวันของคุณ' },
-    focus: { en: 'Daily routines and natural transitions', th: 'กิจวัตรประจำวันและการเชื่อมบทสนทนาอย่างเป็นธรรมชาติ' },
-  },
-  {
-    id: 'completed-3',
-    number: '2.1',
-    title: { en: 'Catching Up With Friends', th: 'อัปเดตชีวิตกับเพื่อน' },
-    focus: { en: 'Small talk with more detail and confidence', th: 'Small talk ที่มีรายละเอียดและมั่นใจมากขึ้น' },
-  },
-  {
-    id: 'completed-4',
-    number: '2.2',
-    title: { en: 'Making Plans Together', th: 'วางแผนด้วยกัน' },
-    focus: { en: 'Suggestions, timing, and confirming plans', th: 'การเสนอความคิด เวลา และการยืนยันแผน' },
-  },
-];
+  const fallbackText = fallback?.trim();
+  if (fallbackText) {
+    return fallbackText;
+  }
+
+  return emptyFallback;
+};
 
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
       title: 'บทเรียนที่เรียนจบ',
-      subtitle: 'หน้าประวัติบทเรียนฉบับ native สำหรับดูความคืบหน้าที่เสร็จแล้วในพรีวิวนี้',
+      subtitle: 'ประวัติบทเรียนที่เสร็จสมบูรณ์แล้วจากบัญชีปัจจุบันของคุณ',
+      empty: 'เมื่อคุณเรียนจบบทเรียน รายการทั้งหมดจะปรากฏที่นี่',
+      loading: 'กำลังโหลดประวัติบทเรียน...',
     };
   }
 
   return {
     title: 'Completed Lessons',
-    subtitle: 'A native history view for the lessons already marked complete in this preview.',
+    subtitle: 'A history view of the lessons completed on your current account.',
+    empty: 'Completed lessons will appear here once you start marking lessons done.',
+    loading: 'Loading your completed lessons...',
   };
 };
 
 export function CompletedLessonsScreen() {
   const { uiLanguage } = useUiLanguage();
+  const { hasAccount, hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
+  const { completedProgress, errorMessage, isLoading } = usePathwayData({
+    enabled: hasAccount,
+    hasMembership,
+  });
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <View style={styles.headerBlock}>
+        <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
+
+        <View style={styles.listWrap}>
           <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {copy.title}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {copy.subtitle}
-            </AppText>
+            {isLoading ? (
+              <View style={styles.centerState}>
+                <ActivityIndicator color={theme.colors.accent} />
+                <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
+                  {copy.loading}
+                </AppText>
+              </View>
+            ) : completedProgress.length > 0 ? (
+              completedProgress.map((progress) => {
+                const lesson = progress.lessons;
+                if (!lesson) {
+                  return null;
+                }
+
+                const lessonNumber =
+                  typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
+                    ? `${lesson.level}.${lesson.lesson_order}`
+                    : '–';
+                const lessonTitle =
+                  uiLanguage === 'th'
+                    ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
+                    : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
+                const lessonFocus =
+                  uiLanguage === 'th' ? pickText(lesson.focus_th, lesson.focus) : pickText(lesson.focus, lesson.focus_th);
+
+                return (
+                  <Card key={progress.id ?? progress.lesson_id} padding="md" radius="lg" style={styles.lessonCard}>
+                    <View style={styles.lessonRow}>
+                      <View style={styles.lessonMain}>
+                        <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
+                          {lessonNumber}
+                        </AppText>
+                        <View style={styles.lessonCopy}>
+                          <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
+                            {lessonTitle}
+                          </AppText>
+                          {lessonFocus ? (
+                            <AppText language={uiLanguage} variant="muted" style={styles.lessonFocus}>
+                              {lessonFocus}
+                            </AppText>
+                          ) : null}
+                        </View>
+                      </View>
+                      <Image source={checkCircleImage} style={styles.icon} resizeMode="contain" />
+                    </View>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card padding="lg" radius="lg" style={styles.emptyCard}>
+                <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
+                  {errorMessage || copy.empty}
+                </AppText>
+              </Card>
+            )}
           </Stack>
         </View>
-
-        <Stack gap="sm">
-          {COMPLETED_LESSONS.map((lesson) => (
-            <Card key={lesson.id} padding="md" radius="lg" style={styles.lessonCard}>
-              <View style={styles.lessonRow}>
-                <View style={styles.lessonMain}>
-                  <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
-                    {lesson.number}
-                  </AppText>
-                  <View style={styles.lessonCopy}>
-                    <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
-                      {uiLanguage === 'th' ? lesson.title.th : lesson.title.en}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.lessonFocus}>
-                      {uiLanguage === 'th' ? lesson.focus.th : lesson.focus.en}
-                    </AppText>
-                  </View>
-                </View>
-                <Image source={checkCircleImage} style={styles.icon} resizeMode="contain" />
-              </View>
-            </Card>
-          ))}
-        </Stack>
       </Stack>
     </ScrollView>
   );
@@ -109,22 +129,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.lg,
+  listWrap: {
+    paddingHorizontal: theme.spacing.md,
+  },
+  centerState: {
     paddingVertical: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
   },
-  title: {
-    color: theme.colors.text,
-  },
-  subtitle: {
+  stateText: {
     color: theme.colors.mutedText,
+    textAlign: 'center',
+  },
+  emptyCard: {
+    backgroundColor: theme.colors.surface,
   },
   lessonCard: {
     backgroundColor: theme.colors.surface,

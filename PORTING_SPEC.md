@@ -85,12 +85,11 @@
   - `app/lessons/[id].tsx`
 
 ### Current Decision
-- Prioritize wiring Supabase/env into `app/lessons/index.tsx` now.
 - Use live lesson list data on the lessons index page.
 - Pause deep lesson detail implementation in `app/lessons/[id].tsx` for later.
-- App preview state now follows web entitlement more closely:
-  - `free plan` = signed-in user without membership
-  - `paid` = signed-in user with membership
+- Real app auth/session is now wired through Supabase:
+  - signed-in state comes from the current auth session
+  - membership entitlement comes from backend profile data (`users.is_paid`)
 - In the app, free-plan users now go straight to a native free lesson library instead of a no-account locked state.
 - Free lesson library behavior now mirrors the web `FreeLessonsIndex` model:
   - first lesson of each level is available on the free plan
@@ -112,16 +111,27 @@
 
 ## Next Priority (Per Latest Decision)
 - Lessons index live data is already wired through `LessonsLibraryScreen`.
-- `app/lessons/[id].tsx` remains a shell; resolved payload + native section renderer is still deferred.
+- `app/lessons/[id].tsx` is now the next major implementation target.
+- Lesson detail direction has shifted away from a close web clone:
+  - mobile lesson UX should move toward a guided stepper/session model
+  - primary layout target is one focused section at a time with explicit progress
+  - section-jump behavior should remain available as a secondary menu/sheet affordance
+  - lesson audio should remain ever-present in native, with a draggable collapsed/expanded tray instead of only a web-style sticky bar
+- The lesson page port is expected to be a large multi-part task with several moving pieces:
+  - resolved lesson payload fetching
+  - native rich section renderer parity
+  - lesson navigation / previous-next flow
+  - mark-complete behavior and eventual write-back strategy
+  - audio / sticky player behavior may still need to be deferred or phased
 - Added native free-plan lessons flow:
   - `src/screens/GuestLessonLibraryScreen.tsx`
   - `app/lessons/library.tsx`
   - `app/(tabs)/lessons.tsx` now routes free-plan users into the free lesson library and paid users into the full library
   - Free lesson library now keeps its original page structure, but lesson rows visually align with the main lesson library list while keeping right-side checkmarks
-- App session preview state now separates account presence from membership entitlement:
+- App session/auth state now separates account presence from membership entitlement:
   - `src/context/app-session-context.tsx`
-  - default preview now assumes a signed-in user on the free plan
-  - Account preview toggle is now `Free Plan` vs `Paid`
+  - current session drives signed-in vs signed-out behavior
+  - backend profile data drives free-plan vs paid-member behavior
 - Added native Contact page work:
   - `src/api/contact.ts`
   - `src/screens/ContactScreen.tsx`
@@ -135,11 +145,10 @@
     - Pailin image in the method section
     - Carissa team image
     - Grant team image
-- Added native Profile shell work tied to preview member state:
+- Added native Profile shell work tied to real session/profile state:
   - `src/screens/ProfileScreen.tsx`
   - `app/account/profile.tsx`
-  - `src/screens/AccountScreen.tsx` now routes Profile from Account in both free-plan and paid preview states
-- Current Profile shell is frontend-only and intentionally uses preview entitlement state rather than real auth.
+  - `src/screens/AccountScreen.tsx` now routes Profile from Account in both free-plan and paid states
 - Added native Membership frontend shell with live pricing fetch:
   - `src/api/pricing.ts`
   - `src/screens/MembershipScreen.tsx`
@@ -162,6 +171,7 @@
   - `app/(tabs)/resources.tsx`
   - Uses full 5-card web structure
   - Uses bundled local image assets for all resource cards
+  - Uses shared `StandardPageHeader` styling so the page header matches the lesson library header treatment
   - `Exercise Bank` and `Topic Library` remain placeholder destinations for now
   - Disabled cards keep top-right red `Coming soon` treatment
 - Asset workflow notes:
@@ -176,9 +186,9 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
-  - `My Pathway` native MVP is now implemented as the signed-in primary surface and should be reviewed with cofounder/UI design feedback before the next polish pass
-  - Next major implementation step: wire up real app auth/login and replace the preview session slider with real session state
-  - Keep `app/lessons/[id].tsx` rich renderer work scoped as a separate beast-sized task when it starts
+  - Port the lesson page in `app/lessons/[id].tsx`
+  - Treat lesson-page work as the next primary focus before further polish elsewhere
+  - Keep lesson completion/write logic flexible because product behavior around `mark complete` may still change
 - Keep design flexible since cofounder may change direction.
 
 ## My Pathway (Current Native Direction)
@@ -195,9 +205,10 @@
   - `src/screens/PrimaryScreen.tsx`
 - Current `My Pathway` implementation notes:
   - keeps the guest/no-account homepage flow unchanged
-  - uses the preview member/free-plan state from `src/context/app-session-context.tsx`
-  - uses live lesson index data as the content source for lesson cards where possible
-  - uses frontend-owned preview progress rules for resume/completed state until real auth-backed pathway data exists
+  - uses live auth session + backend profile data for account and membership state
+  - uses backend-backed pathway lessons, completed lessons, and user stats
+  - free-plan lock treatment still mirrors the web frontend rule:
+    - only the first lesson of each level is available without membership
   - keeps visual styling aligned with the web palette:
     - app background `#F7FAFD`
     - black borders/text
@@ -207,11 +218,11 @@
     - header + plan/state
     - continue learning
     - free-plan notice
-    - pathway preview
-    - completed preview
+    - pathway list
+    - recent completed history
 - Current Pathway limitations:
-  - `Continue learning` is still preview-derived, not auth-backed
-  - completed lesson history screen is preview/static for now
+  - lesson completion writes are not yet wired in native because lesson detail is still a shell
+  - `Continue learning` depends on the current backend pathway endpoint behavior
   - `liked lessons` and `comment history` remain intentionally excluded from the app MVP
   - final structure/spacing/content order should still be treated as provisional until cofounder review
 

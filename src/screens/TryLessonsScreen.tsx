@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
 import { freeLessonImages } from '@/src/assets/app-images';
@@ -35,6 +36,7 @@ const MEMBERSHIP_FEATURES: Record<UiLanguage, string[]> = {
 };
 
 export function TryLessonsScreen() {
+  const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
   const { hasMembership } = useAppSession();
@@ -55,6 +57,11 @@ export function TryLessonsScreen() {
   };
 
   const handlePlaceholderAction = (kind: 'signup' | 'membership') => {
+    if (kind === 'membership') {
+      router.push('/account/membership');
+      return;
+    }
+
     Alert.alert(
       kind === 'signup' ? (uiLanguage === 'th' ? 'สมัครสมาชิกฟรี' : 'Sign up free') : uiLanguage === 'th' ? 'Membership' : 'Membership',
       uiLanguage === 'th'
@@ -154,19 +161,11 @@ export function TryLessonsScreen() {
                   : 'Your free plan already gives you access to free lessons. Upgrade to membership for the full library.'}
             </AppText>
 
-            {hasMembership ? (
-              <Button
-                language={uiLanguage}
-                title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
-                onPress={() => handlePlaceholderAction('membership')}
-              />
-            ) : (
-              <Button
-                language={uiLanguage}
-                title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
-                onPress={() => handlePlaceholderAction('membership')}
-              />
-            )}
+            <Button
+              language={uiLanguage}
+              title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
+              onPress={() => handlePlaceholderAction('membership')}
+            />
           </Stack>
         </View>
 

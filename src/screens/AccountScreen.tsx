@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { AuthScreen } from '@/src/screens/AuthScreen';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
@@ -50,21 +51,14 @@ export function AccountScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
         <View style={styles.headerBlock}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {copy.title}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {hasMembership ? copy.paidSubtitle : copy.freeSubtitle}
-            </AppText>
-          </Stack>
+          <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={hasMembership ? copy.paidSubtitle : copy.freeSubtitle} />
         </View>
 
         <View style={styles.languageRow}>
           <LanguageToggle />
         </View>
 
-        <Card padding="lg" radius="lg">
+        <Card padding="lg" radius="lg" style={styles.actionsCard}>
           <Stack gap="sm">
             {(hasMembership ? paidActions : freePlanActions).map((label) => (
               <Pressable
@@ -111,28 +105,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
   headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-  },
-  title: {
-    color: theme.colors.text,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
-  },
-  sectionTitle: {
-    fontWeight: theme.typography.weights.semibold,
+    marginBottom: theme.spacing.md,
   },
   languageRow: {
+    paddingHorizontal: theme.spacing.md,
     alignItems: 'flex-end',
+  },
+  actionsCard: {
+    marginHorizontal: theme.spacing.md,
   },
   linkRow: {
     minHeight: 52,
