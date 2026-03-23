@@ -114,15 +114,34 @@
 - `app/lessons/[id].tsx` is now the next major implementation target.
 - Lesson detail direction has shifted away from a close web clone:
   - mobile lesson UX should move toward a guided stepper/session model
-  - primary layout target is one focused section at a time with explicit progress
+  - lesson entry should use a dedicated full-screen intro / cover page before the study flow begins
+  - intro cover now uses real lesson metadata fetches for:
+    - title
+    - Thai title
+    - focus
+    - backstory
+    - `header_img`-driven lesson artwork
+  - primary study layout target is one focused section at a time with explicit progress
   - section-jump behavior should remain available as a secondary menu/sheet affordance
-  - lesson audio should remain ever-present in native, with a draggable collapsed/expanded tray instead of only a web-style sticky bar
+  - the earlier always-present audio tray mock for the intro page has been intentionally removed
+  - audio behavior should be revisited during actual lesson content implementation rather than baked into the intro page
+- Current `app/lessons/[id].tsx` status:
+  - intro / cover direction is now established
+  - visible back-to-library control is present on the cover
+  - lesson artwork path resolution now mirrors the web header logic more closely
+  - cover copy now shows the real Thai title under the main title
+  - cover backstory is now secondary/expandable instead of always fully expanded
 - The lesson page port is expected to be a large multi-part task with several moving pieces:
   - resolved lesson payload fetching
   - native rich section renderer parity
   - lesson navigation / previous-next flow
   - mark-complete behavior and eventual write-back strategy
   - audio / sticky player behavior may still need to be deferred or phased
+- Immediate next implementation target:
+  - move from the intro/cover mock into the actual lesson page behind it
+  - fetch the resolved lesson payload used by the web app
+  - begin native rendering with 1-2 real lesson sections, starting with representative rich content
+  - treat `RichSectionRenderer` parity as the next concrete build task
 - Added native free-plan lessons flow:
   - `src/screens/GuestLessonLibraryScreen.tsx`
   - `app/lessons/library.tsx`
@@ -186,8 +205,8 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
-  - Port the lesson page in `app/lessons/[id].tsx`
-  - Treat lesson-page work as the next primary focus before further polish elsewhere
+  - Implement the actual lesson page behind the new intro cover in `app/lessons/[id].tsx`
+  - Treat resolved payload fetching + native rich section rendering as the next primary focus before further polish elsewhere
   - Keep lesson completion/write logic flexible because product behavior around `mark complete` may still change
 - Keep design flexible since cofounder may change direction.
 

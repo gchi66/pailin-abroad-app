@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -9,7 +10,7 @@ import {
 import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
-import { getLessonById } from '@/src/api/lessons';
+import { fetchResolvedLesson } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -17,90 +18,129 @@ import { Stack } from '@/src/components/ui/Stack';
 import { env } from '@/src/config/env';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
-import { LessonListItem } from '@/src/types/lesson';
+import { ResolvedLessonPayload, ResolvedLessonSection } from '@/src/types/lesson';
 
-type LessonPreviewSection = {
+type UiLanguage = 'en' | 'th';
+type LessonTab = {
   id: string;
-  title: {
-    en: string;
-    th: string;
-  };
-  eyebrow: {
-    en: string;
-    th: string;
-  };
-  body: {
-    en: string;
-    th: string;
-  };
-  notes: {
-    en: string[];
-    th: string[];
-  };
-  hasAudio: boolean;
+  type: string;
+  section: ResolvedLessonSection | null;
 };
 
-const PREVIEW_SECTIONS: LessonPreviewSection[] = [
-  {
-    id: 'listen',
-    title: { en: 'Conversation', th: 'บทสนทนา' },
-    eyebrow: { en: 'Section 1', th: 'ส่วนที่ 1' },
-    body: {
-      en: 'This first study screen would open with the real conversation section, but now it can do so after a dedicated cover moment instead of competing with a permanent oversized header.',
-      th: 'หน้าศึกษาจริงหน้าแรกจะเริ่มด้วยบทสนทนาจริง แต่ตอนนี้มันทำได้หลังจากมีหน้าปกเฉพาะของตัวเอง แทนที่จะต้องแข่งขันกับ header ใหญ่ที่ติดค้างอยู่ตลอด',
-    },
-    notes: {
-      en: ['Cleaner first impression', 'The cover does the branding work', 'Study mode can stay focused'],
-      th: ['ความประทับใจแรกดูสะอาดขึ้น', 'หน้าปกรับหน้าที่ด้านแบรนด์แทน', 'โหมดเรียนจึงคงความโฟกัสได้'],
-    },
-    hasAudio: true,
-  },
-  {
-    id: 'understand',
-    title: { en: 'Understand', th: 'ทำความเข้าใจ' },
-    eyebrow: { en: 'Section 2', th: 'ส่วนที่ 2' },
-    body: {
-      en: 'This is still the best proving ground for the native rich renderer. Real content_jsonb blocks would land here next, with much more vertical room than the old shell had.',
-      th: 'ส่วนนี้ยังคงเป็นพื้นที่ที่ดีที่สุดสำหรับพิสูจน์ renderer แบบ native โดยตรง เพราะ content_jsonb จริงจะถูกใส่ที่นี่เป็นลำดับถัดไป และมีพื้นที่แนวตั้งมากกว่าหน้า shell เดิมอย่างชัดเจน',
-    },
-    notes: {
-      en: ['More room for rich text', 'Progress stays small and clear', 'Perfect place to test real spacing'],
-      th: ['มีพื้นที่มากขึ้นสำหรับ rich text', 'progress ยังเล็กและชัด', 'เหมาะมากกับการทดสอบระยะห่างจริง'],
-    },
-    hasAudio: true,
-  },
-  {
-    id: 'phrases',
-    title: { en: 'Phrases & Verbs', th: 'วลีและคำกริยา' },
-    eyebrow: { en: 'Section 3', th: 'ส่วนที่ 3' },
-    body: {
-      en: 'The section menu can still jump here, but the lesson now feels like a guided session first and a document second, which is much closer to the product you want.',
-      th: 'เมนูส่วนต่าง ๆ ยังสามารถพาผู้เรียนกระโดดมาที่นี่ได้ แต่ตอนนี้บทเรียนให้ความรู้สึกเหมือน session ที่มีคนนำทางก่อน และค่อยเป็นเอกสารทีหลัง ซึ่งใกล้กับภาพผลิตภัณฑ์ที่คุณต้องการมากกว่า',
-    },
-    notes: {
-      en: ['Still flexible for power users', 'Much better for momentum', 'Less visual clutter at the top'],
-      th: ['ยังยืดหยุ่นสำหรับผู้ใช้ที่เก่งแล้ว', 'ดีกว่ามากในแง่ momentum', 'ความรกทางสายตาด้านบนน้อยลง'],
-    },
-    hasAudio: true,
-  },
-  {
-    id: 'practice',
-    title: { en: 'Practice', th: 'ฝึกฝน' },
-    eyebrow: { en: 'Section 4', th: 'ส่วนที่ 4' },
-    body: {
-      en: 'Quizzes and practice blocks can now feel like proper steps in the journey instead of being squeezed beneath a large reusable banner.',
-      th: 'ควิซและแบบฝึกหัดสามารถกลายเป็น step ที่ชัดเจนในเส้นทางการเรียน แทนที่จะถูกบีบให้อยู่ใต้ banner ใหญ่ที่ใช้ซ้ำตลอดทั้งหน้า',
-    },
-    notes: {
-      en: ['Better vertical rhythm', 'Cleaner CTA behavior', 'Easier to adapt section by section'],
-      th: ['จังหวะแนวตั้งดีขึ้น', 'พฤติกรรมของปุ่ม CTA ชัดขึ้น', 'ปรับตามแต่ละ section ได้ง่ายกว่า'],
-    },
-    hasAudio: false,
-  },
-];
+const MASTER_ORDER = [
+  'comprehension',
+  'transcript',
+  'apply',
+  'understand',
+  'extra_tip',
+  'common_mistake',
+  'phrases_verbs',
+  'culture_note',
+  'practice',
+] as const;
 
-const pickLocalizedText = <T,>(uiLanguage: 'en' | 'th', values: { en: T; th: T }) =>
-  uiLanguage === 'th' ? values.th : values.en;
+const SECTION_TYPE_LABELS: Record<string, { en: string; th: string }> = {
+  comprehension: { en: 'Comprehension', th: 'คำถามความเข้าใจ' },
+  transcript: { en: 'Transcript', th: 'บทถอดเสียง' },
+  conversation: { en: 'Conversation', th: 'บทสนทนา' },
+  apply: { en: 'Apply', th: 'นำไปใช้' },
+  understand: { en: 'Understand', th: 'ทำความเข้าใจ' },
+  extra_tip: { en: 'Extra Tip', th: 'เกร็ดเพิ่มเติม' },
+  common_mistake: { en: 'Common Mistake', th: 'ข้อผิดพลาดที่พบบ่อย' },
+  phrases_verbs: { en: 'Phrases & Verbs', th: 'วลีและคำกริยา' },
+  culture_note: { en: 'Culture Note', th: 'เกร็ดวัฒนธรรม' },
+  practice: { en: 'Practice', th: 'ฝึกฝน' },
+};
+
+const getResolvedSectionType = (section: ResolvedLessonSection) => section.type ?? section.section_type ?? null;
+
+const hasLessonPhrases = (phrases: ResolvedLessonPayload['phrases']) =>
+  (phrases ?? []).some((item) => {
+    if (!item || typeof item !== 'object') {
+      return false;
+    }
+    const content = 'content' in item && typeof item.content === 'string' ? item.content.trim() : '';
+    const contentMd = 'content_md' in item && typeof item.content_md === 'string' ? item.content_md.trim() : '';
+    return Boolean(content || contentMd);
+  });
+
+const buildLessonTabs = (lesson: ResolvedLessonPayload | null): LessonTab[] => {
+  if (!lesson) {
+    return [];
+  }
+
+  const sections = (lesson.sections ?? []).map((section, index) => ({
+    ...section,
+    id: getSectionId(section, index),
+  }));
+
+  const tabs: (LessonTab | null)[] = MASTER_ORDER.map((type) => {
+    if (type === 'comprehension') {
+      return (lesson.questions?.length ?? 0) > 0 ? { id: 'comprehension', type, section: null } : null;
+    }
+    if (type === 'transcript') {
+      return (lesson.transcript?.length ?? 0) > 0 ? { id: 'transcript', type, section: null } : null;
+    }
+    if (type === 'practice') {
+      return (lesson.practice_exercises?.length ?? 0) > 0 ? { id: 'practice', type, section: null } : null;
+    }
+    if (type === 'phrases_verbs') {
+      return hasLessonPhrases(lesson.phrases) ? { id: 'phrases_verbs', type, section: null } : null;
+    }
+
+    const section = sections.find((item) => getResolvedSectionType(item) === type) ?? null;
+    return section ? { id: section.id ?? type, type, section } : null;
+  });
+
+  return tabs.filter((item): item is LessonTab => item !== null);
+};
+
+const getSectionId = (section: ResolvedLessonSection, index: number) =>
+  typeof section.id === 'string' && section.id.trim().length > 0 ? section.id : `section-${index + 1}`;
+
+const getSectionLabel = (uiLanguage: UiLanguage, sectionType: string | null | undefined) => {
+  if (!sectionType) {
+    return uiLanguage === 'th' ? 'บทเรียน' : 'Lesson section';
+  }
+  return SECTION_TYPE_LABELS[sectionType]?.[uiLanguage] ?? sectionType.replace(/_/g, ' ');
+};
+
+const getSectionTitle = (uiLanguage: UiLanguage, sectionType: string | null | undefined, index: number) => {
+  return getSectionLabel(uiLanguage, sectionType) || `${uiLanguage === 'th' ? 'ส่วนที่' : 'Section'} ${index + 1}`;
+};
+
+const getSectionNotes = (uiLanguage: UiLanguage, section: ResolvedLessonSection) => {
+  const notes: string[] = [];
+  const richNodes =
+    (Array.isArray(section.content_jsonb) ? section.content_jsonb.length : 0) +
+    (Array.isArray(section.content_jsonb_th) ? section.content_jsonb_th.length : 0);
+
+  if (richNodes > 0) {
+    notes.push(
+      uiLanguage === 'th'
+        ? 'โหลด rich lesson blocks สำหรับ section นี้แล้ว'
+        : 'Rich lesson blocks are loaded for this section.'
+    );
+  }
+
+  if (section.audio_url || section.conversation_audio_url) {
+    notes.push(
+      uiLanguage === 'th'
+        ? 'section นี้มีข้อมูลเสียงที่สามารถต่อเข้ากับ player ได้'
+        : 'This section includes audio-linked data that can be wired into the player.'
+    );
+  }
+
+  notes.push(
+      uiLanguage === 'th'
+      ? `ชนิดของ section: ${getSectionLabel(uiLanguage, getResolvedSectionType(section))}`
+      : `Section type: ${getSectionLabel(uiLanguage, getResolvedSectionType(section))}`
+  );
+
+  return notes;
+};
+
+const hasSectionAudio = (section: ResolvedLessonSection) => Boolean(section.audio_url || section.conversation_audio_url);
 
 const normalizeHeaderImagePath = (rawValue: string | null) => {
   if (!rawValue) return null;
@@ -140,7 +180,7 @@ export default function LessonDetailShellScreen() {
   const { uiLanguage } = useUiLanguage();
   const { height: windowHeight } = useWindowDimensions();
 
-  const [lesson, setLesson] = useState<LessonListItem | null>(null);
+  const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
@@ -162,15 +202,11 @@ export default function LessonDetailShellScreen() {
       setErrorMessage(null);
 
       try {
-        const row = await getLessonById(lessonId);
+        const row = await fetchResolvedLesson(lessonId, uiLanguage);
         if (!isMounted) {
           return;
         }
-        if (!row) {
-          setErrorMessage(uiLanguage === 'th' ? 'ไม่พบบทเรียน' : 'Lesson not found.');
-        } else {
-          setLesson(row);
-        }
+        setLesson(row);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -200,7 +236,7 @@ export default function LessonDetailShellScreen() {
 
   const englishTitle = useMemo(() => {
     if (!lesson) return null;
-    return lesson.title?.trim() || lesson.title_th?.trim() || null;
+    return lesson.title_en?.trim() || lesson.title?.trim() || lesson.title_th?.trim() || null;
   }, [lesson]);
 
   const thaiTitle = useMemo(() => {
@@ -215,27 +251,63 @@ export default function LessonDetailShellScreen() {
 
   const resolvedBackstory = useMemo(() => {
     if (!lesson) return null;
-    return uiLanguage === 'th' ? lesson.backstory_th || lesson.backstory : lesson.backstory || lesson.backstory_th;
+    return (
+      (uiLanguage === 'th'
+        ? lesson.backstory_th || lesson.backstory || lesson.backstory_en
+        : lesson.backstory_en || lesson.backstory || lesson.backstory_th) ?? null
+    );
   }, [lesson, uiLanguage]);
 
-  const headerImageUrl = useMemo(() => resolveHeaderImageUrl(lesson?.header_img ?? null), [lesson?.header_img]);
-  const activeSection = PREVIEW_SECTIONS[activeSectionIndex] ?? PREVIEW_SECTIONS[0];
-  const sectionCount = PREVIEW_SECTIONS.length;
+  const headerImageUrl = useMemo(
+    () => lesson?.header_image_url ?? resolveHeaderImageUrl(lesson?.header_image_path ?? lesson?.header_img ?? null),
+    [lesson?.header_image_path, lesson?.header_image_url, lesson?.header_img]
+  );
+  const lessonTabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
+  const activeTab = lessonTabs[activeSectionIndex] ?? null;
+  const activeSection = activeTab?.section ?? null;
+  const activeSectionTitle = useMemo(
+    () => (activeTab ? getSectionTitle(uiLanguage, activeTab.type, activeSectionIndex) : null),
+    [activeSectionIndex, activeTab, uiLanguage]
+  );
+  const activeSectionNotes = useMemo(
+    () => (activeSection ? getSectionNotes(uiLanguage, activeSection) : []),
+    [activeSection, uiLanguage]
+  );
+  const activeSectionEyebrow = useMemo(
+    () =>
+      uiLanguage === 'th'
+        ? `ส่วนที่ ${activeSectionIndex + 1}`
+        : `Section ${activeSectionIndex + 1}`,
+    [activeSectionIndex, uiLanguage]
+  );
+  const activeSectionTypeLabel = useMemo(
+    () => (activeTab ? getSectionLabel(uiLanguage, activeTab.type) : null),
+    [activeTab, uiLanguage]
+  );
+  const sectionCount = lessonTabs.length;
   const progressRatio = sectionCount > 0 ? (activeSectionIndex + 1) / sectionCount : 0;
   const progressWidthStyle = useMemo(() => ({ width: `${progressRatio * 100}%` as const }), [progressRatio]);
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const primaryActionLabel =
-    uiLanguage === 'th'
-      ? isLastSection
-        ? 'จบบทเรียนตัวอย่าง'
-        : 'ไปยังส่วนถัดไป'
-      : isLastSection
-        ? 'Finish Preview'
-        : 'Next Section';
+    sectionCount === 0
+      ? uiLanguage === 'th'
+        ? 'กลับไปหน้าปกบทเรียน'
+        : 'Back to lesson cover'
+      : uiLanguage === 'th'
+        ? isLastSection
+          ? 'กลับไปหน้าปกบทเรียน'
+          : 'ไปยังส่วนถัดไป'
+        : isLastSection
+          ? 'Back to lesson cover'
+          : 'Next Section';
   const sectionCounterLabel =
-    uiLanguage === 'th'
-      ? `${activeSectionIndex + 1} จาก ${sectionCount} ส่วน`
-      : `${activeSectionIndex + 1} of ${sectionCount} sections`;
+    sectionCount === 0
+      ? uiLanguage === 'th'
+        ? 'ยังไม่มี sections'
+        : 'No sections yet'
+      : uiLanguage === 'th'
+        ? `${activeSectionIndex + 1} จาก ${sectionCount} ส่วน`
+        : `${activeSectionIndex + 1} of ${sectionCount} sections`;
   const sectionMenuLabel = uiLanguage === 'th' ? 'สารบัญบทเรียน' : 'Lesson sections';
   const startLessonLabel = uiLanguage === 'th' ? 'เริ่มบทเรียน' : 'Start lesson';
   const coverMinHeight = Math.max(windowHeight || 0, 720);
@@ -247,6 +319,12 @@ export default function LessonDetailShellScreen() {
     : uiLanguage === 'th'
       ? 'ดู backstory'
       : 'Show backstory';
+  const richContentBlockCount = activeSection
+    ? Math.max(
+        Array.isArray(activeSection.content_jsonb) ? activeSection.content_jsonb.length : 0,
+        Array.isArray(activeSection.content_jsonb_th) ? activeSection.content_jsonb_th.length : 0
+      )
+    : 0;
 
   return (
     <View style={styles.screen}>
@@ -313,7 +391,7 @@ export default function LessonDetailShellScreen() {
                           {uiLanguage === 'th' ? 'บทเรียน' : 'Lesson'} {lesson.lesson_order ?? '-'}
                         </AppText>
                         <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
-                          {sectionCount} {uiLanguage === 'th' ? 'ส่วน' : 'sections'}
+                          {sectionCount} {uiLanguage === 'th' ? 'ส่วนของบทเรียน' : 'lesson sections'}
                         </AppText>
                       </View>
                     </View>
@@ -381,7 +459,11 @@ export default function LessonDetailShellScreen() {
             </View>
           ) : (
             <View style={styles.stepperScreen}>
-              <View style={styles.stepperInner}>
+              <ScrollView
+                contentContainerStyle={styles.stepperScrollContent}
+                showsVerticalScrollIndicator={false}
+                style={styles.stepperScrollView}>
+                <View style={styles.stepperInner}>
                 <View style={styles.stepperTopBar}>
                   <Pressable
                     accessibilityRole="button"
@@ -401,7 +483,7 @@ export default function LessonDetailShellScreen() {
                         {sectionCounterLabel}
                       </AppText>
                       <AppText language={uiLanguage} variant="caption" style={styles.progressLabel}>
-                        {pickLocalizedText(uiLanguage, activeSection.eyebrow)}
+                        {activeSectionTypeLabel ?? sectionMenuLabel}
                       </AppText>
                     </View>
                   </View>
@@ -412,28 +494,48 @@ export default function LessonDetailShellScreen() {
                     <View style={styles.sectionCardHeader}>
                       <View style={styles.sectionEyebrow}>
                         <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrowText}>
-                          {pickLocalizedText(uiLanguage, activeSection.eyebrow)}
+                          {activeSection ? activeSectionEyebrow : sectionMenuLabel}
                         </AppText>
                       </View>
                       <View
-                        style={[styles.audioFlag, activeSection.hasAudio ? styles.audioFlagActive : styles.audioFlagMuted]}>
+                        style={[
+                          styles.audioFlag,
+                          activeSection && hasSectionAudio(activeSection) ? styles.audioFlagActive : styles.audioFlagMuted,
+                        ]}>
                         <AppText language={uiLanguage} variant="caption" style={styles.audioFlagText}>
-                          {activeSection.hasAudio ? 'Audio' : 'No audio'}
+                          {activeTab
+                            ? activeSection && hasSectionAudio(activeSection)
+                              ? uiLanguage === 'th'
+                                ? 'มีเสียง'
+                                : 'Audio ready'
+                              : uiLanguage === 'th'
+                                ? 'ยังไม่มีเสียง'
+                                : 'No audio yet'
+                            : uiLanguage === 'th'
+                              ? 'ยังไม่มี section'
+                              : 'No section yet'}
                         </AppText>
                       </View>
                     </View>
 
                     <Stack gap="sm">
                       <AppText language={uiLanguage} variant="title" style={styles.sectionTitle}>
-                        {pickLocalizedText(uiLanguage, activeSection.title)}
+                        {activeSectionTitle ??
+                          (uiLanguage === 'th' ? 'ยังไม่มี section ให้แสดง' : 'No lesson section is available yet')}
                       </AppText>
                       <AppText language={uiLanguage} variant="body" style={styles.sectionBody}>
-                        {pickLocalizedText(uiLanguage, activeSection.body)}
+                        {activeSection
+                          ? uiLanguage === 'th'
+                            ? 'เราโหลดข้อมูลของ section นี้แล้ว แต่จะยังไม่แสดง raw content หรือ content_jsonb ตรงนี้จนกว่าจะมี native renderer ที่เหมาะสม'
+                            : 'This section is loaded, but we are intentionally not rendering raw content or content_jsonb here until the native renderer is ready.'
+                          : uiLanguage === 'th'
+                            ? 'ส่วนนี้มีข้อมูลใน resolved lesson payload แล้ว แต่ยังต้องมี renderer เฉพาะทางสำหรับแสดงผล'
+                            : 'This lesson tab exists in the resolved lesson payload, but it still needs a dedicated native renderer.'}
                       </AppText>
                     </Stack>
 
                     <Stack gap="sm">
-                      {pickLocalizedText(uiLanguage, activeSection.notes).map((note) => (
+                      {activeSectionNotes.map((note) => (
                         <View key={note} style={styles.noteRow}>
                           <View style={styles.noteBullet} />
                           <AppText language={uiLanguage} variant="body" style={styles.noteText}>
@@ -446,17 +548,29 @@ export default function LessonDetailShellScreen() {
                     <View style={styles.placeholderBox}>
                       <Stack gap="xs">
                         <AppText language={uiLanguage} variant="caption" style={styles.placeholderEyebrow}>
-                          {uiLanguage === 'th' ? 'ขั้นถัดไป' : 'Next Build Step'}
+                          {uiLanguage === 'th' ? 'renderer ถัดไป' : 'Renderer Next'}
                         </AppText>
                         <AppText language={uiLanguage} variant="body" style={styles.placeholderTitle}>
-                          {uiLanguage === 'th'
-                            ? 'ตรงนี้จะใส่ rich section จริงจาก resolved payload'
-                            : 'This block will host the first real rich section from the resolved payload.'}
+                          {activeSectionTypeLabel
+                            ? uiLanguage === 'th'
+                              ? `${activeSectionTypeLabel} พร้อมต่อเข้ากับ native rich renderer`
+                              : `${activeSectionTypeLabel} is ready for native rich rendering`
+                            : uiLanguage === 'th'
+                              ? 'section renderer จะเข้ามาที่พื้นที่นี้'
+                              : 'The section renderer will land in this study area.'}
                         </AppText>
                         <AppText language={uiLanguage} variant="muted" style={styles.placeholderBody}>
-                          {uiLanguage === 'th'
-                            ? 'ตอนนี้เราใช้ layout เต็มหน้าจอของ intro page ก่อน แล้วค่อยย้ายไปทำ renderer จริงในพื้นที่นี้'
-                            : 'We are locking in the full-screen intro first, then we will move into real resolved content rendering in this study area.'}
+                          {activeSection
+                            ? uiLanguage === 'th'
+                              ? `โหลด rich nodes แล้วสูงสุด ${richContentBlockCount} block สำหรับ section นี้ ตอนนี้เหลือแค่แปล block เหล่านั้นเป็น native components`
+                              : `The resolved payload is loaded for this section with up to ${richContentBlockCount} rich blocks. The remaining work is translating those blocks into native components.`
+                            : activeTab
+                              ? uiLanguage === 'th'
+                                ? `${activeSectionTitle} มีข้อมูลพร้อมแล้วจาก resolved lesson payload แต่ renderer แบบ native สำหรับส่วนนี้ยังไม่ได้ต่อเข้ามา`
+                              : `${activeSectionTitle} is already present in the resolved lesson payload, but the native renderer for this section is not wired in yet.`
+                              : uiLanguage === 'th'
+                                ? 'เมื่อ lesson มี sections จริงแล้ว พื้นที่นี้จะใช้แสดง rich content แบบ native'
+                                : 'As soon as the lesson exposes section data, this area will host the native rich content flow.'}
                         </AppText>
                       </Stack>
                     </View>
@@ -468,14 +582,18 @@ export default function LessonDetailShellScreen() {
                     language={uiLanguage}
                     title={primaryActionLabel}
                     onPress={() => {
-                      if (!isLastSection) {
+                      if (sectionCount === 0 || isLastSection) {
+                        setHasStartedLesson(false);
+                      } else {
                         setActiveSectionIndex((prev) => Math.min(prev + 1, sectionCount - 1));
                       }
                     }}
+                    disabled={!activeTab && sectionCount === 0}
                     style={styles.footerButton}
                   />
                 </View>
-              </View>
+                </View>
+              </ScrollView>
             </View>
           )}
         </View>
@@ -497,11 +615,11 @@ export default function LessonDetailShellScreen() {
                 </Pressable>
               </View>
 
-              {PREVIEW_SECTIONS.map((section, index) => {
+              {lessonTabs.map((tab, index) => {
                 const isActive = index === activeSectionIndex;
                 return (
                   <Pressable
-                    key={section.id}
+                    key={tab.id}
                     accessibilityRole="button"
                     onPress={() => {
                       setActiveSectionIndex(index);
@@ -515,16 +633,14 @@ export default function LessonDetailShellScreen() {
                     </View>
                     <View style={styles.menuItemContent}>
                       <AppText language={uiLanguage} variant="body" style={styles.menuItemTitle}>
-                        {pickLocalizedText(uiLanguage, section.title)}
+                        {getSectionTitle(uiLanguage, tab.type, index)}
                       </AppText>
                       <AppText language={uiLanguage} variant="muted" style={styles.menuItemMeta}>
-                        {section.hasAudio
+                        {tab.section && hasSectionAudio(tab.section)
                           ? uiLanguage === 'th'
-                            ? 'มีเสียงประกอบ'
-                            : 'Includes audio'
-                          : uiLanguage === 'th'
-                            ? 'เนื้อหาแบบฝึก'
-                            : 'Practice-focused'}
+                            ? 'มีเสียง'
+                            : 'Audio ready'
+                          : getSectionLabel(uiLanguage, tab.type)}
                       </AppText>
                     </View>
                   </Pressable>
@@ -730,8 +846,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  stepperInner: {
+  stepperScrollView: {
     flex: 1,
+  },
+  stepperScrollContent: {
+    flexGrow: 1,
+  },
+  stepperInner: {
     padding: theme.spacing.md,
     paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.xl,
