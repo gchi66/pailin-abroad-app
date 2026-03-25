@@ -1,0 +1,131 @@
+import { UiLanguage } from '@/src/types/home';
+
+const SECTION_TYPE_LABELS: Record<string, { en: string; th: string }> = {
+  comprehension: { en: 'Comprehension', th: 'คำถามความเข้าใจ' },
+  transcript: { en: 'Transcript', th: 'บทถอดเสียง' },
+  conversation: { en: 'Conversation', th: 'บทสนทนา' },
+  apply: { en: 'Apply', th: 'นำไปใช้' },
+  understand: { en: 'Understand', th: 'ทำความเข้าใจ' },
+  extra_tip: { en: 'Extra Tip', th: 'เกร็ดเพิ่มเติม' },
+  common_mistake: { en: 'Common Mistake', th: 'ข้อผิดพลาดที่พบบ่อย' },
+  phrases_verbs: { en: 'Phrases & Verbs', th: 'วลีและคำกริยา' },
+  culture_note: { en: 'Culture Note', th: 'เกร็ดวัฒนธรรม' },
+  practice: { en: 'Practice', th: 'ฝึกฝน' },
+};
+
+export const getLessonSectionLabel = (language: UiLanguage, sectionType: string | null | undefined) => {
+  if (!sectionType) {
+    return language === 'th' ? 'บทเรียน' : 'Lesson section';
+  }
+
+  return SECTION_TYPE_LABELS[sectionType]?.[language] ?? sectionType.replace(/_/g, ' ');
+};
+
+export const getLessonSectionTitle = (
+  language: UiLanguage,
+  sectionType: string | null | undefined,
+  index: number
+) => getLessonSectionLabel(language, sectionType) || `${language === 'th' ? 'ส่วนที่' : 'Section'} ${index + 1}`;
+
+export const getLessonDetailCopy = (language: UiLanguage) => {
+  if (language === 'th') {
+    return {
+      missingLessonId: 'ไม่พบ lesson id',
+      fetchLessonFailed: 'โหลดบทเรียนไม่สำเร็จ',
+      sectionEyebrow: (index: number) => `ส่วนที่ ${index + 1}`,
+      noSectionsYet: 'ยังไม่มี sections',
+      backToLessonCover: 'กลับไปหน้าปกบทเรียน',
+      nextSection: 'ไปยังส่วนถัดไป',
+      sectionCounter: (activeIndex: number, count: number) => `${activeIndex + 1} จาก ${count} ส่วน`,
+      sectionMenuLabel: 'สารบัญบทเรียน',
+      startLesson: 'เริ่มบทเรียน',
+      backToLibrary: 'กลับไปคลังบทเรียน',
+      translateToThaiLabel: 'เปลี่ยนเป็นภาษาไทย',
+      translateToEnglishLabel: 'เปลี่ยนเป็นภาษาอังกฤษ',
+      showEnglish: 'ดูภาษาอังกฤษ',
+      showThai: 'แปลเป็นภาษาไทย',
+      hideBackstory: 'ซ่อน backstory',
+      showBackstory: 'ดู backstory',
+      checkAnswers: 'ตรวจสอบคำตอบ',
+      audioReady: 'มีเสียง',
+      noAudioYet: 'ยังไม่มีเสียง',
+      noSectionYet: 'ยังไม่มี section',
+      noSectionAvailable: 'ยังไม่มี section ให้แสดง',
+      sectionLoadedPlaceholder:
+        'เราโหลดข้อมูลของ section นี้แล้ว แต่จะยังไม่แสดง raw content หรือ content_jsonb ตรงนี้จนกว่าจะมี native renderer ที่เหมาะสม',
+      tabExistsPlaceholder: 'ส่วนนี้มีข้อมูลใน resolved lesson payload แล้ว แต่ยังต้องมี renderer เฉพาะทางสำหรับแสดงผล',
+      rendererNext: 'renderer ถัดไป',
+      rendererReady: (label: string) => `${label} พร้อมต่อเข้ากับ native rich renderer`,
+      rendererLanding: 'section renderer จะเข้ามาที่พื้นที่นี้',
+      richNodesLoaded: (count: number) =>
+        `โหลด rich nodes แล้วสูงสุด ${count} block สำหรับ section นี้ ตอนนี้เหลือแค่แปล block เหล่านั้นเป็น native components`,
+      tabRendererMissing: (title: string) =>
+        `${title} มีข้อมูลพร้อมแล้วจาก resolved lesson payload แต่ renderer แบบ native สำหรับส่วนนี้ยังไม่ได้ต่อเข้ามา`,
+      richContentLanding: 'เมื่อ lesson มี sections จริงแล้ว พื้นที่นี้จะใช้แสดง rich content แบบ native',
+      richBlocksLoaded: 'โหลด rich lesson blocks สำหรับ section นี้แล้ว',
+      audioLinkedData: 'section นี้มีข้อมูลเสียงที่สามารถต่อเข้ากับ player ได้',
+      sectionTypeLabel: (label: string) => `ชนิดของ section: ${label}`,
+      lessonLabel: 'บทเรียน',
+      lessonSections: 'ส่วนของบทเรียน',
+      lessonFocus: 'Lesson Focus',
+      greatJob: 'ทำได้ดีมาก!',
+      tryAgain: 'ลองอีกครั้ง',
+      loadingImageAlt: 'กำลังโหลดบทเรียน',
+      loadingErrorTitle: 'มีบางอย่างผิดพลาด',
+      loadingErrorBody: 'เราโหลดบทเรียนนี้ไม่สำเร็จ ลองอีกครั้งอีกสักครู่นะ',
+      audioTrayStatus: 'เสียงพร้อม',
+      audioTrayPlaying: 'กำลังเล่น',
+      audioTrayLoading: 'กำลังโหลดเสียง',
+    };
+  }
+
+  return {
+    missingLessonId: 'Missing lesson id.',
+    fetchLessonFailed: 'Failed to load lesson.',
+    sectionEyebrow: (index: number) => `Section ${index + 1}`,
+    noSectionsYet: 'No sections yet',
+    backToLessonCover: 'Back to lesson cover',
+    nextSection: 'Next Section',
+    sectionCounter: (activeIndex: number, count: number) => `${activeIndex + 1} of ${count} sections`,
+    sectionMenuLabel: 'Lesson sections',
+    startLesson: 'Start lesson',
+    backToLibrary: 'Back to lesson library',
+    translateToThaiLabel: 'Translate to Thai',
+    translateToEnglishLabel: 'Translate to English',
+    showEnglish: 'View English',
+    showThai: 'Translate to Thai',
+    hideBackstory: 'Hide backstory',
+    showBackstory: 'Show backstory',
+    checkAnswers: 'CHECK ANSWERS',
+    audioReady: 'Audio ready',
+    noAudioYet: 'No audio yet',
+    noSectionYet: 'No section yet',
+    noSectionAvailable: 'No lesson section is available yet',
+    sectionLoadedPlaceholder:
+      'This section is loaded, but we are intentionally not rendering raw content or content_jsonb here until the native renderer is ready.',
+    tabExistsPlaceholder:
+      'This lesson tab exists in the resolved lesson payload, but it still needs a dedicated native renderer.',
+    rendererNext: 'Renderer Next',
+    rendererReady: (label: string) => `${label} is ready for native rich rendering`,
+    rendererLanding: 'The section renderer will land in this study area.',
+    richNodesLoaded: (count: number) =>
+      `The resolved payload is loaded for this section with up to ${count} rich blocks. The remaining work is translating those blocks into native components.`,
+    tabRendererMissing: (title: string) =>
+      `${title} is already present in the resolved lesson payload, but the native renderer for this section is not wired in yet.`,
+    richContentLanding: 'As soon as the lesson exposes section data, this area will host the native rich content flow.',
+    richBlocksLoaded: 'Rich lesson blocks are loaded for this section.',
+    audioLinkedData: 'This section includes audio-linked data that can be wired into the player.',
+    sectionTypeLabel: (label: string) => `Section type: ${label}`,
+    lessonLabel: 'Lesson',
+    lessonSections: 'lesson sections',
+    lessonFocus: 'Lesson Focus',
+    greatJob: 'GREAT JOB!',
+    tryAgain: 'TRY AGAIN',
+    loadingImageAlt: 'Loading lesson',
+    loadingErrorTitle: 'Something went wrong',
+    loadingErrorBody: 'We could not load this lesson just yet. Please try again in a moment.',
+    audioTrayStatus: 'Audio ready',
+    audioTrayPlaying: 'Now playing',
+    audioTrayLoading: 'Loading audio',
+  };
+};

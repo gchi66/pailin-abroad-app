@@ -56,7 +56,32 @@ export type ResolvedLessonSection = {
 
 export type ResolvedLessonQuestion = {
   id?: string | null;
+  lesson_id?: string | null;
+  sort_order?: number | null;
+  question_type?: string | null;
+  prompt?: string | null;
+  prompt_en?: string | null;
+  prompt_th?: string | null;
+  options?: string | LessonQuestionOption[] | null;
+  options_th?: string | LessonQuestionOption[] | null;
+  correct_choice?: string | null;
+  answer_key?: string | string[] | null;
+  answer_key_th?: string | string[] | null;
+  explanation?: string | null;
+  explanation_th?: string | null;
   [key: string]: unknown;
+};
+
+export type LessonQuestionOption = {
+  label?: string | null;
+  letter?: string | null;
+  text?: string | null;
+  text_th?: string | null;
+  textTh?: string | null;
+  image_key?: string | null;
+  alt_text?: string | null;
+  alt_text_th?: string | null;
+  altTextTh?: string | null;
 };
 
 export type ResolvedLessonExercise = {

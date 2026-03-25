@@ -1,30 +1,56 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
+import { AudioPlayer, AudioStatus, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Image } from 'expo-image';
 
-import { fetchResolvedLesson } from '@/src/api/lessons';
+import { fetchLessonAudioUrls, fetchResolvedLesson } from '@/src/api/lessons';
+import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { env } from '@/src/config/env';
+import {
+  getLessonDetailCopy,
+  getLessonSectionLabel,
+  getLessonSectionTitle,
+} from '@/src/copy/lesson-detail';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
-import { ResolvedLessonPayload, ResolvedLessonSection } from '@/src/types/lesson';
+import {
+  LessonQuestionOption,
+  ResolvedLessonPayload,
+  ResolvedLessonQuestion,
+  ResolvedLessonSection,
+} from '@/src/types/lesson';
 
 type UiLanguage = 'en' | 'th';
 type LessonTab = {
   id: string;
   type: string;
   section: ResolvedLessonSection | null;
+};
+
+type NormalizedLessonQuestionOption = {
+  label: string;
+  text: string;
+  textTh: string;
+  imageKey: string | null;
+  altText: string;
+  altTextTh: string;
+};
+
+type NormalizedLessonQuestion = {
+  id: string;
+  sortOrder: number;
+  prompt: string;
+  promptEn: string;
+  promptTh: string;
+  options: NormalizedLessonQuestionOption[];
+  answerKey: string[];
+  explanation: string;
 };
 
 const MASTER_ORDER = [
@@ -38,19 +64,6 @@ const MASTER_ORDER = [
   'culture_note',
   'practice',
 ] as const;
-
-const SECTION_TYPE_LABELS: Record<string, { en: string; th: string }> = {
-  comprehension: { en: 'Comprehension', th: 'คำถามความเข้าใจ' },
-  transcript: { en: 'Transcript', th: 'บทถอดเสียง' },
-  conversation: { en: 'Conversation', th: 'บทสนทนา' },
-  apply: { en: 'Apply', th: 'นำไปใช้' },
-  understand: { en: 'Understand', th: 'ทำความเข้าใจ' },
-  extra_tip: { en: 'Extra Tip', th: 'เกร็ดเพิ่มเติม' },
-  common_mistake: { en: 'Common Mistake', th: 'ข้อผิดพลาดที่พบบ่อย' },
-  phrases_verbs: { en: 'Phrases & Verbs', th: 'วลีและคำกริยา' },
-  culture_note: { en: 'Culture Note', th: 'เกร็ดวัฒนธรรม' },
-  practice: { en: 'Practice', th: 'ฝึกฝน' },
-};
 
 const getResolvedSectionType = (section: ResolvedLessonSection) => section.type ?? section.section_type ?? null;
 
@@ -98,49 +111,184 @@ const buildLessonTabs = (lesson: ResolvedLessonPayload | null): LessonTab[] => {
 const getSectionId = (section: ResolvedLessonSection, index: number) =>
   typeof section.id === 'string' && section.id.trim().length > 0 ? section.id : `section-${index + 1}`;
 
-const getSectionLabel = (uiLanguage: UiLanguage, sectionType: string | null | undefined) => {
-  if (!sectionType) {
-    return uiLanguage === 'th' ? 'บทเรียน' : 'Lesson section';
-  }
-  return SECTION_TYPE_LABELS[sectionType]?.[uiLanguage] ?? sectionType.replace(/_/g, ' ');
-};
-
-const getSectionTitle = (uiLanguage: UiLanguage, sectionType: string | null | undefined, index: number) => {
-  return getSectionLabel(uiLanguage, sectionType) || `${uiLanguage === 'th' ? 'ส่วนที่' : 'Section'} ${index + 1}`;
-};
-
 const getSectionNotes = (uiLanguage: UiLanguage, section: ResolvedLessonSection) => {
+  const copy = getLessonDetailCopy(uiLanguage);
   const notes: string[] = [];
   const richNodes =
     (Array.isArray(section.content_jsonb) ? section.content_jsonb.length : 0) +
     (Array.isArray(section.content_jsonb_th) ? section.content_jsonb_th.length : 0);
 
   if (richNodes > 0) {
-    notes.push(
-      uiLanguage === 'th'
-        ? 'โหลด rich lesson blocks สำหรับ section นี้แล้ว'
-        : 'Rich lesson blocks are loaded for this section.'
-    );
+    notes.push(copy.richBlocksLoaded);
   }
 
   if (section.audio_url || section.conversation_audio_url) {
-    notes.push(
-      uiLanguage === 'th'
-        ? 'section นี้มีข้อมูลเสียงที่สามารถต่อเข้ากับ player ได้'
-        : 'This section includes audio-linked data that can be wired into the player.'
-    );
+    notes.push(copy.audioLinkedData);
   }
 
-  notes.push(
-      uiLanguage === 'th'
-      ? `ชนิดของ section: ${getSectionLabel(uiLanguage, getResolvedSectionType(section))}`
-      : `Section type: ${getSectionLabel(uiLanguage, getResolvedSectionType(section))}`
-  );
+  notes.push(copy.sectionTypeLabel(getLessonSectionLabel(uiLanguage, getResolvedSectionType(section))));
 
   return notes;
 };
 
 const hasSectionAudio = (section: ResolvedLessonSection) => Boolean(section.audio_url || section.conversation_audio_url);
+
+const splitTextLines = (value: string | null | undefined) =>
+  String(value ?? '')
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+const safeParseArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const safeParseAnswerKey = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    return value
+      .split(/[,\s/]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const splitThaiText = (value: string) => {
+  const thaiRegex = /[\u0E00-\u0E7F]/;
+  const segments = splitTextLines(value);
+
+  if (!segments.length) {
+    return { en: '', th: '' };
+  }
+
+  let english = '';
+  let thai = '';
+
+  segments.forEach((segment) => {
+    if (thaiRegex.test(segment)) {
+      thai = thai ? `${thai}\n${segment}` : segment;
+    } else if (!english) {
+      english = segment;
+    } else {
+      english = `${english}\n${segment}`;
+    }
+  });
+
+  if (!english) {
+    english = segments[0] ?? '';
+  }
+
+  return { en: english, th: thai };
+};
+
+const parseQuestionOption = (option: string | LessonQuestionOption) => {
+  if (typeof option === 'string') {
+    const match = option.match(/^([A-Z])\.\s*(.*)$/s);
+    const label = match?.[1] ?? '';
+    const body = match?.[2] ?? option;
+    const { en, th } = splitThaiText(body);
+    return {
+      label,
+      text: en,
+      textTh: th,
+      imageKey: null,
+      altText: '',
+      altTextTh: '',
+    };
+  }
+
+  const { en, th } = splitThaiText(option.text ?? '');
+  const thaiOverride = splitThaiText(option.text_th ?? option.textTh ?? '');
+
+  return {
+    label: (option.label ?? option.letter ?? '').trim(),
+    text: en || thaiOverride.en,
+    textTh: th || thaiOverride.th,
+    imageKey: option.image_key ?? null,
+    altText: option.alt_text ?? '',
+    altTextTh: option.alt_text_th ?? option.altTextTh ?? '',
+  };
+};
+
+const normalizeQuestion = (question: ResolvedLessonQuestion, contentLang: UiLanguage): NormalizedLessonQuestion => {
+  const promptEn = (question.prompt ?? '').trim();
+  const promptTh = (question.prompt_th ?? '').trim();
+  const prompt =
+    (contentLang === 'th' ? promptTh || promptEn : promptEn || promptTh).trim();
+
+  const rawOptions =
+    contentLang === 'th' && question.options_th ? safeParseArray<string | LessonQuestionOption>(question.options_th) : [];
+  const englishOptions = safeParseArray<string | LessonQuestionOption>(question.options);
+  const localizedOptions = rawOptions.length ? rawOptions : englishOptions;
+
+  const options = localizedOptions.map(parseQuestionOption);
+  const fallbackThaiOptions = safeParseArray<string | LessonQuestionOption>(question.options_th).map(parseQuestionOption);
+
+  const mergedOptions = options.map((option, index) => {
+    const thaiOption = fallbackThaiOptions[index];
+    return {
+      ...option,
+      label: option.label || thaiOption?.label || String.fromCharCode(65 + index),
+      textTh: option.textTh || thaiOption?.text || thaiOption?.textTh || '',
+      altTextTh: option.altTextTh || thaiOption?.altText || thaiOption?.altTextTh || '',
+    };
+  });
+
+  const answerKey = safeParseAnswerKey(question.answer_key);
+  const fallbackAnswerKey =
+    answerKey.length > 0 ? answerKey : question.correct_choice ? [String(question.correct_choice).trim()] : [];
+
+  return {
+    id: String(question.id ?? `question-${question.sort_order ?? Math.random()}`),
+    sortOrder: Number(question.sort_order ?? 0),
+    prompt,
+    promptEn,
+    promptTh,
+    options: mergedOptions,
+    answerKey: fallbackAnswerKey,
+    explanation:
+      (contentLang === 'th'
+        ? String(question.explanation_th ?? question.explanation ?? '')
+        : String(question.explanation ?? question.explanation_th ?? '')
+      ).trim(),
+  };
+};
+
+const resolveLessonImageUrl = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
 const normalizeHeaderImagePath = (rawValue: string | null) => {
   if (!rawValue) return null;
@@ -173,12 +321,44 @@ const resolveHeaderImageUrl = (rawValue: string | null) => {
   return `${env.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/lesson-images/${normalized}`;
 };
 
+const secondsToMillis = (seconds: number) => Math.max(0, Math.round(seconds * 1000));
+const millisToSeconds = (millis: number) => Math.max(0, millis / 1000);
+const AUDIO_DEBUG = __DEV__;
+const PITCH_CORRECTION_QUALITY = 'medium';
+
+const logAudioDebug = (message: string, details?: Record<string, unknown>) => {
+  if (!AUDIO_DEBUG) {
+    return;
+  }
+
+  if (details) {
+    console.log(`[LessonAudio] ${message}`, details);
+    return;
+  }
+
+  console.log(`[LessonAudio] ${message}`);
+};
+
+const logAudioError = (message: string, details?: Record<string, unknown>) => {
+  if (!AUDIO_DEBUG) {
+    return;
+  }
+
+  if (details) {
+    console.warn(`[LessonAudio] ${message}`, details);
+    return;
+  }
+
+  console.warn(`[LessonAudio] ${message}`);
+};
+
 export default function LessonDetailShellScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const lessonId = typeof params.id === 'string' ? params.id : '';
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { height: windowHeight } = useWindowDimensions();
+  const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,13 +367,30 @@ export default function LessonDetailShellScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasStartedLesson, setHasStartedLesson] = useState(false);
   const [isBackstoryExpanded, setIsBackstoryExpanded] = useState(false);
+  const [contentLang, setContentLang] = useState<UiLanguage>('en');
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
+  const [hasCheckedAnswers, setHasCheckedAnswers] = useState(false);
+  const [audioUrls, setAudioUrls] = useState<{ main: string | null; noBg: string | null; bg: string | null }>({
+    main: null,
+    noBg: null,
+    bg: null,
+  });
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioPositionMillis, setAudioPositionMillis] = useState(0);
+  const [audioDurationMillis, setAudioDurationMillis] = useState(0);
+  const [hasAudioFinished, setHasAudioFinished] = useState(false);
+  const [audioRate, setAudioRate] = useState(1);
+  const voiceSoundRef = useRef<AudioPlayer | null>(null);
+  const bgSoundRef = useRef<AudioPlayer | null>(null);
+  const lastBgSyncRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
 
     const run = async () => {
       if (!lessonId) {
-        setErrorMessage(uiLanguage === 'th' ? 'ไม่พบ lesson id' : 'Missing lesson id.');
+        setErrorMessage(uiCopy.missingLessonId);
         setIsLoading(false);
         return;
       }
@@ -202,7 +399,7 @@ export default function LessonDetailShellScreen() {
       setErrorMessage(null);
 
       try {
-        const row = await fetchResolvedLesson(lessonId, uiLanguage);
+        const row = await fetchResolvedLesson(lessonId, contentLang);
         if (!isMounted) {
           return;
         }
@@ -211,7 +408,7 @@ export default function LessonDetailShellScreen() {
         if (!isMounted) {
           return;
         }
-        const message = error instanceof Error ? error.message : 'Failed to load lesson.';
+        const message = error instanceof Error ? error.message : uiCopy.fetchLessonFailed;
         setErrorMessage(message);
       } finally {
         if (isMounted) {
@@ -225,14 +422,32 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [lessonId, uiLanguage]);
+  }, [contentLang, lessonId, uiCopy.fetchLessonFailed, uiCopy.missingLessonId]);
 
   useEffect(() => {
     setActiveSectionIndex(0);
     setIsMenuOpen(false);
     setHasStartedLesson(false);
     setIsBackstoryExpanded(false);
+    setContentLang('en');
+    setSelectedAnswers({});
+    setHasCheckedAnswers(false);
+    setAudioUrls({ main: null, noBg: null, bg: null });
+    setIsAudioLoading(false);
+    setIsAudioPlaying(false);
+    setAudioPositionMillis(0);
+    setAudioDurationMillis(0);
+    setHasAudioFinished(false);
+    setAudioRate(1);
   }, [lessonId]);
+
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: 'duckOthers',
+    }).catch(() => undefined);
+  }, []);
 
   const englishTitle = useMemo(() => {
     if (!lesson) return null;
@@ -246,8 +461,8 @@ export default function LessonDetailShellScreen() {
 
   const resolvedFocus = useMemo(() => {
     if (!lesson) return null;
-    return uiLanguage === 'th' ? lesson.focus_th || lesson.focus : lesson.focus || lesson.focus_th;
-  }, [lesson, uiLanguage]);
+    return lesson.focus?.trim() || lesson.focus_th?.trim() || null;
+  }, [lesson]);
 
   const resolvedBackstory = useMemo(() => {
     if (!lesson) return null;
@@ -265,24 +480,45 @@ export default function LessonDetailShellScreen() {
   const lessonTabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
   const activeTab = lessonTabs[activeSectionIndex] ?? null;
   const activeSection = activeTab?.section ?? null;
+  const normalizedQuestions = useMemo(
+    () => (lesson?.questions ?? []).map((question, index) => ({
+      ...normalizeQuestion(question, contentLang),
+      id: String(question.id ?? `question-${index + 1}`),
+      sortOrder: Number(question.sort_order ?? index + 1),
+    })),
+    [contentLang, lesson?.questions]
+  );
+
+  useEffect(() => {
+    const validQuestionIds = new Set(normalizedQuestions.map((question) => question.id));
+
+    setSelectedAnswers((previous) => {
+      const nextEntries = Object.entries(previous).filter(([questionId]) => validQuestionIds.has(questionId));
+
+      if (nextEntries.length === Object.keys(previous).length) {
+        return previous;
+      }
+
+      return Object.fromEntries(nextEntries);
+    });
+  }, [normalizedQuestions]);
+  const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
+  const pageCopy = useMemo(() => getLessonDetailCopy(pageLanguage), [pageLanguage]);
   const activeSectionTitle = useMemo(
-    () => (activeTab ? getSectionTitle(uiLanguage, activeTab.type, activeSectionIndex) : null),
-    [activeSectionIndex, activeTab, uiLanguage]
+    () => (activeTab ? getLessonSectionTitle(pageLanguage, activeTab.type, activeSectionIndex) : null),
+    [activeSectionIndex, activeTab, pageLanguage]
   );
   const activeSectionNotes = useMemo(
-    () => (activeSection ? getSectionNotes(uiLanguage, activeSection) : []),
-    [activeSection, uiLanguage]
+    () => (activeSection ? getSectionNotes(pageLanguage, activeSection) : []),
+    [activeSection, pageLanguage]
   );
   const activeSectionEyebrow = useMemo(
-    () =>
-      uiLanguage === 'th'
-        ? `ส่วนที่ ${activeSectionIndex + 1}`
-        : `Section ${activeSectionIndex + 1}`,
-    [activeSectionIndex, uiLanguage]
+    () => pageCopy.sectionEyebrow(activeSectionIndex),
+    [activeSectionIndex, pageCopy]
   );
   const activeSectionTypeLabel = useMemo(
-    () => (activeTab ? getSectionLabel(uiLanguage, activeTab.type) : null),
-    [activeTab, uiLanguage]
+    () => (activeTab ? getLessonSectionLabel(pageLanguage, activeTab.type) : null),
+    [activeTab, pageLanguage]
   );
   const sectionCount = lessonTabs.length;
   const progressRatio = sectionCount > 0 ? (activeSectionIndex + 1) / sectionCount : 0;
@@ -290,60 +526,444 @@ export default function LessonDetailShellScreen() {
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const primaryActionLabel =
     sectionCount === 0
-      ? uiLanguage === 'th'
-        ? 'กลับไปหน้าปกบทเรียน'
-        : 'Back to lesson cover'
-      : uiLanguage === 'th'
-        ? isLastSection
-          ? 'กลับไปหน้าปกบทเรียน'
-          : 'ไปยังส่วนถัดไป'
-        : isLastSection
-          ? 'Back to lesson cover'
-          : 'Next Section';
+      ? pageCopy.backToLessonCover
+      : isLastSection
+        ? pageCopy.backToLessonCover
+        : pageCopy.nextSection;
   const sectionCounterLabel =
     sectionCount === 0
-      ? uiLanguage === 'th'
-        ? 'ยังไม่มี sections'
-        : 'No sections yet'
-      : uiLanguage === 'th'
-        ? `${activeSectionIndex + 1} จาก ${sectionCount} ส่วน`
-        : `${activeSectionIndex + 1} of ${sectionCount} sections`;
-  const sectionMenuLabel = uiLanguage === 'th' ? 'สารบัญบทเรียน' : 'Lesson sections';
-  const startLessonLabel = uiLanguage === 'th' ? 'เริ่มบทเรียน' : 'Start lesson';
+      ? pageCopy.noSectionsYet
+      : pageCopy.sectionCounter(activeSectionIndex, sectionCount);
+  const sectionMenuLabel = pageCopy.sectionMenuLabel;
+  const startLessonLabel = uiCopy.startLesson;
   const coverMinHeight = Math.max(windowHeight || 0, 720);
-  const backToLibraryLabel = uiLanguage === 'th' ? 'กลับไปคลังบทเรียน' : 'Back to lesson library';
+  const backToLibraryLabel = uiCopy.backToLibrary;
+  const translateToThaiLabel = pageCopy.translateToThaiLabel;
+  const translateToEnglishLabel = pageCopy.translateToEnglishLabel;
   const backstoryToggleLabel = isBackstoryExpanded
-    ? uiLanguage === 'th'
-      ? 'ซ่อน backstory'
-      : 'Hide backstory'
-    : uiLanguage === 'th'
-      ? 'ดู backstory'
-      : 'Show backstory';
+    ? uiCopy.hideBackstory
+    : uiCopy.showBackstory;
   const richContentBlockCount = activeSection
     ? Math.max(
         Array.isArray(activeSection.content_jsonb) ? activeSection.content_jsonb.length : 0,
         Array.isArray(activeSection.content_jsonb_th) ? activeSection.content_jsonb_th.length : 0
       )
     : 0;
+  const allAnswersCorrect =
+    normalizedQuestions.length > 0 &&
+    normalizedQuestions.every((question) => {
+      const currentSelections = selectedAnswers[question.id] ?? [];
+      if (!currentSelections.length || currentSelections.length !== question.answerKey.length) {
+        return false;
+      }
+
+      const answerSet = new Set(question.answerKey);
+      return currentSelections.every((choice) => answerSet.has(choice));
+    });
+  const comprehensionButtonLabel = hasCheckedAnswers
+    ? allAnswersCorrect
+      ? pageCopy.greatJob
+      : pageCopy.tryAgain
+    : pageCopy.checkAnswers;
+  const isComprehensionTab = activeTab?.type === 'comprehension';
+  const contentToggleLabel = contentLang === 'th' ? translateToEnglishLabel : translateToThaiLabel;
+  const contentToggleText = contentLang === 'th' ? pageCopy.showEnglish : pageCopy.showThai;
+  const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
+  const audioTraySubtitle = activeSectionTitle || thaiTitle || englishTitle || null;
+  const shouldShowAudioTray = hasStartedLesson && !isLoading && !errorMessage && Boolean(lesson);
+  const audioTrayStatusLabel = isAudioLoading
+    ? pageCopy.audioTrayLoading
+    : isAudioPlaying
+      ? pageCopy.audioTrayPlaying
+      : pageCopy.audioTrayStatus;
+
+  const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
+    setSelectedAnswers((previous) => {
+      const priorSelections = previous[questionId] ?? [];
+      const nextSelections = isMulti
+        ? priorSelections.includes(optionLabel)
+          ? priorSelections.filter((item) => item !== optionLabel)
+          : [...priorSelections, optionLabel]
+        : [optionLabel];
+      return {
+        ...previous,
+        [questionId]: nextSelections,
+      };
+    });
+    setHasCheckedAnswers(false);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      if (!lesson?.id || !lesson.conversation_audio_url) {
+        setAudioUrls({ main: null, noBg: null, bg: null });
+        return;
+      }
+
+      try {
+        const urls = await fetchLessonAudioUrls(lesson);
+        if (!isMounted) {
+          return;
+        }
+        logAudioDebug('Resolved lesson audio URLs', {
+          lessonId: lesson.id,
+          conversationAudioPath: lesson.conversation_audio_url,
+          urls,
+        });
+        setAudioUrls(urls);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        logAudioError('Failed to resolve lesson audio URLs', {
+          lessonId: lesson.id,
+          conversationAudioPath: lesson.conversation_audio_url,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setAudioUrls({ main: null, noBg: null, bg: null });
+      }
+    };
+
+    run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lesson]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const unloadCurrentPlayers = () => {
+      const players = [voiceSoundRef.current, bgSoundRef.current].filter(Boolean) as AudioPlayer[];
+      voiceSoundRef.current = null;
+      bgSoundRef.current = null;
+      players.forEach((player) => {
+        try {
+          player.remove();
+        } catch {
+          return;
+        }
+      });
+    };
+
+    const syncBackgroundPlayer = (status: AudioStatus) => {
+      const bgPlayer = bgSoundRef.current;
+      if (!status.playing || !bgPlayer?.isLoaded) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastBgSyncRef.current < 500) {
+        return;
+      }
+
+      lastBgSyncRef.current = now;
+      const drift = Math.abs(secondsToMillis(bgPlayer.currentTime) - secondsToMillis(status.currentTime));
+      if (drift > 250) {
+        void bgPlayer.seekTo(status.currentTime).catch(() => undefined);
+      }
+    };
+
+    const loadPlayers = async () => {
+      unloadCurrentPlayers();
+      setIsAudioPlaying(false);
+      setAudioPositionMillis(0);
+      setAudioDurationMillis(0);
+      setHasAudioFinished(false);
+      lastBgSyncRef.current = 0;
+
+      const voiceUrl = audioUrls.noBg || audioUrls.main;
+      const bgUrl = audioUrls.noBg && audioUrls.bg ? audioUrls.bg : null;
+
+      if (!voiceUrl) {
+        logAudioError('No voice URL available for lesson audio', {
+          lessonId,
+          audioUrls,
+        });
+        setIsAudioLoading(false);
+        return;
+      }
+
+      setIsAudioLoading(true);
+
+      try {
+        const voiceCandidates = Array.from(new Set([audioUrls.noBg, audioUrls.main].filter(Boolean))) as string[];
+        logAudioDebug('Attempting to load lesson audio candidates', {
+          lessonId,
+          voiceCandidates,
+          bgUrl,
+          audioRate,
+        });
+        let voiceSound: AudioPlayer | null = null;
+        let usingSplitVoice = false;
+        let voiceStatusSubscription: { remove: () => void } | null = null;
+
+        for (const candidate of voiceCandidates) {
+          try {
+            logAudioDebug('Creating voice player', {
+              lessonId,
+              candidate,
+            });
+            const player = createAudioPlayer(candidate, {
+              updateInterval: 500,
+            });
+            player.setPlaybackRate(audioRate, PITCH_CORRECTION_QUALITY);
+
+            const subscription = player.addListener('playbackStatusUpdate', (status) => {
+              if (!isActive || !status.isLoaded) {
+                if (AUDIO_DEBUG && !status.isLoaded) {
+                  logAudioDebug('Voice status update before load', {
+                    lessonId,
+                    candidate,
+                    playbackState: status.playbackState,
+                    timeControlStatus: status.timeControlStatus,
+                    reasonForWaitingToPlay: status.reasonForWaitingToPlay,
+                    isBuffering: status.isBuffering,
+                  });
+                }
+                return;
+              }
+
+              setIsAudioLoading(false);
+              setIsAudioPlaying(status.playing);
+              setAudioPositionMillis(secondsToMillis(status.currentTime));
+              setAudioDurationMillis(secondsToMillis(status.duration));
+              setHasAudioFinished(Boolean(status.didJustFinish));
+              if (AUDIO_DEBUG && (status.didJustFinish || status.isBuffering || status.currentTime === 0)) {
+                logAudioDebug('Voice status update', {
+                  lessonId,
+                  candidate,
+                  currentTime: status.currentTime,
+                  duration: status.duration,
+                  playing: status.playing,
+                  playbackState: status.playbackState,
+                  timeControlStatus: status.timeControlStatus,
+                  reasonForWaitingToPlay: status.reasonForWaitingToPlay,
+                  isBuffering: status.isBuffering,
+                  didJustFinish: status.didJustFinish,
+                });
+              }
+              syncBackgroundPlayer(status);
+            });
+
+            voiceSound = player;
+            voiceStatusSubscription = subscription;
+            usingSplitVoice = candidate === audioUrls.noBg;
+            logAudioDebug('Voice player created', {
+              lessonId,
+              candidate,
+              usingSplitVoice,
+            });
+            break;
+          } catch (error) {
+            logAudioError('Failed to create voice player', {
+              lessonId,
+              candidate,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            continue;
+          }
+        }
+
+        if (!voiceSound || !voiceStatusSubscription) {
+          throw new Error('Unable to load lesson audio');
+        }
+
+        let bgSound: AudioPlayer | null = null;
+        if (usingSplitVoice && bgUrl) {
+          try {
+            logAudioDebug('Creating background player', {
+              lessonId,
+              bgUrl,
+            });
+            bgSound = createAudioPlayer(bgUrl, {
+              updateInterval: 500,
+            });
+            bgSound.setPlaybackRate(1);
+            logAudioDebug('Background player created', {
+              lessonId,
+              bgUrl,
+            });
+          } catch (error) {
+            logAudioError('Failed to create background player', {
+              lessonId,
+              bgUrl,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            bgSound = null;
+          }
+        }
+
+        if (!isActive) {
+          voiceStatusSubscription.remove();
+          voiceSound.remove();
+          bgSound?.remove();
+          return;
+        }
+
+        voiceSoundRef.current = voiceSound;
+        bgSoundRef.current = bgSound;
+      } catch (error) {
+        if (isActive) {
+          logAudioError('Lesson audio load failed', {
+            lessonId,
+            audioUrls,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          setIsAudioPlaying(false);
+          setAudioPositionMillis(0);
+          setAudioDurationMillis(0);
+        }
+      } finally {
+        if (isActive) {
+          setIsAudioLoading(false);
+        }
+      }
+    };
+
+    loadPlayers();
+
+    return () => {
+      isActive = false;
+      unloadCurrentPlayers();
+    };
+  }, [audioRate, audioUrls, lessonId]);
+
+  useEffect(() => {
+    const voiceSound = voiceSoundRef.current;
+    if (voiceSound?.isLoaded) {
+      voiceSound.setPlaybackRate(audioRate, PITCH_CORRECTION_QUALITY);
+    }
+    if (bgSoundRef.current?.isLoaded) {
+      bgSoundRef.current.setPlaybackRate(1);
+    }
+  }, [audioRate]);
+
+  const handleToggleAudio = async () => {
+    const voiceSound = voiceSoundRef.current;
+    const bgSound = bgSoundRef.current;
+    if (!voiceSound || isAudioLoading || !voiceSound.isLoaded) {
+      logAudioError('Play toggle ignored', {
+        lessonId,
+        hasVoiceSound: Boolean(voiceSound),
+        isAudioLoading,
+        voiceLoaded: voiceSound?.isLoaded ?? false,
+      });
+      return;
+    }
+
+    try {
+      logAudioDebug('Toggling lesson audio', {
+        lessonId,
+        isPlaying: voiceSound.playing,
+        currentTime: voiceSound.currentTime,
+        duration: voiceSound.duration,
+        hasAudioFinished,
+        hasBgSound: Boolean(bgSound),
+      });
+      if (voiceSound.playing) {
+        voiceSound.pause();
+        bgSound?.pause();
+      } else {
+        const durationMillis = secondsToMillis(voiceSound.duration);
+        const positionMillis = secondsToMillis(voiceSound.currentTime);
+        const shouldRestart =
+          hasAudioFinished || (durationMillis > 0 && positionMillis >= durationMillis - 250);
+        const startPositionMillis =
+          shouldRestart
+            ? 0
+            : positionMillis;
+
+        if (shouldRestart) {
+          await Promise.all([
+            voiceSound.seekTo(0),
+            bgSound?.seekTo(0).catch(() => undefined),
+          ]);
+          setHasAudioFinished(false);
+        }
+        if (bgSound?.isLoaded) {
+          await bgSound.seekTo(millisToSeconds(startPositionMillis)).catch(() => undefined);
+          bgSound.play();
+        }
+        voiceSound.play();
+        logAudioDebug('Issued play command to lesson audio', {
+          lessonId,
+          startPositionMillis,
+          voiceLoaded: voiceSound.isLoaded,
+          bgLoaded: bgSound?.isLoaded ?? false,
+        });
+      }
+    } catch (error) {
+      logAudioError('Play toggle failed', {
+        lessonId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+  };
+
+  const handleSkipAudio = async (millisDelta: number) => {
+    const voiceSound = voiceSoundRef.current;
+    const bgSound = bgSoundRef.current;
+    if (!voiceSound || !voiceSound.isLoaded) {
+      return;
+    }
+
+    try {
+      const nextPosition = Math.max(
+        0,
+        Math.min(secondsToMillis(voiceSound.duration), secondsToMillis(voiceSound.currentTime) + millisDelta)
+      );
+      await Promise.all([
+        voiceSound.seekTo(millisToSeconds(nextPosition)),
+        bgSound?.seekTo(millisToSeconds(nextPosition)).catch(() => undefined),
+      ]);
+      setHasAudioFinished(false);
+    } catch {
+      return;
+    }
+  };
+
+  const handleSeekAudio = async (ratio: number) => {
+    const voiceSound = voiceSoundRef.current;
+    const bgSound = bgSoundRef.current;
+    if (!voiceSound || !voiceSound.isLoaded || !voiceSound.duration) {
+      return;
+    }
+
+    try {
+      const nextPosition = Math.round(secondsToMillis(voiceSound.duration) * ratio);
+      await Promise.all([
+        voiceSound.seekTo(millisToSeconds(nextPosition)),
+        bgSound?.seekTo(millisToSeconds(nextPosition)).catch(() => undefined),
+      ]);
+      setHasAudioFinished(false);
+    } catch {
+      return;
+    }
+  };
+
+  const handleSetAudioRate = (nextRate: number) => {
+    setAudioRate(nextRate);
+  };
 
   return (
     <View style={styles.screen}>
       <RouterStack.Screen options={{ headerShown: false }} />
 
       {isLoading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={theme.colors.primary} />
-        </View>
+        <PageLoadingState language={uiLanguage} />
       ) : null}
 
       {!isLoading && errorMessage ? (
-        <View style={styles.errorWrap}>
-          <Card padding="md" radius="md">
-            <AppText language={uiLanguage} variant="body" style={styles.errorText}>
-              {errorMessage}
-            </AppText>
-          </Card>
-        </View>
+        <PageLoadingState
+          language={uiLanguage}
+          errorTitle={uiCopy.loadingErrorTitle}
+          errorBody={errorMessage || uiCopy.loadingErrorBody}
+        />
       ) : null}
 
       {!isLoading && !errorMessage && lesson ? (
@@ -388,10 +1008,10 @@ export default function LessonDetailShellScreen() {
 
                       <View style={styles.heroMetaGroup}>
                         <AppText language={uiLanguage} variant="caption" style={styles.metaText}>
-                          {uiLanguage === 'th' ? 'บทเรียน' : 'Lesson'} {lesson.lesson_order ?? '-'}
+                          {uiCopy.lessonLabel} {lesson.lesson_order ?? '-'}
                         </AppText>
                         <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
-                          {sectionCount} {uiLanguage === 'th' ? 'ส่วนของบทเรียน' : 'lesson sections'}
+                          {sectionCount} {uiCopy.lessonSections}
                         </AppText>
                       </View>
                     </View>
@@ -439,7 +1059,7 @@ export default function LessonDetailShellScreen() {
                     {resolvedFocus ? (
                       <View style={styles.coverFocusBlock}>
                         <AppText language={uiLanguage} variant="caption" style={styles.coverFocusEyebrow}>
-                          {uiLanguage === 'th' ? 'Lesson Focus' : 'Lesson Focus'}
+                          {uiCopy.lessonFocus}
                         </AppText>
                         <AppText language={uiLanguage} variant="body" style={styles.coverFocusText}>
                           {resolvedFocus}
@@ -469,7 +1089,7 @@ export default function LessonDetailShellScreen() {
                     accessibilityRole="button"
                     onPress={() => setIsMenuOpen(true)}
                     style={styles.stepperMenuButton}>
-                    <AppText language={uiLanguage} variant="body" style={styles.menuButtonText}>
+                    <AppText language={pageLanguage} variant="body" style={styles.menuButtonText}>
                       ≡
                     </AppText>
                   </Pressable>
@@ -479,10 +1099,10 @@ export default function LessonDetailShellScreen() {
                       <View style={[styles.progressFill, progressWidthStyle]} />
                     </View>
                     <View style={styles.progressRow}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.progressLabel}>
+                      <AppText language={pageLanguage} variant="caption" style={styles.progressLabel}>
                         {sectionCounterLabel}
                       </AppText>
-                      <AppText language={uiLanguage} variant="caption" style={styles.progressLabel}>
+                      <AppText language={pageLanguage} variant="caption" style={styles.progressLabel}>
                         {activeSectionTypeLabel ?? sectionMenuLabel}
                       </AppText>
                     </View>
@@ -490,96 +1110,227 @@ export default function LessonDetailShellScreen() {
                 </View>
 
                 <Card padding="lg" radius="lg" style={styles.sectionCard}>
-                  <Stack gap="md">
-                    <View style={styles.sectionCardHeader}>
-                      <View style={styles.sectionEyebrow}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrowText}>
-                          {activeSection ? activeSectionEyebrow : sectionMenuLabel}
+                  {isComprehensionTab ? (
+                    <Stack gap="lg">
+                      <View style={styles.comprehensionHeader}>
+                        <AppText language={pageLanguage} variant="title" style={styles.comprehensionHeaderTitle}>
+                          {activeSectionTitle ?? getLessonSectionLabel(pageLanguage, 'comprehension')}
                         </AppText>
-                      </View>
-                      <View
-                        style={[
-                          styles.audioFlag,
-                          activeSection && hasSectionAudio(activeSection) ? styles.audioFlagActive : styles.audioFlagMuted,
-                        ]}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.audioFlagText}>
-                          {activeTab
-                            ? activeSection && hasSectionAudio(activeSection)
-                              ? uiLanguage === 'th'
-                                ? 'มีเสียง'
-                                : 'Audio ready'
-                              : uiLanguage === 'th'
-                                ? 'ยังไม่มีเสียง'
-                                : 'No audio yet'
-                            : uiLanguage === 'th'
-                              ? 'ยังไม่มี section'
-                              : 'No section yet'}
-                        </AppText>
-                      </View>
-                    </View>
 
-                    <Stack gap="sm">
-                      <AppText language={uiLanguage} variant="title" style={styles.sectionTitle}>
-                        {activeSectionTitle ??
-                          (uiLanguage === 'th' ? 'ยังไม่มี section ให้แสดง' : 'No lesson section is available yet')}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="body" style={styles.sectionBody}>
-                        {activeSection
-                          ? uiLanguage === 'th'
-                            ? 'เราโหลดข้อมูลของ section นี้แล้ว แต่จะยังไม่แสดง raw content หรือ content_jsonb ตรงนี้จนกว่าจะมี native renderer ที่เหมาะสม'
-                            : 'This section is loaded, but we are intentionally not rendering raw content or content_jsonb here until the native renderer is ready.'
-                          : uiLanguage === 'th'
-                            ? 'ส่วนนี้มีข้อมูลใน resolved lesson payload แล้ว แต่ยังต้องมี renderer เฉพาะทางสำหรับแสดงผล'
-                            : 'This lesson tab exists in the resolved lesson payload, but it still needs a dedicated native renderer.'}
-                      </AppText>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={contentToggleLabel}
+                          onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
+                          style={styles.contentToggleButton}>
+                          <AppText language={pageLanguage} variant="caption" style={styles.contentToggleButtonText}>
+                            {contentToggleText}
+                          </AppText>
+                        </Pressable>
+                      </View>
+
+                      <Stack gap="lg">
+                        {normalizedQuestions.map((question, index) => {
+                          const questionNumber = question.sortOrder || index + 1;
+                          const isMulti = question.answerKey.length > 1;
+                          const currentSelections = selectedAnswers[question.id] ?? [];
+                          const answerSet = new Set(question.answerKey);
+
+                          return (
+                            <View key={question.id} style={styles.questionBlock}>
+                              <View style={styles.questionPromptWrap}>
+                                <AppText language="en" variant="body" style={styles.questionPromptText}>
+                                  {`${questionNumber} `}
+                                </AppText>
+                                <View style={styles.questionPromptContent}>
+                                  {contentLang === 'th' ? (
+                                    <>
+                                      {splitTextLines(question.promptEn).map((line, lineIndex) => (
+                                        <AppText
+                                          key={`en-${question.id}-${lineIndex}`}
+                                          language="en"
+                                          variant="body"
+                                          style={styles.questionPromptText}>
+                                          {line}
+                                        </AppText>
+                                      ))}
+                                      {splitTextLines(question.promptTh).map((line, lineIndex) => (
+                                        <AppText
+                                          key={`th-${question.id}-${lineIndex}`}
+                                          language="th"
+                                          variant="body"
+                                          style={styles.questionPromptThaiText}>
+                                          {line}
+                                        </AppText>
+                                      ))}
+                                    </>
+                                  ) : (
+                                    splitTextLines(question.prompt).map((line, lineIndex) => (
+                                      <AppText
+                                        key={`prompt-${question.id}-${lineIndex}`}
+                                        language="en"
+                                        variant="body"
+                                        style={styles.questionPromptText}>
+                                        {line}
+                                      </AppText>
+                                    ))
+                                  )}
+                                </View>
+                              </View>
+
+                              <Stack gap="sm">
+                                {question.options.map((option, optionIndex) => {
+                                  const optionKey = `${question.id}-${option.label}-${optionIndex}`;
+                                  const isSelected = currentSelections.includes(option.label);
+                                  const shouldShowResult = hasCheckedAnswers && isSelected;
+                                  const isCorrectOption = answerSet.has(option.label);
+                                  const optionImageUrl = resolveLessonImageUrl(
+                                    option.imageKey ? lesson.images?.[option.imageKey] : null
+                                  );
+
+                                  return (
+                                    <View key={optionKey} style={styles.optionRow}>
+                                      <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`${option.label} ${option.text || option.textTh}`}
+                                        accessibilityState={{ selected: isSelected }}
+                                        onPress={() => handleToggleAnswer(question.id, option.label, isMulti)}
+                                        style={[
+                                          styles.optionLetterButton,
+                                          isSelected ? styles.optionLetterButtonSelected : null,
+                                        ]}>
+                                        <AppText language="en" variant="body" style={styles.optionLetterText}>
+                                          {option.label}
+                                        </AppText>
+                                      </Pressable>
+
+                                      <View style={styles.optionBody}>
+                                        {optionImageUrl ? (
+                                          <Image
+                                            source={{ uri: optionImageUrl }}
+                                            contentFit="cover"
+                                            style={styles.optionImage}
+                                          />
+                                        ) : null}
+
+                                        <View style={styles.optionTextWrap}>
+                                          {option.text ? (
+                                            <AppText language="en" variant="body" style={styles.optionText}>
+                                              {option.text}
+                                            </AppText>
+                                          ) : null}
+                                          {contentLang === 'th' && option.textTh ? (
+                                            <AppText language="th" variant="body" style={styles.optionTextThai}>
+                                              {option.textTh}
+                                            </AppText>
+                                          ) : null}
+                                        </View>
+
+                                        {shouldShowResult ? (
+                                          <View
+                                            style={[
+                                              styles.optionResultBadge,
+                                              isCorrectOption ? styles.optionResultBadgeCorrect : styles.optionResultBadgeIncorrect,
+                                            ]}>
+                                            <Text style={styles.optionResultBadgeText}>{isCorrectOption ? '✓' : '✗'}</Text>
+                                          </View>
+                                        ) : null}
+                                      </View>
+                                    </View>
+                                  );
+                                })}
+                              </Stack>
+
+                              {hasCheckedAnswers && !allAnswersCorrect && question.explanation ? (
+                                <AppText language={contentLang} variant="muted" style={styles.questionExplanation}>
+                                  {question.explanation}
+                                </AppText>
+                              ) : null}
+                            </View>
+                          );
+                        })}
+                      </Stack>
+
+                      <View style={styles.comprehensionFooter}>
+                        <Button
+                          language={pageLanguage}
+                          title={comprehensionButtonLabel}
+                          onPress={() => setHasCheckedAnswers(true)}
+                          style={styles.comprehensionCheckButton}
+                          textStyle={styles.comprehensionCheckButtonText}
+                        />
+                      </View>
                     </Stack>
-
-                    <Stack gap="sm">
-                      {activeSectionNotes.map((note) => (
-                        <View key={note} style={styles.noteRow}>
-                          <View style={styles.noteBullet} />
-                          <AppText language={uiLanguage} variant="body" style={styles.noteText}>
-                            {note}
+                  ) : (
+                    <Stack gap="md">
+                      <View style={styles.sectionCardHeader}>
+                        <View style={styles.sectionEyebrow}>
+                          <AppText language={pageLanguage} variant="caption" style={styles.sectionEyebrowText}>
+                            {activeSection ? activeSectionEyebrow : sectionMenuLabel}
                           </AppText>
                         </View>
-                      ))}
-                    </Stack>
+                        <View
+                          style={[
+                            styles.audioFlag,
+                            activeSection && hasSectionAudio(activeSection) ? styles.audioFlagActive : styles.audioFlagMuted,
+                          ]}>
+                          <AppText language={pageLanguage} variant="caption" style={styles.audioFlagText}>
+                            {activeTab
+                              ? activeSection && hasSectionAudio(activeSection)
+                                ? pageCopy.audioReady
+                                : pageCopy.noAudioYet
+                              : pageCopy.noSectionYet}
+                          </AppText>
+                        </View>
+                      </View>
 
-                    <View style={styles.placeholderBox}>
-                      <Stack gap="xs">
-                        <AppText language={uiLanguage} variant="caption" style={styles.placeholderEyebrow}>
-                          {uiLanguage === 'th' ? 'renderer ถัดไป' : 'Renderer Next'}
+                      <Stack gap="sm">
+                        <AppText language={pageLanguage} variant="title" style={styles.sectionTitle}>
+                          {activeSectionTitle ?? pageCopy.noSectionAvailable}
                         </AppText>
-                        <AppText language={uiLanguage} variant="body" style={styles.placeholderTitle}>
-                          {activeSectionTypeLabel
-                            ? uiLanguage === 'th'
-                              ? `${activeSectionTypeLabel} พร้อมต่อเข้ากับ native rich renderer`
-                              : `${activeSectionTypeLabel} is ready for native rich rendering`
-                            : uiLanguage === 'th'
-                              ? 'section renderer จะเข้ามาที่พื้นที่นี้'
-                              : 'The section renderer will land in this study area.'}
-                        </AppText>
-                        <AppText language={uiLanguage} variant="muted" style={styles.placeholderBody}>
+                        <AppText language={pageLanguage} variant="body" style={styles.sectionBody}>
                           {activeSection
-                            ? uiLanguage === 'th'
-                              ? `โหลด rich nodes แล้วสูงสุด ${richContentBlockCount} block สำหรับ section นี้ ตอนนี้เหลือแค่แปล block เหล่านั้นเป็น native components`
-                              : `The resolved payload is loaded for this section with up to ${richContentBlockCount} rich blocks. The remaining work is translating those blocks into native components.`
-                            : activeTab
-                              ? uiLanguage === 'th'
-                                ? `${activeSectionTitle} มีข้อมูลพร้อมแล้วจาก resolved lesson payload แต่ renderer แบบ native สำหรับส่วนนี้ยังไม่ได้ต่อเข้ามา`
-                              : `${activeSectionTitle} is already present in the resolved lesson payload, but the native renderer for this section is not wired in yet.`
-                              : uiLanguage === 'th'
-                                ? 'เมื่อ lesson มี sections จริงแล้ว พื้นที่นี้จะใช้แสดง rich content แบบ native'
-                                : 'As soon as the lesson exposes section data, this area will host the native rich content flow.'}
+                            ? pageCopy.sectionLoadedPlaceholder
+                            : pageCopy.tabExistsPlaceholder}
                         </AppText>
                       </Stack>
-                    </View>
-                  </Stack>
+
+                      <Stack gap="sm">
+                        {activeSectionNotes.map((note) => (
+                          <View key={note} style={styles.noteRow}>
+                            <View style={styles.noteBullet} />
+                            <AppText language={pageLanguage} variant="body" style={styles.noteText}>
+                              {note}
+                            </AppText>
+                          </View>
+                        ))}
+                      </Stack>
+
+                      <View style={styles.placeholderBox}>
+                        <Stack gap="xs">
+                          <AppText language={pageLanguage} variant="caption" style={styles.placeholderEyebrow}>
+                            {pageCopy.rendererNext}
+                          </AppText>
+                          <AppText language={pageLanguage} variant="body" style={styles.placeholderTitle}>
+                            {activeSectionTypeLabel
+                              ? pageCopy.rendererReady(activeSectionTypeLabel)
+                              : pageCopy.rendererLanding}
+                          </AppText>
+                          <AppText language={pageLanguage} variant="muted" style={styles.placeholderBody}>
+                            {activeSection
+                              ? pageCopy.richNodesLoaded(richContentBlockCount)
+                              : activeTab
+                                ? pageCopy.tabRendererMissing(activeSectionTitle ?? activeSectionTypeLabel ?? '')
+                                : pageCopy.richContentLanding}
+                          </AppText>
+                        </Stack>
+                      </View>
+                    </Stack>
+                  )}
                 </Card>
 
                 <View style={styles.footerButtonWrap}>
                   <Button
-                    language={uiLanguage}
+                    language={pageLanguage}
                     title={primaryActionLabel}
                     onPress={() => {
                       if (sectionCount === 0 || isLastSection) {
@@ -594,6 +1345,25 @@ export default function LessonDetailShellScreen() {
                 </View>
                 </View>
               </ScrollView>
+
+              {shouldShowAudioTray ? (
+                <LessonAudioTray
+                  language={pageLanguage}
+                  title={audioTrayTitle}
+                  subtitle={audioTraySubtitle}
+                  statusLabel={audioTrayStatusLabel}
+                  audioUrl={audioUrls.noBg || audioUrls.main}
+                  isPlaying={isAudioPlaying}
+                  isLoading={isAudioLoading}
+                  currentMillis={audioPositionMillis}
+                  durationMillis={audioDurationMillis}
+                  rate={audioRate}
+                  onTogglePlay={handleToggleAudio}
+                  onSkip={handleSkipAudio}
+                  onSeek={handleSeekAudio}
+                  onSetRate={handleSetAudioRate}
+                />
+              ) : null}
             </View>
           )}
         </View>
@@ -605,11 +1375,11 @@ export default function LessonDetailShellScreen() {
           <Card padding="md" radius="lg" style={styles.menuSheet}>
             <Stack gap="sm">
               <View style={styles.menuHeader}>
-                <AppText language={uiLanguage} variant="body" style={styles.menuTitle}>
+                <AppText language={pageLanguage} variant="body" style={styles.menuTitle}>
                   {sectionMenuLabel}
                 </AppText>
                 <Pressable accessibilityRole="button" onPress={() => setIsMenuOpen(false)} style={styles.menuCloseButton}>
-                  <AppText language={uiLanguage} variant="body" style={styles.menuCloseButtonText}>
+                  <AppText language={pageLanguage} variant="body" style={styles.menuCloseButtonText}>
                     ×
                   </AppText>
                 </Pressable>
@@ -627,20 +1397,18 @@ export default function LessonDetailShellScreen() {
                     }}
                     style={[styles.menuItem, isActive ? styles.menuItemActive : null]}>
                     <View style={styles.menuItemIndex}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.menuItemIndexText}>
+                      <AppText language={pageLanguage} variant="caption" style={styles.menuItemIndexText}>
                         {index + 1}
                       </AppText>
                     </View>
                     <View style={styles.menuItemContent}>
-                      <AppText language={uiLanguage} variant="body" style={styles.menuItemTitle}>
-                        {getSectionTitle(uiLanguage, tab.type, index)}
+                      <AppText language={pageLanguage} variant="body" style={styles.menuItemTitle}>
+                        {getLessonSectionTitle(pageLanguage, tab.type, index)}
                       </AppText>
-                      <AppText language={uiLanguage} variant="muted" style={styles.menuItemMeta}>
+                      <AppText language={pageLanguage} variant="muted" style={styles.menuItemMeta}>
                         {tab.section && hasSectionAudio(tab.section)
-                          ? uiLanguage === 'th'
-                            ? 'มีเสียง'
-                            : 'Audio ready'
-                          : getSectionLabel(uiLanguage, tab.type)}
+                          ? pageCopy.audioReady
+                          : getLessonSectionLabel(pageLanguage, tab.type)}
                       </AppText>
                     </View>
                   </Pressable>
@@ -851,6 +1619,7 @@ const styles = StyleSheet.create({
   },
   stepperScrollContent: {
     flexGrow: 1,
+    paddingBottom: 188,
   },
   stepperInner: {
     padding: theme.spacing.md,
@@ -907,6 +1676,139 @@ const styles = StyleSheet.create({
   sectionCard: {
     minHeight: 520,
     justifyContent: 'space-between',
+  },
+  comprehensionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.xs,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D9D9D9',
+  },
+  comprehensionHeaderTitle: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  contentToggleButton: {
+    minHeight: 28,
+    borderRadius: theme.radii.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentToggleButtonText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.medium,
+    fontSize: theme.typography.sizes.xs,
+    lineHeight: 14,
+  },
+  questionBlock: {
+    gap: theme.spacing.md,
+  },
+  questionPromptWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+  },
+  questionPromptContent: {
+    flex: 1,
+    gap: theme.spacing.xs,
+  },
+  questionPromptText: {
+    fontWeight: theme.typography.weights.semibold,
+  },
+  questionPromptThaiText: {
+    color: theme.colors.mutedText,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  optionLetterButton: {
+    width: 38,
+    height: 38,
+    borderRadius: theme.radii.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+  },
+  optionLetterButtonSelected: {
+    backgroundColor: theme.colors.accentMuted,
+  },
+  optionLetterText: {
+    fontWeight: theme.typography.weights.semibold,
+  },
+  optionBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingTop: 5,
+  },
+  optionImage: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  optionTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  optionText: {
+    flex: 1,
+  },
+  optionTextThai: {
+    color: theme.colors.mutedText,
+  },
+  optionResultBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  optionResultBadgeCorrect: {
+    backgroundColor: theme.colors.success,
+  },
+  optionResultBadgeIncorrect: {
+    backgroundColor: '#FFD8D8',
+  },
+  optionResultBadgeText: {
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.md,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  questionExplanation: {
+    color: theme.colors.mutedText,
+    paddingLeft: 42,
+  },
+  comprehensionFooter: {
+    paddingTop: theme.spacing.sm,
+  },
+  comprehensionCheckButton: {
+    alignSelf: 'flex-start',
+    minWidth: 236,
+    paddingHorizontal: theme.spacing.xl,
+    backgroundColor: theme.colors.surface,
+  },
+  comprehensionCheckButtonText: {
+    color: theme.colors.text,
   },
   sectionCardHeader: {
     flexDirection: 'row',

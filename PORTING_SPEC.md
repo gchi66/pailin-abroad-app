@@ -131,6 +131,19 @@
   - lesson artwork path resolution now mirrors the web header logic more closely
   - cover copy now shows the real Thai title under the main title
   - cover backstory is now secondary/expandable instead of always fully expanded
+  - cover no longer shows the temporary `Sections in this lesson` list
+  - lesson detail now fetches the real resolved lesson payload used by the web app
+  - resolved payload fetch is auth-aware and cached in native app code
+  - lesson detail navigation/menu is no longer driven by raw `sections` alone
+  - mobile now mirrors the web `ls-sidebar` model more closely:
+    - uses a derived ordered lesson-tab list instead of dumping raw section rows
+    - includes `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
+    - excludes `prepare` and non-sidebar items like `pinned_comment`
+  - visible section titles now come from the web-aligned section-type label model rather than from `content_jsonb`
+  - study mode now scrolls properly; the earlier non-scrollable fixed-card issue has been corrected
+  - raw section `content` / `content_jsonb` is intentionally not rendered into the study card right now
+    - this was briefly exposed during payload-debugging and was backed back out because it looked bad and was not a real renderer
+    - the study card now acts as a controlled placeholder until each section gets a native implementation
 - The lesson page port is expected to be a large multi-part task with several moving pieces:
   - resolved lesson payload fetching
   - native rich section renderer parity
@@ -138,10 +151,25 @@
   - mark-complete behavior and eventual write-back strategy
   - audio / sticky player behavior may still need to be deferred or phased
 - Immediate next implementation target:
-  - move from the intro/cover mock into the actual lesson page behind it
-  - fetch the resolved lesson payload used by the web app
-  - begin native rendering with 1-2 real lesson sections, starting with representative rich content
-  - treat `RichSectionRenderer` parity as the next concrete build task
+  - keep the new resolved-payload + derived-tab foundation in place
+  - attack lesson sections one by one instead of trying to port the entire lesson body at once
+  - first concrete section target for the next chat:
+    - `Comprehension`
+  - for `Comprehension`, use the resolved payload / web lesson flow as source of truth:
+    - use the web lesson page / sidebar behavior as reference for when the tab should exist
+    - use normalized comprehension question data from the resolved payload
+    - build a native section screen/card for comprehension instead of showing placeholder copy
+  - after `Comprehension`, continue section-by-section in the same way:
+    - `Transcript`
+    - `Apply`
+    - `Understand`
+    - `Extra Tip`
+    - `Common Mistake`
+    - `Phrases & Verbs`
+    - `Culture Note`
+    - `Practice`
+  - treat full `RichSectionRenderer` parity as a phased build, not a single giant port
+    - do not reintroduce raw `content_jsonb` dumping as a temporary UI
 - Added native free-plan lessons flow:
   - `src/screens/GuestLessonLibraryScreen.tsx`
   - `app/lessons/library.tsx`
@@ -205,8 +233,10 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
-  - Implement the actual lesson page behind the new intro cover in `app/lessons/[id].tsx`
-  - Treat resolved payload fetching + native rich section rendering as the next primary focus before further polish elsewhere
+  - Continue the section-by-section lesson port in `app/lessons/[id].tsx`
+  - Start with a real native `Comprehension` implementation in the next chat
+  - Keep the web lesson sidebar / resolved payload contract as source of truth for which lesson sections exist
+  - Treat resolved payload fetching as done enough for now; focus on native section rendering next
   - Keep lesson completion/write logic flexible because product behavior around `mark complete` may still change
 - Keep design flexible since cofounder may change direction.
 
