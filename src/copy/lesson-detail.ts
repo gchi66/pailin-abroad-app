@@ -76,6 +76,11 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       audioTrayStatus: 'เสียงพร้อม',
       audioTrayPlaying: 'กำลังเล่น',
       audioTrayLoading: 'กำลังโหลดเสียง',
+      translatingContent: 'กำลังแปล...',
+      applyNote: 'ไม่ต้องกังวลว่าจะทำผิด!',
+      applySubmit: 'ดูตัวอย่างคำตอบ',
+      applyResponseNote: 'นี่คือตัวอย่างหนึ่งของคำตอบที่เป็นไปได้ ไม่จำเป็นต้องเหมือนกันทุกคำ',
+      applyPlaceholder: 'พิมพ์คำตอบของคุณที่นี่…',
     };
   }
 
@@ -127,5 +132,10 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     audioTrayStatus: 'Audio ready',
     audioTrayPlaying: 'Now playing',
     audioTrayLoading: 'Loading audio',
+    translatingContent: 'Translating...',
+    applyNote: 'Don’t worry about making mistakes!',
+    applySubmit: 'SEE AN EXAMPLE ANSWER',
+    applyResponseNote: 'This is just one possible example response. Yours does not need to match it exactly.',
+    applyPlaceholder: 'Type your response here…',
   };
 };

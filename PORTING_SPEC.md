@@ -139,11 +139,30 @@
     - uses a derived ordered lesson-tab list instead of dumping raw section rows
     - includes `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
     - excludes `prepare` and non-sidebar items like `pinned_comment`
+  - study-mode content language is a distinct lesson-content control, not the same as global app UI language
+    - the inline lesson language toggle should exist in every study section, not just `Comprehension`
+    - toggling it should refetch/use the other-language resolved payload exactly like the web lesson flow
+    - section headers, section menu labels, and next-section CTA in study mode should follow lesson `contentLang`
+    - the opposite lesson-content language is now prefetched in the background for faster toggles
+    - translation toggles now keep the current lesson visible and show an inline `Translating...` state instead of dropping back to the full page loader
   - visible section titles now come from the web-aligned section-type label model rather than from `content_jsonb`
   - study mode now scrolls properly; the earlier non-scrollable fixed-card issue has been corrected
   - raw section `content` / `content_jsonb` is intentionally not rendered into the study card right now
     - this was briefly exposed during payload-debugging and was backed back out because it looked bad and was not a real renderer
-    - the study card now acts as a controlled placeholder until each section gets a native implementation
+    - remaining unported sections still use the controlled placeholder path
+  - completed section ports now in place:
+    - `Comprehension`
+      - supports normalized resolved-payload questions
+      - supports EN/TH content-language switching independent of global UI language
+      - supports answer selection, check flow, correctness states, and preserved checked state through language toggles
+    - `Transcript`
+      - mirrors web behavior where English is always shown and Thai lines are additionally shown in Thai mode
+      - uses the same shared in-section content-language toggle as other study sections
+    - `Apply`
+      - uses dedicated section handling instead of the generic placeholder/rich-section path
+      - supports structured dict-shaped `content_jsonb` / `content_jsonb_th` with `prompt`, `response`, `prompt_nodes`, and `response_nodes`
+      - uses parsed rich-node data to render accent/callout paragraphs, including cyan-highlight-driven left-bar styling to match the web apply prompt behavior
+      - supports local input + reveal-example-answer flow matching current web functionality (no backend submission/evaluation path exists in the web app)
 - The lesson page port is expected to be a large multi-part task with several moving pieces:
   - resolved lesson payload fetching
   - native rich section renderer parity
@@ -153,16 +172,13 @@
 - Immediate next implementation target:
   - keep the new resolved-payload + derived-tab foundation in place
   - attack lesson sections one by one instead of trying to port the entire lesson body at once
-  - first concrete section target for the next chat:
-    - `Comprehension`
-  - for `Comprehension`, use the resolved payload / web lesson flow as source of truth:
-    - use the web lesson page / sidebar behavior as reference for when the tab should exist
-    - use normalized comprehension question data from the resolved payload
-    - build a native section screen/card for comprehension instead of showing placeholder copy
-  - after `Comprehension`, continue section-by-section in the same way:
-    - `Transcript`
-    - `Apply`
+  - next concrete section target for the next chat:
     - `Understand`
+  - for `Understand`, use the resolved payload / web lesson flow as source of truth:
+    - respect the same study-mode `contentLang` toggle model already established for `Comprehension`, `Transcript`, and `Apply`
+    - inspect `content_jsonb` / `content_jsonb_th` handling carefully, especially the web rich-renderer highlight treatment that is specific to `understand`
+    - build a native section renderer instead of falling through the placeholder copy
+  - after `Understand`, continue section-by-section in the same way:
     - `Extra Tip`
     - `Common Mistake`
     - `Phrases & Verbs`
@@ -234,7 +250,7 @@
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Next priority:
   - Continue the section-by-section lesson port in `app/lessons/[id].tsx`
-  - Start with a real native `Comprehension` implementation in the next chat
+  - Start with a real native `Understand` implementation in the next chat
   - Keep the web lesson sidebar / resolved payload contract as source of truth for which lesson sections exist
   - Treat resolved payload fetching as done enough for now; focus on native section rendering next
   - Keep lesson completion/write logic flexible because product behavior around `mark complete` may still change

@@ -1,11 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { Image, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 
 import adjustVolumeIcon from '@/assets/images/adjust-volume-audio-lesson.webp';
-import forwardIcon from '@/assets/images/forward-audio-10-seconds.webp';
-import pauseIcon from '@/assets/images/pause-audio-lesson.webp';
-import playIcon from '@/assets/images/play-audio-lesson.webp';
-import rewindIcon from '@/assets/images/rewind-audio-10-seconds.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
@@ -38,11 +34,12 @@ const formatTime = (millis: number) => {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
+const rates = [0.5, 0.75, 1, 1.25, 1.5];
+
 export function LessonAudioTray({
   language,
   title,
   subtitle,
-  statusLabel,
   audioUrl,
   isPlaying,
   isLoading = false,
@@ -57,7 +54,7 @@ export function LessonAudioTray({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showRates, setShowRates] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
-  const rates = [0.5, 0.75, 1, 1.25, 1.5];
+  const pulse = useRef(new Animated.Value(1)).current;
 
   const progressRatio = useMemo(() => {
     if (!durationMillis || durationMillis <= 0) {
@@ -67,10 +64,31 @@ export function LessonAudioTray({
     return Math.max(0, Math.min(1, currentMillis / durationMillis));
   }, [currentMillis, durationMillis]);
 
-  const playIconSource = isPlaying ? pauseIcon : playIcon;
   const isDisabled = !audioUrl || isLoading;
   const trackFillStyle = { width: `${progressRatio * 100}%` as const };
-  const trackKnobStyle = { left: `${progressRatio * 100}%` as const };
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 0.35,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+
+    return () => {
+      loop.stop();
+    };
+  }, [pulse]);
 
   const handleTrackLayout = (event: LayoutChangeEvent) => {
     setTrackWidth(event.nativeEvent.layout.width);
@@ -95,380 +113,430 @@ export function LessonAudioTray({
     });
   };
 
+  const playButtonLabel = isPlaying ? 'Pause audio' : 'Play audio';
+  const collapseLabel = isCollapsed ? 'Expand audio controls' : 'Collapse audio controls';
+
   return (
     <View style={styles.shell}>
-      <View style={[styles.card, isCollapsed ? styles.cardCollapsed : null]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={collapseLabel}
+        onPress={handleToggleCollapsed}
+        style={styles.handleHitArea}>
+        <View style={styles.handle} />
+      </Pressable>
+
+      {isCollapsed ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isCollapsed ? 'Expand audio controls' : 'Collapse audio controls'}
-          onPress={handleToggleCollapsed}
-          style={styles.handleHitArea}>
-          <View style={[styles.handle, isCollapsed ? styles.handleCollapsed : null]} />
-        </Pressable>
+          accessibilityLabel="Expand audio controls"
+          onPress={() => setIsCollapsed(false)}
+          style={styles.collapsedRow}>
+          <Animated.View style={[styles.liveDot, { opacity: pulse }]} />
 
-        <Pressable
-          accessibilityRole={isCollapsed ? 'button' : undefined}
-          disabled={!isCollapsed}
-          onPress={() => {
-            if (isCollapsed) {
-              setIsCollapsed(false);
-            }
-          }}
-          style={styles.topRow}>
-          <View style={styles.copyBlock}>
-            <AppText language={language} variant="caption" style={styles.statusLabel}>
-              {statusLabel}
-            </AppText>
-            <AppText language={language} variant="body" style={styles.title} numberOfLines={1}>
-              {title}
-            </AppText>
-            {!isCollapsed && subtitle ? (
-              <AppText language={language} variant="muted" style={styles.subtitle} numberOfLines={1}>
-                {subtitle}
-              </AppText>
-            ) : null}
-          </View>
+          <AppText language={language} variant="body" style={styles.collapsedTitle} numberOfLines={1}>
+            {title}
+          </AppText>
 
-          <View style={styles.topRowRight}>
-            <View style={styles.volumeWrap}>
+          <View style={styles.collapsedActions}>
+            <View style={styles.volumeButton}>
               <Image source={adjustVolumeIcon} style={styles.volumeIcon} resizeMode="contain" />
             </View>
-            {isCollapsed ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
-                disabled={isDisabled}
-                onPress={() => {
-                  setShowRates(false);
-                  onTogglePlay();
-                }}
-                style={[styles.playButtonCollapsed, isDisabled ? styles.disabledControl : null]}>
-                <Image source={playIconSource} style={styles.playIconCollapsed} resizeMode="contain" />
-              </Pressable>
-            ) : null}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={playButtonLabel}
+              disabled={isDisabled}
+              onPress={onTogglePlay}
+              style={[styles.collapsedPlayButton, isDisabled ? styles.disabledControl : null]}>
+              <View style={styles.playButtonInner}>
+                {isPlaying ? (
+                  <View style={styles.pauseGlyph}>
+                    <View style={styles.pauseBar} />
+                    <View style={styles.pauseBar} />
+                  </View>
+                ) : (
+                  <View style={styles.playGlyph} />
+                )}
+              </View>
+            </Pressable>
           </View>
         </Pressable>
-
-        {!isCollapsed ? (
-          <>
-            <View style={styles.controlsRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Rewind 10 seconds"
-                disabled={isDisabled}
-                onPress={() => {
-                  setShowRates(false);
-                  onSkip(-10000);
-                }}
-                style={[styles.iconButton, isDisabled ? styles.disabledControl : null]}>
-                <Image source={rewindIcon} style={styles.secondaryIcon} resizeMode="contain" />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
-                disabled={isDisabled}
-                onPress={() => {
-                  setShowRates(false);
-                  onTogglePlay();
-                }}
-                style={[styles.playButton, isDisabled ? styles.disabledControl : null]}>
-                <Image source={playIconSource} style={styles.playIcon} resizeMode="contain" />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Forward 10 seconds"
-                disabled={isDisabled}
-                onPress={() => {
-                  setShowRates(false);
-                  onSkip(10000);
-                }}
-                style={[styles.iconButton, isDisabled ? styles.disabledControl : null]}>
-                <Image source={forwardIcon} style={styles.secondaryIcon} resizeMode="contain" />
-              </Pressable>
-            </View>
-
-            <View style={styles.progressMetaRow}>
-              <AppText language="en" variant="caption" style={styles.timeLabel}>
-                {formatTime(currentMillis)}
+      ) : (
+        <View style={styles.expandedWrap}>
+          <View style={styles.expandedTopRow}>
+            <View style={styles.copyBlock}>
+              <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
+                {title}
               </AppText>
-              <View style={styles.progressRightMeta}>
-                <View style={styles.rateGroup}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Toggle playback rates"
-                    onPress={() => setShowRates((previous) => !previous)}
-                    style={styles.rateButton}>
-                    <AppText language="en" variant="caption" style={styles.rateButtonText}>
-                      {rate}x
-                    </AppText>
-                  </Pressable>
-
-                  {showRates ? (
-                    <View style={styles.rateOptions}>
-                      {rates
-                        .filter((option) => option !== rate)
-                        .map((option) => (
-                          <Pressable
-                            key={option}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Set playback rate to ${option}x`}
-                            onPress={() => {
-                              onSetRate(option);
-                              setShowRates(false);
-                            }}
-                            style={styles.rateOptionButton}>
-                            <AppText language="en" variant="caption" style={styles.rateOptionText}>
-                              {option}x
-                            </AppText>
-                          </Pressable>
-                        ))}
-                    </View>
-                  ) : null}
-                </View>
-
-                <AppText language="en" variant="caption" style={styles.timeLabel}>
-                  {formatTime(durationMillis)}
+              {subtitle ? (
+                <AppText language={language} variant="muted" style={styles.trackSubtitle} numberOfLines={1}>
+                  {subtitle}
                 </AppText>
-              </View>
+              ) : null}
             </View>
 
-            <View
-              onLayout={handleTrackLayout}
-              onStartShouldSetResponder={() => !isDisabled}
-              onMoveShouldSetResponder={() => !isDisabled}
-              onResponderGrant={(event) => {
-                setShowRates(false);
-                seekFromLocation(event.nativeEvent.locationX);
-              }}
-              onResponderMove={(event) => {
-                setShowRates(false);
-                seekFromLocation(event.nativeEvent.locationX);
-              }}
-              style={styles.trackRow}>
-              <View style={styles.track} />
-              <View style={[styles.trackFill, trackFillStyle]} />
-              <View style={[styles.trackKnob, trackKnobStyle]} />
+            <View style={styles.volumeButton}>
+              <Image source={adjustVolumeIcon} style={styles.volumeIcon} resizeMode="contain" />
             </View>
-          </>
-        ) : null}
-      </View>
+          </View>
+
+          <View style={styles.controlsRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Rewind 10 seconds"
+              disabled={isDisabled}
+              onPress={() => {
+                setShowRates(false);
+                onSkip(-10000);
+              }}
+              style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
+              <AppText language="en" variant="caption" style={styles.skipText}>
+                ← 10
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={playButtonLabel}
+              disabled={isDisabled}
+              onPress={() => {
+                setShowRates(false);
+                onTogglePlay();
+              }}
+              style={[styles.mainPlayButton, isDisabled ? styles.disabledControl : null]}>
+              {isPlaying ? (
+                <View style={styles.pauseGlyphLarge}>
+                  <View style={styles.pauseBarLarge} />
+                  <View style={styles.pauseBarLarge} />
+                </View>
+              ) : (
+                <View style={styles.playGlyphLarge} />
+              )}
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Forward 10 seconds"
+              disabled={isDisabled}
+              onPress={() => {
+                setShowRates(false);
+                onSkip(10000);
+              }}
+              style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
+              <AppText language="en" variant="caption" style={styles.skipText}>
+                10 →
+              </AppText>
+            </Pressable>
+          </View>
+
+          <View
+            onLayout={handleTrackLayout}
+            onStartShouldSetResponder={() => !isDisabled}
+            onMoveShouldSetResponder={() => !isDisabled}
+            onResponderGrant={(event) => {
+              setShowRates(false);
+              seekFromLocation(event.nativeEvent.locationX);
+            }}
+            onResponderMove={(event) => {
+              setShowRates(false);
+              seekFromLocation(event.nativeEvent.locationX);
+            }}
+            style={styles.progressTrack}>
+            <View style={styles.progressTrackBase} />
+            <View style={[styles.progressFill, trackFillStyle]} />
+          </View>
+
+          <View style={styles.metaRow}>
+            <AppText language="en" variant="caption" style={styles.timeLabel}>
+              {formatTime(currentMillis)}
+            </AppText>
+
+            <View style={styles.rateWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Toggle playback rates"
+                onPress={() => setShowRates((previous) => !previous)}
+                style={styles.ratePill}>
+                <AppText language="en" variant="caption" style={styles.rateText}>
+                  {rate}x
+                </AppText>
+              </Pressable>
+
+              {showRates ? (
+                <View style={styles.rateMenu}>
+                  {rates.map((option) => (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Set playback rate to ${option}x`}
+                      onPress={() => {
+                        onSetRate(option);
+                        setShowRates(false);
+                      }}
+                      style={[styles.rateOption, option === rate ? styles.rateOptionActive : null]}>
+                      <AppText language="en" variant="caption" style={styles.rateOptionText}>
+                        {option}x
+                      </AppText>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+
+            <AppText language="en" variant="caption" style={styles.timeLabel}>
+              {formatTime(durationMillis)}
+            </AppText>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   shell: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  cardCollapsed: {
     paddingTop: 4,
-    paddingBottom: theme.spacing.sm,
+    paddingHorizontal: 10,
+    paddingBottom: 6,
   },
   handleHitArea: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 1,
+    paddingBottom: 2,
   },
   handle: {
-    alignSelf: 'center',
-    width: 48,
-    height: 5,
-    borderRadius: theme.radii.xl,
-    backgroundColor: '#D9D9D9',
-    marginBottom: theme.spacing.sm,
+    width: 28,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#D0D0D0',
   },
-  handleCollapsed: {
-    marginBottom: theme.spacing.xs,
+  expandedWrap: {
+    gap: 8,
   },
-  topRow: {
+  expandedTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  topRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   copyBlock: {
     flex: 1,
     gap: 2,
   },
-  statusLabel: {
-    color: theme.colors.primary,
-    textTransform: 'uppercase',
-    fontWeight: theme.typography.weights.semibold,
+  trackTitle: {
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.bold,
   },
-  title: {
-    fontWeight: theme.typography.weights.semibold,
-  },
-  subtitle: {
+  trackSubtitle: {
     color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 15,
   },
-  volumeWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
+  volumeButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.background,
   },
   volumeIcon: {
-    width: 18,
-    height: 18,
+    width: 13,
+    height: 13,
   },
-  playButtonCollapsed: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
+  collapsedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 3,
+    paddingBottom: 5,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: theme.colors.primary,
+  },
+  collapsedTitle: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: theme.typography.weights.bold,
+  },
+  collapsedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  collapsedPlayButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
+    backgroundColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accentSurface,
   },
-  playIconCollapsed: {
-    width: 16,
-    height: 16,
+  playButtonInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    gap: 18,
+    paddingTop: 4,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  skipButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
-  playButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.accentSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabledControl: {
-    opacity: 0.45,
-  },
-  playIcon: {
-    width: 22,
-    height: 22,
-  },
-  secondaryIcon: {
-    width: 26,
-    height: 26,
-  },
-  progressMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: theme.spacing.xs,
-  },
-  progressRightMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  rateGroup: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  rateButton: {
-    minWidth: 48,
-    height: 28,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.sm,
-  },
-  rateButtonText: {
+  skipText: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: theme.typography.weights.semibold,
   },
-  rateOptions: {
-    position: 'absolute',
-    bottom: 34,
-    right: 0,
-    borderWidth: 1,
+  mainPlayButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xs,
-    gap: theme.spacing.xs,
-    minWidth: 68,
-  },
-  rateOptionButton: {
-    minHeight: 28,
-    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.sm,
   },
-  rateOptionText: {
-    fontWeight: theme.typography.weights.medium,
+  playGlyph: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 5,
+    borderBottomWidth: 5,
+    borderLeftWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: theme.colors.surface,
+    marginLeft: 1,
+  },
+  playGlyphLarge: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderLeftWidth: 11,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: theme.colors.surface,
+    marginLeft: 2,
+  },
+  pauseGlyph: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  pauseBar: {
+    width: 3,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surface,
+  },
+  pauseGlyphLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pauseBarLarge: {
+    width: 4,
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surface,
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressTrackBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.accentMuted,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: theme.colors.accent,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   timeLabel: {
     color: theme.colors.mutedText,
+    fontSize: 11,
+    lineHeight: 13,
   },
-  trackRow: {
-    height: 12,
-    borderRadius: theme.radii.xl,
-    backgroundColor: '#E7EDF5',
-    overflow: 'hidden',
+  rateWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  ratePill: {
+    minWidth: 32,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  track: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#E7EDF5',
-  },
-  trackFill: {
-    height: '100%',
-    backgroundColor: theme.colors.text,
-    borderRadius: theme.radii.xl,
-  },
-  trackKnob: {
-    position: 'absolute',
-    top: -3,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    borderColor: theme.colors.accentMuted,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     backgroundColor: theme.colors.surface,
-    borderWidth: 2,
-    borderColor: theme.colors.text,
-    transform: [{ translateX: -9 }],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateText: {
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: theme.typography.weights.bold,
+  },
+  rateMenu: {
+    position: 'absolute',
+    bottom: 26,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface,
+    padding: 4,
+    gap: 4,
+  },
+  rateOption: {
+    minWidth: 48,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateOptionActive: {
+    backgroundColor: theme.colors.accentMuted,
+  },
+  rateOptionText: {
+    color: theme.colors.text,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: theme.typography.weights.medium,
+  },
+  disabledControl: {
+    opacity: 0.45,
   },
 });

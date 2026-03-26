@@ -7,6 +7,7 @@ const LESSON_SELECT_FIELDS =
   'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
 const RESOLVED_LESSON_CACHE_TTL_MS = 5 * 60 * 1000;
 const resolvedLessonCache = new Map<string, { payload: ResolvedLessonPayload; timestamp: number }>();
+const inflightResolvedLessonRequests = new Map<string, Promise<ResolvedLessonPayload>>();
 const TRY_LESSON_IDS = new Set([
   'a34f5a4b-0729-430e-9b92-900dcad2f977',
   '5f9d09b4-ed35-40ac-b89f-50dbd7e96c0c',
@@ -119,29 +120,49 @@ export async function fetchResolvedLesson(
     return cached;
   }
 
-  const baseUrl = assertApiBaseUrl();
-  const headers = await getLessonAuthHeaders();
-  const response = await fetch(`${baseUrl}/api/lessons/${lessonId}/resolved?lang=${lang}`, {
-    method: 'GET',
-    headers,
-  });
-
-  const json = (await response.json().catch(() => null)) as
-    | ResolvedLessonPayload
-    | { error?: string }
-    | null;
-
-  if (!response.ok) {
-    const message =
-      json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
-        ? json.error
-        : `Failed to fetch lesson (${response.status})`;
-    throw new Error(message);
+  const requestKey = resolvedLessonCacheKey(lessonId, lang);
+  const inflightRequest = inflightResolvedLessonRequests.get(requestKey);
+  if (inflightRequest) {
+    return inflightRequest;
   }
 
-  const payload = json as ResolvedLessonPayload;
-  setCachedResolvedLesson(lessonId, lang, payload);
-  return payload;
+  const requestPromise = (async () => {
+    const baseUrl = assertApiBaseUrl();
+    const headers = await getLessonAuthHeaders();
+    const response = await fetch(`${baseUrl}/api/lessons/${lessonId}/resolved?lang=${lang}`, {
+      method: 'GET',
+      headers,
+    });
+
+    const json = (await response.json().catch(() => null)) as
+      | ResolvedLessonPayload
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      const message =
+        json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
+          ? json.error
+          : `Failed to fetch lesson (${response.status})`;
+      throw new Error(message);
+    }
+
+    const payload = json as ResolvedLessonPayload;
+    setCachedResolvedLesson(lessonId, lang, payload);
+    return payload;
+  })();
+
+  inflightResolvedLessonRequests.set(requestKey, requestPromise);
+
+  try {
+    return await requestPromise;
+  } finally {
+    inflightResolvedLessonRequests.delete(requestKey);
+  }
+}
+
+export function prefetchResolvedLesson(lessonId: string, lang: 'en' | 'th') {
+  void fetchResolvedLesson(lessonId, lang).catch(() => undefined);
 }
 
 type LessonAudioUrls = {

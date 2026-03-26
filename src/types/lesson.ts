@@ -19,6 +19,7 @@ export type LessonRichInline = {
   bold?: boolean | null;
   italic?: boolean | null;
   underline?: boolean | null;
+  highlight?: string | null;
   [key: string]: unknown;
 };
 
@@ -29,6 +30,15 @@ export type LessonRichNode = {
   inlines?: LessonRichInline[] | null;
   audio_key?: string | null;
   audio_seq?: number | null;
+  is_response?: boolean | null;
+  [key: string]: unknown;
+};
+
+export type LessonApplyContent = {
+  prompt?: string | null;
+  response?: string | null;
+  prompt_nodes?: LessonRichNode[] | null;
+  response_nodes?: LessonRichNode[] | null;
   [key: string]: unknown;
 };
 
@@ -47,8 +57,8 @@ export type ResolvedLessonSection = {
   header_th?: string | null;
   content?: string | null;
   text?: LessonSectionText | null;
-  content_jsonb?: LessonRichNode[] | null;
-  content_jsonb_th?: LessonRichNode[] | null;
+  content_jsonb?: LessonRichNode[] | LessonApplyContent | null;
+  content_jsonb_th?: LessonRichNode[] | LessonApplyContent | null;
   audio_url?: string | null;
   conversation_audio_url?: string | null;
   [key: string]: unknown;
@@ -91,6 +101,11 @@ export type ResolvedLessonExercise = {
 
 export type ResolvedLessonTranscriptLine = {
   id?: string | null;
+  sort_order?: number | null;
+  speaker?: string | null;
+  speaker_th?: string | null;
+  line_text?: string | null;
+  line_text_th?: string | null;
   [key: string]: unknown;
 };
 
