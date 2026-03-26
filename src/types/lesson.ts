@@ -29,9 +29,23 @@ export type LessonRichNode = {
   text_th?: string | null;
   inlines?: LessonRichInline[] | null;
   audio_key?: string | null;
+  audio_section?: string | null;
   audio_seq?: number | null;
   is_response?: boolean | null;
   [key: string]: unknown;
+};
+
+export type LessonAudioSnippet = {
+  audio_key?: string | null;
+  section?: string | null;
+  seq?: number | null;
+  storage_path?: string | null;
+  signed_url?: string | null;
+};
+
+export type LessonAudioSnippetIndex = {
+  byKey: Record<string, LessonAudioSnippet>;
+  bySection: Record<string, Record<number, LessonAudioSnippet>>;
 };
 
 export type LessonApplyContent = {

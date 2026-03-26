@@ -140,13 +140,25 @@
     - includes `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
     - excludes `prepare` and non-sidebar items like `pinned_comment`
   - study-mode content language is a distinct lesson-content control, not the same as global app UI language
-    - the inline lesson language toggle should exist in every study section, not just `Comprehension`
+    - the lesson content-language toggle now lives in the fixed study chrome as a compact `TH/EN` pill rather than inside each section body
     - toggling it should refetch/use the other-language resolved payload exactly like the web lesson flow
     - section headers, section menu labels, and next-section CTA in study mode should follow lesson `contentLang`
     - the opposite lesson-content language is now prefetched in the background for faster toggles
     - translation toggles now keep the current lesson visible and show an inline `Translating...` state instead of dropping back to the full page loader
   - visible section titles now come from the web-aligned section-type label model rather than from `content_jsonb`
   - study mode now scrolls properly; the earlier non-scrollable fixed-card issue has been corrected
+  - study mode has now moved further toward the intended guided lesson shell:
+    - top chrome is fixed and separate from the content scroll zone
+    - the thin red progress bar sits directly below the lesson nav
+    - the content area no longer uses a large enclosing card wrapper
+    - the footer is sticky and owns both the audio bar and the CTA row
+    - fullscreen mode now hides the top chrome and audio bar while keeping content + CTA visible
+    - safe-area spacing is now applied so the lesson chrome/footer sit away from the notch and bottom edge
+  - the shared lesson audio tray has been restyled toward the target lesson mock:
+    - expanded on entry with a visual drag handle
+    - supports expanded and collapsed states
+    - collapsed state shows the compact live-dot / title / volume / play layout
+    - control sizing and typography have been tuned closer to the current design target
   - raw section `content` / `content_jsonb` is intentionally not rendered into the study card right now
     - this was briefly exposed during payload-debugging and was backed back out because it looked bad and was not a real renderer
     - remaining unported sections still use the controlled placeholder path
@@ -155,14 +167,25 @@
       - supports normalized resolved-payload questions
       - supports EN/TH content-language switching independent of global UI language
       - supports answer selection, check flow, correctness states, and preserved checked state through language toggles
+      - now runs inside the newer fixed-shell lesson layout with sticky footer / CTA behavior
+      - now more closely matches the target neo-brutalist multiple-choice treatment and feedback flow
     - `Transcript`
       - mirrors web behavior where English is always shown and Thai lines are additionally shown in Thai mode
-      - uses the same shared in-section content-language toggle as other study sections
+      - uses the same shared study-chrome content-language toggle as other study sections
     - `Apply`
       - uses dedicated section handling instead of the generic placeholder/rich-section path
       - supports structured dict-shaped `content_jsonb` / `content_jsonb_th` with `prompt`, `response`, `prompt_nodes`, and `response_nodes`
       - uses parsed rich-node data to render accent/callout paragraphs, including cyan-highlight-driven left-bar styling to match the web apply prompt behavior
       - supports local input + reveal-example-answer flow matching current web functionality (no backend submission/evaluation path exists in the web app)
+    - `Understand`
+      - uses rich resolved-payload nodes instead of the placeholder path
+      - preserves the guided card/pager lesson UX already established for study mode
+      - supports understand-specific highlight treatment from the web rich renderer
+      - supports inline snippet audio bullets wired from lesson audio snippet data
+    - `Culture Note`
+      - now uses the native rich-section renderer instead of the placeholder path
+      - supports headings, paragraphs, lists, images, tables, links, and inline snippet audio bullets when present
+      - intentionally reuses the shared rich-node/audio-bullet path without the understand-only highlight treatment
 - The lesson page port is expected to be a large multi-part task with several moving pieces:
   - resolved lesson payload fetching
   - native rich section renderer parity
@@ -172,18 +195,17 @@
 - Immediate next implementation target:
   - keep the new resolved-payload + derived-tab foundation in place
   - attack lesson sections one by one instead of trying to port the entire lesson body at once
-  - next concrete section target for the next chat:
-    - `Understand`
-  - for `Understand`, use the resolved payload / web lesson flow as source of truth:
-    - respect the same study-mode `contentLang` toggle model already established for `Comprehension`, `Transcript`, and `Apply`
-    - inspect `content_jsonb` / `content_jsonb_th` handling carefully, especially the web rich-renderer highlight treatment that is specific to `understand`
-    - build a native section renderer instead of falling through the placeholder copy
-  - after `Understand`, continue section-by-section in the same way:
+  - next concrete section target for the next chat remains:
+    - continue `Practice`
+  - for `Practice`, use the resolved payload / web lesson flow as source of truth:
+    - treat this as a more involved port than the recent rich-section work
+    - inspect the current web exercise types, answer interactions, correctness/review states, and any audio-linked rows before implementing
+    - preserve the same study-mode `contentLang` model already established on the lesson page where applicable
+    - prefer a dedicated native section implementation rather than forcing practice through the generic placeholder/rich-section path
+  - after `Practice`, continue section-by-section in the same way:
     - `Extra Tip`
     - `Common Mistake`
     - `Phrases & Verbs`
-    - `Culture Note`
-    - `Practice`
   - treat full `RichSectionRenderer` parity as a phased build, not a single giant port
     - do not reintroduce raw `content_jsonb` dumping as a temporary UI
 - Added native free-plan lessons flow:

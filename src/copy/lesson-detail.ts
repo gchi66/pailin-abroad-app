@@ -81,6 +81,15 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       applySubmit: 'ดูตัวอย่างคำตอบ',
       applyResponseNote: 'นี่คือตัวอย่างหนึ่งของคำตอบที่เป็นไปได้ ไม่จำเป็นต้องเหมือนกันทุกคำ',
       applyPlaceholder: 'พิมพ์คำตอบของคุณที่นี่…',
+      practiceEmpty: 'ยังไม่มีแบบฝึกหัดในส่วนนี้',
+      practiceChooseAnswer: 'เลือกคำตอบที่ถูกต้องที่สุด',
+      practiceReset: 'เริ่มใหม่',
+      practiceOpenPlaceholder: 'พิมพ์คำตอบของคุณ…',
+      practiceChecking: 'กำลังตรวจ...',
+      practiceAnswerAll: 'กรุณาตอบให้ครบก่อนตรวจ',
+      practiceLoginRequired: 'กรุณาเข้าสู่ระบบเพื่อตรวจคำตอบ',
+      practiceCorrect: 'ถูกต้อง',
+      practiceNeedsWork: 'ลองแก้อีกนิด',
     };
   }
 
@@ -137,5 +146,14 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     applySubmit: 'SEE AN EXAMPLE ANSWER',
     applyResponseNote: 'This is just one possible example response. Yours does not need to match it exactly.',
     applyPlaceholder: 'Type your response here…',
+    practiceEmpty: 'There are no exercises in this section yet.',
+    practiceChooseAnswer: 'Choose the best answer.',
+    practiceReset: 'RESET',
+    practiceOpenPlaceholder: 'Type your answer…',
+    practiceChecking: 'CHECKING...',
+    practiceAnswerAll: 'Please answer every prompt before checking.',
+    practiceLoginRequired: 'Please log in to check your answers.',
+    practiceCorrect: 'Correct',
+    practiceNeedsWork: 'Needs another try',
   };
 };

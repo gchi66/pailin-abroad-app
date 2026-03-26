@@ -1,7 +1,7 @@
 import { env } from '../config/env';
 import { supabase } from '../lib/supabase';
 import { supabaseSelect } from '../lib/supabase-rest';
-import { LessonListItem, ResolvedLessonPayload } from '../types/lesson';
+import { LessonAudioSnippet, LessonAudioSnippetIndex, LessonListItem, ResolvedLessonPayload } from '../types/lesson';
 
 const LESSON_SELECT_FIELDS =
   'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
@@ -165,6 +165,73 @@ export function prefetchResolvedLesson(lessonId: string, lang: 'en' | 'th') {
   void fetchResolvedLesson(lessonId, lang).catch(() => undefined);
 }
 
+export type EvaluateLessonAnswerInput = {
+  exerciseType: 'fill_blank' | 'open' | 'sentence_transform';
+  userAnswer: string;
+  correctAnswer?: string | null;
+  sourceType: 'practice' | 'bank';
+  exerciseId: string;
+  questionNumber?: number | string;
+  questionPrompt?: string;
+};
+
+export type EvaluateLessonAnswerResult = {
+  correct?: boolean | null;
+  score?: number | null;
+  feedback_en?: string | null;
+  feedback_th?: string | null;
+};
+
+export async function evaluateLessonAnswer(
+  input: EvaluateLessonAnswerInput
+): Promise<EvaluateLessonAnswerResult> {
+  const baseUrl = assertApiBaseUrl();
+  const session = await getCurrentLessonSession();
+  const headers = await getLessonAuthHeaders();
+  const userId = session?.user?.id?.trim();
+
+  if (!userId) {
+    throw new Error('Please log in to check your answers.');
+  }
+
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    exercise_type: input.exerciseType,
+    user_answer: input.userAnswer,
+    correct_answer: input.correctAnswer ?? '',
+    source_type: input.sourceType,
+    question_number: input.questionNumber,
+    question_prompt: input.questionPrompt ?? '',
+  };
+
+  if (input.sourceType === 'practice') {
+    payload.practice_exercise_id = input.exerciseId;
+  } else {
+    payload.exercise_bank_id = input.exerciseId;
+  }
+
+  const response = await fetch(`${baseUrl}/api/evaluate_answer`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const json = (await response.json().catch(() => null)) as
+    | EvaluateLessonAnswerResult
+    | { error?: string }
+    | null;
+
+  if (!response.ok) {
+    const message =
+      json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
+        ? json.error
+        : 'Unable to evaluate answer right now.';
+    throw new Error(message);
+  }
+
+  return (json ?? {}) as EvaluateLessonAnswerResult;
+}
+
 type LessonAudioUrls = {
   main: string | null;
   noBg: string | null;
@@ -176,6 +243,43 @@ type TryLessonAudioResponse = {
     path?: string | null;
     signed_url?: string | null;
   } | null;
+  snippets?: LessonAudioSnippet[] | null;
+};
+
+const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
+  byKey: {},
+  bySection: {},
+};
+
+const buildLessonSnippetIndex = (snippets: LessonAudioSnippet[]): LessonAudioSnippetIndex => {
+  const byKey: Record<string, LessonAudioSnippet> = {};
+  const bySection: Record<string, Record<number, LessonAudioSnippet>> = {};
+
+  snippets.forEach((snippet) => {
+    const audioKey = snippet.audio_key?.trim();
+    const section = snippet.section?.trim();
+    const seq = typeof snippet.seq === 'number' ? snippet.seq : null;
+
+    if (audioKey) {
+      byKey[audioKey] = snippet;
+    }
+
+    if (!section || seq === null) {
+      return;
+    }
+
+    if (!bySection[section]) {
+      bySection[section] = {};
+    }
+    bySection[section][seq] = snippet;
+  });
+
+  return { byKey, bySection };
+};
+
+const toTryLessonPublicAudioUrl = (path: string) => {
+  const normalizedPath = path.startsWith('Try_Lessons/') ? path : `Try_Lessons/${path.replace(/^\/+/, '')}`;
+  return `${env.supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/try-lessons/${normalizedPath}`;
 };
 
 export async function fetchLessonAudioUrls(
@@ -213,15 +317,10 @@ export async function fetchLessonAudioUrls(
       };
     }
 
-    const toPublicUrl = (path: string) => {
-      const normalizedPath = path.startsWith('Try_Lessons/') ? path : `Try_Lessons/${path.replace(/^\/+/, '')}`;
-      return `${env.supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/try-lessons/${normalizedPath}`;
-    };
-
     return {
-      main: resolvedSignedUrl || toPublicUrl(resolvedBasePath),
-      noBg: toPublicUrl(resolvedBasePath.replace('.mp3', '_no_bg.mp3')),
-      bg: toPublicUrl(resolvedBasePath.replace('.mp3', '_bg.mp3')),
+      main: resolvedSignedUrl || toTryLessonPublicAudioUrl(resolvedBasePath),
+      noBg: toTryLessonPublicAudioUrl(resolvedBasePath.replace('.mp3', '_no_bg.mp3')),
+      bg: toTryLessonPublicAudioUrl(resolvedBasePath.replace('.mp3', '_bg.mp3')),
     };
   }
 
@@ -244,4 +343,61 @@ export async function fetchLessonAudioUrls(
     noBg,
     bg,
   };
+}
+
+export async function fetchLessonAudioSnippetIndex(
+  lesson: Pick<ResolvedLessonPayload, 'id' | 'lesson_external_id'>
+): Promise<LessonAudioSnippetIndex> {
+  const lessonExternalId = lesson.lesson_external_id?.trim();
+  if (!lesson.id || !lessonExternalId) {
+    return EMPTY_SNIPPET_INDEX;
+  }
+
+  const session = await getCurrentLessonSession();
+  const isTryLesson = TRY_LESSON_IDS.has(lesson.id);
+
+  if (!session?.access_token && isTryLesson) {
+    const baseUrl = assertApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/try-lessons/${lesson.id}/audio-url`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const payload = (await response.json().catch(() => null)) as TryLessonAudioResponse | null;
+    const snippets = (payload?.snippets ?? [])
+      .filter((item): item is LessonAudioSnippet => Boolean(item?.audio_key && item?.storage_path))
+      .map((item) => ({
+        ...item,
+        signed_url: item.storage_path ? toTryLessonPublicAudioUrl(item.storage_path) : null,
+      }));
+
+    return buildLessonSnippetIndex(snippets);
+  }
+
+  const { data, error } = await supabase
+    .from('audio_snippets')
+    .select('section, seq, storage_path, audio_key')
+    .eq('lesson_external_id', lessonExternalId);
+
+  if (error) {
+    throw error;
+  }
+
+  return buildLessonSnippetIndex((data ?? []) as LessonAudioSnippet[]);
+}
+
+export async function fetchSignedLessonAudioUrl(path: string): Promise<string | null> {
+  const trimmedPath = path.trim();
+  if (!trimmedPath) {
+    return null;
+  }
+
+  const { data, error } = await supabase.storage.from('lesson-audio').createSignedUrl(trimmedPath, 60);
+  if (error) {
+    return null;
+  }
+
+  return data?.signedUrl ?? null;
 }

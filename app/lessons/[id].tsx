@@ -5,8 +5,16 @@ import { AudioPlayer, AudioStatus, createAudioPlayer, setAudioModeAsync } from '
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fetchLessonAudioUrls, fetchResolvedLesson, prefetchResolvedLesson } from '@/src/api/lessons';
+import {
+  evaluateLessonAnswer,
+  fetchLessonAudioSnippetIndex,
+  fetchLessonAudioUrls,
+  fetchResolvedLesson,
+  fetchSignedLessonAudioUrl,
+  prefetchResolvedLesson,
+} from '@/src/api/lessons';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
+import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -22,9 +30,12 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import {
   LessonApplyContent,
+  LessonAudioSnippet,
+  LessonAudioSnippetIndex,
   LessonRichInline,
   LessonRichNode,
   LessonQuestionOption,
+  ResolvedLessonExercise,
   ResolvedLessonPayload,
   ResolvedLessonQuestion,
   ResolvedLessonSection,
@@ -80,6 +91,49 @@ type RichSectionGroup = {
   body: LessonRichNode[];
 };
 
+type NormalizedPracticeOption = {
+  label: string;
+  text: string;
+  textTh: string;
+};
+
+type NormalizedPracticeItem = {
+  key: string;
+  numberLabel: string;
+  text: string;
+  textTh: string;
+  prompt: string;
+  promptTh: string;
+  placeholder: string;
+  placeholderTh: string;
+  answer: string;
+  answerLetters: string[];
+  options: NormalizedPracticeOption[];
+  isExample: boolean;
+};
+
+type NormalizedPracticeExercise = {
+  id: string;
+  kind: 'multiple_choice' | 'open' | null;
+  title: string;
+  titleEn: string;
+  titleTh: string;
+  prompt: string;
+  promptEn: string;
+  promptTh: string;
+  items: NormalizedPracticeItem[];
+  sortOrder: number;
+};
+
+type PracticeEvaluationState = {
+  loading: boolean;
+  correct: boolean | null;
+  score: number | null;
+  feedbackEn: string;
+  feedbackTh: string;
+  error: string;
+};
+
 const MASTER_ORDER = [
   'comprehension',
   'transcript',
@@ -95,6 +149,10 @@ const MASTER_ORDER = [
 const CYAN_HIGHLIGHT = '#00ffff';
 const APPLY_ACCENT_COLOR = '#7BE6C9';
 const UNDERSTAND_HIGHLIGHTS = new Set(['#f4cccc', '#d9ead3', '#c9daf7', '#c9daf8']);
+const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
+  byKey: {},
+  bySection: {},
+};
 
 const getResolvedSectionType = (section: ResolvedLessonSection) => section.type ?? section.section_type ?? null;
 
@@ -211,6 +269,8 @@ const safeParseAnswerKey = (value: unknown) => {
   return [];
 };
 
+const normalizeOptionLetter = (value: string) => value.trim().replace(/\.$/, '').toUpperCase();
+
 const splitThaiText = (value: string) => {
   const thaiRegex = /[\u0E00-\u0E7F]/;
   const segments = splitTextLines(value);
@@ -237,6 +297,131 @@ const splitThaiText = (value: string) => {
   }
 
   return { en: english, th: thai };
+};
+
+const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
+  if (typeof option === 'string') {
+    const match = option.match(/^([A-Z])\.\s*(.*)$/s);
+    const label = normalizeOptionLetter(match?.[1] ?? '');
+    const body = match?.[2] ?? option;
+    const { en, th } = splitThaiText(body);
+    return { label, text: en, textTh: th };
+  }
+
+  if (!option || typeof option !== 'object') {
+    return { label: '', text: '', textTh: '' };
+  }
+
+  const raw = option as Record<string, unknown>;
+  const body = typeof raw.text === 'string' ? raw.text : '';
+  const thaiBody = typeof raw.text_th === 'string' ? raw.text_th : typeof raw.textTh === 'string' ? raw.textTh : '';
+  const { en, th } = splitThaiText(body);
+  const thaiSplit = splitThaiText(thaiBody);
+
+  return {
+    label: normalizeOptionLetter(String(raw.label ?? raw.letter ?? '')),
+    text: en || thaiSplit.en,
+    textTh: th || thaiSplit.th,
+  };
+};
+
+const getPracticeFieldByLang = (
+  value: Record<string, unknown>,
+  field: string,
+  language: UiLanguage
+) => {
+  const base = typeof value[field] === 'string' ? String(value[field]).trim() : '';
+  const english = typeof value[`${field}_en`] === 'string' ? String(value[`${field}_en`]).trim() : '';
+  const thai = typeof value[`${field}_th`] === 'string' ? String(value[`${field}_th`]).trim() : '';
+
+  if (language === 'th') {
+    return thai || base || english;
+  }
+
+  return english || base || thai;
+};
+
+const normalizePracticeExerciseKind = (value: unknown) => {
+  const kind = String(value ?? '').trim().toLowerCase();
+  if (kind === 'multiple_choice' || kind === 'open' || kind === 'open_ended') {
+    return kind === 'open_ended' ? 'open' : kind;
+  }
+  return null;
+};
+
+const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang: UiLanguage): NormalizedPracticeExercise => {
+  const raw = exercise as Record<string, unknown>;
+  const kind = normalizePracticeExerciseKind(raw.kind ?? raw.exercise_type);
+  const itemsSource =
+    contentLang === 'th' && Array.isArray(raw.items_th) && raw.items_th.length
+      ? raw.items_th
+      : Array.isArray(raw.items)
+        ? raw.items
+        : [];
+  const englishItemsSource = Array.isArray(raw.items_en) ? raw.items_en : Array.isArray(raw.items) ? raw.items : [];
+  const thaiItemsSource = Array.isArray(raw.items_th) ? raw.items_th : [];
+
+  const items = itemsSource.map((item, index) => {
+    const current = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+    const englishFallback =
+      englishItemsSource[index] && typeof englishItemsSource[index] === 'object'
+        ? (englishItemsSource[index] as Record<string, unknown>)
+        : {};
+    const thaiFallback =
+      thaiItemsSource[index] && typeof thaiItemsSource[index] === 'object'
+        ? (thaiItemsSource[index] as Record<string, unknown>)
+        : {};
+
+    const text = getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en');
+    const textTh = getPracticeFieldByLang(current, 'text', 'th') || getPracticeFieldByLang(thaiFallback, 'text', 'th');
+    const prompt = getPracticeFieldByLang(current, 'prompt', 'en') || getPracticeFieldByLang(current, 'question', 'en');
+    const promptTh = getPracticeFieldByLang(current, 'prompt', 'th') || getPracticeFieldByLang(current, 'question', 'th');
+    const placeholder =
+      getPracticeFieldByLang(current, 'placeholder', 'en') || getPracticeFieldByLang(englishFallback, 'placeholder', 'en');
+    const placeholderTh =
+      getPracticeFieldByLang(current, 'placeholder', 'th') || getPracticeFieldByLang(thaiFallback, 'placeholder', 'th');
+    const answer = typeof current.answer === 'string' ? current.answer.trim() : '';
+    const options = Array.isArray(current.options)
+      ? current.options.map(parsePracticeOption)
+      : Array.isArray(raw.options)
+        ? raw.options.map(parsePracticeOption)
+        : [];
+    const numberValue = current.number ?? index + 1;
+
+    return {
+      key: String(current.id ?? `${raw.id ?? 'exercise'}-${index + 1}`),
+      numberLabel: String(numberValue),
+      text,
+      textTh,
+      prompt,
+      promptTh,
+      placeholder,
+      placeholderTh,
+      answer,
+      answerLetters: safeParseAnswerKey(answer),
+      options,
+      isExample:
+        typeof current.is_example === 'boolean'
+          ? current.is_example
+          : String(current.number ?? '').trim().toLowerCase() === 'example',
+    };
+  });
+
+  const promptEn = getPracticeFieldByLang(raw, 'prompt', 'en') || String(raw.prompt_md ?? '').trim();
+  const promptTh = getPracticeFieldByLang(raw, 'prompt', 'th');
+
+  return {
+    id: String(raw.id ?? `practice-${raw.sort_order ?? 0}`),
+    kind,
+    title: getPracticeFieldByLang(raw, 'title', contentLang) || promptEn || promptTh || '',
+    titleEn: getPracticeFieldByLang(raw, 'title', 'en'),
+    titleTh: getPracticeFieldByLang(raw, 'title', 'th'),
+    prompt: contentLang === 'th' ? promptTh || promptEn : promptEn || promptTh,
+    promptEn,
+    promptTh,
+    items,
+    sortOrder: Number(raw.sort_order ?? 0),
+  };
 };
 
 const parseQuestionOption = (option: string | LessonQuestionOption) => {
@@ -519,6 +704,21 @@ const groupRichSectionNodes = (nodes: LessonRichNode[], contentLang: UiLanguage)
   return groups.filter((group) => group.heading !== null || group.body.some((node) => hasVisibleRichNodeContent(node, contentLang)));
 };
 
+const getSnippetForNode = (node: LessonRichNode, snippetIndex: LessonAudioSnippetIndex): LessonAudioSnippet | null => {
+  const audioKey = node.audio_key?.trim();
+  if (audioKey && snippetIndex.byKey[audioKey]) {
+    return snippetIndex.byKey[audioKey];
+  }
+
+  const audioSection = typeof node.audio_section === 'string' ? node.audio_section.trim() : '';
+  const audioSeq = typeof node.audio_seq === 'number' ? node.audio_seq : null;
+  if (!audioSection || audioSeq === null) {
+    return null;
+  }
+
+  return snippetIndex.bySection[audioSection]?.[audioSeq] ?? null;
+};
+
 const resolveLessonImageUrl = (value: unknown) => {
   if (typeof value !== 'string') {
     return null;
@@ -593,12 +793,22 @@ export default function LessonDetailShellScreen() {
   const [audioDurationMillis, setAudioDurationMillis] = useState(0);
   const [hasAudioFinished, setHasAudioFinished] = useState(false);
   const [audioRate, setAudioRate] = useState(1);
+  const [snippetIndex, setSnippetIndex] = useState<LessonAudioSnippetIndex>(EMPTY_SNIPPET_INDEX);
+  const [activeSnippetKey, setActiveSnippetKey] = useState<string | null>(null);
+  const [isSnippetLoading, setIsSnippetLoading] = useState(false);
   const [applyText, setApplyText] = useState('');
   const [showApplyResponse, setShowApplyResponse] = useState(false);
   const [activeUnderstandGroupIndex, setActiveUnderstandGroupIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [practiceSelections, setPracticeSelections] = useState<Record<string, string[]>>({});
+  const [checkedPracticeExercises, setCheckedPracticeExercises] = useState<Record<string, boolean>>({});
+  const [practiceOpenAnswers, setPracticeOpenAnswers] = useState<Record<string, string>>({});
+  const [practiceEvaluations, setPracticeEvaluations] = useState<Record<string, PracticeEvaluationState>>({});
+  const [practiceErrorByExercise, setPracticeErrorByExercise] = useState<Record<string, string>>({});
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const bgSoundRef = useRef<AudioPlayer | null>(null);
+  const snippetSoundRef = useRef<AudioPlayer | null>(null);
+  const snippetSubscriptionRef = useRef<{ remove: () => void } | null>(null);
   const applyInputRef = useRef<TextInput | null>(null);
   const lastBgSyncRef = useRef(0);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
@@ -663,9 +873,17 @@ export default function LessonDetailShellScreen() {
     setAudioDurationMillis(0);
     setHasAudioFinished(false);
     setAudioRate(1);
+    setSnippetIndex(EMPTY_SNIPPET_INDEX);
+    setActiveSnippetKey(null);
+    setIsSnippetLoading(false);
     setApplyText('');
     setShowApplyResponse(false);
     setIsFullscreen(false);
+    setPracticeSelections({});
+    setCheckedPracticeExercises({});
+    setPracticeOpenAnswers({});
+    setPracticeEvaluations({});
+    setPracticeErrorByExercise({});
   }, [lessonId]);
 
   useEffect(() => {
@@ -726,6 +944,14 @@ export default function LessonDetailShellScreen() {
     () => normalizeApplyContent(activeTab?.type === 'apply' ? activeSection : null, contentLang),
     [activeSection, activeTab?.type, contentLang]
   );
+  const normalizedPracticeExercises = useMemo(
+    () =>
+      (lesson?.practice_exercises ?? [])
+        .map((exercise) => normalizePracticeExercise(exercise, contentLang))
+        .filter((exercise) => exercise.kind === 'multiple_choice' || exercise.kind === 'open')
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [contentLang, lesson?.practice_exercises]
+  );
 
   useEffect(() => {
     const validQuestionIds = new Set(normalizedQuestions.map((question) => question.id));
@@ -758,24 +984,19 @@ export default function LessonDetailShellScreen() {
     () => (activeTab ? getLessonSectionLabel(pageLanguage, activeTab.type) : null),
     [activeTab, pageLanguage]
   );
-  const allAnswersCorrect =
-    normalizedQuestions.length > 0 &&
-    normalizedQuestions.every((question) => {
-      const currentSelections = selectedAnswers[question.id] ?? [];
-      if (!currentSelections.length || currentSelections.length !== question.answerKey.length) {
-        return false;
-      }
-
-      const answerSet = new Set(question.answerKey);
-      return currentSelections.every((choice) => answerSet.has(choice));
-    });
   const isComprehensionTab = activeTab?.type === 'comprehension';
   const isTranscriptTab = activeTab?.type === 'transcript';
   const isApplyTab = activeTab?.type === 'apply';
   const isUnderstandTab = activeTab?.type === 'understand';
+  const isCultureNoteTab = activeTab?.type === 'culture_note';
+  const isPracticeTab = activeTab?.type === 'practice';
   const understandNodes = useMemo(
     () => getRichNodesForLanguage(isUnderstandTab ? activeSection : null, contentLang),
     [activeSection, contentLang, isUnderstandTab]
+  );
+  const cultureNoteNodes = useMemo(
+    () => getRichNodesForLanguage(isCultureNoteTab ? activeSection : null, contentLang),
+    [activeSection, contentLang, isCultureNoteTab]
   );
   const understandGroups = useMemo(
     () => groupRichSectionNodes(understandNodes, contentLang),
@@ -835,6 +1056,39 @@ export default function LessonDetailShellScreen() {
   }, [activeTab?.id, contentLang, lessonId]);
 
   useEffect(() => {
+    const validSelectionKeys = new Set<string>();
+    const validExerciseIds = new Set<string>();
+
+    normalizedPracticeExercises.forEach((exercise) => {
+      validExerciseIds.add(exercise.id);
+      exercise.items.forEach((item) => {
+        validSelectionKeys.add(`${exercise.id}:${item.key}`);
+      });
+    });
+
+    setPracticeSelections((previous) => {
+      const nextEntries = Object.entries(previous).filter(([key]) => validSelectionKeys.has(key));
+      return nextEntries.length === Object.keys(previous).length ? previous : Object.fromEntries(nextEntries);
+    });
+    setPracticeOpenAnswers((previous) => {
+      const nextEntries = Object.entries(previous).filter(([key]) => validSelectionKeys.has(key));
+      return nextEntries.length === Object.keys(previous).length ? previous : Object.fromEntries(nextEntries);
+    });
+    setPracticeEvaluations((previous) => {
+      const nextEntries = Object.entries(previous).filter(([key]) => validSelectionKeys.has(key));
+      return nextEntries.length === Object.keys(previous).length ? previous : Object.fromEntries(nextEntries);
+    });
+    setCheckedPracticeExercises((previous) => {
+      const nextEntries = Object.entries(previous).filter(([key]) => validExerciseIds.has(key));
+      return nextEntries.length === Object.keys(previous).length ? previous : Object.fromEntries(nextEntries);
+    });
+    setPracticeErrorByExercise((previous) => {
+      const nextEntries = Object.entries(previous).filter(([key]) => validExerciseIds.has(key));
+      return nextEntries.length === Object.keys(previous).length ? previous : Object.fromEntries(nextEntries);
+    });
+  }, [normalizedPracticeExercises]);
+
+  useEffect(() => {
     setActiveUnderstandGroupIndex(0);
   }, [activeTab?.id, contentLang, isUnderstandTab, understandGroups]);
 
@@ -852,6 +1106,136 @@ export default function LessonDetailShellScreen() {
       };
     });
     setHasCheckedAnswers(false);
+  };
+
+  const handlePracticeChoice = (exerciseId: string, itemKey: string, optionLabel: string, isMulti: boolean) => {
+    const selectionKey = `${exerciseId}:${itemKey}`;
+    const normalizedLabel = normalizeOptionLetter(optionLabel);
+
+    setPracticeSelections((previous) => {
+      const current = previous[selectionKey] ?? [];
+      const next = isMulti
+        ? current.includes(normalizedLabel)
+          ? current.filter((entry) => entry !== normalizedLabel)
+          : [...current, normalizedLabel]
+        : [normalizedLabel];
+      return {
+        ...previous,
+        [selectionKey]: next,
+      };
+    });
+    setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
+    setPracticeErrorByExercise((previous) => ({ ...previous, [exerciseId]: '' }));
+  };
+
+  const handleCheckMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
+    const hasUnanswered = exercise.items.some((item) => (practiceSelections[`${exercise.id}:${item.key}`] ?? []).length === 0);
+
+    if (hasUnanswered) {
+      setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: pageCopy.practiceAnswerAll }));
+      return;
+    }
+
+    setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+    setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
+  };
+
+  const handleResetMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
+    const nextSelections = { ...practiceSelections };
+    exercise.items.forEach((item) => {
+      delete nextSelections[`${exercise.id}:${item.key}`];
+    });
+    setPracticeSelections(nextSelections);
+    setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
+    setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+  };
+
+  const handlePracticeOpenAnswerChange = (exerciseId: string, itemKey: string, value: string) => {
+    const answerKey = `${exerciseId}:${itemKey}`;
+
+    setPracticeOpenAnswers((previous) => ({ ...previous, [answerKey]: value }));
+    setPracticeEvaluations((previous) => {
+      if (!(answerKey in previous)) {
+        return previous;
+      }
+      const next = { ...previous };
+      delete next[answerKey];
+      return next;
+    });
+    setPracticeErrorByExercise((previous) => ({ ...previous, [exerciseId]: '' }));
+  };
+
+  const handleCheckOpenExercise = async (exercise: NormalizedPracticeExercise) => {
+    const pendingItems = exercise.items.filter((item) => !item.isExample);
+    const hasUnanswered = pendingItems.some((item) => !(practiceOpenAnswers[`${exercise.id}:${item.key}`] ?? '').trim());
+
+    if (hasUnanswered) {
+      setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: pageCopy.practiceAnswerAll }));
+      return;
+    }
+
+    setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+    setPracticeEvaluations((previous) => {
+      const next = { ...previous };
+      pendingItems.forEach((item) => {
+        next[`${exercise.id}:${item.key}`] = {
+          loading: true,
+          correct: null,
+          score: null,
+          feedbackEn: '',
+          feedbackTh: '',
+          error: '',
+        };
+      });
+      return next;
+    });
+
+    try {
+      await Promise.all(
+        pendingItems.map(async (item, index) => {
+          const answerKey = `${exercise.id}:${item.key}`;
+          try {
+            const result = await evaluateLessonAnswer({
+              exerciseType: 'open',
+              userAnswer: practiceOpenAnswers[answerKey] ?? '',
+              correctAnswer: item.answer || '',
+              sourceType: 'practice',
+              exerciseId: exercise.id,
+              questionNumber: item.numberLabel || index + 1,
+              questionPrompt: item.prompt || item.text || exercise.prompt || exercise.title,
+            });
+
+            setPracticeEvaluations((previous) => ({
+              ...previous,
+              [answerKey]: {
+                loading: false,
+                correct: typeof result.correct === 'boolean' ? result.correct : null,
+                score: typeof result.score === 'number' ? result.score : null,
+                feedbackEn: String(result.feedback_en ?? '').trim(),
+                feedbackTh: String(result.feedback_th ?? '').trim(),
+                error: '',
+              },
+            }));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : pageCopy.practiceLoginRequired;
+            setPracticeEvaluations((previous) => ({
+              ...previous,
+              [answerKey]: {
+                loading: false,
+                correct: false,
+                score: null,
+                feedbackEn: message,
+                feedbackTh: '',
+                error: message,
+              },
+            }));
+            setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: message }));
+          }
+        })
+      );
+    } catch {
+      return;
+    }
   };
 
   useEffect(() => {
@@ -883,6 +1267,52 @@ export default function LessonDetailShellScreen() {
       isMounted = false;
     };
   }, [lesson]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      if (!lesson?.id || !lesson.lesson_external_id) {
+        setSnippetIndex(EMPTY_SNIPPET_INDEX);
+        return;
+      }
+
+      try {
+        const nextSnippetIndex = await fetchLessonAudioSnippetIndex(lesson);
+        if (!isMounted) {
+          return;
+        }
+        setSnippetIndex(nextSnippetIndex);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+        setSnippetIndex(EMPTY_SNIPPET_INDEX);
+      }
+    };
+
+    run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lesson]);
+
+  useEffect(() => {
+    return () => {
+      snippetSubscriptionRef.current?.remove();
+      snippetSubscriptionRef.current = null;
+      if (snippetSoundRef.current) {
+        try {
+          snippetSoundRef.current.remove();
+        } catch {
+          return;
+        } finally {
+          snippetSoundRef.current = null;
+        }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -1026,6 +1456,84 @@ export default function LessonDetailShellScreen() {
       bgSoundRef.current.setPlaybackRate(1);
     }
   }, [audioRate]);
+
+  const unloadSnippetPlayer = () => {
+    snippetSubscriptionRef.current?.remove();
+    snippetSubscriptionRef.current = null;
+
+    if (snippetSoundRef.current) {
+      try {
+        snippetSoundRef.current.remove();
+      } catch {
+      } finally {
+        snippetSoundRef.current = null;
+      }
+    }
+
+    setActiveSnippetKey(null);
+    setIsSnippetLoading(false);
+  };
+
+  useEffect(() => {
+    unloadSnippetPlayer();
+  }, [activeTab?.id, contentLang, lessonId]);
+
+  const handleToggleSnippet = async (snippet: LessonAudioSnippet | null) => {
+    const audioKey = snippet?.audio_key?.trim();
+    if (!snippet || !audioKey) {
+      return;
+    }
+
+    const existingPlayer = snippetSoundRef.current;
+    if (existingPlayer && activeSnippetKey === audioKey && existingPlayer.isLoaded) {
+      if (existingPlayer.playing) {
+        existingPlayer.pause();
+        setActiveSnippetKey(null);
+      } else {
+        existingPlayer.play();
+        setActiveSnippetKey(audioKey);
+      }
+      return;
+    }
+
+    unloadSnippetPlayer();
+    setActiveSnippetKey(audioKey);
+    setIsSnippetLoading(true);
+
+    const snippetUrl = snippet.signed_url?.trim() || (snippet.storage_path ? await fetchSignedLessonAudioUrl(snippet.storage_path) : null);
+    if (!snippetUrl) {
+      setIsSnippetLoading(false);
+      return;
+    }
+
+    try {
+      const player = createAudioPlayer(snippetUrl, {
+        updateInterval: 250,
+      });
+
+      const subscription = player.addListener('playbackStatusUpdate', (status) => {
+        if (!status.isLoaded) {
+          return;
+        }
+
+        setIsSnippetLoading(false);
+        if (status.didJustFinish || !status.playing) {
+          setActiveSnippetKey((current) => (current === audioKey ? null : current));
+        } else {
+          setActiveSnippetKey(audioKey);
+        }
+      });
+
+      snippetSoundRef.current = player;
+      snippetSubscriptionRef.current = subscription;
+      setActiveSnippetKey(audioKey);
+      player.play();
+    } catch {
+      unloadSnippetPlayer();
+    } finally {
+      setIsSnippetLoading(false);
+    }
+  };
 
   const handleToggleAudio = async () => {
     const voiceSound = voiceSoundRef.current;
@@ -1219,7 +1727,11 @@ export default function LessonDetailShellScreen() {
     void Linking.openURL(nextHref).catch(() => undefined);
   };
 
-  const renderRichInlines = (inlines: LessonRichInline[] | null | undefined, keyPrefix: string) => {
+  const renderRichInlines = (
+    inlines: LessonRichInline[] | null | undefined,
+    keyPrefix: string,
+    options?: { enableHighlights?: boolean }
+  ) => {
     if (!Array.isArray(inlines) || !inlines.length) {
       return null;
     }
@@ -1232,7 +1744,7 @@ export default function LessonDetailShellScreen() {
 
       const highlightColor =
         typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
-      const shouldShowHighlight = UNDERSTAND_HIGHLIGHTS.has(highlightColor);
+      const shouldShowHighlight = options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
       const textNode = (
         <Text
           key={`${keyPrefix}-${index}`}
@@ -1268,13 +1780,66 @@ export default function LessonDetailShellScreen() {
     });
   };
 
-  const renderUnderstandNode = (node: LessonRichNode, index: number) => {
-    const nodeKey = `understand-node-${index}`;
+  const renderRichAudioRow = (
+    node: LessonRichNode,
+    nodeKey: string,
+    indentStyle: object | null,
+    hasAccent: boolean,
+    options?: { enableHighlights?: boolean }
+  ) => {
+    const snippet = getSnippetForNode(node, snippetIndex);
+    const audioKey = snippet?.audio_key?.trim() || node.audio_key?.trim() || null;
+    const isPlaying = Boolean(audioKey) && activeSnippetKey === audioKey;
+    const isLoading = isPlaying && isSnippetLoading;
+
+    return (
+      <View key={nodeKey} style={[styles.understandAudioRow, indentStyle, hasAccent ? styles.applyAccentBlock : null]}>
+        <LessonSnippetAudioButton
+          accessibilityLabel={
+            pageLanguage === 'th'
+              ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
+              : isPlaying
+                ? 'Pause example audio'
+                : 'Play example audio'
+          }
+          disabled={!snippet}
+          isLoading={isLoading}
+          isPlaying={isPlaying}
+          onPress={() => {
+            void handleToggleSnippet(snippet);
+          }}
+        />
+        <AppText language={contentLang} variant="body" style={styles.understandAudioText}>
+          {renderRichInlines(node.inlines, nodeKey, options)}
+        </AppText>
+      </View>
+    );
+  };
+
+  const renderRichNode = (
+    node: LessonRichNode,
+    index: number,
+    options?: { keyPrefix?: string; allowHeadings?: boolean; enableHighlights?: boolean }
+  ) => {
+    const nodeKey = `${options?.keyPrefix ?? 'rich-node'}-${index}`;
     const indentStyle = getRichIndentStyle(node);
     const hasAccent = applyNodeHasAccent(node);
+    const hasAudio = Boolean(node.audio_key || node.audio_seq);
 
     if (node.kind === 'spacer') {
       return <View key={nodeKey} style={styles.richSpacer} />;
+    }
+
+    if (node.kind === 'heading') {
+      if (!options?.allowHeadings) {
+        return null;
+      }
+
+      return (
+        <AppText key={nodeKey} language={contentLang} variant="body" style={[styles.richParagraph, styles.richSubheader]}>
+          {renderRichInlines(node.inlines, nodeKey, options)}
+        </AppText>
+      );
     }
 
     if (node.kind === 'image') {
@@ -1322,9 +1887,9 @@ export default function LessonDetailShellScreen() {
                     key={`${nodeKey}-cell-${rowIndex}-${cellIndex}`}
                     style={[
                       styles.richTableCell,
-                      cellBackground === '#f4cccc' ? styles.richTableCellPink : null,
-                      cellBackground === '#d9ead3' ? styles.richTableCellGreen : null,
-                      cellBackground === '#c9daf7' || cellBackground === '#c9daf8'
+                      options?.enableHighlights && cellBackground === '#f4cccc' ? styles.richTableCellPink : null,
+                      options?.enableHighlights && cellBackground === '#d9ead3' ? styles.richTableCellGreen : null,
+                      options?.enableHighlights && (cellBackground === '#c9daf7' || cellBackground === '#c9daf8')
                         ? styles.richTableCellBlue
                         : null,
                     ]}>
@@ -1341,6 +1906,10 @@ export default function LessonDetailShellScreen() {
     }
 
     if (node.kind === 'numbered_item') {
+      if (hasAudio) {
+        return renderRichAudioRow(node, nodeKey, indentStyle, hasAccent, options);
+      }
+
       return (
         <View key={nodeKey} style={[styles.richListRow, indentStyle]}>
           <View style={styles.richNumberBadge}>
@@ -1349,24 +1918,32 @@ export default function LessonDetailShellScreen() {
             </AppText>
           </View>
           <AppText language={contentLang} variant="body" style={[styles.richListText, hasAccent ? styles.applyAccentBlock : null]}>
-            {renderRichInlines(node.inlines, nodeKey)}
+            {renderRichInlines(node.inlines, nodeKey, options)}
           </AppText>
         </View>
       );
     }
 
     if (node.kind === 'list_item' || node.kind === 'misc_item') {
+      if (hasAudio) {
+        return renderRichAudioRow(node, nodeKey, indentStyle, hasAccent, options);
+      }
+
       return (
         <View key={nodeKey} style={[styles.richListRow, indentStyle]}>
           <View style={styles.richBullet} />
           <AppText language={contentLang} variant="body" style={[styles.richListText, hasAccent ? styles.applyAccentBlock : null]}>
-            {renderRichInlines(node.inlines, nodeKey)}
+            {renderRichInlines(node.inlines, nodeKey, options)}
           </AppText>
         </View>
       );
     }
 
     if (node.kind === 'paragraph') {
+      if (hasAudio) {
+        return renderRichAudioRow(node, nodeKey, indentStyle, hasAccent, options);
+      }
+
       const isSubheader = isBoldParagraphNode(node);
       return (
         <AppText
@@ -1379,13 +1956,16 @@ export default function LessonDetailShellScreen() {
             isSubheader ? styles.richSubheader : null,
             hasAccent ? styles.applyAccentBlock : null,
           ]}>
-          {renderRichInlines(node.inlines, nodeKey)}
+          {renderRichInlines(node.inlines, nodeKey, options)}
         </AppText>
       );
     }
 
     return null;
   };
+
+  const renderUnderstandNode = (node: LessonRichNode, index: number) =>
+    renderRichNode(node, index, { keyPrefix: 'understand-node', enableHighlights: true });
 
   const renderUnderstandGroupBody = (nodes: LessonRichNode[], keyPrefix: string) => {
     const zebraGroups: LessonRichNode[][] = [];
@@ -1411,6 +1991,18 @@ export default function LessonDetailShellScreen() {
       </View>
     ));
   };
+
+  const renderCultureNoteBody = (nodes: LessonRichNode[]) => (
+    <Stack gap="sm">
+      {nodes.map((node, index) =>
+        renderRichNode(node, index, {
+          keyPrefix: 'culture-note-node',
+          allowHeadings: true,
+          enableHighlights: false,
+        })
+      )}
+    </Stack>
+  );
 
   const activeUnderstandGroup = isUnderstandTab ? understandGroups[activeUnderstandGroupIndex] ?? null : null;
   const activeUnderstandHeading = activeUnderstandGroup?.heading
@@ -1854,6 +2446,295 @@ export default function LessonDetailShellScreen() {
                         </Stack>
                       ) : null}
                     </Stack>
+                  ) : isPracticeTab ? (
+                    normalizedPracticeExercises.length ? (
+                      <Stack gap="lg">
+                        {normalizedPracticeExercises.map((exercise) => {
+                          const isMultipleChoiceExercise = exercise.kind === 'multiple_choice';
+                          const isOpenExercise = exercise.kind === 'open';
+                          const isChecked = Boolean(checkedPracticeExercises[exercise.id]);
+                          const exerciseError = practiceErrorByExercise[exercise.id] ?? '';
+                          const openStates = exercise.items.map((item) => practiceEvaluations[`${exercise.id}:${item.key}`]);
+                          const isCheckingExercise = isOpenExercise && openStates.some((state) => state?.loading);
+
+                          return (
+                            <View key={exercise.id} style={styles.practiceExerciseCard}>
+                              <Stack gap="md">
+                                <View style={styles.practiceExerciseHeader}>
+                                  <View style={styles.practiceExerciseBadge}>
+                                    <AppText language={pageLanguage} variant="caption" style={styles.practiceExerciseBadgeText}>
+                                      {getLessonSectionLabel(pageLanguage, 'practice')}
+                                    </AppText>
+                                  </View>
+
+                                  {(exercise.title || exercise.prompt) ? (
+                                    <AppText
+                                      language={contentLang === 'th' ? 'th' : 'en'}
+                                      variant="body"
+                                      style={styles.practiceExerciseTitle}>
+                                      {exercise.title || exercise.prompt}
+                                    </AppText>
+                                  ) : null}
+
+                                  {exercise.prompt && exercise.title !== exercise.prompt ? (
+                                    <AppText
+                                      language={contentLang === 'th' ? 'th' : 'en'}
+                                      variant="muted"
+                                      style={styles.practiceExercisePrompt}>
+                                      {exercise.prompt}
+                                    </AppText>
+                                  ) : null}
+                                </View>
+
+                                {isMultipleChoiceExercise ? (
+                                  <Stack gap="md">
+                                    {exercise.items.map((item, itemIndex) => {
+                                      const selectionKey = `${exercise.id}:${item.key}`;
+                                      const selectedLabels = practiceSelections[selectionKey] ?? [];
+                                      const selectedSet = new Set(selectedLabels);
+                                      const answerSet = new Set(item.answerLetters);
+                                      const isMulti = item.answerLetters.length > 1;
+
+                                      return (
+                                        <View key={selectionKey} style={styles.practiceQuestionCard}>
+                                          <View style={styles.practiceQuestionHeader}>
+                                            <AppText language="en" variant="caption" style={styles.practiceQuestionNumber}>
+                                              {item.numberLabel || `${itemIndex + 1}`}
+                                            </AppText>
+
+                                            <View style={styles.practiceQuestionTextWrap}>
+                                              {item.text ? (
+                                                <AppText language="en" variant="body" style={styles.practiceQuestionText}>
+                                                  {item.text}
+                                                </AppText>
+                                              ) : null}
+                                              {contentLang === 'th' && item.textTh ? (
+                                                <AppText language="th" variant="body" style={styles.practiceQuestionThaiText}>
+                                                  {item.textTh}
+                                                </AppText>
+                                              ) : null}
+                                            </View>
+                                          </View>
+
+                                          <Stack gap="sm">
+                                            {item.options.map((option) => {
+                                              const isSelected = selectedSet.has(option.label);
+                                              const isCorrectOption = answerSet.has(option.label);
+                                              const isWrongSelection = isChecked && isSelected && !isCorrectOption;
+
+                                              return (
+                                                <Pressable
+                                                  key={`${selectionKey}:${option.label}`}
+                                                  accessibilityRole="button"
+                                                  onPress={() =>
+                                                    handlePracticeChoice(exercise.id, item.key, option.label, isMulti)
+                                                  }
+                                                  style={[
+                                                    styles.practiceOptionButton,
+                                                    isSelected ? styles.practiceOptionButtonSelected : null,
+                                                    isChecked && isCorrectOption ? styles.practiceOptionButtonCorrect : null,
+                                                    isWrongSelection ? styles.practiceOptionButtonWrong : null,
+                                                  ]}>
+                                                  <View
+                                                    style={[
+                                                      styles.practiceOptionLetter,
+                                                      isSelected ? styles.practiceOptionLetterSelected : null,
+                                                      isChecked && isCorrectOption ? styles.practiceOptionLetterCorrect : null,
+                                                      isWrongSelection ? styles.practiceOptionLetterWrong : null,
+                                                    ]}>
+                                                    <AppText
+                                                      language="en"
+                                                      variant="caption"
+                                                      style={[
+                                                        styles.practiceOptionLetterText,
+                                                        isSelected ? styles.practiceOptionLetterTextInverse : null,
+                                                        isChecked && isCorrectOption ? styles.practiceOptionLetterTextCorrect : null,
+                                                      ]}>
+                                                      {option.label}
+                                                    </AppText>
+                                                  </View>
+
+                                                  <View style={styles.practiceOptionTextWrap}>
+                                                    {option.text ? (
+                                                      <AppText language="en" variant="body" style={styles.practiceOptionText}>
+                                                        {option.text}
+                                                      </AppText>
+                                                    ) : null}
+                                                    {contentLang === 'th' && option.textTh ? (
+                                                      <AppText language="th" variant="body" style={styles.practiceOptionThaiText}>
+                                                        {option.textTh}
+                                                      </AppText>
+                                                    ) : null}
+                                                  </View>
+                                                </Pressable>
+                                              );
+                                            })}
+                                          </Stack>
+
+                                          {isChecked ? (
+                                            <View style={styles.practiceFeedbackBox}>
+                                              <View style={styles.practiceFeedbackRow}>
+                                                <View style={[styles.feedbackDot, styles.feedbackDotSuccess]} />
+                                                <AppText
+                                                  language={pageLanguage}
+                                                  variant="body"
+                                                  style={styles.practiceFeedbackHeadline}>
+                                                  {pageLanguage === 'th'
+                                                    ? `คำตอบที่ถูก: ${item.answerLetters.join(', ')}`
+                                                    : `Correct answer: ${item.answerLetters.join(', ')}`}
+                                                </AppText>
+                                              </View>
+                                            </View>
+                                          ) : null}
+                                        </View>
+                                      );
+                                    })}
+
+                                    {exerciseError ? (
+                                      <AppText language={pageLanguage} variant="muted" style={styles.practiceInlineError}>
+                                        {exerciseError}
+                                      </AppText>
+                                    ) : null}
+
+                                    <View style={styles.practiceActionsRow}>
+                                      <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() => handleCheckMultipleChoiceExercise(exercise)}
+                                        style={({ pressed }) => [
+                                          styles.practiceActionButton,
+                                          styles.practiceCheckButton,
+                                          pressed ? styles.ctaButtonPressed : null,
+                                        ]}>
+                                        <AppText language={pageLanguage} variant="caption" style={styles.practiceActionButtonText}>
+                                          {pageCopy.checkAnswers}
+                                        </AppText>
+                                      </Pressable>
+
+                                      {isChecked ? (
+                                        <Pressable
+                                          accessibilityRole="button"
+                                          onPress={() => handleResetMultipleChoiceExercise(exercise)}
+                                          style={({ pressed }) => [
+                                            styles.practiceActionButton,
+                                            styles.practiceResetButton,
+                                            pressed ? styles.ctaButtonPressed : null,
+                                          ]}>
+                                          <AppText language={pageLanguage} variant="caption" style={styles.practiceResetButtonText}>
+                                            {pageCopy.practiceReset}
+                                          </AppText>
+                                        </Pressable>
+                                      ) : null}
+                                    </View>
+                                  </Stack>
+                                ) : isOpenExercise ? (
+                                  <Stack gap="md">
+                                    {exercise.items.map((item, itemIndex) => {
+                                      const answerKey = `${exercise.id}:${item.key}`;
+                                      const evaluation = practiceEvaluations[answerKey];
+                                      const answerValue = practiceOpenAnswers[answerKey] ?? (item.isExample ? item.answer : '');
+
+                                      return (
+                                        <View key={answerKey} style={styles.practiceQuestionCard}>
+                                          <View style={styles.practiceQuestionHeader}>
+                                            <AppText language="en" variant="caption" style={styles.practiceQuestionNumber}>
+                                              {item.numberLabel || `${itemIndex + 1}`}
+                                            </AppText>
+
+                                            <View style={styles.practiceQuestionTextWrap}>
+                                              {item.prompt || item.text ? (
+                                                <AppText language="en" variant="body" style={styles.practiceQuestionText}>
+                                                  {item.prompt || item.text}
+                                                </AppText>
+                                              ) : null}
+                                              {contentLang === 'th' && (item.promptTh || item.textTh) ? (
+                                                <AppText language="th" variant="body" style={styles.practiceQuestionThaiText}>
+                                                  {item.promptTh || item.textTh}
+                                                </AppText>
+                                              ) : null}
+                                            </View>
+                                          </View>
+
+                                          <TextInput
+                                            multiline
+                                            numberOfLines={3}
+                                            placeholder={item.placeholder || pageCopy.practiceOpenPlaceholder}
+                                            placeholderTextColor="#9C9EA4"
+                                            style={[
+                                              styles.practiceOpenInput,
+                                              item.isExample ? styles.practiceOpenInputDisabled : null,
+                                            ]}
+                                            value={answerValue}
+                                            onChangeText={(value) => handlePracticeOpenAnswerChange(exercise.id, item.key, value)}
+                                            editable={!item.isExample && !evaluation?.loading}
+                                            textAlignVertical="top"
+                                          />
+
+                                          {evaluation ? (
+                                            <View style={styles.practiceFeedbackBox}>
+                                              <View style={styles.practiceFeedbackRow}>
+                                                <View
+                                                  style={[
+                                                    styles.feedbackDot,
+                                                    evaluation.correct ? styles.feedbackDotSuccess : styles.practiceFeedbackDotWarning,
+                                                  ]}
+                                                />
+                                                <AppText language={pageLanguage} variant="body" style={styles.practiceFeedbackHeadline}>
+                                                  {evaluation.correct ? pageCopy.practiceCorrect : pageCopy.practiceNeedsWork}
+                                                </AppText>
+                                              </View>
+
+                                              {(contentLang === 'th' ? evaluation.feedbackTh || evaluation.feedbackEn : evaluation.feedbackEn || evaluation.feedbackTh) ? (
+                                                <AppText
+                                                  language={contentLang === 'th' ? 'th' : 'en'}
+                                                  variant="muted"
+                                                  style={styles.practiceFeedbackBody}>
+                                                  {contentLang === 'th'
+                                                    ? evaluation.feedbackTh || evaluation.feedbackEn
+                                                    : evaluation.feedbackEn || evaluation.feedbackTh}
+                                                </AppText>
+                                              ) : null}
+                                            </View>
+                                          ) : null}
+                                        </View>
+                                      );
+                                    })}
+
+                                    {exerciseError ? (
+                                      <AppText language={pageLanguage} variant="muted" style={styles.practiceInlineError}>
+                                        {exerciseError}
+                                      </AppText>
+                                    ) : null}
+
+                                    <View style={styles.practiceActionsRow}>
+                                      <Pressable
+                                        accessibilityRole="button"
+                                        disabled={isCheckingExercise}
+                                        onPress={() => {
+                                          void handleCheckOpenExercise(exercise);
+                                        }}
+                                        style={({ pressed }) => [
+                                          styles.practiceActionButton,
+                                          styles.practiceCheckButton,
+                                          isCheckingExercise ? styles.ctaButtonDisabled : null,
+                                          pressed && !isCheckingExercise ? styles.ctaButtonPressed : null,
+                                        ]}>
+                                        <AppText language={pageLanguage} variant="caption" style={styles.practiceActionButtonText}>
+                                          {isCheckingExercise ? pageCopy.practiceChecking : pageCopy.checkAnswers}
+                                        </AppText>
+                                      </Pressable>
+                                    </View>
+                                  </Stack>
+                                ) : null}
+                              </Stack>
+                            </View>
+                          );
+                        })}
+                      </Stack>
+                    ) : (
+                      <AppText language={pageLanguage} variant="body" style={styles.sectionBody}>
+                        {pageCopy.practiceEmpty}
+                      </AppText>
+                    )
                   ) : isUnderstandTab ? (
                     activeUnderstandGroup ? (
                       <View style={styles.richPagerShell}>
@@ -1951,6 +2832,24 @@ export default function LessonDetailShellScreen() {
                           </AppText>
                           <AppText language={pageLanguage} variant="body" style={styles.placeholderTitle}>
                             {pageCopy.rendererReady(getLessonSectionLabel(pageLanguage, 'understand'))}
+                          </AppText>
+                          <AppText language={pageLanguage} variant="muted" style={styles.placeholderBody}>
+                            {pageCopy.richNodesLoaded(richContentBlockCount)}
+                          </AppText>
+                        </Stack>
+                      </View>
+                    )
+                  ) : isCultureNoteTab ? (
+                    cultureNoteNodes.length ? (
+                      <View style={styles.cultureNoteShell}>{renderCultureNoteBody(cultureNoteNodes)}</View>
+                    ) : (
+                      <View style={styles.placeholderBox}>
+                        <Stack gap="xs">
+                          <AppText language={pageLanguage} variant="caption" style={styles.placeholderEyebrow}>
+                            {pageCopy.rendererNext}
+                          </AppText>
+                          <AppText language={pageLanguage} variant="body" style={styles.placeholderTitle}>
+                            {pageCopy.rendererReady(getLessonSectionLabel(pageLanguage, 'culture_note'))}
                           </AppText>
                           <AppText language={pageLanguage} variant="muted" style={styles.placeholderBody}>
                             {pageCopy.richNodesLoaded(richContentBlockCount)}
@@ -2555,6 +3454,9 @@ const styles = StyleSheet.create({
   richPagerHelperText: {
     color: theme.colors.mutedText,
   },
+  cultureNoteShell: {
+    paddingVertical: theme.spacing.xs,
+  },
   richGroupBand: {
     borderRadius: theme.radii.md,
     paddingHorizontal: theme.spacing.sm,
@@ -2611,6 +3513,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: theme.spacing.sm,
+  },
+  understandAudioRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  understandAudioText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.lg,
+    paddingTop: 1,
   },
   richBullet: {
     width: 8,
@@ -2941,6 +3854,200 @@ const styles = StyleSheet.create({
   applyResponseNote: {
     color: theme.colors.mutedText,
     fontStyle: 'italic',
+  },
+  practiceExerciseCard: {
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: 20,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    ...brutalShadow,
+  },
+  practiceExerciseHeader: {
+    gap: theme.spacing.sm,
+  },
+  practiceExerciseBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xl,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.warningSurface,
+  },
+  practiceExerciseBadgeText: {
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceExerciseTitle: {
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceExercisePrompt: {
+    color: theme.colors.mutedText,
+  },
+  practiceQuestionCard: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.md,
+    backgroundColor: '#FBFDFF',
+    padding: theme.spacing.md,
+  },
+  practiceQuestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  practiceQuestionNumber: {
+    minWidth: 24,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+  },
+  practiceQuestionTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  practiceQuestionText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.medium,
+  },
+  practiceQuestionThaiText: {
+    color: theme.colors.mutedText,
+  },
+  practiceOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+  },
+  practiceOptionButtonSelected: {
+    backgroundColor: theme.colors.accentMuted,
+    borderColor: theme.colors.accent,
+  },
+  practiceOptionButtonCorrect: {
+    backgroundColor: theme.colors.success,
+  },
+  practiceOptionButtonWrong: {
+    backgroundColor: '#FFE5E5',
+    borderColor: theme.colors.primary,
+  },
+  practiceOptionLetter: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  practiceOptionLetterSelected: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+  practiceOptionLetterCorrect: {
+    backgroundColor: theme.colors.text,
+  },
+  practiceOptionLetterWrong: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  practiceOptionLetterText: {
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 11,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceOptionLetterTextInverse: {
+    color: theme.colors.surface,
+  },
+  practiceOptionLetterTextCorrect: {
+    color: theme.colors.success,
+  },
+  practiceOptionTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  practiceOptionText: {
+    color: theme.colors.text,
+  },
+  practiceOptionThaiText: {
+    color: theme.colors.mutedText,
+  },
+  practiceActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+  },
+  practiceActionButton: {
+    minHeight: 40,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  practiceCheckButton: {
+    backgroundColor: '#91CAFF',
+    ...brutalShadow,
+  },
+  practiceResetButton: {
+    backgroundColor: theme.colors.surface,
+  },
+  practiceActionButtonText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceResetButtonText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceFeedbackBox: {
+    gap: theme.spacing.xs,
+  },
+  practiceFeedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  practiceFeedbackHeadline: {
+    flex: 1,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceFeedbackBody: {
+    color: theme.colors.mutedText,
+  },
+  practiceFeedbackDotWarning: {
+    backgroundColor: theme.colors.warningSurface,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+  },
+  practiceOpenInput: {
+    minHeight: 100,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.md,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.surface,
+  },
+  practiceOpenInputDisabled: {
+    opacity: 0.7,
+  },
+  practiceInlineError: {
+    color: theme.colors.primary,
   },
   sectionEyebrow: {
     borderRadius: theme.radii.xl,
