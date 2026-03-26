@@ -250,6 +250,9 @@ const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
   byKey: {},
   bySection: {},
 };
+const SIGNED_SNIPPET_URL_CACHE_TTL_MS = 60 * 1000;
+const signedSnippetUrlCache = new Map<string, { url: string; timestamp: number }>();
+const inflightSignedSnippetUrlRequests = new Map<string, Promise<string | null>>();
 
 const buildLessonSnippetIndex = (snippets: LessonAudioSnippet[]): LessonAudioSnippetIndex => {
   const byKey: Record<string, LessonAudioSnippet> = {};
@@ -394,10 +397,34 @@ export async function fetchSignedLessonAudioUrl(path: string): Promise<string | 
     return null;
   }
 
-  const { data, error } = await supabase.storage.from('lesson-audio').createSignedUrl(trimmedPath, 60);
-  if (error) {
-    return null;
+  const cached = signedSnippetUrlCache.get(trimmedPath);
+  if (cached && Date.now() - cached.timestamp < SIGNED_SNIPPET_URL_CACHE_TTL_MS) {
+    return cached.url;
   }
 
-  return data?.signedUrl ?? null;
+  const inflightRequest = inflightSignedSnippetUrlRequests.get(trimmedPath);
+  if (inflightRequest) {
+    return inflightRequest;
+  }
+
+  const requestPromise = (async () => {
+    const { data, error } = await supabase.storage.from('lesson-audio').createSignedUrl(trimmedPath, 60);
+    if (error || !data?.signedUrl) {
+      return null;
+    }
+
+    signedSnippetUrlCache.set(trimmedPath, {
+      url: data.signedUrl,
+      timestamp: Date.now(),
+    });
+    return data.signedUrl;
+  })();
+
+  inflightSignedSnippetUrlRequests.set(trimmedPath, requestPromise);
+
+  try {
+    return await requestPromise;
+  } finally {
+    inflightSignedSnippetUrlRequests.delete(trimmedPath);
+  }
 }

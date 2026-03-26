@@ -186,6 +186,15 @@
       - now uses the native rich-section renderer instead of the placeholder path
       - supports headings, paragraphs, lists, images, tables, links, and inline snippet audio bullets when present
       - intentionally reuses the shared rich-node/audio-bullet path without the understand-only highlight treatment
+    - `Practice`
+      - no longer uses the generic placeholder path for the `1.1` exercise set
+      - now has a dedicated native practice renderer for the currently-needed `1.1` exercise kinds:
+        - `multiple_choice`
+        - `open` / open-ended practice
+      - multiple choice now supports native selection, local check flow, correctness reveal, and reset
+      - open-ended practice now supports native text input plus backend `/api/evaluate_answer` checks through app-side auth-aware API wiring
+      - practice state is preserved within the current lesson session and stays aligned with the lesson `contentLang` payload model where applicable
+      - `fill_blank` and `sentence_transform` are still intentionally deferred until the next lessons that require them
 - The lesson page port is expected to be a large multi-part task with several moving pieces:
   - resolved lesson payload fetching
   - native rich section renderer parity
@@ -196,15 +205,19 @@
   - keep the new resolved-payload + derived-tab foundation in place
   - attack lesson sections one by one instead of trying to port the entire lesson body at once
   - next concrete section target for the next chat remains:
-    - continue `Practice`
-  - for `Practice`, use the resolved payload / web lesson flow as source of truth:
-    - treat this as a more involved port than the recent rich-section work
-    - inspect the current web exercise types, answer interactions, correctness/review states, and any audio-linked rows before implementing
-    - preserve the same study-mode `contentLang` model already established on the lesson page where applicable
-    - prefer a dedicated native section implementation rather than forcing practice through the generic placeholder/rich-section path
-  - after `Practice`, continue section-by-section in the same way:
-    - `Extra Tip`
+    - recreate the `1.6` `Common Mistake` rich-section flow in the same guided card/pager spirit as `Understand`
+  - immediate follow-up focus for `1.6`:
     - `Common Mistake`
+      - use the resolved payload / current native rich-node renderer as source of truth
+      - structure the section like the `Understand` experience rather than a long continuous rich dump
+      - split the `1.6` section into its 3 mistake cards and support next/previous navigation in-section
+      - make sure checkmark / X treatments are rendered with the correct visual colors and formatting from the web content
+      - preserve existing rich support for headings, paragraphs, lists, images, tables, links, and snippet audio where present
+  - after the `Common Mistake` pager work, return to `Practice` for the next `1.6` exercise expansion:
+    - add the next exercise kinds beyond the current `1.1` set
+    - include image support in those native practice renderers where the resolved payload provides image keys
+  - after that, continue section-by-section in the same way:
+    - `Extra Tip`
     - `Phrases & Verbs`
   - treat full `RichSectionRenderer` parity as a phased build, not a single giant port
     - do not reintroduce raw `content_jsonb` dumping as a temporary UI
