@@ -90,6 +90,16 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       practiceLoginRequired: 'กรุณาเข้าสู่ระบบเพื่อตรวจคำตอบ',
       practiceCorrect: 'ถูกต้อง',
       practiceNeedsWork: 'ลองแก้อีกนิด',
+      phrasesIntro:
+        'เราเลือกวลีสำคัญจากบทเรียนนี้มาให้ทีละใบ เพื่อให้คุณโฟกัสกับความหมาย การแปล และเสียงตัวอย่างได้ง่ายขึ้น',
+      phrasesEmpty: 'ยังไม่มี phrase card ที่พร้อมแสดงใน section นี้',
+      phrasesCardLabel: 'Phrase Card',
+      phrasesVariantLabel: (variant: number) => `เวอร์ชัน ${variant}`,
+      phrasesAudioReady: 'มีเสียงตัวอย่าง',
+      phrasesAudioMissing: 'ยังไม่มีเสียงตัวอย่าง',
+      phrasesBrowseAll: 'ดู phrase card ใน section นี้ให้ครบก่อน แล้วค่อยไป section ถัดไป',
+      phrasesNotesLabel: 'สิ่งที่ควรสังเกต',
+      phrasesPlainFallbackLabel: 'ตัวอย่างการใช้งาน',
     };
   }
 
@@ -155,5 +165,15 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     practiceLoginRequired: 'Please log in to check your answers.',
     practiceCorrect: 'Correct',
     practiceNeedsWork: 'Needs another try',
+    phrasesIntro:
+      'This section works best one phrase card at a time so you can focus on the wording, translation, and example audio.',
+    phrasesEmpty: 'There are no phrase cards ready to show in this section yet.',
+    phrasesCardLabel: 'Phrase Card',
+    phrasesVariantLabel: (variant: number) => `Variant ${variant}`,
+    phrasesAudioReady: 'Example audio ready',
+    phrasesAudioMissing: 'No example audio yet',
+    phrasesBrowseAll: 'Browse all phrase cards in this section before moving to the next lesson section.',
+    phrasesNotesLabel: 'What to Notice',
+    phrasesPlainFallbackLabel: 'Usage Notes',
   };
 };

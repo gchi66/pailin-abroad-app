@@ -41,11 +41,18 @@ export type LessonAudioSnippet = {
   seq?: number | null;
   storage_path?: string | null;
   signed_url?: string | null;
+  phrase_id?: string | null;
+  variant?: number | null;
 };
 
 export type LessonAudioSnippetIndex = {
   byKey: Record<string, LessonAudioSnippet>;
   bySection: Record<string, Record<number, LessonAudioSnippet>>;
+};
+
+export type LessonPhraseAudioSnippetIndex = {
+  byKey: Record<string, LessonAudioSnippet>;
+  byPhrase: Record<string, Record<number, Record<number, LessonAudioSnippet>>>;
 };
 
 export type LessonApplyContent = {
@@ -125,6 +132,13 @@ export type ResolvedLessonTranscriptLine = {
 
 export type ResolvedLessonPhrase = {
   id?: string | null;
+  phrase?: string | null;
+  phrase_th?: string | null;
+  variant?: number | null;
+  content?: string | null;
+  content_md?: string | null;
+  content_jsonb?: LessonRichNode[] | null;
+  content_jsonb_th?: LessonRichNode[] | null;
   [key: string]: unknown;
 };
 

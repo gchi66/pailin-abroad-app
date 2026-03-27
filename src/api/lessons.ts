@@ -1,7 +1,13 @@
 import { env } from '../config/env';
 import { supabase } from '../lib/supabase';
 import { supabaseSelect } from '../lib/supabase-rest';
-import { LessonAudioSnippet, LessonAudioSnippetIndex, LessonListItem, ResolvedLessonPayload } from '../types/lesson';
+import {
+  LessonAudioSnippet,
+  LessonAudioSnippetIndex,
+  LessonListItem,
+  LessonPhraseAudioSnippetIndex,
+  ResolvedLessonPayload,
+} from '../types/lesson';
 
 const LESSON_SELECT_FIELDS =
   'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
@@ -250,6 +256,11 @@ const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
   byKey: {},
   bySection: {},
 };
+
+const EMPTY_PHRASE_SNIPPET_INDEX: LessonPhraseAudioSnippetIndex = {
+  byKey: {},
+  byPhrase: {},
+};
 const SIGNED_SNIPPET_URL_CACHE_TTL_MS = 60 * 1000;
 const signedSnippetUrlCache = new Map<string, { url: string; timestamp: number }>();
 const inflightSignedSnippetUrlRequests = new Map<string, Promise<string | null>>();
@@ -278,6 +289,37 @@ const buildLessonSnippetIndex = (snippets: LessonAudioSnippet[]): LessonAudioSni
   });
 
   return { byKey, bySection };
+};
+
+const buildPhraseSnippetIndex = (snippets: LessonAudioSnippet[]): LessonPhraseAudioSnippetIndex => {
+  const byKey: Record<string, LessonAudioSnippet> = {};
+  const byPhrase: Record<string, Record<number, Record<number, LessonAudioSnippet>>> = {};
+
+  snippets.forEach((snippet) => {
+    const audioKey = snippet.audio_key?.trim();
+    const phraseId = snippet.phrase_id?.trim();
+    const variant = typeof snippet.variant === 'number' ? snippet.variant : 0;
+    const seq = typeof snippet.seq === 'number' ? snippet.seq : null;
+
+    if (audioKey) {
+      byKey[audioKey] = snippet;
+    }
+
+    if (!phraseId || seq === null) {
+      return;
+    }
+
+    if (!byPhrase[phraseId]) {
+      byPhrase[phraseId] = {};
+    }
+    if (!byPhrase[phraseId][variant]) {
+      byPhrase[phraseId][variant] = {};
+    }
+
+    byPhrase[phraseId][variant][seq] = snippet;
+  });
+
+  return { byKey, byPhrase };
 };
 
 const toTryLessonPublicAudioUrl = (path: string) => {
@@ -389,6 +431,45 @@ export async function fetchLessonAudioSnippetIndex(
   }
 
   return buildLessonSnippetIndex((data ?? []) as LessonAudioSnippet[]);
+}
+
+export async function fetchLessonPhraseAudioSnippetIndex(
+  lesson: Pick<ResolvedLessonPayload, 'id'>
+): Promise<LessonPhraseAudioSnippetIndex> {
+  if (!lesson.id) {
+    return EMPTY_PHRASE_SNIPPET_INDEX;
+  }
+
+  const { data: lessonPhrases, error: lessonPhrasesError } = await supabase
+    .from('lesson_phrases')
+    .select('phrases(id)')
+    .eq('lesson_id', lesson.id);
+
+  if (lessonPhrasesError) {
+    throw lessonPhrasesError;
+  }
+
+  const phraseIds = (lessonPhrases ?? [])
+    .map((row) => {
+      const phrases = row && typeof row === 'object' && 'phrases' in row ? row.phrases : null;
+      return phrases && typeof phrases === 'object' && 'id' in phrases ? String(phrases.id ?? '').trim() : '';
+    })
+    .filter(Boolean);
+
+  if (!phraseIds.length) {
+    return EMPTY_PHRASE_SNIPPET_INDEX;
+  }
+
+  const { data, error } = await supabase
+    .from('phrases_audio_snippets')
+    .select('phrase_id, variant, seq, storage_path, audio_key')
+    .in('phrase_id', phraseIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return buildPhraseSnippetIndex((data ?? []) as LessonAudioSnippet[]);
 }
 
 export async function fetchSignedLessonAudioUrl(path: string): Promise<string | null> {

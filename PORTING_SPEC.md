@@ -182,43 +182,53 @@
       - preserves the guided card/pager lesson UX already established for study mode
       - supports understand-specific highlight treatment from the web rich renderer
       - supports inline snippet audio bullets wired from lesson audio snippet data
+      - table rendering has started to receive native cleanup work, but table parity is still incomplete and needs a follow-up pass
     - `Culture Note`
       - now uses the native rich-section renderer instead of the placeholder path
       - supports headings, paragraphs, lists, images, tables, links, and inline snippet audio bullets when present
+      - table support is currently partial; recent native table/audio work improved the baseline, but final mobile table behavior is still not signed off
       - intentionally reuses the shared rich-node/audio-bullet path without the understand-only highlight treatment
+    - `Common Mistake`
+      - now uses the same guided card/pager shell as `Understand` instead of the placeholder path
+      - groups the resolved rich nodes into in-section cards with next/previous navigation
+      - preserves web-style inline marker coloring for `[X]`, `[✓]`, and `[-]`
+      - reuses the native rich-node renderer for headings, paragraphs, lists, images, tables, links, and snippet audio
+      - table handling is still considered in progress pending final mobile-only table selection and overall presentation review
     - `Practice`
-      - no longer uses the generic placeholder path for the `1.1` exercise set
-      - now has a dedicated native practice renderer for the currently-needed `1.1` exercise kinds:
+      - no longer uses the generic placeholder path for the currently-needed lesson exercise sets
+      - now has a dedicated native practice renderer for the currently-needed exercise kinds:
         - `multiple_choice`
         - `open` / open-ended practice
-      - multiple choice now supports native selection, local check flow, correctness reveal, and reset
-      - open-ended practice now supports native text input plus backend `/api/evaluate_answer` checks through app-side auth-aware API wiring
+      - practice now follows the same guided inner card/pager format as `Understand`, with one exercise per card
+      - multiple choice now supports native selection, local check flow, correctness reveal, and reset inside the active practice card
+      - open-ended practice now supports native text input plus backend `/api/evaluate_answer` checks through app-side auth-aware API wiring inside the active practice card
+      - open-ended practice now carries prompt images through item normalization and renders them natively when present
+      - open-ended example items now use a distinct example-preview layout instead of looking like a broken first question
       - practice state is preserved within the current lesson session and stays aligned with the lesson `contentLang` payload model where applicable
       - `fill_blank` and `sentence_transform` are still intentionally deferred until the next lessons that require them
+    - `Phrases & Verbs`
+      - no longer uses the generic placeholder path
+      - now uses dedicated native phrase-card handling driven by resolved `lesson.phrases`
+      - phrase-specific audio snippet lookup is now wired through native app code using `lesson_phrases` + `phrases_audio_snippets`
+      - mobile currently presents one phrase card at a time inside the existing guided section pager
+      - phrase body styling has been tuned toward current web behavior:
+        - no bordered card around audio bullets
+        - light divider between the lead definition bullet and following example bullets
+        - continuation lines in mini-conversation examples stay visually indented under the active audio bullet
+      - duplicate in-body phrase headings are suppressed when they repeat the already-visible section title
 - The lesson page port is expected to be a large multi-part task with several moving pieces:
   - resolved lesson payload fetching
   - native rich section renderer parity
+  - finish table parity work across the native rich sections
   - lesson navigation / previous-next flow
   - mark-complete behavior and eventual write-back strategy
   - audio / sticky player behavior may still need to be deferred or phased
 - Immediate next implementation target:
   - keep the new resolved-payload + derived-tab foundation in place
   - attack lesson sections one by one instead of trying to port the entire lesson body at once
-  - next concrete section target for the next chat remains:
-    - recreate the `1.6` `Common Mistake` rich-section flow in the same guided card/pager spirit as `Understand`
-  - immediate follow-up focus for `1.6`:
-    - `Common Mistake`
-      - use the resolved payload / current native rich-node renderer as source of truth
-      - structure the section like the `Understand` experience rather than a long continuous rich dump
-      - split the `1.6` section into its 3 mistake cards and support next/previous navigation in-section
-      - make sure checkmark / X treatments are rendered with the correct visual colors and formatting from the web content
-      - preserve existing rich support for headings, paragraphs, lists, images, tables, links, and snippet audio where present
-  - after the `Common Mistake` pager work, return to `Practice` for the next `1.6` exercise expansion:
-    - add the next exercise kinds beyond the current `1.1` set
-    - include image support in those native practice renderers where the resolved payload provides image keys
   - after that, continue section-by-section in the same way:
     - `Extra Tip`
-    - `Phrases & Verbs`
+    - next exercise-kind expansion for `Practice` as required by later lessons
   - treat full `RichSectionRenderer` parity as a phased build, not a single giant port
     - do not reintroduce raw `content_jsonb` dumping as a temporary UI
 - Added native free-plan lessons flow:
