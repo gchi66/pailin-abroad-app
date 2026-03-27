@@ -2551,6 +2551,37 @@ export default function LessonDetailShellScreen() {
       return null;
     }
 
+    const getRawCellText = (cell: unknown) => {
+      if (typeof cell === 'string') {
+        return cell;
+      }
+
+      if (cell && typeof cell === 'object' && 'text' in cell) {
+        return String(cell.text ?? '');
+      }
+
+      return '';
+    };
+
+    const isMeaningfulTableCell = (cell: unknown) => {
+      if (cell == null) {
+        return false;
+      }
+
+      const textValue = getRawCellText(cell).trim();
+      if (textValue) {
+        return true;
+      }
+
+      return Boolean(
+        cell &&
+        typeof cell === 'object' &&
+        'colspan' in cell &&
+        typeof cell.colspan === 'number' &&
+        cell.colspan > 1
+      );
+    };
+
     const columnCount = rows.reduce((max, row) => {
       const columns = (Array.isArray(row) ? row : []).reduce((sum, cell) => {
         if (cell && typeof cell === 'object' && 'colspan' in cell && typeof cell.colspan === 'number' && cell.colspan > 1) {
@@ -2560,8 +2591,29 @@ export default function LessonDetailShellScreen() {
       }, 0);
       return Math.max(max, columns);
     }, 0);
+    const normalizedRows = rows.map((row) => {
+      const sourceRow = Array.isArray(row) ? row : [];
+      let normalizedRow = [...sourceRow];
 
-    const minTableWidth = Math.max(320, columnCount * 108);
+      while (normalizedRow.length > 1 && !isMeaningfulTableCell(normalizedRow[normalizedRow.length - 1])) {
+        normalizedRow.pop();
+      }
+
+      return normalizedRow;
+    });
+    const preferredColumnCount = (() => {
+      const headerRow = normalizedRows[0] ?? [];
+      const headerColumns = headerRow.reduce((sum, cell) => {
+        if (cell && typeof cell === 'object' && 'colspan' in cell && typeof cell.colspan === 'number' && cell.colspan > 1) {
+          return sum + cell.colspan;
+        }
+        return sum + 1;
+      }, 0);
+
+      return Math.max(1, headerColumns || columnCount || 1);
+    })();
+    const minTableWidth = Math.max(340, preferredColumnCount * 116);
+    const columnPixelWidth = minTableWidth / preferredColumnCount;
 
     return (
       <ScrollView
@@ -2572,9 +2624,26 @@ export default function LessonDetailShellScreen() {
         showsHorizontalScrollIndicator={false}
         style={styles.richTableScroller}>
         <View style={[styles.richTableWrap, { minWidth: minTableWidth }]}>
-          {rows.map((row, rowIndex) => {
+          {normalizedRows.map((row, rowIndex) => {
             const isHeaderRow = rowIndex === 0;
-            const normalizedRow = Array.isArray(row) ? row : [];
+            let normalizedRow = [...row];
+
+            if (normalizedRow.length === 1 && preferredColumnCount > 1) {
+              const onlyCell = normalizedRow[0];
+              const nextColspan =
+                onlyCell && typeof onlyCell === 'object'
+                  ? ('colspan' in onlyCell && typeof onlyCell.colspan === 'number' && onlyCell.colspan > 1
+                      ? Math.max(onlyCell.colspan, preferredColumnCount)
+                      : preferredColumnCount)
+                  : preferredColumnCount;
+
+              normalizedRow = [
+                onlyCell && typeof onlyCell === 'object'
+                  ? { ...onlyCell, colspan: nextColspan }
+                  : { text: getRawCellText(onlyCell), colspan: nextColspan },
+              ];
+            }
+
             return (
               <View
                 key={`${nodeKey}-row-${rowIndex}`}
@@ -2583,7 +2652,23 @@ export default function LessonDetailShellScreen() {
                   isHeaderRow ? styles.richTableHeaderRow : null,
                   !isHeaderRow && rowIndex % 2 === 0 ? styles.richTableAltRow : null,
                 ]}>
-                {normalizedRow.map((cell, cellIndex) => {
+                {(() => {
+                  let consumedColumns = 0;
+                  const shouldForceUniformColumns =
+                    normalizedRow.length > 1 &&
+                    normalizedRow.length === preferredColumnCount &&
+                    normalizedRow.every(
+                      (cell) =>
+                        !(
+                          cell &&
+                          typeof cell === 'object' &&
+                          'colspan' in cell &&
+                          typeof cell.colspan === 'number' &&
+                          cell.colspan > 1
+                        )
+                    );
+
+                  return normalizedRow.map((cell, cellIndex) => {
                   const cellText =
                     typeof cell === 'string'
                       ? cell
@@ -2598,13 +2683,25 @@ export default function LessonDetailShellScreen() {
                     cell && typeof cell === 'object' && 'colspan' in cell && typeof cell.colspan === 'number' && cell.colspan > 1
                       ? cell.colspan
                       : 1;
+                  const remainingCells = normalizedRow.length - cellIndex - 1;
+                  const remainingColumns = Math.max(1, preferredColumnCount - consumedColumns);
+                  const maxAllowedColSpan = Math.max(1, remainingColumns - remainingCells);
+                  const effectiveColSpan =
+                    shouldForceUniformColumns
+                      ? 1
+                      : cellIndex === normalizedRow.length - 1
+                      ? remainingColumns
+                      : Math.min(colSpan, maxAllowedColSpan);
+
+                  consumedColumns += effectiveColSpan;
 
                   return (
                     <View
                       key={`${nodeKey}-cell-${rowIndex}-${cellIndex}`}
                       style={[
                         styles.richTableCell,
-                        { flex: colSpan },
+                        { width: columnPixelWidth * effectiveColSpan },
+                        cellIndex === normalizedRow.length - 1 ? styles.richTableCellLast : null,
                         isHeaderRow ? styles.richTableHeaderCell : null,
                         options?.enableHighlights && cellBackground === '#f4cccc' ? styles.richTableCellPink : null,
                         options?.enableHighlights && cellBackground === '#d9ead3' ? styles.richTableCellGreen : null,
@@ -2618,7 +2715,8 @@ export default function LessonDetailShellScreen() {
                       })}
                     </View>
                   );
-                })}
+                  });
+                })()}
               </View>
             );
           })}
@@ -4318,7 +4416,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.text,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -4632,9 +4730,12 @@ const styles = StyleSheet.create({
   },
   richTableScroller: {
     marginVertical: theme.spacing.sm,
+    marginHorizontal: -14,
   },
   richTableScrollerContent: {
-    paddingRight: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   richTableWrap: {
     borderWidth: 1,
@@ -4642,9 +4743,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: theme.colors.surface,
+    alignSelf: 'center',
   },
   richTableRow: {
     flexDirection: 'row',
+    width: '100%',
+    alignItems: 'stretch',
   },
   richTableHeaderRow: {
     backgroundColor: '#F3F6FA',
@@ -4653,8 +4757,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFCFE',
   },
   richTableCell: {
-    flex: 1,
     minWidth: 0,
+    flexShrink: 0,
+    flexGrow: 0,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
     borderRightWidth: 1,
@@ -4663,6 +4768,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     justifyContent: 'center',
     gap: 4,
+  },
+  richTableCellLast: {
+    borderRightWidth: 0,
   },
   richTableHeaderCell: {
     backgroundColor: '#F3F6FA',
