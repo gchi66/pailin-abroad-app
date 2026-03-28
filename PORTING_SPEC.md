@@ -205,6 +205,7 @@
       - open-ended practice now carries prompt images through item normalization and renders them natively when present
       - open-ended example items now use a distinct example-preview layout instead of looking like a broken first question
       - practice state is preserved within the current lesson session and stays aligned with the lesson `contentLang` payload model where applicable
+      - quick-practice injection into rich lesson content has now started for `Understand`, but full quick-practice parity still depends on broader exercise-kind support
       - `fill_blank` and `sentence_transform` are still intentionally deferred until the next lessons that require them
     - `Phrases & Verbs`
       - no longer uses the generic placeholder path
@@ -226,9 +227,14 @@
 - Immediate next implementation target:
   - keep the new resolved-payload + derived-tab foundation in place
   - attack lesson sections one by one instead of trying to port the entire lesson body at once
+  - immediate next item of business is to wire up all remaining lesson practice exercise kinds so both the main `Practice` tab and inline quick-practice blocks can render correctly across lessons
+  - this practice-type expansion should cover:
+    - `fill_blank`
+    - `sentence_transform`
+    - any additional backend-provided exercise kinds encountered in later lessons
   - after that, continue section-by-section in the same way:
     - `Extra Tip`
-    - next exercise-kind expansion for `Practice` as required by later lessons
+    - final quick-practice parity for all supported rich lesson sections
   - treat full `RichSectionRenderer` parity as a phased build, not a single giant port
     - do not reintroduce raw `content_jsonb` dumping as a temporary UI
 - Added native free-plan lessons flow:
