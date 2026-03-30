@@ -3,9 +3,11 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-nat
 import { useRouter } from 'expo-router';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
+import { useOnboarding } from '@/src/context/onboarding-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
@@ -72,6 +74,15 @@ const getCopy = (uiLanguage: UiLanguage) => {
       languageValue: 'ไทย',
       signOutSuccess: 'ออกจากระบบแล้ว',
       avatarLabel: 'PP',
+      devToolsTitle: 'Dev Tools',
+      onboardingStatusLabel: 'สถานะ Onboarding',
+      onboardingSeen: 'เสร็จแล้ว',
+      onboardingNotSeen: 'ยังไม่เสร็จ',
+      openOnboarding: 'เปิด Onboarding',
+      resetOnboarding: 'รีเซ็ต Onboarding',
+      completeOnboarding: 'ตั้งค่าเป็น Complete',
+      onboardingResetSuccess: 'รีเซ็ต onboarding แล้ว',
+      onboardingCompleteSuccess: 'ตั้งค่า onboarding เป็น complete แล้ว',
     };
   }
 
@@ -91,6 +102,15 @@ const getCopy = (uiLanguage: UiLanguage) => {
     languageValue: 'English',
     signOutSuccess: 'Signed out successfully.',
     avatarLabel: 'PP',
+    devToolsTitle: 'Dev Tools',
+    onboardingStatusLabel: 'Onboarding Status',
+    onboardingSeen: 'Completed',
+    onboardingNotSeen: 'Not completed',
+    openOnboarding: 'Open Onboarding',
+    resetOnboarding: 'Reset Onboarding',
+    completeOnboarding: 'Mark Complete',
+    onboardingResetSuccess: 'Onboarding state reset.',
+    onboardingCompleteSuccess: 'Onboarding marked complete.',
   };
 };
 
@@ -98,10 +118,18 @@ export function ProfileScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile, signOut, user } = useAppSession();
+  const { hasSeenOnboarding, markOnboardingComplete, resetOnboarding } = useOnboarding();
   const copy = getCopy(uiLanguage);
-  const displayName = profile?.name?.trim() || profile?.username?.trim() || user?.user_metadata?.username || user?.email || 'Pailin Abroad';
+  const displayName =
+    profile?.name?.trim() ||
+    profile?.username?.trim() ||
+    (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '') ||
+    (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
+    user?.email ||
+    'Pailin Abroad';
   const email = profile?.email?.trim() || user?.email || '—';
-  const avatarSource = resolveAvatarSource(profile?.avatar_image);
+  const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
+  const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
   const profileData = getProfileDisplayData(uiLanguage, {
     displayName,
     email,
@@ -243,6 +271,50 @@ export function ProfileScreen() {
             </Pressable>
           </Stack>
         </Card>
+
+        {__DEV__ ? (
+          <Card padding="lg" radius="lg">
+            <Stack gap="md">
+              <Stack gap="xs">
+                <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
+                  {copy.devToolsTitle}
+                </AppText>
+                <View style={styles.metaRow}>
+                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                    {copy.onboardingStatusLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.devStatusValue}>
+                    {hasSeenOnboarding ? copy.onboardingSeen : copy.onboardingNotSeen}
+                  </AppText>
+                </View>
+              </Stack>
+
+              <Stack gap="sm">
+                <Button title={copy.openOnboarding} language={uiLanguage} onPress={() => router.push('/onboarding')} />
+                <Button
+                  title={copy.resetOnboarding}
+                  language={uiLanguage}
+                  variant="outline"
+                  onPress={() => {
+                    void resetOnboarding().then(() => {
+                      Alert.alert(copy.devToolsTitle, copy.onboardingResetSuccess);
+                    });
+                  }}
+                />
+                <Button
+                  title={copy.completeOnboarding}
+                  language={uiLanguage}
+                  variant="outline"
+                  onPress={() => {
+                    void markOnboardingComplete().then(() => {
+                      Alert.alert(copy.devToolsTitle, copy.onboardingCompleteSuccess);
+                    });
+                  }}
+                />
+              </Stack>
+            </Stack>
+          </Card>
+        ) : null}
       </Stack>
     </ScrollView>
   );
@@ -272,6 +344,10 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   sectionTitle: {
+    fontWeight: theme.typography.weights.semibold,
+  },
+  devStatusValue: {
+    color: theme.colors.accent,
     fontWeight: theme.typography.weights.semibold,
   },
   profileHeaderRow: {

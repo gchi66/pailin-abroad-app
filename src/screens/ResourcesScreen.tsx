@@ -129,6 +129,11 @@ export function ResourcesScreen() {
   const copy = resourcePageCopy[uiLanguage];
 
   const handleCardPress = (card: ResourceCardCopy) => {
+    if (card.id === 'exercise-bank') {
+      router.push('/resources/exercise-bank');
+      return;
+    }
+
     if (card.id === 'topic-library') {
       router.push('/resources/topic-library');
       return;
@@ -152,29 +157,35 @@ export function ResourcesScreen() {
                 style={styles.cardPressable}
                 onPress={() => handleCardPress(card)}>
                 <Card padding="lg" radius="lg" style={[styles.resourceCard, !card.enabled ? styles.resourceCardDisabled : null]}>
-                  <View style={[styles.cardInner, card.badge ? styles.cardInnerWithBadge : null, !card.enabled ? styles.cardInnerDisabled : null]}>
+                  <View style={styles.cardInner}>
                     <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
                       <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
                       <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
                     </View>
 
                     <View style={styles.cardCopy}>
-                      <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
+                      <AppText
+                        adjustsFontSizeToFit
+                        language={uiLanguage}
+                        minimumFontScale={0.9}
+                        numberOfLines={1}
+                        variant="body"
+                        style={styles.cardTitle}>
                         {card.title}
                       </AppText>
                       <AppText language={uiLanguage} variant="body" style={styles.cardDescription}>
                         {card.description}
                       </AppText>
                     </View>
-
-                    {card.badge ? (
-                      <View style={styles.badgeWrap}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
-                          {card.badge}
-                        </AppText>
-                      </View>
-                    ) : null}
                   </View>
+
+                  {card.badge ? (
+                    <View pointerEvents="none" style={styles.badgeWrap}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
+                        {card.badge}
+                      </AppText>
+                    </View>
+                  ) : null}
                 </Card>
               </Pressable>
             ))}
@@ -224,16 +235,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.lg,
     minHeight: 136,
-  },
-  cardInnerWithBadge: {
-    paddingRight: 96,
-  },
-  cardInnerDisabled: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    paddingTop: 28,
-    paddingRight: 0,
   },
   mediaShell: {
     width: 112,
@@ -294,24 +295,24 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   cardTitle: {
-    fontSize: theme.typography.sizes.xl,
-    lineHeight: 34,
+    fontSize: theme.typography.sizes.lg,
+    lineHeight: 28,
     fontWeight: theme.typography.weights.bold,
   },
   cardDescription: {
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
   },
   badgeWrap: {
     position: 'absolute',
-    right: 0,
-    top: 0,
+    top: theme.spacing.sm,
+    right: theme.spacing.md,
   },
   badgeText: {
     color: theme.colors.primary,
     fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
   },
 });
 

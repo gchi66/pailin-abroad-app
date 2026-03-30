@@ -8,6 +8,7 @@ export type UserProfile = {
   username: string | null;
   email: string | null;
   avatar_image: string | null;
+  onboarding_completed?: boolean | null;
   is_admin: boolean;
   created_at: string | null;
   lessons_complete: number;

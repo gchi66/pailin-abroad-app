@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -29,13 +29,20 @@ const labels: Record<UiLanguage, { home: string; pathway: string; lessons: strin
 };
 
 export default function TabLayout() {
+  const router = useRouter();
   useColorScheme();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount } = useAppSession();
+  const { hasAccount, hasCompletedOnboarding, isLoading } = useAppSession();
 
   const styles = useMemo(() => createStyles(insets.top, insets.bottom), [insets.bottom, insets.top]);
   const text = labels[uiLanguage];
+
+  useEffect(() => {
+    if (!isLoading && hasAccount && !hasCompletedOnboarding) {
+      router.replace('/onboarding');
+    }
+  }, [hasAccount, hasCompletedOnboarding, isLoading, router]);
 
   const tabsScreenOptions = useMemo(
     () => ({
@@ -49,6 +56,14 @@ export default function TabLayout() {
     }),
     [styles.scene, styles.tabBar, styles.tabBarLabel]
   );
+
+  if (!isLoading && hasAccount && !hasCompletedOnboarding) {
+    return (
+      <View style={styles.redirectOverlay}>
+        <ActivityIndicator color={theme.colors.text} />
+      </View>
+    );
+  }
 
   return (
     <Tabs screenOptions={tabsScreenOptions}>
@@ -107,5 +122,11 @@ const createStyles = (insetTop: number, insetBottom: number) =>
     tabBarLabel: {
       fontSize: 11,
       fontWeight: theme.typography.weights.semibold,
+    },
+    redirectOverlay: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.background,
     },
   });

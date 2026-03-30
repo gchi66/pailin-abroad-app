@@ -255,6 +255,7 @@
   - `src/screens/ProfileScreen.tsx`
   - `app/account/profile.tsx`
   - `src/screens/AccountScreen.tsx` now routes Profile from Account in both free-plan and paid states
+  - dev-only Profile controls can open onboarding and reset/complete local onboarding state for testing
 - Added native Membership frontend shell with live pricing fetch:
   - `src/api/pricing.ts`
   - `src/screens/MembershipScreen.tsx`
@@ -278,8 +279,65 @@
   - Uses full 5-card web structure
   - Uses bundled local image assets for all resource cards
   - Uses shared `StandardPageHeader` styling so the page header matches the lesson library header treatment
-  - `Exercise Bank` and `Topic Library` remain placeholder destinations for now
-  - Disabled cards keep top-right red `Coming soon` treatment
+  - `Topic Library` now routes to native list/detail screens
+  - `Exercise Bank` now routes to native list/detail screens
+  - Disabled cards keep top-right red `Coming soon` treatment as a floating overlay that does not affect card layout
+- Added native `Topic Library` work:
+  - `src/api/topic-library.ts`
+  - `src/types/topic-library.ts`
+  - `src/screens/TopicLibraryScreen.tsx`
+  - `src/screens/TopicDetailScreen.tsx`
+  - `src/components/topic/TopicRichContent.tsx`
+  - `app/resources/topic-library.tsx`
+  - `app/resources/topic-library/[slug].tsx`
+  - `src/screens/ResourcesScreen.tsx` now routes the Topic Library card into the native flow
+- Topic Library implementation notes:
+  - list/index now mirrors the web page direction with:
+    - featured/all filter
+    - real working search
+    - subtitle/tag rows
+    - free-plan lock treatment with membership CTA
+  - topic detail intentionally does not keep the older mobile card-stack direction
+  - topic detail now follows the web frontend more closely:
+    - full-width hero/content treatment instead of a large enclosing bubble
+    - top row with back-to-library + content-language toggle
+    - divider-line accordion sections instead of card shells
+    - open sections use zebra-group body treatment similar to the web renderer
+    - `[✓]` / `[X]` inline markers now follow web-style blue/red coloring
+  - topic detail links to lesson/topic sentinel URLs are now routed natively where possible
+- Added native `Exercise Bank` work:
+  - `src/api/exercise-bank.ts`
+  - `src/types/exercise-bank.ts`
+  - `src/screens/ExerciseBankScreen.tsx`
+  - `src/screens/ExerciseBankSectionScreen.tsx`
+  - `src/components/exercise-bank/ExerciseBankPager.tsx`
+  - `app/resources/exercise-bank/index.tsx`
+  - `app/resources/exercise-bank/[categorySlug]/[sectionSlug].tsx`
+  - `src/screens/ResourcesScreen.tsx` now routes the Exercise Bank card into the native flow
+- Exercise Bank implementation notes:
+  - index/list now mirrors the web page direction with:
+    - featured/categories filter
+    - real working search
+    - free-plan and no-account notice treatment with membership CTA
+    - category chips for the categories view
+  - index toolbar styling is now aligned with the native Topic Library controls
+  - section detail intentionally follows the established mobile lesson-style exercise flow rather than the web accordion list:
+    - full-page exercise session
+    - top row with back-to-bank + content-language toggle
+    - section title with category chip
+    - sticky bottom `Next exercise` / exit CTA
+    - horizontal swipe between exercises
+  - exercise body styling has been flattened toward the lesson direction:
+    - no large enclosing card around the whole exercise body
+    - normal items do not sit inside per-question cards
+    - example items keep a dedicated preview card
+  - current supported bank exercise kinds:
+    - `multiple_choice`
+    - `open`
+    - `fill_blank`
+    - `sentence_transform`
+  - answer evaluation is wired through the existing backend `/api/evaluate_answer` flow using native `sourceType: 'bank'`
+  - fill-blank rows now use a native `onTextLayout` measurement pass so bracketed hint tokens and blank placeholders wrap more naturally
 - Asset workflow notes:
   - Bundled app images live under `assets/images/*`
   - Added:
@@ -292,20 +350,6 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Current V1 TODO:
-  - Add native onboarding flow:
-    - app should not rely on the web onboarding route/model directly
-    - mobile should onboard users before or around auth in the intended native sequence
-    - exact content/step order can stay flexible, but onboarding itself is in-scope for v1
-  - Build native `Topic Library`:
-    - list/index screen
-    - topic detail screen
-    - keep web backend/API contract as source of truth
-    - preserve web plan-locking behavior unless product direction changes
-  - Build native `Exercise Bank`:
-    - bank/index screen
-    - exercise section detail screen
-    - keep web backend/API contract as source of truth
-    - preserve web featured/free-vs-paid access behavior unless product direction changes
   - Finish free-plan lesson-library lesson entry:
     - signed-in free-plan users should be able to open the allowed native free lessons from `GuestLessonLibraryScreen`
     - this is separate from the no-account `Try Lessons` web flow and should be treated as the mobile-relevant requirement
@@ -314,7 +358,45 @@
     - pathway/progress UX should not be treated as complete until this is wired
 - Explicit non-goal for mobile v1:
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
+- Next recommended phase before detailed testing/debugging:
+  - finish the remaining functional gaps that still block broader signoff:
+    - free-plan lesson-library lesson entry cleanup
+    - lesson completion / mark-complete write-back
+  - then move into focused parity testing/debugging for:
+    - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants)
+    - Topic Library content/layout edge cases
+    - Exercise Bank exercise-type and bilingual wrapping edge cases
 - Keep design flexible since cofounder may change direction.
+
+## Onboarding (Current Native Direction)
+- Native onboarding is now implemented in-app and should be treated as part of the current mobile flow, not a placeholder.
+- Added:
+  - `src/context/onboarding-context.tsx`
+  - `app/onboarding/index.tsx`
+  - `src/screens/OnboardingScreen.tsx`
+  - `src/api/onboarding.ts`
+- Current onboarding implementation notes:
+  - onboarding state is kept separate from auth/session local state for testing convenience
+  - dev-only Profile controls can reopen onboarding and reset/complete local onboarding state
+  - signed-in users with incomplete onboarding are now routed into onboarding automatically
+  - signed-out users still see the normal auth screen first
+  - OAuth/Google users skip the password step and use the shortened onboarding flow
+  - onboarding step content is now native/mobile-specific and no longer depends on the old web onboarding route model
+  - current steps cover:
+    - welcome
+    - password setup for email users
+    - name + avatar selection
+    - free vs full account comparison with upgrade CTA
+    - completion / confirmation
+  - `Continue with free account` advances to completion
+  - `Unlock Full Access` currently routes into the native membership screen as the temporary payment-flow handoff
+  - onboarding completion writes `onboarding_completed` without granting paid access
+  - profile setup writes nickname/avatar updates through native app-side onboarding API plumbing
+  - Google/default account data may exist before onboarding, but onboarding profile selection is intended to overwrite it
+  - layout has had a compact/small-screen responsiveness pass and the Google dot-count/password-step skip behavior is now correct
+- Current onboarding caveats:
+  - payment/checkout is still not implemented from the upgrade CTA
+  - broader end-to-end QA across more auth/account edge cases is still recommended during the next testing pass
 
 ## My Pathway (Current Native Direction)
 - Added web-aligned theme tokens in `src/theme/theme.ts` for:

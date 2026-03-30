@@ -10,7 +10,7 @@ import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type AppProfile = UserProfile & { is_paid: boolean };
+type AppProfile = UserProfile & { is_paid: boolean; onboarding_completed: boolean };
 
 type AppSessionContextValue = {
   session: Session | null;
@@ -20,6 +20,7 @@ type AppSessionContextValue = {
   authError: string | null;
   hasAccount: boolean;
   hasMembership: boolean;
+  hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
   signUp: (params: { email: string; password: string }) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
@@ -89,21 +90,22 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
     try {
       const data = await fetchUserProfile();
-      const { data: membershipData } = await supabase
+      const { data: userRow } = await supabase
         .from('users')
-        .select('is_paid')
+        .select('id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed')
         .eq('id', currentUser.id)
         .maybeSingle();
       setAuthError(null);
       setProfile({
-        id: data.id ?? currentUser.id,
-        name: data.name ?? currentUser.user_metadata?.username ?? null,
-        username: data.username ?? currentUser.user_metadata?.username ?? null,
-        email: data.email ?? currentUser.email ?? null,
-        avatar_image: data.avatar_image ?? null,
-        is_admin: data.is_admin ?? false,
-        created_at: data.created_at ?? null,
-        is_paid: membershipData?.is_paid === true,
+        id: userRow?.id ?? data.id ?? currentUser.id,
+        name: data.name ?? userRow?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+        username: userRow?.username ?? data.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+        email: userRow?.email ?? data.email ?? currentUser.email ?? null,
+        avatar_image: userRow?.avatar_image ?? data.avatar_image ?? null,
+        is_admin: userRow?.is_admin ?? data.is_admin ?? false,
+        created_at: userRow?.created_at ?? data.created_at ?? null,
+        is_paid: userRow?.is_paid === true,
+        onboarding_completed: userRow?.onboarding_completed === true,
         lessons_complete: data.lessons_complete ?? 0,
       });
       return;
@@ -111,7 +113,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     catch (error) {
       const { data, error: usersError } = await supabase
         .from('users')
-        .select('id, username, email, avatar_image, is_admin, created_at, is_paid')
+        .select('id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed')
         .eq('id', currentUser.id)
         .maybeSingle();
 
@@ -119,13 +121,14 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         setAuthError(error instanceof Error ? error.message : usersError.message);
         setProfile({
           id: currentUser.id,
-          name: currentUser.user_metadata?.username ?? null,
-          username: currentUser.user_metadata?.username ?? null,
+          name: currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+          username: currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
           email: currentUser.email ?? null,
           avatar_image: null,
           is_admin: false,
           created_at: null,
           is_paid: false,
+          onboarding_completed: false,
           lessons_complete: 0,
         });
         return;
@@ -134,13 +137,14 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setAuthError(null);
       setProfile({
         id: data?.id ?? currentUser.id,
-        name: data?.username ?? currentUser.user_metadata?.username ?? null,
-        username: data?.username ?? currentUser.user_metadata?.username ?? null,
+        name: data?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+        username: data?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
         email: data?.email ?? currentUser.email ?? null,
         avatar_image: data?.avatar_image ?? null,
         is_admin: data?.is_admin ?? false,
         created_at: data?.created_at ?? null,
         is_paid: data?.is_paid === true,
+        onboarding_completed: data?.onboarding_completed === true,
         lessons_complete: 0,
       });
     }
@@ -182,8 +186,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         userId: nextSession?.user?.id ?? null,
       });
       setSession(nextSession);
-      setIsLoading(false);
-      void fetchProfile(nextSession?.user ?? null);
+      setIsLoading(true);
+      void (async () => {
+        await fetchProfile(nextSession?.user ?? null);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      })();
     });
 
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
@@ -314,6 +323,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const user = session?.user ?? null;
   const hasAccount = user !== null;
   const hasMembership = profile?.is_paid === true;
+  const hasCompletedOnboarding = profile?.onboarding_completed === true;
 
   const value = {
     session,
@@ -323,6 +333,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     authError,
     hasAccount,
     hasMembership,
+    hasCompletedOnboarding,
     signIn,
     signUp,
     signInWithGoogle,

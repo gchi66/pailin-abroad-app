@@ -142,8 +142,15 @@ export function MyPathwayScreen() {
     hasMembership,
   });
 
-  const displayName = profile?.name?.trim() || profile?.username?.trim() || user?.user_metadata?.username || user?.email || 'Pailin Abroad';
-  const avatarSource = resolveAvatarSource(profile?.avatar_image);
+  const displayName =
+    profile?.name?.trim() ||
+    profile?.username?.trim() ||
+    (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '') ||
+    (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
+    user?.email ||
+    'Pailin Abroad';
+  const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
+  const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
 
   const completedPreview = useMemo(() => {
     return completedProgress
