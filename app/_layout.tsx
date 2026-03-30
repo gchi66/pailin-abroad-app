@@ -26,6 +26,8 @@ export default function RootLayout() {
             <Stack.Screen name="account/profile" options={{ title: 'Profile' }} />
             <Stack.Screen name="account/about" options={{ title: 'About' }} />
             <Stack.Screen name="account/contact" options={{ title: 'Contact' }} />
+            <Stack.Screen name="resources/topic-library" options={{ title: 'Topic Library' }} />
+            <Stack.Screen name="resources/topic-library/[slug]" options={{ title: 'Topic Detail' }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />

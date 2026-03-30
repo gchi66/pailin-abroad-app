@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
@@ -123,8 +124,18 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
 };
 
 export function ResourcesScreen() {
+  const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const copy = resourcePageCopy[uiLanguage];
+
+  const handleCardPress = (card: ResourceCardCopy) => {
+    if (card.id === 'topic-library') {
+      router.push('/resources/topic-library');
+      return;
+    }
+
+    Alert.alert(card.title, copy.placeholderAlert);
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
@@ -139,7 +150,7 @@ export function ResourcesScreen() {
                 accessibilityRole="button"
                 disabled={!card.enabled}
                 style={styles.cardPressable}
-                onPress={() => Alert.alert(card.title, copy.placeholderAlert)}>
+                onPress={() => handleCardPress(card)}>
                 <Card padding="lg" radius="lg" style={[styles.resourceCard, !card.enabled ? styles.resourceCardDisabled : null]}>
                   <View style={[styles.cardInner, card.badge ? styles.cardInnerWithBadge : null, !card.enabled ? styles.cardInnerDisabled : null]}>
                     <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
