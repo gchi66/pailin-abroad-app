@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.pailin-abroad-mobile"
+      "bundleIdentifier": "com.anonymous.pailin-abroad-mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone."
+      }
     },
     "android": {
       "adaptiveIcon": {

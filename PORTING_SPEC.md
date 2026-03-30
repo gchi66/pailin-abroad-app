@@ -70,7 +70,7 @@
   - `app/(tabs)/_layout.tsx`
 - Home page reads `uiLanguage` from context.
 
-## Lessons Work (In Progress)
+## Lessons Work
 
 ### Added
 - Env scaffold:
@@ -84,9 +84,8 @@
   - `app/lessons/index.tsx`
   - `app/lessons/[id].tsx`
 
-### Current Decision
+### Current State
 - Use live lesson list data on the lessons index page.
-- Pause deep lesson detail implementation in `app/lessons/[id].tsx` for later.
 - Real app auth/session is now wired through Supabase:
   - signed-in state comes from the current auth session
   - membership entitlement comes from backend profile data (`users.is_paid`)
@@ -94,7 +93,7 @@
 - Free lesson library behavior now mirrors the web `FreeLessonsIndex` model:
   - first lesson of each level is available on the free plan
   - `Expert` remains coming soon
-  - lesson detail taps are still placeholder-only until `app/lessons/[id].tsx` is ported
+  - lesson detail now routes into the native lesson page
 
 ## Env Notes
 - Real `.env` should live at project root:
@@ -107,136 +106,129 @@
 - Keep backend resolver/data shape as source of truth:
   - web backend `resolver.py` + `merge_jsonb.py`
 - Rebuild renderer natively in RN; do not attempt direct web renderer reuse.
-- Defer sticky audio/player behavior (`expo-av`) to a later phase if needed.
 
-## Next Priority (Per Latest Decision)
-- Lessons index live data is already wired through `LessonsLibraryScreen`.
-- `app/lessons/[id].tsx` is now the next major implementation target.
-- Lesson detail direction has shifted away from a close web clone:
-  - mobile lesson UX should move toward a guided stepper/session model
-  - lesson entry should use a dedicated full-screen intro / cover page before the study flow begins
-  - intro cover now uses real lesson metadata fetches for:
-    - title
-    - Thai title
-    - focus
-    - backstory
-    - `header_img`-driven lesson artwork
-  - primary study layout target is one focused section at a time with explicit progress
-  - section-jump behavior should remain available as a secondary menu/sheet affordance
-  - the earlier always-present audio tray mock for the intro page has been intentionally removed
-  - audio behavior should be revisited during actual lesson content implementation rather than baked into the intro page
-- Current `app/lessons/[id].tsx` status:
-  - intro / cover direction is now established
-  - visible back-to-library control is present on the cover
-  - lesson artwork path resolution now mirrors the web header logic more closely
-  - cover copy now shows the real Thai title under the main title
-  - cover backstory is now secondary/expandable instead of always fully expanded
-  - cover no longer shows the temporary `Sections in this lesson` list
-  - lesson detail now fetches the real resolved lesson payload used by the web app
-  - resolved payload fetch is auth-aware and cached in native app code
-  - lesson detail navigation/menu is no longer driven by raw `sections` alone
-  - mobile now mirrors the web `ls-sidebar` model more closely:
-    - uses a derived ordered lesson-tab list instead of dumping raw section rows
-    - includes `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
-    - excludes `prepare` and non-sidebar items like `pinned_comment`
-  - study-mode content language is a distinct lesson-content control, not the same as global app UI language
-    - the lesson content-language toggle now lives in the fixed study chrome as a compact `TH/EN` pill rather than inside each section body
-    - toggling it should refetch/use the other-language resolved payload exactly like the web lesson flow
-    - section headers, section menu labels, and next-section CTA in study mode should follow lesson `contentLang`
-    - the opposite lesson-content language is now prefetched in the background for faster toggles
-    - translation toggles now keep the current lesson visible and show an inline `Translating...` state instead of dropping back to the full page loader
-  - visible section titles now come from the web-aligned section-type label model rather than from `content_jsonb`
-  - study mode now scrolls properly; the earlier non-scrollable fixed-card issue has been corrected
-  - study mode has now moved further toward the intended guided lesson shell:
-    - top chrome is fixed and separate from the content scroll zone
-    - the thin red progress bar sits directly below the lesson nav
-    - the content area no longer uses a large enclosing card wrapper
-    - the footer is sticky and owns both the audio bar and the CTA row
-    - fullscreen mode now hides the top chrome and audio bar while keeping content + CTA visible
-    - safe-area spacing is now applied so the lesson chrome/footer sit away from the notch and bottom edge
-  - the shared lesson audio tray has been restyled toward the target lesson mock:
-    - expanded on entry with a visual drag handle
-    - supports expanded and collapsed states
-    - collapsed state shows the compact live-dot / title / volume / play layout
-    - control sizing and typography have been tuned closer to the current design target
-  - raw section `content` / `content_jsonb` is intentionally not rendered into the study card right now
-    - this was briefly exposed during payload-debugging and was backed back out because it looked bad and was not a real renderer
-    - remaining unported sections still use the controlled placeholder path
-  - completed section ports now in place:
-    - `Comprehension`
-      - supports normalized resolved-payload questions
-      - supports EN/TH content-language switching independent of global UI language
-      - supports answer selection, check flow, correctness states, and preserved checked state through language toggles
-      - now runs inside the newer fixed-shell lesson layout with sticky footer / CTA behavior
-      - now more closely matches the target neo-brutalist multiple-choice treatment and feedback flow
-    - `Transcript`
-      - mirrors web behavior where English is always shown and Thai lines are additionally shown in Thai mode
-      - uses the same shared study-chrome content-language toggle as other study sections
-    - `Apply`
-      - uses dedicated section handling instead of the generic placeholder/rich-section path
-      - supports structured dict-shaped `content_jsonb` / `content_jsonb_th` with `prompt`, `response`, `prompt_nodes`, and `response_nodes`
-      - uses parsed rich-node data to render accent/callout paragraphs, including cyan-highlight-driven left-bar styling to match the web apply prompt behavior
-      - supports local input + reveal-example-answer flow matching current web functionality (no backend submission/evaluation path exists in the web app)
-    - `Understand`
-      - uses rich resolved-payload nodes instead of the placeholder path
-      - preserves the guided card/pager lesson UX already established for study mode
-      - supports understand-specific highlight treatment from the web rich renderer
-      - supports inline snippet audio bullets wired from lesson audio snippet data
-      - table rendering has started to receive native cleanup work, but table parity is still incomplete and needs a follow-up pass
-    - `Culture Note`
-      - now uses the native rich-section renderer instead of the placeholder path
-      - supports headings, paragraphs, lists, images, tables, links, and inline snippet audio bullets when present
-      - table support is currently partial; recent native table/audio work improved the baseline, but final mobile table behavior is still not signed off
-      - intentionally reuses the shared rich-node/audio-bullet path without the understand-only highlight treatment
-    - `Common Mistake`
-      - now uses the same guided card/pager shell as `Understand` instead of the placeholder path
-      - groups the resolved rich nodes into in-section cards with next/previous navigation
-      - preserves web-style inline marker coloring for `[X]`, `[✓]`, and `[-]`
-      - reuses the native rich-node renderer for headings, paragraphs, lists, images, tables, links, and snippet audio
-      - table handling is still considered in progress pending final mobile-only table selection and overall presentation review
-    - `Practice`
-      - no longer uses the generic placeholder path for the currently-needed lesson exercise sets
-      - now has a dedicated native practice renderer for the currently-needed exercise kinds:
-        - `multiple_choice`
-        - `open` / open-ended practice
-      - practice now follows the same guided inner card/pager format as `Understand`, with one exercise per card
-      - multiple choice now supports native selection, local check flow, correctness reveal, and reset inside the active practice card
-      - open-ended practice now supports native text input plus backend `/api/evaluate_answer` checks through app-side auth-aware API wiring inside the active practice card
-      - open-ended practice now carries prompt images through item normalization and renders them natively when present
-      - open-ended example items now use a distinct example-preview layout instead of looking like a broken first question
-      - practice state is preserved within the current lesson session and stays aligned with the lesson `contentLang` payload model where applicable
-      - quick-practice injection into rich lesson content has now started for `Understand`, but full quick-practice parity still depends on broader exercise-kind support
-      - `fill_blank` and `sentence_transform` are still intentionally deferred until the next lessons that require them
-    - `Phrases & Verbs`
-      - no longer uses the generic placeholder path
-      - now uses dedicated native phrase-card handling driven by resolved `lesson.phrases`
-      - phrase-specific audio snippet lookup is now wired through native app code using `lesson_phrases` + `phrases_audio_snippets`
-      - mobile currently presents one phrase card at a time inside the existing guided section pager
-      - phrase body styling has been tuned toward current web behavior:
-        - no bordered card around audio bullets
-        - light divider between the lead definition bullet and following example bullets
-        - continuation lines in mini-conversation examples stay visually indented under the active audio bullet
-      - duplicate in-body phrase headings are suppressed when they repeat the already-visible section title
-- The lesson page port is expected to be a large multi-part task with several moving pieces:
-  - resolved lesson payload fetching
-  - native rich section renderer parity
-  - finish table parity work across the native rich sections
-  - lesson navigation / previous-next flow
-  - mark-complete behavior and eventual write-back strategy
-  - audio / sticky player behavior may still need to be deferred or phased
-- Immediate next implementation target:
-  - keep the new resolved-payload + derived-tab foundation in place
-  - attack lesson sections one by one instead of trying to port the entire lesson body at once
-  - immediate next item of business is to wire up all remaining lesson practice exercise kinds so both the main `Practice` tab and inline quick-practice blocks can render correctly across lessons
-  - this practice-type expansion should cover:
+## Lesson Detail Status (`app/lessons/[id].tsx`)
+
+### Summary
+- Lesson detail is now MVP-complete for the current mobile scope.
+- The page is no longer in placeholder-only territory; the basics of the guided lesson flow are in place and usable.
+- Remaining work is mostly parity cleanup, edge-case handling, and polish rather than foundational implementation.
+
+### Lesson Shell / Navigation
+- Mobile lesson UX now uses the intended guided stepper/session model rather than a close web clone.
+- Lesson entry uses a dedicated full-screen intro / cover page before study mode begins.
+- Intro cover uses real lesson metadata:
+  - title
+  - Thai title
+  - focus
+  - backstory
+  - `header_img`-driven lesson artwork
+- Visible back-to-library control is present on the cover.
+- Cover backstory is secondary/expandable instead of always fully expanded.
+- Cover no longer shows the temporary `Sections in this lesson` list.
+- Lesson detail fetches the real resolved lesson payload used by the web app.
+- Resolved payload fetch is auth-aware and cached in native app code.
+- Lesson detail navigation/menu is no longer driven by raw `sections` alone.
+- Mobile now mirrors the web `ls-sidebar` model more closely:
+  - uses a derived ordered lesson-tab list instead of dumping raw section rows
+  - includes `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
+  - excludes `prepare` and non-sidebar items like `pinned_comment`
+
+### Study Mode / Chrome
+- Study-mode content language is a distinct lesson-content control, not the same as global app UI language.
+- The lesson content-language toggle now lives in the fixed study chrome as a compact `TH/EN` pill rather than inside each section body.
+- Toggling content language refetches/uses the other-language resolved payload like the web lesson flow.
+- Section headers, section menu labels, and next-section CTA in study mode follow lesson `contentLang`.
+- The opposite lesson-content language is prefetched in the background for faster toggles.
+- Translation toggles now keep the current lesson visible and show an inline `Translating...` state instead of dropping back to the full page loader.
+- Visible section titles now come from the web-aligned section-type label model rather than from `content_jsonb`.
+- Study mode scrolls properly.
+- Study mode shell now matches the current intended direction:
+  - top chrome is fixed and separate from the content scroll zone
+  - the thin red progress bar sits directly below the lesson nav
+  - the content area no longer uses a large enclosing card wrapper
+  - the footer is sticky and owns both the audio bar and the CTA row
+  - fullscreen mode hides the top chrome and audio bar while keeping content + CTA visible
+  - safe-area spacing keeps lesson chrome/footer away from the notch and bottom edge
+
+### Audio
+- Shared lesson audio tray has been restyled toward the target lesson mock:
+  - expanded on entry with a visual drag handle
+  - supports expanded and collapsed states
+  - collapsed state shows the compact live-dot / title / volume / play layout
+  - control sizing and typography are tuned closer to the current design target
+- Inline snippet audio support is wired for rich lesson content and phrases where snippet data exists.
+
+### Completed Section Ports
+- `Comprehension`
+  - supports normalized resolved-payload questions
+  - supports EN/TH content-language switching independent of global UI language
+  - supports answer selection, check flow, correctness states, and preserved checked state through language toggles
+  - runs inside the fixed-shell lesson layout with sticky footer / CTA behavior
+- `Transcript`
+  - mirrors web behavior where English is always shown and Thai lines are additionally shown in Thai mode
+  - uses the shared study-chrome content-language toggle
+- `Apply`
+  - uses dedicated section handling instead of the generic placeholder path
+  - supports structured dict-shaped `content_jsonb` / `content_jsonb_th` with `prompt`, `response`, `prompt_nodes`, and `response_nodes`
+  - uses parsed rich-node data to render accent/callout paragraphs
+  - supports local input + reveal-example-answer flow matching current web functionality
+- `Understand`
+  - uses rich resolved-payload nodes instead of the placeholder path
+  - preserves the guided card/pager lesson UX already established for study mode
+  - supports understand-specific highlight treatment from the web rich renderer
+  - supports inline snippet audio bullets wired from lesson audio snippet data
+  - supports inline quick-practice injection for supported exercise kinds
+- `Culture Note`
+  - uses the native rich-section renderer instead of the placeholder path
+  - supports headings, paragraphs, lists, images, tables, links, and inline snippet audio bullets when present
+  - intentionally reuses the shared rich-node/audio-bullet path without the understand-only highlight treatment
+- `Common Mistake`
+  - uses the same guided card/pager shell as `Understand`
+  - groups the resolved rich nodes into in-section cards with next/previous navigation
+  - preserves web-style inline marker coloring for `[X]`, `[✓]`, and `[-]`
+  - reuses the native rich-node renderer for headings, paragraphs, lists, images, tables, links, and snippet audio
+- `Practice`
+  - no longer uses the generic placeholder path
+  - now has dedicated native practice handling for:
+    - `multiple_choice`
+    - `open` / open-ended practice
     - `fill_blank`
     - `sentence_transform`
-    - any additional backend-provided exercise kinds encountered in later lessons
-  - after that, continue section-by-section in the same way:
-    - `Extra Tip`
-    - final quick-practice parity for all supported rich lesson sections
-  - treat full `RichSectionRenderer` parity as a phased build, not a single giant port
-    - do not reintroduce raw `content_jsonb` dumping as a temporary UI
+  - practice follows the same guided inner card/pager format as `Understand`, with one exercise per card in the main `Practice` tab
+  - multiple choice supports native selection, local check flow, correctness reveal, and reset
+  - open-ended practice supports native text input plus backend `/api/evaluate_answer` checks through app-side auth-aware API wiring
+  - fill-blank practice supports native blank inputs and backend evaluation
+  - sentence-transform practice supports native rewrite input / correctness toggle plus backend evaluation
+  - prompt images are carried through item normalization and rendered natively when present
+  - example items use dedicated preview layouts
+  - practice state is preserved within the current lesson session and stays aligned with the lesson `contentLang` payload model where applicable
+  - quick-practice rendering is now wired for the currently supported practice exercise kinds
+- `Phrases & Verbs`
+  - uses dedicated native phrase-card handling driven by resolved `lesson.phrases`
+  - phrase-specific audio snippet lookup is wired through native app code using `lesson_phrases` + `phrases_audio_snippets`
+  - mobile presents one phrase card at a time inside the existing guided section pager
+  - phrase body styling is tuned toward current web behavior:
+    - no bordered card around audio bullets
+    - light divider between the lead definition bullet and following example bullets
+    - continuation lines in mini-conversation examples stay visually indented under the active audio bullet
+  - duplicate in-body phrase headings are suppressed when they repeat the already-visible section title
+
+### Known Gaps / Follow-Up Work
+- Table parity across rich sections is still incomplete and needs a dedicated mobile-only cleanup/signoff pass.
+- `Extra Tip` still needs a proper dedicated/native path if later lessons require it.
+- Quick-practice parity should be treated as good enough for current supported lesson types, not guaranteed-final for every future backend payload shape.
+- Mark-complete behavior / write-back strategy is still not implemented.
+- Additional backend-provided exercise kinds may still require future native support if new lesson content introduces them.
+
+### Current Recommendation
+- Treat the lesson page as complete enough for the current MVP/basic mobile scope.
+- Expect bug-fixing and edge-case cleanup rather than major architecture work.
+- Use future work passes to handle:
+  - table cleanup
+  - `Extra Tip`
+  - mark-complete/write-back
+  - newly encountered payload variants
 - Added native free-plan lessons flow:
   - `src/screens/GuestLessonLibraryScreen.tsx`
   - `app/lessons/library.tsx`
@@ -299,12 +291,29 @@
 - Current known TS issues that predate or sit outside this image/home pass:
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
-- Next priority:
-  - Continue the section-by-section lesson port in `app/lessons/[id].tsx`
-  - Start with a real native `Understand` implementation in the next chat
-  - Keep the web lesson sidebar / resolved payload contract as source of truth for which lesson sections exist
-  - Treat resolved payload fetching as done enough for now; focus on native section rendering next
-  - Keep lesson completion/write logic flexible because product behavior around `mark complete` may still change
+- Current V1 TODO:
+  - Add native onboarding flow:
+    - app should not rely on the web onboarding route/model directly
+    - mobile should onboard users before or around auth in the intended native sequence
+    - exact content/step order can stay flexible, but onboarding itself is in-scope for v1
+  - Build native `Topic Library`:
+    - list/index screen
+    - topic detail screen
+    - keep web backend/API contract as source of truth
+    - preserve web plan-locking behavior unless product direction changes
+  - Build native `Exercise Bank`:
+    - bank/index screen
+    - exercise section detail screen
+    - keep web backend/API contract as source of truth
+    - preserve web featured/free-vs-paid access behavior unless product direction changes
+  - Finish free-plan lesson-library lesson entry:
+    - signed-in free-plan users should be able to open the allowed native free lessons from `GuestLessonLibraryScreen`
+    - this is separate from the no-account `Try Lessons` web flow and should be treated as the mobile-relevant requirement
+  - Add lesson completion / mark-complete write-back:
+    - lesson detail is usable for study, but native write-back is still missing
+    - pathway/progress UX should not be treated as complete until this is wired
+- Explicit non-goal for mobile v1:
+  - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
 - Keep design flexible since cofounder may change direction.
 
 ## My Pathway (Current Native Direction)
