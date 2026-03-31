@@ -10,6 +10,7 @@ import {
   fetchLessonAudioSnippetIndex,
   fetchLessonPhraseAudioSnippetIndex,
   fetchLessonAudioUrls,
+  getLessonsIndex,
   fetchResolvedLesson,
   fetchSignedLessonAudioUrl,
   prefetchResolvedLesson,
@@ -27,6 +28,7 @@ import {
   getLessonSectionLabel,
   getLessonSectionTitle,
 } from '@/src/copy/lesson-detail';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import {
@@ -1300,10 +1302,12 @@ const millisToSeconds = (millis: number) => Math.max(0, millis / 1000);
 const PITCH_CORRECTION_QUALITY = 'medium';
 
 export default function LessonDetailShellScreen() {
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; locked?: string }>();
   const lessonId = typeof params.id === 'string' ? params.id : '';
+  const lockedParam = typeof params.locked === 'string' ? params.locked : null;
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
+  const { hasMembership } = useAppSession();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
@@ -1347,6 +1351,7 @@ export default function LessonDetailShellScreen() {
   const [practiceErrorByExercise, setPracticeErrorByExercise] = useState<Record<string, string>>({});
   const [practiceMarkedCorrect, setPracticeMarkedCorrect] = useState<Record<string, boolean | null>>({});
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
+  const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const bgSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
@@ -1363,6 +1368,60 @@ export default function LessonDetailShellScreen() {
   useEffect(() => {
     lessonRef.current = lesson;
   }, [lesson]);
+
+  useEffect(() => {
+    if (hasMembership) {
+      setFreeLessonIds(new Set());
+      return;
+    }
+
+    let isMounted = true;
+
+    const run = async () => {
+      try {
+        const rows = await getLessonsIndex();
+        if (!isMounted) {
+          return;
+        }
+
+        const firstByLevel = new Map<string, string>();
+        [...rows]
+          .filter((item) => item.stage && typeof item.level === 'number')
+          .sort((a, b) => {
+            if (a.stage !== b.stage) {
+              return String(a.stage ?? '').localeCompare(String(b.stage ?? ''));
+            }
+            const levelOrder = (a.level ?? 0) - (b.level ?? 0);
+            if (levelOrder !== 0) {
+              return levelOrder;
+            }
+            return (a.lesson_order ?? Number.MAX_SAFE_INTEGER) - (b.lesson_order ?? Number.MAX_SAFE_INTEGER);
+          })
+          .forEach((item) => {
+            if (!item.id || !item.stage || typeof item.level !== 'number') {
+              return;
+            }
+
+            const key = `${item.stage}-${item.level}`;
+            if (!firstByLevel.has(key)) {
+              firstByLevel.set(key, item.id);
+            }
+          });
+
+        setFreeLessonIds(new Set(firstByLevel.values()));
+      } catch {
+        if (isMounted) {
+          setFreeLessonIds(new Set());
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasMembership]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1566,6 +1625,25 @@ export default function LessonDetailShellScreen() {
   }, [normalizedQuestions]);
   const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
   const pageCopy = useMemo(() => getLessonDetailCopy(pageLanguage), [pageLanguage]);
+  const isLockedLesson = useMemo(() => {
+    if (hasMembership) {
+      return false;
+    }
+
+    if (lockedParam === '1') {
+      return true;
+    }
+
+    if (!lesson?.id) {
+      return false;
+    }
+
+    if (freeLessonIds.size > 0) {
+      return !freeLessonIds.has(lesson.id);
+    }
+
+    return lesson.locked === true;
+  }, [freeLessonIds, hasMembership, lesson?.id, lesson?.locked, lockedParam]);
   const activeSectionTitle = useMemo(
     () => (activeTab ? getLessonSectionTitle(pageLanguage, activeTab.type, activeSectionIndex) : null),
     [activeSectionIndex, activeTab, pageLanguage]
@@ -4346,7 +4424,7 @@ export default function LessonDetailShellScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={backToLibraryLabel}
-                        onPress={() => router.push('/lessons')}
+                        onPress={() => router.push('/(tabs)/lessons')}
                         style={styles.backButton}>
                         <AppText language={uiLanguage} variant="body" style={styles.backButtonText}>
                           ←
@@ -4414,12 +4492,34 @@ export default function LessonDetailShellScreen() {
                       </View>
                     ) : null}
 
-                    <Button
-                      language={uiLanguage}
-                      title={startLessonLabel}
-                      onPress={() => setHasStartedLesson(true)}
-                      style={styles.coverStartButton}
-                    />
+                    {isLockedLesson ? (
+                      <View style={styles.coverLockedWrap}>
+                        <Card padding="md" radius="md" style={styles.coverLockedNotice}>
+                          <Stack gap="xs">
+                            <AppText language={uiLanguage} variant="body" style={styles.coverLockedTitle}>
+                              {uiCopy.lockedLessonTitle}
+                            </AppText>
+                            <AppText language={uiLanguage} variant="muted" style={styles.coverLockedBody}>
+                              {uiCopy.lockedLessonBody}
+                            </AppText>
+                          </Stack>
+                        </Card>
+
+                        <Button
+                          language={uiLanguage}
+                          title={uiCopy.unlockLesson}
+                          onPress={() => router.push('/account/membership')}
+                          style={styles.coverStartButton}
+                        />
+                      </View>
+                    ) : (
+                      <Button
+                        language={uiLanguage}
+                        title={startLessonLabel}
+                        onPress={() => setHasStartedLesson(true)}
+                        style={styles.coverStartButton}
+                      />
+                    )}
                   </View>
                 </View>
               </View>
@@ -5275,6 +5375,20 @@ const styles = StyleSheet.create({
   },
   coverFocusText: {
     fontWeight: theme.typography.weights.medium,
+  },
+  coverLockedWrap: {
+    gap: theme.spacing.sm,
+  },
+  coverLockedNotice: {
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderColor: theme.colors.border,
+  },
+  coverLockedTitle: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+  },
+  coverLockedBody: {
+    color: theme.colors.mutedText,
   },
   coverStartButton: {
     minHeight: 56,

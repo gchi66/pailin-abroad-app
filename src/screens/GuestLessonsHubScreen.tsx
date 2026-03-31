@@ -2,8 +2,8 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
-import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -15,54 +15,49 @@ export function GuestLessonsHubScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <View style={styles.headerBlock}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {uiLanguage === 'th' ? 'บทเรียน' : 'Lessons'}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {uiLanguage === 'th'
-                ? 'สำหรับผู้ใช้แพ็กเกจฟรี คุณสามารถลอง 4 บทเรียนตัวอย่างหรือเข้าสู่คลังบทเรียนฟรีได้'
-                : 'On the free plan, you can try the 4 sample lessons or open the free lesson library.'}
-            </AppText>
-          </Stack>
-        </View>
+        <StandardPageHeader
+          language={uiLanguage}
+          title={uiLanguage === 'th' ? 'บทเรียน' : 'Lessons'}
+          subtitle={
+            uiLanguage === 'th'
+              ? 'เลือกได้ทั้งคลังบทเรียนเต็มแบบมีบทเรียนล็อกไว้ และคลังบทเรียนฟรีที่รวมบทเรียนแรกของแต่ละเลเวล'
+              : 'Choose between the full lesson library with locked lessons and the free lesson library with the first lesson from each level.'
+          }
+        />
 
-        <Card padding="lg" radius="lg">
-          <Stack gap="sm">
-            <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/try')}>
-              <View style={styles.linkCopy}>
-                <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
-                  {uiLanguage === 'th' ? '4 บทเรียนตัวอย่าง' : '4 Sample Lessons'}
-                </AppText>
-                <AppText language={uiLanguage} variant="muted" style={styles.linkDescription}>
-                  {uiLanguage === 'th'
-                    ? 'ลองเรียน 4 บทเรียนฟรีได้ทันที'
-                    : 'Try the four free lessons now.'}
-                </AppText>
-              </View>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
+        <Stack gap="sm" style={styles.linksWrap}>
+          <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/library')}>
+            <View style={styles.linkCopy}>
+              <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
+                {uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library'}
               </AppText>
-            </Pressable>
+              <AppText language={uiLanguage} variant="muted" style={styles.linkDescription}>
+                {uiLanguage === 'th'
+                  ? 'ดูคลังบทเรียนเต็ม พร้อมบทเรียนที่ล็อกไว้สำหรับสมาชิก'
+                  : 'Browse the full lesson library with locked lessons still visible on the free plan.'}
+              </AppText>
+            </View>
+            <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
+              ›
+            </AppText>
+          </Pressable>
 
-            <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/library')}>
-              <View style={styles.linkCopy}>
-                <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
-                  {uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library'}
-                </AppText>
-                <AppText language={uiLanguage} variant="muted" style={styles.linkDescription}>
-                  {uiLanguage === 'th'
-                    ? 'เข้าถึงบทเรียนแรกของทุกระดับการเรียนในแพ็กเกจฟรี'
-                    : 'Access the first lesson of each level on the free plan.'}
-                </AppText>
-              </View>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
+          <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/free-library')}>
+            <View style={styles.linkCopy}>
+              <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
+                {uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}
               </AppText>
-            </Pressable>
-          </Stack>
-        </Card>
+              <AppText language={uiLanguage} variant="muted" style={styles.linkDescription}>
+                {uiLanguage === 'th'
+                  ? 'รวมบทเรียนแรกของแต่ละเลเวลที่เปิดเรียนได้ทันที'
+                  : 'Open the collection of first lessons from each level that are fully available on the free plan.'}
+              </AppText>
+            </View>
+            <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
+              ›
+            </AppText>
+          </Pressable>
+        </Stack>
       </Stack>
     </ScrollView>
   );
@@ -74,22 +69,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-  },
-  title: {
-    color: theme.colors.text,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
+  linksWrap: {
+    paddingHorizontal: theme.spacing.md,
   },
   linkRow: {
     minHeight: 72,
@@ -103,6 +86,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
+    shadowColor: theme.colors.border,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   linkCopy: {
     flex: 1,

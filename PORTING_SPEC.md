@@ -131,8 +131,8 @@
 - Lesson detail navigation/menu is no longer driven by raw `sections` alone.
 - Mobile now mirrors the web `ls-sidebar` model more closely:
   - uses a derived ordered lesson-tab list instead of dumping raw section rows
-  - includes `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
-  - excludes `prepare` and non-sidebar items like `pinned_comment`
+  - includes `Prepare`, `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
+  - still excludes non-sidebar items like `pinned_comment`
 
 ### Study Mode / Chrome
 - Study-mode content language is a distinct lesson-content control, not the same as global app UI language.
@@ -157,9 +157,14 @@
   - supports expanded and collapsed states
   - collapsed state shows the compact live-dot / title / volume / play layout
   - control sizing and typography are tuned closer to the current design target
+- Audio tray now auto-collapses on the native `Prepare` section and auto-expands when the user advances out of `Prepare` via `Next section`.
 - Inline snippet audio support is wired for rich lesson content and phrases where snippet data exists.
 
 ### Completed Section Ports
+- `Prepare`
+  - now exists as a first-class native lesson section before `Comprehension` when lesson payload data includes it
+  - uses a mobile-native card that intentionally echoes the web `PrepareCard` styling and audio-row behavior
+  - keeps inline snippet audio preview available for prepare items where snippet data exists
 - `Comprehension`
   - supports normalized resolved-payload questions
   - supports EN/TH content-language switching independent of global UI language
@@ -350,15 +355,10 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Current V1 TODO:
-  - Next task: port native lesson discussion support into the app:
-    - this refers to the native Expo app, not the mobile web version of `pailin-abroad`
-    - mobile web already has the lesson discussion / pinned-comment experience and should not be used as evidence that the native app has parity here
-    - native app currently has no discussion board, pinned comment, reply flow, or comment-history surfaces
-    - port the lesson discussion board UX and backend wiring into native lesson detail / pathway surfaces
-  - Figure out the native app direction for `Prepare`:
-    - `Prepare` is still excluded from the current native lesson sidebar/content flow
-    - decide whether it should be ported as a first-class lesson section, folded into another lesson surface, or intentionally left out for v1
-    - if included, define the native UX and backend/data assumptions before broader lesson-detail signoff
+  - Keep lesson discussion web-only for v1:
+    - native app intentionally does not include the lesson discussion board, pinned comment, reply flow, or comment-history surfaces
+    - mobile web may continue to expose lesson discussion without blocking native app signoff
+    - do not treat missing native discussion parity as a v1 blocker unless product direction changes
   - Finish free-plan lesson-library lesson entry:
     - signed-in free-plan users should be able to open the allowed native free lessons from `GuestLessonLibraryScreen`
     - this is separate from the no-account `Try Lessons` web flow and should be treated as the mobile-relevant requirement
@@ -440,7 +440,7 @@
   - lesson completion writes are not yet wired in native because lesson detail is still a shell
   - `Continue learning` depends on the current backend pathway endpoint behavior
   - `liked lessons` remain intentionally excluded from the app MVP for now
-  - comment history is not yet in the native app; mobile web may still expose it, but native parity work should be tracked under the lesson discussion port task above
+  - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1
   - final structure/spacing/content order should still be treated as provisional until cofounder review
 
 ## Source of Truth for Future Chats

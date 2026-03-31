@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '@/src/theme/theme';
 
@@ -13,8 +14,17 @@ type StandardPageHeaderProps = {
 };
 
 export function StandardPageHeader({ language, title, subtitle }: StandardPageHeaderProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.headerBlock}>
+    <View
+      style={[
+        styles.headerBlock,
+        {
+          marginTop: Math.min(insets.top + theme.spacing.md, theme.spacing.xl + theme.spacing.xs),
+          paddingTop: theme.spacing.lg + theme.spacing.sm,
+        },
+      ]}>
       <Stack gap="sm">
         <AppText language={language} variant="title" style={styles.title}>
           {title}

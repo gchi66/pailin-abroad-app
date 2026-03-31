@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
+import lockImage from '@/assets/images/lock.webp';
 import { getLessonsIndex } from '@/src/api/lessons';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
@@ -11,9 +13,26 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
-type StageName = 'Beginner' | 'Intermediate' | 'Advanced';
+type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
-const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced'];
+const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+
+const toStageLabel = (stage: StageName, uiLanguage: 'en' | 'th') => {
+  if (uiLanguage === 'th') {
+    if (stage === 'Beginner') return 'เริ่มต้น';
+    if (stage === 'Intermediate') return 'ระดับกลาง';
+    if (stage === 'Advanced') return 'ระดับสูง';
+    return 'ผู้เชี่ยวชาญ';
+  }
+  return stage.toUpperCase();
+};
+
+const toLevelLabel = (level: number, uiLanguage: 'en' | 'th') => {
+  if (uiLanguage === 'th') {
+    return `เลเวล ${level}`;
+  }
+  return `LEVEL ${level}`;
+};
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
   const preferredText = preferred?.trim();
@@ -27,20 +46,15 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
   return emptyFallback;
 };
 
-const getStageTitle = (stage: StageName, uiLanguage: 'en' | 'th') => {
-  if (uiLanguage === 'th') {
-    if (stage === 'Beginner') return 'ระดับเริ่มต้น';
-    if (stage === 'Intermediate') return 'ระดับกลาง';
-    return 'ระดับสูง';
-  }
-  return stage.toUpperCase();
-};
-
 export function GuestLessonLibraryScreen() {
+  const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<StageName>('Beginner');
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,88 +79,200 @@ export function GuestLessonLibraryScreen() {
       }
     };
 
-    run();
+    void run();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const lessonsByStage = useMemo(() => {
-    const grouped = new Map<StageName, LessonListItem[]>();
-    STAGE_ORDER.forEach((stage) => grouped.set(stage, []));
+  const freeLessonIds = useMemo(() => {
+    const firstByLevel = new Map<string, string>();
 
-    STAGE_ORDER.forEach((stage) => {
-      const stageLessons = items
-        .filter((lesson) => lesson.stage === stage && typeof lesson.level === 'number')
-        .sort((a, b) => {
-          const levelOrder = (a.level ?? 0) - (b.level ?? 0);
-          if (levelOrder !== 0) {
-            return levelOrder;
-          }
-          return (a.lesson_order ?? Number.MAX_SAFE_INTEGER) - (b.lesson_order ?? Number.MAX_SAFE_INTEGER);
-        });
-
-      const firstByLevel = new Map<number, LessonListItem>();
-      stageLessons.forEach((lesson) => {
-        if (typeof lesson.level !== 'number') {
+    [...items]
+      .filter((lesson) => lesson.stage && typeof lesson.level === 'number')
+      .sort((a, b) => {
+        if (a.stage !== b.stage) {
+          return String(a.stage ?? '').localeCompare(String(b.stage ?? ''));
+        }
+        const levelOrder = (a.level ?? 0) - (b.level ?? 0);
+        if (levelOrder !== 0) {
+          return levelOrder;
+        }
+        return (a.lesson_order ?? Number.MAX_SAFE_INTEGER) - (b.lesson_order ?? Number.MAX_SAFE_INTEGER);
+      })
+      .forEach((lesson) => {
+        if (!lesson.id || !lesson.stage || typeof lesson.level !== 'number') {
           return;
         }
-        if (!firstByLevel.has(lesson.level)) {
-          firstByLevel.set(lesson.level, lesson);
+
+        const key = `${lesson.stage}-${lesson.level}`;
+        if (!firstByLevel.has(key)) {
+          firstByLevel.set(key, lesson.id);
         }
       });
 
-      grouped.set(
-        stage,
-        [...firstByLevel.entries()]
-          .sort((a, b) => a[0] - b[0])
-          .map((entry) => entry[1])
-      );
-    });
-
-    return grouped;
+    return new Set(firstByLevel.values());
   }, [items]);
 
-  const handleLessonPress = (lesson: LessonListItem) => {
-    const titleText =
-      uiLanguage === 'th'
-        ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
-        : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
+  const levelsByStage = useMemo(() => {
+    const map = new Map<StageName, number[]>();
+    STAGE_ORDER.forEach((stage) => map.set(stage, []));
 
-    Alert.alert(
-      titleText,
-      uiLanguage === 'th'
-        ? 'หน้าบทเรียนจริงจะเชื่อมในขั้นตอนถัดไป'
-        : 'The lesson page will be connected in a later step.'
-    );
+    items.forEach((lesson) => {
+      if (!lesson.stage || typeof lesson.level !== 'number') {
+        return;
+      }
+      if (!STAGE_ORDER.includes(lesson.stage as StageName)) {
+        return;
+      }
+
+      const stage = lesson.stage as StageName;
+      const existingLevels = map.get(stage) ?? [];
+      if (!existingLevels.includes(lesson.level)) {
+        existingLevels.push(lesson.level);
+      }
+      map.set(stage, existingLevels);
+    });
+
+    STAGE_ORDER.forEach((stage) => {
+      const sorted = [...(map.get(stage) ?? [])].sort((a, b) => a - b);
+      map.set(stage, sorted);
+    });
+
+    return map;
+  }, [items]);
+
+  const availableStages = useMemo(() => {
+    const stagesWithData = STAGE_ORDER.filter((stage) => (levelsByStage.get(stage)?.length ?? 0) > 0);
+    return stagesWithData.length > 0 ? stagesWithData : STAGE_ORDER;
+  }, [levelsByStage]);
+
+  const levelsForSelectedStage = useMemo(() => {
+    return levelsByStage.get(selectedStage) ?? [];
+  }, [levelsByStage, selectedStage]);
+
+  useEffect(() => {
+    if (availableStages.includes(selectedStage)) {
+      return;
+    }
+    setSelectedStage(availableStages[0] ?? 'Beginner');
+  }, [availableStages, selectedStage]);
+
+  useEffect(() => {
+    if (levelsForSelectedStage.length === 0) {
+      setSelectedLevel(null);
+      return;
+    }
+    if (selectedLevel && levelsForSelectedStage.includes(selectedLevel)) {
+      return;
+    }
+    setSelectedLevel(levelsForSelectedStage[0]);
+  }, [levelsForSelectedStage, selectedLevel]);
+
+  const lessonsForSelection = useMemo(() => {
+    if (selectedLevel === null) {
+      return [];
+    }
+
+    return items
+      .filter((lesson) => lesson.stage === selectedStage && lesson.level === selectedLevel)
+      .sort((a, b) => {
+        const aOrder = typeof a.lesson_order === 'number' ? a.lesson_order : Number.MAX_SAFE_INTEGER;
+        const bOrder = typeof b.lesson_order === 'number' ? b.lesson_order : Number.MAX_SAFE_INTEGER;
+        return aOrder - bOrder;
+      });
+  }, [items, selectedLevel, selectedStage]);
+
+  const handleLessonPress = (lesson: LessonListItem) => {
+    const isLocked = !freeLessonIds.has(lesson.id);
+    router.push({
+      pathname: '/lessons/[id]',
+      params: {
+        id: lesson.id,
+        locked: isLocked ? '1' : '0',
+      },
+    });
   };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader
-          language={uiLanguage}
-          title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}
-          subtitle={
-            uiLanguage === 'th'
-              ? 'เข้าสำรวจบทเรียนที่คุณเข้าได้เรียนได้ด้วยแพ็กเกจเรียนฟรี'
-              : 'Explore the lessons available to you on your free plan'
-          }
-        />
+        <View style={styles.headerWrap}>
+          <StandardPageHeader
+            language={uiLanguage}
+            title={uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library'}
+            subtitle={
+              uiLanguage === 'th'
+                ? 'ดูบทเรียนทั้งหมดได้ตามปกติ และแตะบทเรียนที่ล็อกไว้เพื่อพรีวิวหน้าปกก่อนอัปเกรด'
+                : 'Browse the full lesson library and tap locked lessons to preview the cover before upgrading.'
+            }
+          />
+        </View>
 
         <View style={styles.freePlanMessage}>
           <AppText language={uiLanguage} variant="body" style={styles.freePlanLine}>
             {uiLanguage === 'th'
-              ? 'แพ็กเกจเรียนฟรีของคุณสามารถเข้าถึงบทเรียนแรกของทุกระดับการเรียน!'
-              : 'Your free plan gives you access to the first lesson of each level!'}
+              ? 'แพ็กเกจฟรีของคุณยังเข้าเรียนบทเรียนแรกของแต่ละเลเวลได้ตามปกติ'
+              : 'Your free plan still gives you access to the first lesson of each level.'}
           </AppText>
           <AppText language={uiLanguage} variant="body" style={styles.freePlanLine}>
             {uiLanguage === 'th'
-              ? 'อัปเกรดเพื่อเข้าถึงคลังบทเรียนทั้งหมดของเรา'
-              : 'Upgrade to enjoy access to our full lesson library.'}
+              ? 'บทเรียนอื่นๆ จะแสดงเป็นล็อก และอัปเกรดได้ทุกเมื่อเพื่อปลดล็อกทั้งหมด'
+              : 'The rest of the lessons stay visible with lock icons, and you can upgrade anytime to unlock them all.'}
           </AppText>
         </View>
+
+        <Stack gap="sm">
+          <View style={styles.stageSelector}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.stageButton}
+              onPress={() => setIsStageMenuOpen((prev) => !prev)}>
+              <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
+                {toStageLabel(selectedStage, uiLanguage)}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
+                ▾
+              </AppText>
+            </Pressable>
+            {isStageMenuOpen ? (
+              <View style={styles.stageMenu}>
+                {availableStages.map((stage) => (
+                  <Pressable
+                    key={`stage-${stage}`}
+                    accessibilityRole="button"
+                    style={[styles.stageMenuItem, selectedStage === stage ? styles.stageMenuItemActive : null]}
+                    onPress={() => {
+                      setSelectedStage(stage);
+                      setIsStageMenuOpen(false);
+                    }}>
+                    <AppText language={uiLanguage} variant="body" style={styles.stageMenuItemText}>
+                      {toStageLabel(stage, uiLanguage)}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.levelRow}>
+            {levelsForSelectedStage.map((level) => (
+              <Pressable
+                key={`level-${level}`}
+                accessibilityRole="button"
+                style={[styles.levelButton, selectedLevel === level ? styles.levelButtonActive : null]}
+                onPress={() => setSelectedLevel(level)}>
+                <AppText
+                  language={uiLanguage}
+                  variant="body"
+                  style={[styles.levelButtonText, selectedLevel === level ? styles.levelButtonTextActive : null]}>
+                  {toLevelLabel(level, uiLanguage)}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        </Stack>
 
         {isLoading ? (
           <View style={styles.centerState}>
@@ -155,7 +281,7 @@ export function GuestLessonLibraryScreen() {
         ) : null}
 
         {!isLoading && errorMessage ? (
-          <Card padding="md" radius="md" style={styles.errorCard}>
+          <Card padding="md" radius="md">
             <AppText language={uiLanguage} variant="body" style={styles.errorText}>
               {errorMessage}
             </AppText>
@@ -163,81 +289,66 @@ export function GuestLessonLibraryScreen() {
         ) : null}
 
         {!isLoading && !errorMessage ? (
-          <View style={styles.contentWrap}>
-            <Stack gap="lg">
-              {STAGE_ORDER.map((stage) => {
-                const lessons = lessonsByStage.get(stage) ?? [];
-                return (
-                  <Card key={stage} padding="xs" radius="lg" style={styles.stageCard}>
-                    <Stack gap="xs">
-                      <View style={styles.stageHeader}>
-                        <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
-                          {getStageTitle(stage, uiLanguage)}
+          <Stack gap="sm">
+            {lessonsForSelection.map((lesson) => {
+              const titleText =
+                uiLanguage === 'th'
+                  ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
+                  : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
+              const focusText =
+                uiLanguage === 'th'
+                  ? pickText(lesson.focus_th, lesson.focus, '')
+                  : pickText(lesson.focus, lesson.focus_th, '');
+              const lessonNumber =
+                typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
+                  ? `${lesson.level}.${lesson.lesson_order}`
+                  : '-';
+
+              return (
+                <Pressable
+                  key={lesson.id}
+                  accessibilityRole="button"
+                  style={styles.itemPressable}
+                  onPress={() => handleLessonPress(lesson)}>
+                  <Card padding="md" radius="md" style={styles.lessonCard}>
+                    <View style={styles.lessonRow}>
+                      <View style={styles.lessonLeft}>
+                        <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
+                          {lessonNumber}
                         </AppText>
+                        <View style={styles.lessonTextGroup}>
+                          <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
+                            {titleText}
+                          </AppText>
+                          {focusText ? (
+                            <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
+                              {focusText}
+                            </AppText>
+                          ) : null}
+                        </View>
                       </View>
 
-                      <View style={styles.lessonList}>
-                        {lessons.map((lesson, index) => {
-                          const titleText =
-                            uiLanguage === 'th'
-                              ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
-                              : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
-                          const focusText =
-                            uiLanguage === 'th'
-                              ? pickText(lesson.focus_th, lesson.focus, '')
-                              : pickText(lesson.focus, lesson.focus_th, '');
-                          const lessonNumber =
-                            typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
-                              ? `${lesson.level}.${lesson.lesson_order}`
-                              : '-';
-
-                          return (
-                            <Pressable
-                              key={lesson.id}
-                              accessibilityRole="button"
-                              style={[styles.itemPressable, index < lessons.length - 1 ? styles.lessonItemBorder : null]}
-                              onPress={() => handleLessonPress(lesson)}>
-                              <View style={styles.lessonRow}>
-                                <View style={styles.lessonLeft}>
-                                  <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
-                                    {lessonNumber}
-                                  </AppText>
-                                  <View style={styles.lessonTextGroup}>
-                                    <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
-                                      {titleText}
-                                    </AppText>
-                                    {focusText ? (
-                                      <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
-                                        {focusText}
-                                      </AppText>
-                                    ) : null}
-                                  </View>
-                                </View>
-                                <Image source={checkCircleImage} style={styles.checkIcon} resizeMode="contain" />
-                              </View>
-                            </Pressable>
-                          );
-                        })}
+                      <View style={styles.lessonRight}>
+                        <Image
+                          source={freeLessonIds.has(lesson.id) ? checkCircleImage : lockImage}
+                          style={styles.statusIcon}
+                          resizeMode="contain"
+                        />
                       </View>
-                    </Stack>
+                    </View>
                   </Card>
-                );
-              })}
+                </Pressable>
+              );
+            })}
 
-              <Card padding="xs" radius="lg" style={[styles.stageCard, styles.comingSoonStage]}>
-                <View style={styles.stageHeader}>
-                  <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
-                    {uiLanguage === 'th' ? 'ระดับเชี่ยวชาญ' : 'EXPERT'}
-                  </AppText>
-                  <View style={styles.comingSoonBadge}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.comingSoonBadgeText}>
-                      {uiLanguage === 'th' ? 'เร็วๆ นี้' : 'Coming Soon'}
-                    </AppText>
-                  </View>
-                </View>
+            {selectedLevel !== null && lessonsForSelection.length === 0 ? (
+              <Card padding="md" radius="md">
+                <AppText language={uiLanguage} variant="muted" style={styles.emptyStateText}>
+                  {uiLanguage === 'th' ? 'ยังไม่มีบทเรียนในเลเวลนี้' : 'No lessons in this level yet.'}
+                </AppText>
               </Card>
-            </Stack>
-          </View>
+            ) : null}
+          </Stack>
         ) : null}
       </Stack>
     </ScrollView>
@@ -252,6 +363,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.xl,
   },
+  headerWrap: {
+    marginTop: theme.spacing.sm,
+  },
   freePlanMessage: {
     marginTop: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
@@ -261,72 +375,112 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 28,
   },
-  centerState: {
-    minHeight: 180,
+  stageSelector: {
+    paddingHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+  },
+  stageButton: {
+    minHeight: 62,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#91CAFF',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: theme.spacing.xs,
+    shadowColor: theme.colors.border,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
-  errorCard: {
-    marginHorizontal: theme.spacing.md,
+  stageButtonText: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  stageMenu: {
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    overflow: 'hidden',
+  },
+  stageMenuItem: {
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  stageMenuItemActive: {
+    backgroundColor: '#91CAFF',
+  },
+  stageMenuItemText: {
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    paddingHorizontal: theme.spacing.md,
+    justifyContent: 'space-between',
+    rowGap: theme.spacing.sm,
+    flexWrap: 'wrap',
+  },
+  levelButton: {
+    width: '22%',
+    minWidth: 74,
+    minHeight: 56,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.xs,
+    shadowColor: theme.colors.border,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  levelButtonActive: {
+    backgroundColor: '#91CAFF',
+  },
+  levelButtonText: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+  levelButtonTextActive: {
+    fontWeight: theme.typography.weights.bold,
+  },
+  centerState: {
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
   },
   errorText: {
     color: theme.colors.primary,
   },
-  contentWrap: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-  },
-  stageCard: {
-    padding: 0,
-    backgroundColor: theme.colors.surface,
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 0,
-    elevation: 2,
-  },
-  comingSoonStage: {
-    opacity: 0.6,
-    backgroundColor: '#F5F5F5',
-  },
-  stageHeader: {
-    minHeight: 68,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  stageTitle: {
-    fontWeight: theme.typography.weights.semibold,
-    fontSize: theme.typography.sizes.lg,
-  },
-  comingSoonBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.radii.sm,
-    backgroundColor: '#E0E0E0',
-  },
-  comingSoonBadgeText: {
-    color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.medium,
-  },
-  lessonList: {
-    width: '100%',
-  },
   itemPressable: {
     width: '100%',
+    paddingHorizontal: theme.spacing.md,
   },
-  lessonItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+  lessonCard: {
+    width: '100%',
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
   },
   lessonRow: {
     minHeight: 72,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -334,6 +488,7 @@ const styles = StyleSheet.create({
   },
   lessonLeft: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
@@ -345,16 +500,28 @@ const styles = StyleSheet.create({
   },
   lessonTextGroup: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   lessonTitle: {
     fontWeight: theme.typography.weights.semibold,
+    flexShrink: 1,
   },
   lessonSubtitle: {
     color: theme.colors.mutedText,
+    flexShrink: 1,
   },
-  checkIcon: {
+  lessonRight: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  statusIcon: {
     width: 22,
     height: 22,
+  },
+  emptyStateText: {
+    textAlign: 'center',
   },
 });

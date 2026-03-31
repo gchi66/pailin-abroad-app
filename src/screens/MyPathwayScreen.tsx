@@ -365,7 +365,7 @@ export function MyPathwayScreen() {
                 );
               })}
 
-              <Pressable accessibilityRole="button" style={styles.linkButton} onPress={() => router.push('/lessons')}>
+              <Pressable accessibilityRole="button" style={styles.linkButton} onPress={() => router.push('/(tabs)/lessons')}>
                 <AppText language={uiLanguage} variant="caption" style={styles.linkButtonText}>
                   {hasMembership ? copy.openLibrary : copy.openFreeLibrary}
                 </AppText>
