@@ -355,6 +355,10 @@
     - mobile web already has the lesson discussion / pinned-comment experience and should not be used as evidence that the native app has parity here
     - native app currently has no discussion board, pinned comment, reply flow, or comment-history surfaces
     - port the lesson discussion board UX and backend wiring into native lesson detail / pathway surfaces
+  - Figure out the native app direction for `Prepare`:
+    - `Prepare` is still excluded from the current native lesson sidebar/content flow
+    - decide whether it should be ported as a first-class lesson section, folded into another lesson surface, or intentionally left out for v1
+    - if included, define the native UX and backend/data assumptions before broader lesson-detail signoff
   - Finish free-plan lesson-library lesson entry:
     - signed-in free-plan users should be able to open the allowed native free lessons from `GuestLessonLibraryScreen`
     - this is separate from the no-account `Try Lessons` web flow and should be treated as the mobile-relevant requirement

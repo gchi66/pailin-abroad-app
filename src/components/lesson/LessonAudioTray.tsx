@@ -22,6 +22,7 @@ type LessonAudioTrayProps = {
   onSeek: (ratio: number) => void;
   onSetRate: (rate: number) => void;
   autoCollapseSignal?: string | null;
+  autoExpandSignal?: string | null;
 };
 
 const formatTime = (millis: number) => {
@@ -52,6 +53,7 @@ export function LessonAudioTray({
   onSeek,
   onSetRate,
   autoCollapseSignal = null,
+  autoExpandSignal = null,
 }: LessonAudioTrayProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showRates, setShowRates] = useState(false);
@@ -100,6 +102,15 @@ export function LessonAudioTray({
     setIsCollapsed(true);
     setShowRates(false);
   }, [autoCollapseSignal]);
+
+  useEffect(() => {
+    if (!autoExpandSignal) {
+      return;
+    }
+
+    setIsCollapsed(false);
+    setShowRates(false);
+  }, [autoExpandSignal]);
 
   const handleTrackLayout = (event: LayoutChangeEvent) => {
     setTrackWidth(event.nativeEvent.layout.width);

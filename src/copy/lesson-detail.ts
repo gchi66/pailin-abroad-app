@@ -1,6 +1,7 @@
 import { UiLanguage } from '@/src/types/home';
 
 const SECTION_TYPE_LABELS: Record<string, { en: string; th: string }> = {
+  prepare: { en: 'Prepare', th: 'เตรียมตัว' },
   comprehension: { en: 'Comprehension', th: 'คำถามความเข้าใจ' },
   transcript: { en: 'Transcript', th: 'บทถอดเสียง' },
   conversation: { en: 'Conversation', th: 'บทสนทนา' },
@@ -100,6 +101,9 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       phrasesBrowseAll: 'ดู phrase card ใน section นี้ให้ครบก่อน แล้วค่อยไป section ถัดไป',
       phrasesNotesLabel: 'สิ่งที่ควรสังเกต',
       phrasesPlainFallbackLabel: 'ตัวอย่างการใช้งาน',
+      prepareCardTitle: 'ก่อนเริ่มฟัง',
+      prepareCardSubtitle: 'ลองดูคำหรือวลีสำคัญพร้อมเสียงสั้นๆ ก่อน แล้วค่อยไปทำความเข้าใจบทเรียนต่อ',
+      prepareEmpty: 'ยังไม่มีรายการเตรียมตัวใน section นี้',
     };
   }
 
@@ -175,5 +179,8 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     phrasesBrowseAll: 'Browse all phrase cards in this section before moving to the next lesson section.',
     phrasesNotesLabel: 'What to Notice',
     phrasesPlainFallbackLabel: 'Usage Notes',
+    prepareCardTitle: 'BEFORE YOU LISTEN',
+    prepareCardSubtitle: "Get familiar with the words you'll hear in the conversation.",
+    prepareEmpty: 'There are no preview items in this section yet.',
   };
 };

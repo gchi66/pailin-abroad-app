@@ -188,7 +188,13 @@ type QuickPracticeRichNode = LessonRichNode & {
   key: string;
 };
 
+type PrepareItem = {
+  node: LessonRichNode;
+  originalIndex: number;
+};
+
 const MASTER_ORDER = [
+  'prepare',
   'comprehension',
   'transcript',
   'apply',
@@ -1340,6 +1346,7 @@ export default function LessonDetailShellScreen() {
   const [practiceEvaluations, setPracticeEvaluations] = useState<Record<string, PracticeEvaluationState>>({});
   const [practiceErrorByExercise, setPracticeErrorByExercise] = useState<Record<string, string>>({});
   const [practiceMarkedCorrect, setPracticeMarkedCorrect] = useState<Record<string, boolean | null>>({});
+  const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const bgSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
@@ -1351,6 +1358,7 @@ export default function LessonDetailShellScreen() {
   const contentScrollRef = useRef<ScrollView | null>(null);
   const lastBgSyncRef = useRef(0);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
+  const audioTrayExpandCounterRef = useRef(0);
 
   useEffect(() => {
     lessonRef.current = lesson;
@@ -1574,6 +1582,7 @@ export default function LessonDetailShellScreen() {
     () => (activeTab ? getLessonSectionLabel(pageLanguage, activeTab.type) : null),
     [activeTab, pageLanguage]
   );
+  const isPrepareTab = activeTab?.type === 'prepare';
   const isComprehensionTab = activeTab?.type === 'comprehension';
   const isTranscriptTab = activeTab?.type === 'transcript';
   const isApplyTab = activeTab?.type === 'apply';
@@ -1583,6 +1592,30 @@ export default function LessonDetailShellScreen() {
   const isPracticeTab = activeTab?.type === 'practice';
   const isPhrasesTab = activeTab?.type === 'phrases_verbs';
   const isCompactLayout = windowWidth < 768;
+  const prepareNodes = useMemo(
+    () => getRichNodesForLanguage(isPrepareTab ? activeSection : null, contentLang),
+    [activeSection, contentLang, isPrepareTab]
+  );
+  const prepareItems = useMemo(() => {
+    if (!isPrepareTab) {
+      return [];
+    }
+
+    return prepareNodes
+      .map((node, originalIndex) => ({ node, originalIndex }))
+      .filter(({ node }) => {
+        const hasSnippet = Boolean(getSnippetForNode(node, snippetIndex));
+        return hasVisibleRichNodeContent(node, contentLang) || hasSnippet;
+      })
+      .sort((left, right) => {
+        const leftSeq = Number(left.node.audio_seq) || 0;
+        const rightSeq = Number(right.node.audio_seq) || 0;
+        if (leftSeq !== rightSeq) {
+          return leftSeq - rightSeq;
+        }
+        return left.originalIndex - right.originalIndex;
+      });
+  }, [contentLang, isPrepareTab, prepareNodes, snippetIndex]);
   const understandNodes = useMemo(
     () =>
       injectQuickPracticeNodes(
@@ -1728,7 +1761,10 @@ export default function LessonDetailShellScreen() {
     : isAudioPlaying
       ? pageCopy.audioTrayPlaying
       : pageCopy.audioTrayStatus;
-  const audioTrayAutoCollapseSignal = isInnerPagerTab && activeTab?.id ? `${activeTab.id}:${activeSectionIndex}` : null;
+  const audioTrayAutoCollapseSignal =
+    (isInnerPagerTab || isPrepareTab) && activeTab?.id
+      ? `${activeTab.id}:${activeSectionIndex}:${isPrepareTab ? 'prepare' : 'pager'}`
+      : null;
   const fullscreenToggleIcon = isFullscreen ? '⤡' : '⤢';
   const nextSectionButtonLabel =
     sectionCount === 0
@@ -3301,6 +3337,54 @@ export default function LessonDetailShellScreen() {
     return null;
   };
 
+  const renderPrepareItem = (item: PrepareItem) => {
+    const { node, originalIndex } = item;
+    const nodeKey = `prepare-item-${originalIndex}`;
+    const indentStyle = getRichIndentStyle(node);
+    const snippet = getSnippetForNode(node, snippetIndex);
+    const audioKey = snippet?.audio_key?.trim() || node.audio_key?.trim() || null;
+    const isPlaying = Boolean(audioKey) && activeSnippetKey === audioKey;
+    const isLoading = isPlaying && isSnippetLoading;
+
+    return (
+      <View key={nodeKey} style={[styles.prepareItemRow, indentStyle]}>
+        <View style={styles.prepareAudioSlot}>
+          {snippet ? (
+            <LessonSnippetAudioButton
+              accessibilityLabel={
+                pageLanguage === 'th'
+                  ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
+                  : isPlaying
+                    ? 'Pause example audio'
+                    : 'Play example audio'
+              }
+              disabled={!snippet}
+              isLoading={isLoading}
+              isPlaying={isPlaying}
+              onPress={() => {
+                void handleToggleSnippet(snippet);
+              }}
+            />
+          ) : (
+            <View style={styles.prepareAudioPlaceholder}>
+              <AppText language="en" variant="caption" style={styles.prepareAudioPlaceholderText}>
+                ▶
+              </AppText>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.prepareTextWrap}>
+          <AppText language={contentLang} variant="body" style={styles.prepareItemText}>
+            {Array.isArray(node.inlines) && node.inlines.length
+              ? renderRichInlines(node.inlines, `${nodeKey}-inline`)
+              : resolveNodeText(node, contentLang)}
+          </AppText>
+        </View>
+      </View>
+    );
+  };
+
   const renderUnderstandNode = (node: LessonRichNode, index: number) =>
     renderRichNode(node, index, { keyPrefix: 'understand-node', enableHighlights: true });
 
@@ -4410,7 +4494,30 @@ export default function LessonDetailShellScreen() {
 
                   <View style={styles.sectionDivider} />
 
-                  {isComprehensionTab ? (
+                  {isPrepareTab ? (
+                    <Card padding="lg" radius="lg" style={styles.prepareCard}>
+                      <Stack gap="md">
+                        <View style={styles.prepareCardHeader}>
+                          <AppText language={pageLanguage} variant="caption" style={styles.prepareCardEyebrow}>
+                            {pageCopy.prepareCardTitle}
+                          </AppText>
+                          <AppText language={pageLanguage} variant="muted" style={styles.prepareCardSubtitle}>
+                            {pageCopy.prepareCardSubtitle}
+                          </AppText>
+                        </View>
+
+                        {prepareItems.length ? (
+                          <View style={styles.prepareList}>
+                            {prepareItems.map((item) => renderPrepareItem(item))}
+                          </View>
+                        ) : (
+                          <AppText language={pageLanguage} variant="muted" style={styles.prepareEmptyText}>
+                            {pageCopy.prepareEmpty}
+                          </AppText>
+                        )}
+                      </Stack>
+                    </Card>
+                  ) : isComprehensionTab ? (
                     <Stack gap="lg">
                       {normalizedQuestions.map((question, index) => {
                         const questionNumber = question.sortOrder || index + 1;
@@ -4873,6 +4980,7 @@ export default function LessonDetailShellScreen() {
                       subtitle={audioTraySubtitle}
                       statusLabel={audioTrayStatusLabel}
                       autoCollapseSignal={audioTrayAutoCollapseSignal}
+                      autoExpandSignal={audioTrayAutoExpandSignal}
                       audioUrl={audioUrls.noBg || audioUrls.main}
                       isPlaying={isAudioPlaying}
                       isLoading={isAudioLoading}
@@ -4894,6 +5002,10 @@ export default function LessonDetailShellScreen() {
                         if (sectionCount === 0 || isLastSection) {
                           setHasStartedLesson(false);
                         } else {
+                          if (activeTab?.type === 'prepare') {
+                            audioTrayExpandCounterRef.current += 1;
+                            setAudioTrayAutoExpandSignal(`prepare-next-${audioTrayExpandCounterRef.current}`);
+                          }
                           setActiveSectionIndex((prev) => Math.min(prev + 1, sectionCount - 1));
                         }
                       }}
@@ -5650,6 +5762,67 @@ const styles = StyleSheet.create({
   },
   richIndent3: {
     paddingLeft: theme.spacing.xl + theme.spacing.lg,
+  },
+  prepareCard: {
+    backgroundColor: theme.colors.surface,
+    gap: theme.spacing.md,
+    ...brutalShadow,
+  },
+  prepareCardHeader: {
+    gap: theme.spacing.xs,
+  },
+  prepareCardEyebrow: {
+    color: theme.colors.primary,
+    fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  prepareCardSubtitle: {
+    color: theme.colors.mutedText,
+    fontSize: theme.typography.sizes.sm,
+    lineHeight: theme.typography.lineHeights.sm,
+  },
+  prepareList: {
+    gap: theme.spacing.sm,
+  },
+  prepareItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    paddingVertical: 2,
+  },
+  prepareAudioSlot: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    flexShrink: 0,
+  },
+  prepareAudioPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#EEF4FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prepareAudioPlaceholderText: {
+    color: theme.colors.mutedText,
+    fontSize: 10,
+    lineHeight: 10,
+  },
+  prepareTextWrap: {
+    flex: 1,
+    paddingTop: 1,
+  },
+  prepareItemText: {
+    color: theme.colors.text,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.lg,
+  },
+  prepareEmptyText: {
+    color: theme.colors.mutedText,
   },
   questionBlock: {
     gap: 10,
