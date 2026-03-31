@@ -350,6 +350,11 @@
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
 - Current V1 TODO:
+  - Next task: port native lesson discussion support into the app:
+    - this refers to the native Expo app, not the mobile web version of `pailin-abroad`
+    - mobile web already has the lesson discussion / pinned-comment experience and should not be used as evidence that the native app has parity here
+    - native app currently has no discussion board, pinned comment, reply flow, or comment-history surfaces
+    - port the lesson discussion board UX and backend wiring into native lesson detail / pathway surfaces
   - Finish free-plan lesson-library lesson entry:
     - signed-in free-plan users should be able to open the allowed native free lessons from `GuestLessonLibraryScreen`
     - this is separate from the no-account `Try Lessons` web flow and should be treated as the mobile-relevant requirement
@@ -430,7 +435,8 @@
 - Current Pathway limitations:
   - lesson completion writes are not yet wired in native because lesson detail is still a shell
   - `Continue learning` depends on the current backend pathway endpoint behavior
-  - `liked lessons` and `comment history` remain intentionally excluded from the app MVP
+  - `liked lessons` remain intentionally excluded from the app MVP for now
+  - comment history is not yet in the native app; mobile web may still expose it, but native parity work should be tracked under the lesson discussion port task above
   - final structure/spacing/content order should still be treated as provisional until cofounder review
 
 ## Source of Truth for Future Chats
