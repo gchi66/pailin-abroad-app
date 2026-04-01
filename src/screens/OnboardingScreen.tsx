@@ -109,6 +109,7 @@ type BenefitsStepProps = StepBaseProps & {
 };
 
 const STEP_IDS = [0, 1, 2, 3, 4] as const;
+type StepId = (typeof STEP_IDS)[number];
 
 const isEmailLike = (value: string | null | undefined) => {
   if (!value) {
@@ -522,7 +523,7 @@ export function OnboardingScreen() {
 
   const copy = getCopy(uiLanguage);
   const scrollRef = useRef<ScrollView | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState<StepId>(0);
   const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
   const [username, setUsername] = useState('');
   const [selectedAvatarPath, setSelectedAvatarPath] = useState('');
@@ -530,7 +531,10 @@ export function OnboardingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const authProvider = typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null;
   const skipPasswordStep = Boolean(authProvider && authProvider !== 'email');
-  const visibleStepIds = skipPasswordStep ? STEP_IDS.filter((stepId) => stepId !== 1) : STEP_IDS;
+  const visibleStepIds = useMemo<StepId[]>(
+    () => (skipPasswordStep ? STEP_IDS.filter((stepId): stepId is Exclude<StepId, 1> => stepId !== 1) : [...STEP_IDS]),
+    [skipPasswordStep]
+  );
   const currentStepIndex = Math.max(0, visibleStepIds.indexOf(currentStep));
 
   const compact = height <= 700;
@@ -576,7 +580,7 @@ export function OnboardingScreen() {
   }, [currentStep, skipPasswordStep]);
 
   const goToStep = useCallback(
-    (nextStep: number) => {
+    (nextStep: StepId) => {
       const boundedStep = visibleStepIds.includes(nextStep) ? nextStep : visibleStepIds[0];
       const nextIndex = visibleStepIds.indexOf(boundedStep);
       setCurrentStep(boundedStep);
@@ -669,9 +673,9 @@ export function OnboardingScreen() {
       return;
     }
     if (currentStep > 0) {
-      goToStep(currentStep - 1);
+      goToStep(visibleStepIds[currentStepIndex - 1] ?? visibleStepIds[0]);
     }
-  }, [currentStep, goToStep, skipPasswordStep]);
+  }, [currentStep, currentStepIndex, goToStep, skipPasswordStep, visibleStepIds]);
 
   const handleNext = useCallback(() => {
     setErrorMessage('');
@@ -697,9 +701,9 @@ export function OnboardingScreen() {
     }
 
     if (currentStep !== 3) {
-      goToStep(currentStep + 1);
+      goToStep(visibleStepIds[currentStepIndex + 1] ?? visibleStepIds[visibleStepIds.length - 1]);
     }
-  }, [currentStep, goToStep, handleCompleteProfile, handleFinishOnboarding, handleSetPassword, skipPasswordStep]);
+  }, [currentStep, currentStepIndex, goToStep, handleCompleteProfile, handleFinishOnboarding, handleSetPassword, skipPasswordStep, visibleStepIds]);
 
   const steps = useMemo(
     () => [

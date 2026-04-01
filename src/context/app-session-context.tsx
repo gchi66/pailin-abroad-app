@@ -109,8 +109,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         lessons_complete: data.lessons_complete ?? 0,
       });
       return;
-    }
-    catch (error) {
+    } catch (error) {
       const { data, error: usersError } = await supabase
         .from('users')
         .select('id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed')

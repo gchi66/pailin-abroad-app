@@ -38,6 +38,12 @@ type MembershipCard = {
   isLifetime?: boolean;
 };
 
+type PlanCopy = {
+  duration: string;
+  bestFor: string;
+  savings?: string;
+};
+
 const INITIAL_PRICING_STATE: PricingState = {
   loading: true,
   error: null,
@@ -388,7 +394,7 @@ export function MembershipScreen() {
       .sort((a, b) => (monthsByPeriod[b.billing_period] ?? 0) - (monthsByPeriod[a.billing_period] ?? 0))
       .map((plan) => {
         const copyKey = billingPeriodToCopyKey[plan.billing_period];
-        const planCopy = copy.plans[copyKey];
+        const planCopy = copy.plans[copyKey] as PlanCopy;
         const months = monthsByPeriod[plan.billing_period] ?? 1;
         const originalPrice = baseMonthlyPrice && months > 1 ? baseMonthlyPrice * months : null;
         return {

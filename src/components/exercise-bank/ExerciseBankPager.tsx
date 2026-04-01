@@ -461,29 +461,31 @@ function FillBlankMeasuredRows(props: {
   const [lineTokens, setLineTokens] = useState<FillBlankMeasureToken[][]>([]);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const measureTokens = useMemo(() => {
-    return rowTokens.flatMap((token, index) => {
+  const measureTokens = useMemo<FillBlankMeasureToken[]>(() => {
+    return rowTokens.reduce<FillBlankMeasureToken[]>((tokens, token, index) => {
       if (token.type === 'text') {
-        return splitMeasureTextTokens(token.text).map((part, partIndex) => ({
-          id: `text-${index}-${partIndex}`,
-          type: 'text' as const,
-          text: part,
-          measureText: part,
-        }));
+        tokens.push(
+          ...splitMeasureTextTokens(token.text).map((part, partIndex) => ({
+            id: `text-${index}-${partIndex}`,
+            type: 'text' as const,
+            text: part,
+            measureText: part,
+          }))
+        );
+        return tokens;
       }
 
       const placeholderLength = Math.max(token.minLen, 4);
       const isShort = placeholderLength <= 4;
-      return [
-        {
-          id: `blank-${index}`,
-          type: 'blank' as const,
-          blankId: token.blankId,
-          minLen: token.minLen,
-          measureText: isShort ? FILL_BLANK_SHORT_MEASURE : FILL_BLANK_LONG_MEASURE,
-        },
-      ];
-    });
+      tokens.push({
+        id: `blank-${index}`,
+        type: 'blank' as const,
+        blankId: token.blankId,
+        minLen: token.minLen,
+        measureText: isShort ? FILL_BLANK_SHORT_MEASURE : FILL_BLANK_LONG_MEASURE,
+      });
+      return tokens;
+    }, []);
   }, [rowTokens]);
 
   const measurementText = useMemo(() => measureTokens.map((token) => token.measureText).join(''), [measureTokens]);
@@ -504,8 +506,11 @@ function FillBlankMeasuredRows(props: {
       let bucketComparable = '';
 
       while (tokenIndex < measureTokens.length) {
-        const candidate = measureTokens[tokenIndex];
-        bucket.push(candidate);
+      const candidate = measureTokens[tokenIndex];
+      if (!candidate) {
+        break;
+      }
+      bucket.push(candidate);
         bucketComparable += candidate.measureText.replace(/\s+/g, '');
         tokenIndex += 1;
 

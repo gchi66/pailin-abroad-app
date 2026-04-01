@@ -46,8 +46,7 @@ export function Stack({
   );
 }
 
-const stylesByAlign: Partial<Record<NonNullable<ViewStyle['alignItems']>, ViewStyle>> = {
-  auto: { alignItems: 'auto' },
+const stylesByAlign: Partial<Record<Exclude<NonNullable<ViewStyle['alignItems']>, 'auto'>, ViewStyle>> = {
   'flex-start': { alignItems: 'flex-start' },
   'flex-end': { alignItems: 'flex-end' },
   center: { alignItems: 'center' },

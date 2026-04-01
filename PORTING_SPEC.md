@@ -133,6 +133,16 @@
   - uses a derived ordered lesson-tab list instead of dumping raw section rows
   - includes `Prepare`, `Comprehension`, `Transcript`, `Practice`, and `Phrases & Verbs` when their payload data exists
   - still excludes non-sidebar items like `pinned_comment`
+- Free-plan lesson browsing now has its own native direction:
+  - free users land on a lessons hub inside the tab flow
+  - the hub offers a full `Lesson Library` view and a separate `Free Lesson Library` view
+  - the full free-plan lesson library now mirrors the normal native lesson library structure:
+    - same stage selector
+    - same level buttons
+    - same row/card treatment
+    - plus free-plan messaging and lock/check status icons
+  - free users can tap locked lessons and view the lesson cover, but the cover CTA becomes a membership unlock prompt instead of entering study mode
+  - lesson-library entry/back flow now routes through the tab lessons screen so the bottom nav remains available
 
 ### Study Mode / Chrome
 - Study-mode content language is a distinct lesson-content control, not the same as global app UI language.
@@ -359,9 +369,6 @@
     - native app intentionally does not include the lesson discussion board, pinned comment, reply flow, or comment-history surfaces
     - mobile web may continue to expose lesson discussion without blocking native app signoff
     - do not treat missing native discussion parity as a v1 blocker unless product direction changes
-  - Finish free-plan lesson-library lesson entry:
-    - signed-in free-plan users should be able to open the allowed native free lessons from `GuestLessonLibraryScreen`
-    - this is separate from the no-account `Try Lessons` web flow and should be treated as the mobile-relevant requirement
   - Add lesson completion / mark-complete write-back:
     - lesson detail is usable for study, but native write-back is still missing
     - pathway/progress UX should not be treated as complete until this is wired
@@ -369,12 +376,12 @@
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
 - Next recommended phase before detailed testing/debugging:
   - finish the remaining functional gaps that still block broader signoff:
-    - free-plan lesson-library lesson entry cleanup
     - lesson completion / mark-complete write-back
   - then move into focused parity testing/debugging for:
-    - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants)
+    - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants, locked-cover copy/states)
     - Topic Library content/layout edge cases
     - Exercise Bank exercise-type and bilingual wrapping edge cases
+    - free-plan lessons hub / library navigation and lock-icon polish
 - Keep design flexible since cofounder may change direction.
 
 ## Onboarding (Current Native Direction)

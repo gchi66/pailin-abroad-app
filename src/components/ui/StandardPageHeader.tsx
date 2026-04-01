@@ -21,7 +21,7 @@ export function StandardPageHeader({ language, title, subtitle }: StandardPageHe
       style={[
         styles.headerBlock,
         {
-          marginTop: Math.min(insets.top + theme.spacing.md, theme.spacing.xl + theme.spacing.xs),
+          marginTop: Math.min(insets.top + theme.spacing.lg, theme.spacing.xl + theme.spacing.sm),
           paddingTop: theme.spacing.lg + theme.spacing.sm,
         },
       ]}>

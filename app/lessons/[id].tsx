@@ -1236,7 +1236,7 @@ const buildLessonImagePublicUrl = (rawValue: string | null) => {
   return `${env.supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/lesson-images/${normalized}`;
 };
 
-const resolveLessonImageUrl = (value: unknown, fallbackImageKey?: string | null) => {
+const resolveLessonImageUrl = (value: unknown, fallbackImageKey?: string | null): string | null => {
   if (typeof value === 'string') {
     const directUrl = value.trim();
     return /^https?:\/\//i.test(directUrl) ? directUrl : buildLessonImagePublicUrl(directUrl);

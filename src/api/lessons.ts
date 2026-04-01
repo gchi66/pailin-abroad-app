@@ -248,6 +248,10 @@ type TryLessonAudioResponse = {
   conversation?: {
     path?: string | null;
     signed_url?: string | null;
+    no_bg_path?: string | null;
+    no_bg_signed_url?: string | null;
+    bg_path?: string | null;
+    bg_signed_url?: string | null;
   } | null;
   snippets?: LessonAudioSnippet[] | null;
 };
@@ -364,8 +368,12 @@ export async function fetchLessonAudioUrls(
 
     return {
       main: resolvedSignedUrl || toTryLessonPublicAudioUrl(resolvedBasePath),
-      noBg: toTryLessonPublicAudioUrl(resolvedBasePath.replace('.mp3', '_no_bg.mp3')),
-      bg: toTryLessonPublicAudioUrl(resolvedBasePath.replace('.mp3', '_bg.mp3')),
+      noBg:
+        payload?.conversation?.no_bg_signed_url?.trim() ||
+        (payload?.conversation?.no_bg_path?.trim() ? toTryLessonPublicAudioUrl(payload.conversation.no_bg_path) : null),
+      bg:
+        payload?.conversation?.bg_signed_url?.trim() ||
+        (payload?.conversation?.bg_path?.trim() ? toTryLessonPublicAudioUrl(payload.conversation.bg_path) : null),
     };
   }
 

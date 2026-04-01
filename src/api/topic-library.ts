@@ -9,6 +9,12 @@ type TopicDetailResponse = {
   topic?: TopicDetail | null;
 };
 
+const hasTopicsPayload = (value: TopicLibraryResponse | { error?: string } | null): value is TopicLibraryResponse =>
+  Boolean(value && typeof value === 'object' && 'topics' in value);
+
+const hasTopicPayload = (value: TopicDetailResponse | { error?: string } | null): value is TopicDetailResponse =>
+  Boolean(value && typeof value === 'object' && 'topic' in value);
+
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.trim().replace(/\/+$/, '');
 
 const assertApiBaseUrl = () => {
@@ -37,7 +43,7 @@ export async function fetchTopicLibraryTopics(params: { language: 'en' | 'th' })
     throw new Error(message);
   }
 
-  return Array.isArray(json?.topics) ? json.topics : [];
+  return hasTopicsPayload(json) && Array.isArray(json.topics) ? json.topics : [];
 }
 
 export async function fetchTopicDetail(params: { slug: string; language: 'en' | 'th' }) {
@@ -58,7 +64,7 @@ export async function fetchTopicDetail(params: { slug: string; language: 'en' | 
     throw new Error(message);
   }
 
-  if (!json?.topic) {
+  if (!hasTopicPayload(json) || !json.topic) {
     throw new Error('Topic not found');
   }
 

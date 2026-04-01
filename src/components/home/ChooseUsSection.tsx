@@ -3,7 +3,6 @@ import { Image, StyleSheet, View } from 'react-native';
 
 import { pickText } from '../../mocks/home';
 import { ChooseUsData, UiLanguage } from '../../types/home';
-import { theme } from '../../theme/theme';
 import { AppText } from '../ui/AppText';
 import { Card } from '../ui/Card';
 import { Stack } from '../ui/Stack';

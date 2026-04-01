@@ -1,6 +1,5 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import aboutPailinImage from '@/assets/images/characters/pailin_meet_the_characters.webp';
 import carissaImage from '@/assets/images/carissa.webp';
 import freeLessonAdvancedImage from '@/assets/images/free_lesson_advanced_baseball.webp';
 import freeLessonBeginnerImage from '@/assets/images/free_lesson_beginner_surf.webp';
@@ -73,7 +72,7 @@ export const characterImages = {
 } satisfies Record<string, { hero: ImageSourcePropType; thumbnailDefault: ImageSourcePropType; thumbnailActive: ImageSourcePropType }>;
 
 export const aboutImages = {
-  methodPailin: aboutPailinImage,
+  methodPailin: pailinImage,
   carissa: carissaImage,
   grant: grantImage,
 } as const;
