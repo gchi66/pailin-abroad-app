@@ -50,11 +50,11 @@ export default function TabLayout() {
       tabBarInactiveTintColor: theme.colors.mutedText,
       headerShown: false,
       tabBarButton: HapticTab,
-      sceneStyle: styles.scene,
-      tabBarStyle: styles.tabBar,
+      sceneStyle: !hasAccount ? styles.sceneFullscreen : styles.scene,
+      tabBarStyle: !hasAccount ? styles.tabBarHidden : styles.tabBar,
       tabBarLabelStyle: styles.tabBarLabel,
     }),
-    [styles.scene, styles.tabBar, styles.tabBarLabel]
+    [hasAccount, styles.scene, styles.sceneFullscreen, styles.tabBar, styles.tabBarHidden, styles.tabBarLabel]
   );
 
   if (!isLoading && hasAccount && !hasCompletedOnboarding) {
@@ -111,6 +111,9 @@ const createStyles = (insetTop: number, insetBottom: number) =>
       paddingTop: insetTop,
       backgroundColor: theme.colors.background,
     },
+    sceneFullscreen: {
+      backgroundColor: theme.colors.background,
+    },
     tabBar: {
       height: 74 + insetBottom,
       paddingTop: theme.spacing.xs,
@@ -118,6 +121,9 @@ const createStyles = (insetTop: number, insetBottom: number) =>
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
       backgroundColor: theme.colors.surface,
+    },
+    tabBarHidden: {
+      display: 'none',
     },
     tabBarLabel: {
       fontSize: 11,

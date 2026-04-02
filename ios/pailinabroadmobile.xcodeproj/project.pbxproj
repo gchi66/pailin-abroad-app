@@ -23,7 +23,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = pailinabroadmobile/Info.plist; sourceTree = "<group>"; };
 		14100E374287485EB9D341DE /* libPods-pailinabroadmobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-pailinabroadmobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D84F38CE7665B392C641FB2 /* Pods-pailinabroadmobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-pailinabroadmobile.release.xcconfig"; path = "Target Support Files/Pods-pailinabroadmobile/Pods-pailinabroadmobile.release.xcconfig"; sourceTree = "<group>"; };
-		8DE6CC63E58C83B84BF0E14B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = pailinabroadmobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		8DE6CC63E58C83B84BF0E14B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = pailinabroadmobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9249412ACA3A27616E7EE6F8 /* Pods-pailinabroadmobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-pailinabroadmobile.debug.xcconfig"; path = "Target Support Files/Pods-pailinabroadmobile/Pods-pailinabroadmobile.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = pailinabroadmobile/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -81,7 +81,6 @@
 				9249412ACA3A27616E7EE6F8 /* Pods-pailinabroadmobile.debug.xcconfig */,
 				7D84F38CE7665B392C641FB2 /* Pods-pailinabroadmobile.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -349,6 +348,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = pailinabroadmobile/pailinabroadmobile.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = H7W3TQ8F6S;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -367,7 +367,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.pailin-abroad-mobile";
+				PRODUCT_BUNDLE_IDENTIFIER = com.grant.pailinabroad;
 				PRODUCT_NAME = pailinabroadmobile;
 				SWIFT_OBJC_BRIDGING_HEADER = "pailinabroadmobile/pailinabroadmobile-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -385,6 +385,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = pailinabroadmobile/pailinabroadmobile.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = H7W3TQ8F6S;
 				INFOPLIST_FILE = pailinabroadmobile/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -398,7 +399,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.pailin-abroad-mobile";
+				PRODUCT_BUNDLE_IDENTIFIER = com.grant.pailinabroad;
 				PRODUCT_NAME = pailinabroadmobile;
 				SWIFT_OBJC_BRIDGING_HEADER = "pailinabroadmobile/pailinabroadmobile-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

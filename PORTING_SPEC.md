@@ -15,6 +15,24 @@
 
 ## Current Mobile State (Implemented)
 
+### Local iPhone Build Status
+- Local native iPhone install has been successfully verified on a physical device.
+- Current working path is:
+  - Expo-managed app config
+  - native `ios/` project checked into the app repo
+  - CocoaPods workspace build via Xcode
+- Bundle identifier is now set to `com.grant.pailinabroad`.
+- For ongoing day-to-day development, continue working in the Expo/RN app as normal.
+- When native/device verification is needed:
+  - open `ios/pailinabroadmobile.xcworkspace` in Xcode
+  - use Xcode signing/device selection for physical iPhone installs
+  - `npx expo run:ios --device` is expected to work after signing is configured in Xcode
+- This means the project is past the initial "can we get it onto a real phone?" stage and can proceed with normal feature work.
+
+### Current Focus
+- Immediate next work is the login/auth screen experience.
+- Priority is improving the mobile feel, clarity, and polish of the login page before moving on to other UI cleanup passes.
+
 ### Step A: Theme
 - Added: `src/theme/theme.ts`
 - Tokens include:

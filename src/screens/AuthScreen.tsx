@@ -1,85 +1,104 @@
-import React, { useMemo, useState } from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { homeHeroImage } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
-import { Button } from '@/src/components/ui/Button';
-import { Card } from '@/src/components/ui/Card';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
-import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
 type AuthMode = 'signup' | 'signin';
 
-const GOOGLE_BLUE = '#4285F4';
-
 export function AuthScreen() {
+  const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
   const { authError, isLoading, signIn, signInWithGoogle, signUp } = useAppSession();
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const modeAnim = useRef(new Animated.Value(1)).current;
 
   const copy = useMemo(
     () =>
       uiLanguage === 'th'
         ? {
-            eyebrow: 'Pailin Abroad',
-            headline: 'เริ่มเรียนกับเราได้ทันที',
-            body: 'สมัครสมาชิกหรือเข้าสู่ระบบเพื่อปลดล็อกเส้นทางการเรียนแบบ native และเชื่อมบัญชีจริงของคุณกับแอป',
-            cardTitle: 'สร้างบัญชี',
-            signUpTab: 'สมัครสมาชิก',
-            signInTab: 'เข้าสู่ระบบ',
+            wordmark: 'Pailin Abroad',
+            signUpTitleLineOne: 'สร้าง',
+            signUpTitleAccent: 'บัญชี',
+            signUpTitleTail: 'ของคุณ',
+            signUpSubtitle: 'Real English, made for Thai speakers.',
+            signInTitleLineOne: 'ยินดี',
+            signInTitleAccent: 'ต้อนรับ',
+            signInTitleTail: 'กลับมา',
+            signInSubtitle: 'ดีใจที่ได้เจอคุณอีกครั้ง',
             google: 'สมัครด้วย Google',
-            divider: 'หรือใช้อีเมล',
+            googleLoading: 'กำลังเชื่อมต่อ Google...',
+            divider: 'or email',
             email: 'อีเมล',
             password: 'รหัสผ่าน',
             confirmPassword: 'ยืนยันรหัสผ่าน',
-            submitSignUp: 'เริ่มต้นใช้งาน',
-            submitSignIn: 'เข้าสู่ระบบ',
-            footerSignup: 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',
-            footerSignin: 'ยังไม่มีบัญชี? สมัครสมาชิก',
+            submitSignUp: 'สร้างบัญชี ->',
+            submitSignIn: 'เข้าสู่ระบบ ->',
+            footerSignupPrefix: 'เป็นสมาชิกอยู่แล้ว? ',
+            footerSignupAction: 'เข้าสู่ระบบ',
+            footerSigninPrefix: 'ยังไม่ได้เป็นสมาชิก? ',
+            footerSigninAction: 'สมัครสมาชิก',
             passwordMismatch: 'รหัสผ่านไม่ตรงกัน',
             passwordShort: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
             passwordRuleOne: 'อย่างน้อย 8 ตัวอักษร',
-            passwordRuleTwo: 'มีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว',
-            passwordRuleThree: 'มีตัวเลขหรือสัญลักษณ์อย่างน้อย 1 ตัว',
+            passwordRuleTwo: 'ตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว',
+            passwordRuleThree: 'ตัวเลขหรือสัญลักษณ์อย่างน้อย 1 ตัว',
             authSuccess: 'เข้าสู่ระบบสำเร็จ',
-            signupSuccess: 'สมัครสำเร็จแล้ว',
-            signupConfirm: 'สมัครสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อน',
+            signupSuccess: 'สร้างบัญชีสำเร็จ',
+            signupConfirm: 'สร้างบัญชีสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อน',
             authErrorTitle: 'เกิดข้อผิดพลาด',
-            googleLoading: 'กำลังเชื่อมต่อ Google...',
+            termsPrefix: 'การสมัครถือว่าคุณยอมรับ ',
+            termsTerms: 'ข้อกำหนด',
+            termsMiddle: ' และ ',
+            termsPrivacy: 'นโยบายความเป็นส่วนตัว',
           }
         : {
-            eyebrow: 'Pailin Abroad',
-            headline: 'Start with a real account',
-            body: 'Sign up or sign in to unlock the native learning flow and connect your real account to the app.',
-            cardTitle: 'Create your account',
-            signUpTab: 'Sign up',
-            signInTab: 'Sign in',
+            wordmark: 'Pailin Abroad',
+            signUpTitleLineOne: 'Create your',
+            signUpTitleAccent: 'account.',
+            signUpTitleTail: '',
+            signUpSubtitle: 'Real English, made for Thai speakers.',
+            signInTitleLineOne: 'Welcome',
+            signInTitleAccent: 'back.',
+            signInTitleTail: '',
+            signInSubtitle: 'Good to see you again.',
             google: 'Continue with Google',
-            divider: 'or use email',
+            googleLoading: 'Connecting Google...',
+            divider: 'or email',
             email: 'Email',
             password: 'Password',
             confirmPassword: 'Confirm password',
-            submitSignUp: 'Create account',
-            submitSignIn: 'Sign in',
-            footerSignup: 'Already have an account? Sign in',
-            footerSignin: "Don't have an account? Sign up",
+            submitSignUp: 'Create account ->',
+            submitSignIn: 'Log in ->',
+            footerSignupPrefix: 'Already a member? ',
+            footerSignupAction: 'Log in',
+            footerSigninPrefix: 'Not a member yet? ',
+            footerSigninAction: 'Sign up',
             passwordMismatch: 'Passwords do not match.',
             passwordShort: 'Password must be at least 8 characters.',
             passwordRuleOne: 'At least 8 characters',
@@ -89,14 +108,28 @@ export function AuthScreen() {
             signupSuccess: 'Account created successfully.',
             signupConfirm: 'Account created. Check your email to confirm before signing in.',
             authErrorTitle: 'Error',
-            googleLoading: 'Connecting Google...',
+            termsPrefix: 'By signing up you agree to our ',
+            termsTerms: 'Terms',
+            termsMiddle: ' and ',
+            termsPrivacy: 'Privacy Policy',
           },
     [uiLanguage]
   );
 
+  useEffect(() => {
+    modeAnim.setValue(0);
+    Animated.timing(modeAnim, {
+      duration: 180,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [mode, modeAnim]);
+
   const meetsLength = password.length >= 8;
   const meetsUppercase = /[A-Z]/.test(password);
-  const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>]/.test(password);
+  const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]/.test(password);
+  const isBusy = isSubmitting || isLoading || isGoogleSubmitting;
+  const isCompactScreen = height <= 720 || width <= 350;
 
   const handleSubmit = async () => {
     if (mode === 'signup') {
@@ -119,7 +152,7 @@ export function AuthScreen() {
           Alert.alert(copy.authErrorTitle, error);
           return;
         }
-        Alert.alert(copy.cardTitle, copy.authSuccess);
+        Alert.alert(copy.authErrorTitle, copy.authSuccess);
         return;
       }
 
@@ -129,7 +162,7 @@ export function AuthScreen() {
         return;
       }
 
-      Alert.alert(copy.cardTitle, needsEmailConfirmation ? copy.signupConfirm : copy.signupSuccess);
+      Alert.alert(copy.authErrorTitle, needsEmailConfirmation ? copy.signupConfirm : copy.signupSuccess);
       if (needsEmailConfirmation) {
         setMode('signin');
       }
@@ -150,159 +183,306 @@ export function AuthScreen() {
     }
   };
 
+  const switchMode = (nextMode: AuthMode) => {
+    if (nextMode === mode) {
+      return;
+    }
+
+    setMode(nextMode);
+  };
+
+  const modeContentStyle = {
+    opacity: modeAnim,
+    transform: [
+      {
+        translateY: modeAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [8, 0],
+        }),
+      },
+    ],
+  } as const;
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <Stack gap="lg">
-        <View style={styles.languageRow}>
-          <LanguageToggle />
-        </View>
-
-        <View style={styles.heroShell}>
-          <View style={styles.heroCopy}>
-            <AppText language={uiLanguage} variant="caption" style={styles.eyebrow}>
-              {copy.eyebrow}
-            </AppText>
-            <AppText language={uiLanguage} variant="title" style={styles.headline}>
-              {copy.headline}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.heroBody}>
-              {copy.body}
-            </AppText>
-          </View>
-          <Image source={homeHeroImage} resizeMode="contain" style={styles.heroImage} />
-        </View>
-
-        <Card padding="lg" radius="lg" style={styles.authCard}>
-          <Stack gap="md">
-            <View style={styles.authHeaderRow}>
-              <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
-                {copy.cardTitle}
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.contentContainer,
+          {
+            paddingTop: Math.max(insets.top + theme.spacing.sm, 28),
+            paddingBottom: Math.max(insets.bottom + theme.spacing.xl, 40),
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}>
+        <View style={[styles.centerShell, isCompactScreen ? styles.centerShellCompact : null]}>
+          <View style={[styles.panel, isCompactScreen ? styles.panelCompact : null]}>
+            <View style={[styles.topRow, isCompactScreen ? styles.topRowCompact : null]}>
+              <AppText language={uiLanguage} variant="caption" style={[styles.wordmark, isCompactScreen ? styles.wordmarkCompact : null]}>
+                {copy.wordmark}
               </AppText>
-              {isLoading ? <ActivityIndicator color={theme.colors.text} /> : null}
+              <LanguageToggle />
             </View>
 
-            <View style={styles.modeSwitch}>
-              <Pressable
-                accessibilityRole="button"
-                style={[styles.modeOption, mode === 'signup' ? styles.modeOptionActive : null]}
-                onPress={() => setMode('signup')}>
-                <AppText language={uiLanguage} variant="caption" style={mode === 'signup' ? styles.modeOptionTextActive : styles.modeOptionText}>
-                  {copy.signUpTab}
-                </AppText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                style={[styles.modeOption, mode === 'signin' ? styles.modeOptionActive : null]}
-                onPress={() => setMode('signin')}>
-                <AppText language={uiLanguage} variant="caption" style={mode === 'signin' ? styles.modeOptionTextActive : styles.modeOptionText}>
-                  {copy.signInTab}
-                </AppText>
-              </Pressable>
-            </View>
+            <Animated.View style={[styles.headerBlock, isCompactScreen ? styles.headerBlockCompact : null, modeContentStyle]}>
+              {mode === 'signup' ? (
+                <>
+                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
+                    {copy.signUpTitleLineOne}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
+                    <AppText language={uiLanguage} variant="title" style={[styles.headlineAccent, isCompactScreen ? styles.headlineLineCompact : null]}>
+                      {copy.signUpTitleAccent}
+                    </AppText>
+                    {copy.signUpTitleTail ? ` ${copy.signUpTitleTail}` : ''}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={[styles.subtitle, isCompactScreen ? styles.subtitleCompact : null]}>
+                    {copy.signUpSubtitle}
+                  </AppText>
+                </>
+              ) : (
+                <>
+                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
+                    {copy.signInTitleLineOne}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
+                    <AppText language={uiLanguage} variant="title" style={[styles.headlineAccent, isCompactScreen ? styles.headlineLineCompact : null]}>
+                      {copy.signInTitleAccent}
+                    </AppText>
+                    {copy.signInTitleTail ? ` ${copy.signInTitleTail}` : ''}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={[styles.subtitle, isCompactScreen ? styles.subtitleCompact : null]}>
+                    {copy.signInSubtitle}
+                  </AppText>
+                </>
+              )}
+            </Animated.View>
 
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.googleButton,
-                pressed && !isGoogleSubmitting ? styles.googleButtonPressed : null,
-                isGoogleSubmitting ? styles.googleButtonDisabled : null,
-              ]}
-              onPress={handleGoogle}
-              disabled={isGoogleSubmitting}>
-              <View style={styles.googleMark}>
-                <AppText variant="caption" style={styles.googleMarkText}>
-                  G
+            <View style={[styles.formShell, isCompactScreen ? styles.formShellCompact : null]}>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.googleButton,
+                  isCompactScreen ? styles.googleButtonCompact : null,
+                  pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
+                  isGoogleSubmitting ? styles.buttonDisabled : null,
+                ]}
+                onPress={handleGoogle}
+                disabled={isGoogleSubmitting}>
+                <GoogleBadge />
+                <AppText language={uiLanguage} variant="caption" style={[styles.googleButtonText, isCompactScreen ? styles.googleButtonTextCompact : null]}>
+                  {isGoogleSubmitting ? copy.googleLoading : copy.google}
                 </AppText>
+              </Pressable>
+
+              <View style={[styles.dividerRow, isCompactScreen ? styles.dividerRowCompact : null]}>
+                <View style={styles.dividerLine} />
+                <AppText language={uiLanguage} variant="caption" style={styles.dividerText}>
+                  {copy.divider}
+                </AppText>
+                <View style={styles.dividerLine} />
               </View>
-              <AppText language={uiLanguage} variant="caption" style={styles.googleButtonText}>
-                {isGoogleSubmitting ? copy.googleLoading : copy.google}
-              </AppText>
-            </Pressable>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <AppText language={uiLanguage} variant="caption" style={styles.dividerText}>
-                {copy.divider}
-              </AppText>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TextInput
-              accessibilityLabel={copy.email}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              placeholder={copy.email}
-              style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-              value={email}
-              onChangeText={setEmail}
-            />
-
-            <TextInput
-              accessibilityLabel={copy.password}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder={copy.password}
-              secureTextEntry
-              style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-              value={password}
-              onChangeText={setPassword}
-            />
-
-            {mode === 'signup' ? (
-              <>
-                <TextInput
-                  accessibilityLabel={copy.confirmPassword}
+              <Animated.View style={modeContentStyle}>
+                <FormField
+                  uiLanguage={uiLanguage}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder={copy.email}
+                  keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholder={copy.confirmPassword}
-                  secureTextEntry
-                  style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                  isCompact={isCompactScreen}
                 />
 
-                <View style={styles.ruleBlock}>
-                  <PasswordRule language={uiLanguage} text={copy.passwordRuleOne} isMet={meetsLength} />
-                  <PasswordRule language={uiLanguage} text={copy.passwordRuleTwo} isMet={meetsUppercase} />
-                  <PasswordRule language={uiLanguage} text={copy.passwordRuleThree} isMet={meetsNumberOrSymbol} />
-                </View>
-              </>
-            ) : null}
+                <FormField
+                  uiLanguage={uiLanguage}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder={copy.password}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
+                  style={styles.fieldSpacing}
+                  isCompact={isCompactScreen}
+                  trailingAccessory={
+                    <PasswordVisibilityButton
+                      isVisible={showPassword}
+                      onPress={() => setShowPassword((current) => !current)}
+                    />
+                  }
+                />
 
-            {authError ? (
-              <AppText language={uiLanguage} variant="caption" style={styles.errorText}>
-                {authError}
-              </AppText>
-            ) : null}
+                {mode === 'signup' ? (
+                  <>
+                    <FormField
+                      uiLanguage={uiLanguage}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder={copy.confirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      textContentType="password"
+                      autoComplete="password"
+                      style={styles.fieldSpacing}
+                      isCompact={isCompactScreen}
+                      trailingAccessory={
+                        <PasswordVisibilityButton
+                          isVisible={showConfirmPassword}
+                          onPress={() => setShowConfirmPassword((current) => !current)}
+                        />
+                      }
+                    />
 
-            <Button
-              language={uiLanguage}
-              title={mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
-              onPress={handleSubmit}
-              disabled={isSubmitting || isLoading || isGoogleSubmitting}
-              style={styles.submitButton}
-            />
+                    <View style={[styles.rulesCard, isCompactScreen ? styles.rulesCardCompact : null]}>
+                      <PasswordRule language={uiLanguage} text={copy.passwordRuleOne} isMet={meetsLength} isCompact={isCompactScreen} />
+                      <PasswordRule language={uiLanguage} text={copy.passwordRuleTwo} isMet={meetsUppercase} isCompact={isCompactScreen} />
+                      <PasswordRule language={uiLanguage} text={copy.passwordRuleThree} isMet={meetsNumberOrSymbol} isCompact={isCompactScreen} />
+                    </View>
+                  </>
+                ) : null}
+              </Animated.View>
 
-            <Pressable accessibilityRole="button" onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}>
-              <AppText language={uiLanguage} variant="caption" style={styles.footerLink}>
-                {mode === 'signup' ? copy.footerSignup : copy.footerSignin}
-              </AppText>
-            </Pressable>
-          </Stack>
-        </Card>
-      </Stack>
-    </ScrollView>
+              {authError ? (
+                <AppText language={uiLanguage} variant="caption" style={styles.errorText}>
+                  {authError}
+                </AppText>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  isCompactScreen ? styles.ctaButtonCompact : null,
+                  pressed && !isBusy ? styles.buttonPressed : null,
+                  isBusy ? styles.buttonDisabled : null,
+                ]}
+                onPress={handleSubmit}
+                disabled={isBusy}>
+                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                <AppText language={uiLanguage} variant="caption" style={[styles.ctaText, isCompactScreen ? styles.ctaTextCompact : null]}>
+                  {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
+                </AppText>
+              </Pressable>
+
+              <Pressable accessibilityRole="button" onPress={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}>
+                <AppText language={uiLanguage} variant="caption" style={[styles.footerText, isCompactScreen ? styles.footerTextCompact : null]}>
+                  {mode === 'signup' ? copy.footerSignupPrefix : copy.footerSigninPrefix}
+                  <AppText language={uiLanguage} variant="caption" style={styles.footerAction}>
+                    {mode === 'signup' ? copy.footerSignupAction : copy.footerSigninAction}
+                  </AppText>
+                </AppText>
+              </Pressable>
+
+              {mode === 'signup' ? (
+                <AppText language={uiLanguage} variant="caption" style={[styles.termsText, isCompactScreen ? styles.termsTextCompact : null]}>
+                  {copy.termsPrefix}
+                  <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
+                    {copy.termsTerms}
+                  </AppText>
+                  {copy.termsMiddle}
+                  <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
+                    {copy.termsPrivacy}
+                  </AppText>
+                </AppText>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-function PasswordRule({ isMet, language, text }: { isMet: boolean; language: 'en' | 'th'; text: string }) {
+function FormField({
+  autoCapitalize,
+  autoComplete,
+  autoCorrect,
+  keyboardType,
+  onChangeText,
+  placeholder,
+  secureTextEntry,
+  isCompact,
+  style,
+  textContentType,
+  trailingAccessory,
+  uiLanguage,
+  value,
+}: {
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoComplete?: 'email' | 'password';
+  autoCorrect?: boolean;
+  keyboardType?: 'default' | 'email-address';
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  secureTextEntry?: boolean;
+  style?: object;
+  textContentType?: 'emailAddress' | 'password';
+  trailingAccessory?: React.ReactNode;
+  isCompact?: boolean;
+  uiLanguage: 'en' | 'th';
+  value: string;
+}) {
+  return (
+    <View style={[styles.inputShell, isCompact ? styles.inputShellCompact : null, style]}>
+      <TextInput
+        accessibilityLabel={placeholder}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        autoCorrect={autoCorrect}
+        keyboardType={keyboardType}
+        placeholder={placeholder}
+        placeholderTextColor="#B0BFCC"
+        secureTextEntry={secureTextEntry}
+        selectionColor={theme.colors.text}
+        style={[styles.input, isCompact ? styles.inputCompact : null, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+        textContentType={textContentType}
+        value={value}
+        onChangeText={onChangeText}
+      />
+      {trailingAccessory ? <View style={styles.inputAccessory}>{trailingAccessory}</View> : null}
+    </View>
+  );
+}
+
+function PasswordVisibilityButton({ isVisible, onPress }: { isVisible: boolean; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" hitSlop={8} onPress={onPress} style={styles.iconButton}>
+      <MaterialIcons name={isVisible ? 'visibility-off' : 'visibility'} size={20} color="#8899AA" />
+    </Pressable>
+  );
+}
+
+function PasswordRule({ isMet, isCompact, language, text }: { isMet: boolean; isCompact?: boolean; language: 'en' | 'th'; text: string }) {
   return (
     <View style={styles.ruleRow}>
-      <View style={[styles.ruleDot, isMet ? styles.ruleDotMet : null]} />
-      <AppText language={language} variant="caption" style={isMet ? styles.ruleTextMet : styles.ruleText}>
+      <View style={[styles.ruleDot, isCompact ? styles.ruleDotCompact : null, isMet ? styles.ruleDotMet : null]}>
+        {isMet ? <MaterialIcons name="check" size={12} color="#1A2332" /> : null}
+      </View>
+      <AppText language={language} variant="caption" style={[styles.ruleText, isCompact ? styles.ruleTextCompact : null]}>
         {text}
       </AppText>
+    </View>
+  );
+}
+
+function GoogleBadge() {
+  return (
+    <View style={styles.googleBadgeOuter}>
+      <View style={[styles.googleBadgeQuarter, styles.googleBadgeBlue]} />
+      <View style={[styles.googleBadgeQuarter, styles.googleBadgeRed]} />
+      <View style={[styles.googleBadgeQuarter, styles.googleBadgeYellow]} />
+      <View style={[styles.googleBadgeQuarter, styles.googleBadgeGreen]} />
+      <View style={styles.googleBadgeInner} />
     </View>
   );
 }
@@ -310,148 +490,214 @@ function PasswordRule({ isMet, language, text }: { isMet: boolean; language: 'en
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F7FAFD',
   },
   contentContainer: {
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
-    paddingTop: theme.spacing.md,
+    flex: 1,
+    paddingHorizontal: 24,
   },
-  languageRow: {
-    alignItems: 'flex-end',
+  centerShell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  heroShell: {
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    backgroundColor: '#DCEEFF',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
+  centerShellCompact: {
+    justifyContent: 'flex-start',
   },
-  heroCopy: {
-    gap: theme.spacing.sm,
-  },
-  eyebrow: {
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  headline: {
-    fontSize: theme.typography.sizes['2xl'],
-    lineHeight: 42,
-  },
-  heroBody: {
-    color: theme.colors.mutedText,
-  },
-  heroImage: {
+  panel: {
     width: '100%',
-    height: 180,
-    alignSelf: 'center',
+    maxWidth: 360,
   },
-  authCard: {
-    backgroundColor: theme.colors.surface,
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.16,
-    shadowRadius: 0,
-    shadowOffset: {
-      width: 4,
-      height: 4,
-    },
-    elevation: 3,
+  panelCompact: {
+    maxWidth: 340,
   },
-  authHeaderRow: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardTitle: {
-    fontWeight: theme.typography.weights.semibold,
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.lg,
+  topRowCompact: {
+    marginBottom: 2,
   },
-  modeSwitch: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    backgroundColor: '#F3F6FA',
-    padding: 4,
-    gap: 4,
+  wordmark: {
+    color: '#3CA0FE',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '900',
+    letterSpacing: 0.96,
+    textTransform: 'uppercase',
   },
-  modeOption: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: theme.radii.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+  wordmarkCompact: {
+    fontSize: 11,
+    lineHeight: 14,
   },
-  modeOptionActive: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  headerBlock: {
+    marginTop: 18,
+    marginBottom: 18,
   },
-  modeOptionText: {
-    color: theme.colors.mutedText,
+  headerBlockCompact: {
+    marginTop: 14,
+    marginBottom: 14,
   },
-  modeOptionTextActive: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
+  headlineLine: {
+    fontSize: 28,
+    lineHeight: 31,
+    fontWeight: '900',
+    color: '#1A2332',
+  },
+  headlineLineCompact: {
+    fontSize: 24,
+    lineHeight: 27,
+  },
+  headlineAccent: {
+    fontSize: 28,
+    lineHeight: 31,
+    fontWeight: '900',
+    color: '#1A2332',
+  },
+  subtitle: {
+    marginTop: 8,
+    color: '#5A6A7E',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  subtitleCompact: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  formShell: {
+    gap: 14,
+  },
+  formShellCompact: {
+    gap: 10,
   },
   googleButton: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: theme.spacing.md,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#1A2332',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    shadowColor: '#1A2332',
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    shadowOffset: {
+      width: 1.75,
+      height: 1.75,
+    },
+    elevation: 3,
   },
-  googleButtonPressed: {
-    opacity: 0.92,
-  },
-  googleButtonDisabled: {
-    opacity: 0.7,
-  },
-  googleMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    backgroundColor: GOOGLE_BLUE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleMarkText: {
-    color: '#FFFFFF',
-    fontWeight: theme.typography.weights.bold,
+  googleButtonCompact: {
+    minHeight: 50,
+    borderRadius: 12,
   },
   googleButtonText: {
-    fontWeight: theme.typography.weights.semibold,
+    color: '#1A2332',
+    fontWeight: '800',
+  },
+  googleButtonTextCompact: {
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  googleBadgeOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderWidth: 1,
+    borderColor: '#1A2332',
+  },
+  googleBadgeQuarter: {
+    width: 9,
+    height: 9,
+  },
+  googleBadgeBlue: {
+    backgroundColor: '#4285F4',
+  },
+  googleBadgeRed: {
+    backgroundColor: '#EA4335',
+  },
+  googleBadgeYellow: {
+    backgroundColor: '#FBBC05',
+  },
+  googleBadgeGreen: {
+    backgroundColor: '#34A853',
+  },
+  googleBadgeInner: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: 12,
+    marginVertical: 2,
+  },
+  dividerRowCompact: {
+    marginVertical: 0,
   },
   dividerLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#CDD7E2',
+    height: 2,
+    backgroundColor: '#1A2332',
   },
   dividerText: {
-    color: theme.colors.mutedText,
+    color: '#1A2332',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
+  inputShell: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#1A2332',
+    backgroundColor: '#FFFFFF',
+    paddingLeft: 14,
+    paddingRight: 10,
+    shadowColor: '#1A2332',
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    shadowOffset: {
+      width: 1.75,
+      height: 1.75,
+    },
+    elevation: 3,
+  },
+  inputShellCompact: {
+    minHeight: 50,
+    borderRadius: 12,
+  },
   input: {
+    flex: 1,
     minHeight: 52,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.text,
+    color: '#1A2332',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+    paddingVertical: 0,
+  },
+  inputCompact: {
+    minHeight: 46,
+    fontSize: 14,
+    lineHeight: 18,
   },
   inputEnglish: {
     fontFamily: theme.typography.fonts.en,
@@ -459,47 +705,146 @@ const styles = StyleSheet.create({
   inputThai: {
     fontFamily: theme.typography.fonts.th,
   },
-  ruleBlock: {
-    gap: theme.spacing.xs,
-    borderWidth: 1,
-    borderColor: '#CDD7E2',
-    borderRadius: theme.radii.md,
-    backgroundColor: '#FAFCFE',
-    padding: theme.spacing.md,
+  inputAccessory: {
+    marginLeft: 8,
+  },
+  iconButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldSpacing: {
+    marginTop: 12,
+  },
+  rulesCard: {
+    marginTop: 12,
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
+  rulesCardCompact: {
+    marginTop: 10,
+    gap: 6,
+    paddingHorizontal: 2,
+    paddingVertical: 0,
   },
   ruleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
   },
   ruleDot: {
-    width: 10,
-    height: 10,
+    width: 16,
+    height: 16,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#8B97A8',
+    borderWidth: 2,
+    borderColor: '#1A2332',
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  ruleDotCompact: {
+    width: 14,
+    height: 14,
+    marginRight: 6,
   },
   ruleDotMet: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.border,
+    backgroundColor: '#CDEB8B',
   },
   ruleText: {
-    color: theme.colors.mutedText,
+    flex: 1,
+    color: '#1A2332',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
-  ruleTextMet: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.semibold,
+  ruleTextCompact: {
+    fontSize: 12,
+    lineHeight: 15,
   },
   errorText: {
-    color: theme.colors.primary,
-  },
-  submitButton: {
-    marginTop: theme.spacing.xs,
-  },
-  footerLink: {
+    color: '#FF4545',
+    fontWeight: '800',
     textAlign: 'center',
-    color: theme.colors.text,
+  },
+  ctaButton: {
+    minHeight: 56,
+    marginTop: 2,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#1A2332',
+    backgroundColor: '#FF4545',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#1A2332',
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    shadowOffset: {
+      width: 1.75,
+      height: 1.75,
+    },
+    elevation: 4,
+  },
+  ctaButtonCompact: {
+    minHeight: 50,
+    borderRadius: 12,
+  },
+  ctaText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  ctaTextCompact: {
+    fontSize: 14,
+    lineHeight: 16,
+  },
+  footerText: {
+    marginTop: 2,
+    textAlign: 'center',
+    color: '#7A8998',
+    fontWeight: '600',
+  },
+  footerTextCompact: {
+    marginTop: 0,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  footerAction: {
+    color: '#FF4545',
+    fontWeight: '800',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FF4545',
+  },
+  termsText: {
+    textAlign: 'center',
+    color: '#AAB8C5',
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  termsTextCompact: {
+    fontSize: 9,
+    lineHeight: 13,
+  },
+  termsAction: {
+    color: '#AAB8C5',
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  buttonPressed: {
+    transform: [{ translateX: 1 }, { translateY: 1 }],
+    shadowOffset: {
+      width: 1.75,
+      height: 1.75,
+    },
+  },
+  buttonDisabled: {
+    opacity: 0.72,
   },
 });
