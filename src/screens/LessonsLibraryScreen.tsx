@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getLessonsIndex } from '@/src/api/lessons';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -46,6 +46,8 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
 
 export function LessonsLibraryScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -153,15 +155,25 @@ export function LessonsLibraryScreen() {
   }, [items, selectedLevel, selectedStage]);
 
   const title = uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library';
-  const subtitle =
-    uiLanguage === 'th'
-      ? 'บทเรียนบทสนทนามากกว่า 150 บทเพื่อพัฒนาภาษาอังกฤษของคุณ'
-      : 'Over 150 conversation-based lessons to improve your English';
+  const backLabel = uiLanguage === 'th' ? 'กลับ' : 'Back';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={title} subtitle={subtitle} />
+        <View style={styles.headerBlock}>
+          <View style={{ height: Math.max(insets.top - 36, 0) }} />
+          {navigation.canGoBack() ? (
+            <Pressable accessibilityRole="button" style={styles.backButton} onPress={() => router.back()}>
+              <AppText language={uiLanguage} variant="caption" style={styles.backButtonText}>
+                ‹ {backLabel}
+              </AppText>
+            </Pressable>
+          ) : null}
+
+          <AppText language={uiLanguage} variant="title" numberOfLines={1} style={styles.headerTitle}>
+            {title}
+          </AppText>
+        </View>
 
         <Stack gap="sm">
           <View style={styles.stageSelector}>
@@ -297,9 +309,31 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.xl,
   },
+  headerBlock: {
+    marginHorizontal: -theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 0,
+    marginBottom: 16,
+  },
+  backButtonText: {
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.bold,
+  },
+  headerTitle: {
+    marginTop: 0,
+    fontSize: 36,
+    lineHeight: 40,
+    fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+  },
   stageSelector: {
     paddingHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.sm,
   },
   stageButton: {
     minHeight: 62,
