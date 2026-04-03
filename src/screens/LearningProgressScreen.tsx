@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -12,6 +13,23 @@ import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type UiLanguage = 'en' | 'th';
+
+type StageBreakdownRow = {
+  stage: string;
+  completedCount: number;
+  totalCount: number;
+  percent: number;
+};
+
+type ProgressContext = {
+  stage: string | null;
+  level: number | null;
+  levelCompletedCount: number;
+  levelTotalCount: number;
+  levelPercent: number;
+};
+
+const STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback = '') => {
   const preferredText = preferred?.trim();
@@ -40,13 +58,23 @@ const getLessonNumber = (lesson: LessonListItem) => {
   return '–';
 };
 
-const getProgressContext = (pathwayRows: PathwayLessonRow[], resumeRow: PathwayLessonRow | null) => {
+const getProgressContext = (
+  pathwayRows: PathwayLessonRow[],
+  allLessons: LessonListItem[],
+  completedLessons: LessonListItem[],
+  resumeRow: PathwayLessonRow | null,
+): ProgressContext => {
   const anchorLesson = resumeRow?.lesson ?? pathwayRows[pathwayRows.length - 1]?.lesson ?? null;
   const anchorStage = anchorLesson?.stage ?? null;
   const anchorLevel = anchorLesson?.level ?? null;
-  const levelRows = pathwayRows.filter((row) => row.lesson.stage === anchorStage && row.lesson.level === anchorLevel);
-  const levelCompletedCount = levelRows.filter((row) => row.state === 'completed').length;
-  const levelTotalCount = levelRows.length;
+  const levelLessons = allLessons.filter((lesson) => lesson.stage === anchorStage && lesson.level === anchorLevel);
+  const completedIds = new Set(
+    completedLessons
+      .filter((lesson) => lesson.stage === anchorStage && lesson.level === anchorLevel)
+      .map((lesson) => lesson.id),
+  );
+  const levelCompletedCount = levelLessons.filter((lesson) => completedIds.has(lesson.id)).length;
+  const levelTotalCount = levelLessons.length;
   const levelPercent = levelTotalCount > 0 ? Math.round((levelCompletedCount / levelTotalCount) * 100) : 0;
 
   return {
@@ -58,188 +86,289 @@ const getProgressContext = (pathwayRows: PathwayLessonRow[], resumeRow: PathwayL
   };
 };
 
+const getStageBreakdown = (allLessons: LessonListItem[], completedLessons: LessonListItem[]) => {
+  const completedIds = new Set(completedLessons.map((lesson) => lesson.id));
+
+  return STAGE_ORDER.map((stage) => {
+    const stageLessons = allLessons.filter((lesson) => lesson.stage === stage);
+    const completedCount = stageLessons.filter((lesson) => completedIds.has(lesson.id)).length;
+    const totalCount = stageLessons.length;
+    const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    return {
+      stage,
+      completedCount,
+      totalCount,
+      percent,
+    } satisfies StageBreakdownRow;
+  });
+};
+
+const formatLearningSince = (value: string | null, uiLanguage: UiLanguage) => {
+  if (!value) {
+    return uiLanguage === 'th' ? 'เพิ่งเริ่มในแอป' : 'Recently';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const formatCompletedAgo = (value: string | null, uiLanguage: UiLanguage) => {
+  if (!value) {
+    return uiLanguage === 'th' ? 'ล่าสุด' : 'Recently';
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return value;
+  }
+
+  const diffMs = Date.now() - timestamp;
+  const dayMs = 1000 * 60 * 60 * 24;
+  const days = Math.max(0, Math.floor(diffMs / dayMs));
+
+  if (uiLanguage === 'th') {
+    if (days <= 0) {
+      return 'วันนี้';
+    }
+
+    if (days === 1) {
+      return '1 วันที่แล้ว';
+    }
+
+    return `${days} วันที่แล้ว`;
+  }
+
+  if (days <= 0) {
+    return 'Today';
+  }
+
+  if (days === 1) {
+    return '1 day ago';
+  }
+
+  return `${days} days ago`;
+};
+
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
-      title: 'ความคืบหน้าการเรียน',
-      subtitle: 'หน้ารายละเอียดสำหรับติดตามสเตจ เลเวล และประวัติการเรียนของคุณ',
-      stage: 'สเตจปัจจุบัน',
-      level: 'เลเวลปัจจุบัน',
+      backLink: 'เส้นทางของฉัน',
+      titleLineOne: 'ความคืบหน้า',
+      titleLineTwo: 'การเรียน',
+      currentStage: 'สเตจปัจจุบัน',
+      learningSince: 'เริ่มเรียนเมื่อ',
       lessonsCompleted: 'บทเรียนที่จบ',
       levelsCompleted: 'เลเวลที่จบ',
-      currentLevelProgress: 'ความคืบหน้าเลเวลนี้',
-      recentProgress: 'เรียนจบล่าสุด',
-      upcomingHistory: 'ประวัติแบบละเอียด',
-      upcomingHistoryBody: 'หน้านี้จะขยายต่อด้วยไทม์ไลน์การเรียน สรุปตามสเตจ และมุมมองย้อนหลังแบบละเอียด',
-      emptyRecent: 'เมื่อคุณเรียนจบบทเรียน รายการล่าสุดจะปรากฏที่นี่',
+      currentLevel: 'เลเวลปัจจุบัน',
+      totalLessonsAvailable: 'บทเรียนทั้งหมด',
+      stageBreakdown: 'ภาพรวมแต่ละสเตจ',
+      recentLessons: 'บทเรียนล่าสุด',
       untitledLesson: 'ไม่มีชื่อบทเรียน',
-      loading: 'กำลังโหลดข้อมูลความคืบหน้า...',
       fallbackStage: 'เส้นทางหลัก',
+      loading: 'กำลังโหลดข้อมูลความคืบหน้า...',
     };
   }
 
   return {
-    title: 'Learning Progress',
-    subtitle: 'A dedicated place for your stage, level, and a fuller view of your lesson progress history.',
-    stage: 'Current stage',
-    level: 'Current level',
+    backLink: 'My Pathway',
+    titleLineOne: 'Learning',
+    titleLineTwo: 'Progress',
+    currentStage: 'Current stage',
+    learningSince: 'Learning since',
     lessonsCompleted: 'Lessons completed',
     levelsCompleted: 'Levels completed',
-    currentLevelProgress: 'Current level progress',
-    recentProgress: 'Recent progress',
-    upcomingHistory: 'Detailed history',
-    upcomingHistoryBody: 'This page is ready to grow into a fuller progress history with timeline views, stage summaries, and deeper learning analytics.',
-    emptyRecent: 'Completed lessons will appear here once you start marking lessons done.',
+    currentLevel: 'Current level',
+    totalLessonsAvailable: 'Total lessons available',
+    stageBreakdown: 'Stage breakdown',
+    recentLessons: 'Recent lessons',
     untitledLesson: 'Untitled lesson',
-    loading: 'Loading your progress...',
     fallbackStage: 'Main pathway',
+    loading: 'Loading your progress...',
   };
 };
 
 export function LearningProgressScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const { completedProgress, completedLessons, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
+  const { allLessons, completedLessons, completedProgress, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
   });
 
-  const progressContext = useMemo(() => getProgressContext(pathwayRows, resumeRow), [pathwayRows, resumeRow]);
-  const recentCompleted = useMemo(() => completedProgress.slice(0, 5), [completedProgress]);
+  const progressContext = useMemo(
+    () => getProgressContext(pathwayRows, allLessons, completedLessons, resumeRow),
+    [allLessons, completedLessons, pathwayRows, resumeRow],
+  );
+  const stageBreakdown = useMemo(() => getStageBreakdown(allLessons, completedLessons), [allLessons, completedLessons]);
+  const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
+
+  if (isLoading) {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={theme.colors.accent} />
+          <AppText language={uiLanguage} variant="muted" style={styles.loadingText}>
+            {copy.loading}
+          </AppText>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
+        <View style={styles.headerBlock}>
+          <View style={{ height: Math.max(insets.top - 6, theme.spacing.sm) }} />
+          <Pressable accessibilityRole="button" style={styles.backLinkWrap} onPress={() => router.push('/(tabs)')}>
+            <AppText language={uiLanguage} variant="caption" style={styles.backLink}>
+              ‹ {copy.backLink}
+            </AppText>
+          </Pressable>
 
-        <View style={styles.inner}>
-          {isLoading ? (
-            <View style={styles.centerState}>
-              <ActivityIndicator color={theme.colors.accent} />
-              <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                {copy.loading}
+          <AppText language={uiLanguage} variant="title" style={styles.headerTitle}>
+            {copy.titleLineOne}
+          </AppText>
+          <AppText language={uiLanguage} variant="title" style={styles.headerTitleAccent}>
+            {copy.titleLineTwo}
+          </AppText>
+        </View>
+
+        <Card padding="md" radius="lg" style={styles.stageCard}>
+          <View style={styles.stageCardRow}>
+            <View style={styles.stagePrimary}>
+              <AppText language={uiLanguage} variant="caption" style={styles.cardEyebrow}>
+                {copy.currentStage}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.stageValue}>
+                {progressContext.stage || copy.fallbackStage}
+              </AppText>
+              {typeof progressContext.level === 'number' ? (
+                <View style={styles.levelPill}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.levelPillText}>
+                    Level {progressContext.level}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.sinceBlock}>
+              <AppText language={uiLanguage} variant="caption" style={styles.sinceLabel}>
+                {copy.learningSince}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.sinceValue}>
+                {formatLearningSince(profile?.created_at ?? null, uiLanguage)}
               </AppText>
             </View>
-          ) : (
-            <Stack gap="md">
-              <Card padding="md" radius="lg" style={styles.summaryCard}>
-                <Stack gap="sm">
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryCellWide}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.summaryLabel}>
-                        {copy.stage}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="body" style={styles.summaryValue}>
-                        {progressContext.stage || copy.fallbackStage}
-                      </AppText>
-                    </View>
+          </View>
+        </Card>
 
-                    <View style={styles.summaryCell}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.summaryLabel}>
-                        {copy.level}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="body" style={styles.summaryValue}>
-                        {typeof progressContext.level === 'number' ? progressContext.level : '–'}
-                      </AppText>
-                    </View>
-                  </View>
+        <View style={styles.metricsGrid}>
+          <Card padding="md" radius="lg" style={styles.metricCard}>
+            <AppText language={uiLanguage} variant="body" style={styles.metricValue}>
+              {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
+            </AppText>
+            <AppText language={uiLanguage} variant="caption" style={styles.metricLabel}>
+              {copy.lessonsCompleted}
+            </AppText>
+          </Card>
 
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryCell}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.summaryLabel}>
-                        {copy.lessonsCompleted}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="body" style={styles.summaryValue}>
-                        {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
-                      </AppText>
-                    </View>
+          <Card padding="md" radius="lg" style={styles.metricCard}>
+            <AppText language={uiLanguage} variant="body" style={styles.metricValue}>
+              {stats?.levels_completed ?? 0}
+            </AppText>
+            <AppText language={uiLanguage} variant="caption" style={styles.metricLabel}>
+              {copy.levelsCompleted}
+            </AppText>
+          </Card>
 
-                    <View style={styles.summaryCell}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.summaryLabel}>
-                        {copy.levelsCompleted}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="body" style={styles.summaryValue}>
-                        {stats?.levels_completed ?? 0}
-                      </AppText>
-                    </View>
-                  </View>
-                </Stack>
-              </Card>
+          <Card padding="md" radius="lg" style={styles.metricCard}>
+            <AppText language={uiLanguage} variant="body" style={styles.metricValue}>
+              {typeof progressContext.level === 'number' ? progressContext.level : '–'}
+            </AppText>
+            <AppText language={uiLanguage} variant="caption" style={styles.metricLabel}>
+              {copy.currentLevel}
+            </AppText>
+          </Card>
 
-              <Card padding="md" radius="lg" style={styles.levelCard}>
-                <Stack gap="sm">
-                  <AppText language={uiLanguage} variant="caption" style={styles.sectionLabel}>
-                    {copy.currentLevelProgress}
-                  </AppText>
+          <Card padding="md" radius="lg" style={styles.metricCard}>
+            <AppText language={uiLanguage} variant="body" style={styles.metricValue}>
+              {allLessons.length}
+            </AppText>
+            <AppText language={uiLanguage} variant="caption" style={styles.metricLabel}>
+              {copy.totalLessonsAvailable}
+            </AppText>
+          </Card>
+        </View>
 
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${Math.max(progressContext.levelPercent, 4)}%` }]} />
-                  </View>
+        <Stack gap="sm">
+          <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
+            {copy.stageBreakdown}
+          </AppText>
 
-                  <View style={styles.progressFooter}>
-                    <AppText language={uiLanguage} variant="body" style={styles.progressBody}>
-                      {progressContext.levelCompletedCount} / {progressContext.levelTotalCount || 0}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="body" style={styles.progressBody}>
-                      {progressContext.levelPercent}%
-                    </AppText>
-                  </View>
-                </Stack>
-              </Card>
-
-              <Stack gap="sm">
-                <AppText language={uiLanguage} variant="caption" style={styles.sectionLabel}>
-                  {copy.recentProgress}
+          <Stack gap="xs">
+            {stageBreakdown.map((row) => (
+              <View key={row.stage} style={styles.breakdownRow}>
+                <AppText language={uiLanguage} variant="caption" style={styles.breakdownStage}>
+                  {row.stage}
                 </AppText>
 
-                {recentCompleted.length > 0 ? (
-                  recentCompleted.map((progress) => {
-                    const lesson = progress.lessons;
-                    if (!lesson) {
-                      return null;
-                    }
+                <View style={styles.breakdownTrack}>
+                  <View style={[styles.breakdownFill, { width: `${row.percent}%` }]} />
+                </View>
 
-                    return (
-                      <Card key={progress.id ?? progress.lesson_id} padding="md" radius="lg" style={styles.lessonCard}>
-                        <View style={styles.lessonRow}>
-                          <AppText language={uiLanguage} variant="caption" style={styles.lessonNumber}>
-                            {getLessonNumber(lesson)}
-                          </AppText>
-                          <View style={styles.lessonCopy}>
-                            <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
-                              {getLessonTitle(lesson, uiLanguage, copy.untitledLesson)}
-                            </AppText>
-                            <AppText language={uiLanguage} variant="muted" style={styles.lessonMeta}>
-                              {lesson.stage || copy.fallbackStage}
-                            </AppText>
-                          </View>
-                        </View>
-                      </Card>
-                    );
-                  })
-                ) : (
-                  <Card padding="md" radius="lg" style={styles.lessonCard}>
-                    <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                      {copy.emptyRecent}
+                <AppText language={uiLanguage} variant="caption" style={styles.breakdownCount}>
+                  {row.completedCount}
+                </AppText>
+              </View>
+            ))}
+          </Stack>
+        </Stack>
+
+        <Stack gap="sm">
+          <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
+            {copy.recentLessons}
+          </AppText>
+
+          <Stack gap="sm">
+            {recentCompleted.map((progress) => {
+              const lesson = progress.lessons;
+              if (!lesson) {
+                return null;
+              }
+
+              return (
+                <Card key={progress.id ?? progress.lesson_id} padding="md" radius="lg" style={styles.recentCard}>
+                  <View style={styles.recentRow}>
+                    <View style={styles.recentDot} />
+                    <AppText language={uiLanguage} variant="caption" style={styles.recentNumber}>
+                      {getLessonNumber(lesson)}
                     </AppText>
-                  </Card>
-                )}
-              </Stack>
-
-              <Card padding="md" radius="lg" style={styles.placeholderCard}>
-                <Stack gap="sm">
-                  <AppText language={uiLanguage} variant="caption" style={styles.sectionLabel}>
-                    {copy.upcomingHistory}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.placeholderBody}>
-                    {copy.upcomingHistoryBody}
-                  </AppText>
-                </Stack>
-              </Card>
-            </Stack>
-          )}
-        </View>
+                    <View style={styles.recentCopy}>
+                      <AppText language={uiLanguage} variant="body" style={styles.recentTitle}>
+                        {getLessonTitle(lesson, uiLanguage, copy.untitledLesson)}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="muted" style={styles.recentMeta}>
+                        {formatCompletedAgo(progress.completed_at ?? null, uiLanguage)}
+                      </AppText>
+                    </View>
+                  </View>
+                </Card>
+              );
+            })}
+          </Stack>
+        </Stack>
       </Stack>
     </ScrollView>
   );
@@ -251,116 +380,186 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
+    padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  inner: {
-    paddingHorizontal: theme.spacing.md,
-  },
-  centerState: {
+  loadingState: {
     paddingVertical: theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.sm,
   },
-  stateText: {
-    textAlign: 'center',
+  loadingText: {
     color: theme.colors.mutedText,
   },
-  summaryCard: {
-    backgroundColor: '#DCEEFF',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  summaryCellWide: {
-    flex: 1.4,
-    minHeight: 88,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+  headerBlock: {
+    marginHorizontal: -theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.sm,
-    justifyContent: 'space-between',
   },
-  summaryCell: {
-    flex: 1,
-    minHeight: 88,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.sm,
-    justifyContent: 'space-between',
+  backLinkWrap: {
+    alignSelf: 'flex-start',
+    marginBottom: theme.spacing.xs,
   },
-  summaryLabel: {
-    color: '#66758A',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  summaryValue: {
+  backLink: {
+    color: theme.colors.accent,
     fontWeight: theme.typography.weights.bold,
-    fontSize: 22,
+  },
+  headerTitle: {
+    fontSize: 24,
     lineHeight: 28,
-  },
-  sectionLabel: {
-    color: '#7B8797',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
     fontWeight: theme.typography.weights.bold,
   },
-  levelCard: {
-    backgroundColor: theme.colors.surface,
+  headerTitleAccent: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginTop: -2,
   },
-  progressTrack: {
-    height: 12,
+  stageCard: {
+    backgroundColor: '#DCEEFF',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  stageCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  stagePrimary: {
+    flex: 1,
+    gap: theme.spacing.xs,
+  },
+  cardEyebrow: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    fontWeight: theme.typography.weights.bold,
+    color: '#6E7F95',
+  },
+  stageValue: {
+    fontSize: 40,
+    lineHeight: 44,
+    fontWeight: theme.typography.weights.bold,
+  },
+  levelPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    overflow: 'hidden',
     backgroundColor: theme.colors.surface,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: theme.colors.accent,
-    borderRightWidth: 1,
-    borderColor: theme.colors.border,
+  levelPillText: {
+    fontWeight: theme.typography.weights.bold,
   },
-  progressFooter: {
-    flexDirection: 'row',
+  sinceBlock: {
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: 2,
   },
-  progressBody: {
+  sinceLabel: {
+    color: '#8B9AAF',
+    fontWeight: theme.typography.weights.medium,
+  },
+  sinceValue: {
+    textAlign: 'right',
     fontWeight: theme.typography.weights.bold,
   },
-  lessonCard: {
-    backgroundColor: theme.colors.surface,
-  },
-  lessonRow: {
+  metricsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
   },
-  lessonNumber: {
-    minWidth: 42,
-    color: '#94A6BB',
+  metricCard: {
+    width: '48%',
+    minHeight: 94,
+    justifyContent: 'space-between',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  metricValue: {
+    fontSize: 42,
+    lineHeight: 44,
     fontWeight: theme.typography.weights.bold,
   },
-  lessonCopy: {
-    flex: 1,
-    gap: 2,
+  metricLabel: {
+    color: '#7B8797',
+    fontWeight: theme.typography.weights.medium,
   },
-  lessonTitle: {
+  sectionEyebrow: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
     fontWeight: theme.typography.weights.bold,
-  },
-  lessonMeta: {
     color: '#7B8797',
   },
-  placeholderCard: {
-    backgroundColor: '#F8FCFF',
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
-  placeholderBody: {
-    color: theme.colors.mutedText,
+  breakdownStage: {
+    width: 96,
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.bold,
+  },
+  breakdownTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#E6EEF7',
+    overflow: 'hidden',
+  },
+  breakdownFill: {
+    height: '100%',
+    borderRadius: theme.radii.xl,
+    backgroundColor: theme.colors.accent,
+  },
+  breakdownCount: {
+    width: 24,
+    textAlign: 'right',
+    color: '#4E5E73',
+    fontWeight: theme.typography.weights.bold,
+  },
+  recentCard: {
+    borderColor: '#D3E0EE',
+    backgroundColor: theme.colors.surface,
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  recentDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: '#CDEB8B',
+    borderWidth: 1,
+    borderColor: '#88A64E',
+  },
+  recentNumber: {
+    minWidth: 34,
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.bold,
+  },
+  recentCopy: {
+    flex: 1,
+    gap: 1,
+  },
+  recentTitle: {
+    fontWeight: theme.typography.weights.bold,
+  },
+  recentMeta: {
+    color: '#8B9AAF',
   },
 });
