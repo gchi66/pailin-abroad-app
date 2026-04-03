@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import checkCircleImage from '@/assets/images/CheckCircle.png';
 import lockImage from '@/assets/images/lock.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -10,7 +9,7 @@ import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { usePathwayData } from '@/src/hooks/use-pathway-data';
+import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
@@ -18,81 +17,80 @@ import { LessonListItem } from '@/src/types/lesson';
 type UiLanguage = 'en' | 'th';
 
 type PathwayCopy = {
-  headerEyebrow: string;
   welcomeBack: string;
   freePlanBadge: string;
   paidBadge: string;
-  lessonsCompletedLabel: string;
-  levelsCompletedLabel: string;
+  upgrade: string;
+  progressTitle: string;
+  viewDetails: string;
+  lessonsDone: string;
+  levelsDone: string;
+  currentLevel: string;
+  levelShort: string;
+  lessonsCompleteForLevel: (completedCount: number, totalCount: number, level: number | null) => string;
   continueLearning: string;
-  resumeHint: string;
-  freePlanHeading: string;
-  freePlanBody: string;
-  becomeMember: string;
-  pathwayTitle: string;
-  pathwaySubtitleFree: string;
-  pathwaySubtitlePaid: string;
+  upNext: string;
   openLesson: string;
-  openLibrary: string;
-  openFreeLibrary: string;
-  seeCompleted: string;
-  completedTitle: string;
-  completedEmpty: string;
+  becomeMember: string;
+  browseLibrary: string;
+  browseFreeLibrary: string;
   untitledLesson: string;
   noResumeLesson: string;
+  noUpcomingLessons: string;
+  freePlanBody: string;
 };
 
 const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
   if (uiLanguage === 'th') {
     return {
-      headerEyebrow: 'เส้นทางของฉัน',
       welcomeBack: 'ยินดีต้อนรับกลับมา',
       freePlanBadge: 'แพ็กเกจฟรี',
       paidBadge: 'สมาชิก',
-      lessonsCompletedLabel: 'บทเรียนที่เรียนจบ',
-      levelsCompletedLabel: 'เลเวลที่เรียนจบ',
+      upgrade: 'อัปเกรด',
+      progressTitle: 'ความคืบหน้าของฉัน',
+      viewDetails: 'ดูรายละเอียด →',
+      lessonsDone: 'บทเรียนที่จบ',
+      levelsDone: 'เลเวลที่จบ',
+      currentLevel: 'เลเวลปัจจุบัน',
+      levelShort: 'เลเวล',
+      lessonsCompleteForLevel: (completedCount, totalCount, level) =>
+        `${completedCount} จาก ${totalCount} บทเรียนที่เรียนจบสำหรับเลเวล ${typeof level === 'number' ? level : '–'}`,
       continueLearning: 'เรียนต่อ',
-      resumeHint: 'กลับไปยังบทเรียนที่เหมาะที่สุดสำหรับการเรียนต่อในแอป',
-      freePlanHeading: 'แพ็กเกจฟรีของคุณยังใช้งานได้',
-      freePlanBody: 'คุณยังเข้าถึงบทเรียนแรกของแต่ละเลเวลได้ตามปกติ และอัปเกรดได้ทุกเมื่อเพื่อปลดล็อกคลังบทเรียนทั้งหมด',
-      becomeMember: 'เป็นสมาชิก',
-      pathwayTitle: 'เส้นทางบทเรียน',
-      pathwaySubtitleFree: 'บทเรียนที่เปิดได้ในแพ็กเกจปัจจุบันจะแสดงที่นี่ พร้อมบทเรียนถัดไปที่ต้องอัปเกรดเพื่อปลดล็อก',
-      pathwaySubtitlePaid: 'บทเรียนถัดไปที่แนะนำสำหรับการเรียนต่อในลำดับปัจจุบันของคุณ',
-      openLesson: 'เปิดบทเรียน',
-      openLibrary: 'เปิดคลังบทเรียน',
-      openFreeLibrary: 'เปิดคลังบทเรียนฟรี',
-      seeCompleted: 'ดูบทเรียนที่เรียนจบ',
-      completedTitle: 'เรียนจบแล้ว',
-      completedEmpty: 'เมื่อคุณเรียนจบบทเรียน รายการล่าสุดจะปรากฏที่นี่',
+      upNext: 'ถัดไป',
+      openLesson: 'เปิดบทเรียน →',
+      becomeMember: 'เป็นสมาชิก →',
+      browseLibrary: 'เปิดคลังบทเรียน',
+      browseFreeLibrary: 'เปิดคลังบทเรียนฟรี',
       untitledLesson: 'ไม่มีชื่อบทเรียน',
       noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
+      noUpcomingLessons: 'ยังไม่มีบทเรียนถัดไปเพิ่มเติมในตอนนี้',
+      freePlanBody: 'แพ็กเกจฟรียังเรียนบทแรกของแต่ละเลเวลได้ และอัปเกรดเมื่อพร้อมเพื่อปลดล็อกบทเรียนทั้งหมด',
     };
   }
 
   return {
-    headerEyebrow: 'My Pathway',
     welcomeBack: 'Welcome back',
-    freePlanBadge: 'Free Plan',
+    freePlanBadge: 'Free plan',
     paidBadge: 'Member',
-    lessonsCompletedLabel: 'Lessons completed',
-    levelsCompletedLabel: 'Levels completed',
-    continueLearning: 'Continue learning',
-    resumeHint: 'Jump back into the lesson that makes the most sense as your next step in the app.',
-    freePlanHeading: 'Your free plan is active',
-    freePlanBody: 'You can still access the first lesson of each level, and upgrade whenever you are ready for the full library.',
-    becomeMember: 'Become a member',
-    pathwayTitle: 'Pathway lessons',
-    pathwaySubtitleFree: 'Lessons available on your current plan appear here, alongside the next lessons membership unlocks.',
-    pathwaySubtitlePaid: 'Your next recommended lessons in the order you are currently moving through.',
-    openLesson: 'Open lesson',
-    openLibrary: 'Open lesson library',
-    openFreeLibrary: 'Open free lesson library',
-    seeCompleted: 'See completed lessons',
-    completedTitle: 'Completed',
-    completedEmpty: 'Once lessons are completed, your latest progress will show here.',
+    upgrade: 'Upgrade',
+    progressTitle: 'My Progress',
+    viewDetails: 'View details →',
+    lessonsDone: 'Lessons done',
+    levelsDone: 'Levels done',
+    currentLevel: 'Current level',
+    levelShort: 'Level',
+    lessonsCompleteForLevel: (completedCount, totalCount, level) =>
+      `${completedCount} of ${totalCount} lessons complete for Level ${typeof level === 'number' ? level : '–'}`,
+    continueLearning: 'Continue Learning',
+    upNext: 'Up Next',
+    openLesson: 'Open lesson →',
+    becomeMember: 'Become a member →',
+    browseLibrary: 'Browse lesson library',
+    browseFreeLibrary: 'Browse free lesson library',
     untitledLesson: 'Untitled lesson',
     noResumeLesson: 'There is no next lesson right now.',
+    noUpcomingLessons: 'There are no more upcoming lessons right now.',
+    freePlanBody: 'Your free plan still includes the first lesson of each level. Upgrade whenever you are ready for full pathway access.',
   };
 };
 
@@ -108,12 +106,6 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
   }
 
   return emptyFallback;
-};
-
-const isCheckpointLesson = (lesson: LessonListItem) => {
-  const title = lesson.title?.toLowerCase() ?? '';
-  const thaiTitle = lesson.title_th?.toLowerCase() ?? '';
-  return title.includes('checkpoint') || thaiTitle.includes('checkpoint');
 };
 
 const getLessonTitle = (lesson: LessonListItem, uiLanguage: UiLanguage, emptyFallback: string) =>
@@ -132,12 +124,58 @@ const getLessonNumber = (lesson: LessonListItem) => {
   return '–';
 };
 
+const getFirstName = (displayName: string) => {
+  const trimmed = displayName.trim();
+  if (!trimmed) {
+    return 'Pailin Abroad';
+  }
+
+  const [firstToken] = trimmed.split(/\s+/);
+  return firstToken || trimmed;
+};
+
+const getStageLabel = (stage: string | null, uiLanguage: UiLanguage) => {
+  if (!stage?.trim()) {
+    return uiLanguage === 'th' ? 'เส้นทางหลัก' : 'Main pathway';
+  }
+
+  return stage.trim();
+};
+
+const getProgressContext = (
+  pathwayRows: PathwayLessonRow[],
+  allLessons: LessonListItem[],
+  completedLessons: LessonListItem[],
+  resumeRow: PathwayLessonRow | null,
+) => {
+  const anchorLesson = resumeRow?.lesson ?? pathwayRows[pathwayRows.length - 1]?.lesson ?? null;
+  const anchorStage = anchorLesson?.stage ?? null;
+  const anchorLevel = anchorLesson?.level ?? null;
+  const levelLessons = allLessons.filter((lesson) => lesson.stage === anchorStage && lesson.level === anchorLevel);
+  const completedIds = new Set(
+    completedLessons
+      .filter((lesson) => lesson.stage === anchorStage && lesson.level === anchorLevel)
+      .map((lesson) => lesson.id),
+  );
+  const levelCompletedCount = levelLessons.filter((lesson) => completedIds.has(lesson.id)).length;
+  const levelTotalCount = levelLessons.length;
+  const levelPercent = levelTotalCount > 0 ? Math.round((levelCompletedCount / levelTotalCount) * 100) : 0;
+
+  return {
+    stage: anchorStage,
+    level: anchorLevel,
+    levelCompletedCount,
+    levelTotalCount,
+    levelPercent,
+  };
+};
+
 export function MyPathwayScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile, user } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const { completedLessons, completedProgress, errorMessage, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
+  const { allLessons, completedLessons, errorMessage, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
   });
@@ -149,15 +187,23 @@ export function MyPathwayScreen() {
     (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
     user?.email ||
     'Pailin Abroad';
+  const firstName = getFirstName(displayName);
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
 
-  const completedPreview = useMemo(() => {
-    return completedProgress
-      .map((entry) => entry.lessons)
-      .filter((lesson): lesson is LessonListItem => Boolean(lesson))
-      .slice(0, 3);
-  }, [completedProgress]);
+  const progressContext = useMemo(
+    () => getProgressContext(pathwayRows, allLessons, completedLessons, resumeRow),
+    [allLessons, completedLessons, pathwayRows, resumeRow],
+  );
+
+  const upcomingRows = useMemo(() => {
+    if (!resumeRow) {
+      return pathwayRows.filter((row) => row.state !== 'completed').slice(0, 2);
+    }
+
+    const resumeIndex = pathwayRows.findIndex((row) => row.lesson.id === resumeRow.lesson.id);
+    return pathwayRows.slice(resumeIndex + 1).filter((row) => row.state !== 'completed').slice(0, 2);
+  }, [pathwayRows, resumeRow]);
 
   const handleOpenLesson = (lessonId: string | null) => {
     if (!lessonId) {
@@ -170,157 +216,202 @@ export function MyPathwayScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <Card padding="lg" radius="lg" style={styles.headerCard}>
+        <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
-            {avatarSource ? (
-              <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <AppText language={uiLanguage} variant="caption" style={styles.avatarFallbackText}>
-                  {displayName.slice(0, 2).toUpperCase()}
-                </AppText>
-              </View>
-            )}
+            <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/account/profile')}>
+              {avatarSource ? (
+                <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.avatarFallbackText}>
+                    {firstName.slice(0, 1).toUpperCase()}
+                  </AppText>
+                </View>
+              )}
+            </Pressable>
 
             <View style={styles.headerCopy}>
-              <AppText language={uiLanguage} variant="caption" style={styles.eyebrow}>
-                {copy.headerEyebrow}
-              </AppText>
-              <AppText language={uiLanguage} variant="title" style={styles.headerTitle}>
-                {copy.welcomeBack}, {displayName}
-              </AppText>
-
-              <View style={[styles.planBadge, hasMembership ? styles.planBadgePaid : styles.planBadgeFree]}>
-                <AppText language={uiLanguage} variant="caption" style={styles.planBadgeText}>
-                  {hasMembership ? copy.paidBadge : copy.freePlanBadge}
-                </AppText>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                {copy.lessonsCompletedLabel}
-              </AppText>
-              <AppText language={uiLanguage} variant="title" style={styles.statValue}>
-                {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
-              </AppText>
-            </View>
-
-            <View style={styles.statCard}>
-              <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                {copy.levelsCompletedLabel}
-              </AppText>
-              <AppText language={uiLanguage} variant="title" style={styles.statValue}>
-                {stats?.levels_completed ?? 0}
-              </AppText>
-            </View>
-          </View>
-        </Card>
-
-        <Card padding="lg" radius="lg" style={styles.heroCard}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-              {copy.continueLearning}
-            </AppText>
-            <AppText language={uiLanguage} variant="muted" style={styles.heroHint}>
-              {copy.resumeHint}
-            </AppText>
-          </Stack>
-
-          {isLoading ? (
-            <View style={styles.centerState}>
-              <ActivityIndicator color={theme.colors.accent} />
-            </View>
-          ) : resumeRow ? (
-            <View style={styles.resumeCard}>
-              <View style={styles.resumeMeta}>
-                {isCheckpointLesson(resumeRow.lesson) ? (
-                  <Image source={checkCircleImage} style={styles.resumeCheckpointIcon} resizeMode="contain" />
-                ) : (
-                  <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
-                    {getLessonNumber(resumeRow.lesson)}
+              <View style={styles.headerTopRow}>
+                <View style={styles.headerTextGroup}>
+                  <AppText language={uiLanguage} variant="title" style={styles.headerTitle}>
+                    {copy.welcomeBack},
                   </AppText>
-                )}
-
-                <View style={styles.resumeTextGroup}>
-                  <AppText language={uiLanguage} variant="body" style={styles.resumeTitle}>
-                    {getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
+                  <AppText language={uiLanguage} variant="title" style={styles.headerName}>
+                    {firstName}.
                   </AppText>
-                  {getLessonFocus(resumeRow.lesson, uiLanguage) ? (
-                    <AppText language={uiLanguage} variant="muted" style={styles.resumeFocus}>
-                      {getLessonFocus(resumeRow.lesson, uiLanguage)}
+                </View>
+
+                <View style={styles.planMeta}>
+                  <View style={[styles.planBadge, hasMembership ? styles.planBadgePaid : styles.planBadgeFree]}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.planBadgeText}>
+                      {hasMembership ? copy.paidBadge : copy.freePlanBadge}
                     </AppText>
+                  </View>
+                  {!hasMembership ? (
+                    <Pressable accessibilityRole="button" onPress={() => router.push('/account/membership')}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.upgradeLink}>
+                        {copy.upgrade}
+                      </AppText>
+                    </Pressable>
                   ) : null}
                 </View>
               </View>
-
-              <Button
-                language={uiLanguage}
-                title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
-                onPress={() => {
-                  if (resumeRow.state === 'locked') {
-                    router.push('/account/membership');
-                    return;
-                  }
-
-                  handleOpenLesson(resumeRow.lesson.id ?? null);
-                }}
-              />
             </View>
-          ) : (
-            <AppText language={uiLanguage} variant="muted" style={styles.heroHint}>
-              {errorMessage || copy.noResumeLesson}
-            </AppText>
-          )}
+          </View>
+        </View>
+
+        <Card padding="md" radius="lg" style={styles.progressCard}>
+          <Stack gap="sm">
+            <View style={styles.progressHeader}>
+              <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
+                {copy.progressTitle}
+              </AppText>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/pathway/progress')}>
+                <AppText language={uiLanguage} variant="caption" style={styles.detailsLink}>
+                  {copy.viewDetails}
+                </AppText>
+              </Pressable>
+            </View>
+
+            <View style={styles.progressMetrics}>
+              <View style={styles.progressMetricPrimary}>
+                <AppText language={uiLanguage} variant="body" style={styles.stageText}>
+                  {getStageLabel(progressContext.stage, uiLanguage)}
+                </AppText>
+                {typeof progressContext.level === 'number' ? (
+                  <View style={styles.levelPill}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.levelPillText}>
+                      {copy.levelShort} {progressContext.level}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.statsGrid}>
+                <View style={styles.statBox}>
+                  <AppText language={uiLanguage} variant="body" style={styles.statValue}>
+                    {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
+                    {copy.lessonsDone}
+                  </AppText>
+                </View>
+
+                <View style={styles.statBox}>
+                  <AppText language={uiLanguage} variant="body" style={styles.statValue}>
+                    {stats?.levels_completed ?? 0}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
+                    {copy.levelsDone}
+                  </AppText>
+                </View>
+                <View style={styles.statBox}>
+                  <AppText language={uiLanguage} variant="body" style={styles.statValue}>
+                    {typeof progressContext.level === 'number' ? progressContext.level : '–'}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
+                    {copy.currentLevel}
+                  </AppText>
+                </View>
+              </View>
+
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${Math.max(progressContext.levelPercent, 6)}%` }]} />
+              </View>
+
+              <View style={styles.progressFooter}>
+                <AppText language={uiLanguage} variant="caption" style={styles.progressSummary}>
+                  {copy.lessonsCompleteForLevel(
+                    progressContext.levelCompletedCount,
+                    progressContext.levelTotalCount || 0,
+                    progressContext.level,
+                  )}
+                </AppText>
+                <AppText language={uiLanguage} variant="caption" style={styles.progressPercent}>
+                  {progressContext.levelPercent}%
+                </AppText>
+              </View>
+            </View>
+          </Stack>
         </Card>
 
-        {!hasMembership ? (
-          <Card padding="lg" radius="lg" style={styles.noticeCard}>
-            <Stack gap="sm">
-              <AppText language={uiLanguage} variant="body" style={styles.noticeTitle}>
-                {copy.freePlanHeading}
+        <Stack gap="sm">
+          <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
+            {copy.continueLearning}
+          </AppText>
+
+          <Card padding="md" radius="lg" style={styles.resumeCard}>
+            {isLoading ? (
+              <View style={styles.centerState}>
+                <ActivityIndicator color={theme.colors.accent} />
+              </View>
+            ) : resumeRow ? (
+              <Stack gap="md">
+                <View style={styles.resumeMeta}>
+                  <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
+                    {getLessonNumber(resumeRow.lesson)}
+                  </AppText>
+
+                  <View style={styles.resumeTextGroup}>
+                    <AppText language={uiLanguage} variant="body" style={styles.resumeTitle}>
+                      {getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
+                    </AppText>
+                    {getLessonFocus(resumeRow.lesson, uiLanguage) ? (
+                      <AppText language={uiLanguage} variant="muted" style={styles.resumeFocus}>
+                        {getLessonFocus(resumeRow.lesson, uiLanguage)}
+                      </AppText>
+                    ) : null}
+                    {!hasMembership && resumeRow.state === 'locked' ? (
+                      <AppText language={uiLanguage} variant="muted" style={styles.membershipHint}>
+                        {copy.freePlanBody}
+                      </AppText>
+                    ) : null}
+                  </View>
+                </View>
+
+                <Button
+                  language={uiLanguage}
+                  title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                  onPress={() => {
+                    if (resumeRow.state === 'locked') {
+                      router.push('/account/membership');
+                      return;
+                    }
+
+                    handleOpenLesson(resumeRow.lesson.id ?? null);
+                  }}
+                  style={styles.resumeButton}
+                />
+              </Stack>
+            ) : (
+              <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
+                {errorMessage || copy.noResumeLesson}
               </AppText>
-              <AppText language={uiLanguage} variant="muted" style={styles.noticeBody}>
-                {copy.freePlanBody}
-              </AppText>
-              <Button language={uiLanguage} title={copy.becomeMember} onPress={() => router.push('/account/membership')} />
-            </Stack>
+            )}
           </Card>
-        ) : null}
+        </Stack>
 
-        <Card padding="lg" radius="lg" style={styles.sectionCard}>
+        <Stack gap="sm">
+          <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
+            {copy.upNext}
+          </AppText>
+
           <Stack gap="sm">
-            <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-              {copy.pathwayTitle}
-            </AppText>
-            <AppText language={uiLanguage} variant="muted" style={styles.sectionSubtitle}>
-              {hasMembership ? copy.pathwaySubtitlePaid : copy.pathwaySubtitleFree}
-            </AppText>
-          </Stack>
-
-          {isLoading ? (
-            <View style={styles.centerState}>
-              <ActivityIndicator color={theme.colors.accent} />
-            </View>
-          ) : (
-            <Stack gap="sm">
-              {pathwayRows.map((row, index) => {
-                const title = getLessonTitle(row.lesson, uiLanguage, copy.untitledLesson);
-                const focus = getLessonFocus(row.lesson, uiLanguage);
+            {isLoading ? (
+              <Card padding="md" radius="lg" style={styles.upNextCard}>
+                <View style={styles.centerState}>
+                  <ActivityIndicator color={theme.colors.accent} />
+                </View>
+              </Card>
+            ) : upcomingRows.length > 0 ? (
+              upcomingRows.map((row) => {
                 const isLocked = row.state === 'locked';
-                const isCompleted = row.state === 'completed';
 
                 return (
                   <Pressable
                     key={row.lesson.id}
                     accessibilityRole="button"
-                    style={[
-                      styles.lessonRow,
-                      index === 0 && !isLocked ? styles.lessonRowPrimary : null,
-                      isLocked ? styles.lessonRowLocked : null,
-                    ]}
+                    style={styles.upNextCard}
                     onPress={() => {
                       if (isLocked) {
                         router.push('/account/membership');
@@ -329,93 +420,45 @@ export function MyPathwayScreen() {
 
                       handleOpenLesson(row.lesson.id);
                     }}>
-                    <View style={styles.lessonMain}>
-                      {isCheckpointLesson(row.lesson) ? (
-                        <Image source={checkCircleImage} style={styles.checkpointIcon} resizeMode="contain" />
-                      ) : (
-                        <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
-                          {getLessonNumber(row.lesson)}
-                        </AppText>
-                      )}
+                    <View style={styles.upNextMain}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.upNextNumber}>
+                        {getLessonNumber(row.lesson)}
+                      </AppText>
 
-                      <View style={styles.lessonCopy}>
-                        <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
-                          {title}
+                      <View style={styles.upNextCopy}>
+                        <AppText language={uiLanguage} variant="body" style={styles.upNextTitle}>
+                          {getLessonTitle(row.lesson, uiLanguage, copy.untitledLesson)}
                         </AppText>
-                        {focus ? (
-                          <AppText language={uiLanguage} variant="muted" style={styles.lessonFocus}>
-                            {focus}
+                        {getLessonFocus(row.lesson, uiLanguage) ? (
+                          <AppText language={uiLanguage} variant="muted" style={styles.upNextFocus}>
+                            {getLessonFocus(row.lesson, uiLanguage)}
                           </AppText>
                         ) : null}
                       </View>
-                    </View>
 
-                    <View style={styles.lessonRight}>
-                      {isLocked ? (
-                        <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" />
-                      ) : isCompleted ? (
-                        <Image source={checkCircleImage} style={styles.completedIcon} resizeMode="contain" />
-                      ) : (
-                        <AppText language={uiLanguage} variant="body" style={styles.chevron}>
-                          ›
-                        </AppText>
-                      )}
+                      {isLocked ? <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" /> : null}
                     </View>
                   </Pressable>
                 );
-              })}
-
-              <Pressable accessibilityRole="button" style={styles.linkButton} onPress={() => router.push('/(tabs)/lessons')}>
-                <AppText language={uiLanguage} variant="caption" style={styles.linkButtonText}>
-                  {hasMembership ? copy.openLibrary : copy.openFreeLibrary}
+              })
+            ) : (
+              <Card padding="md" radius="lg" style={styles.upNextCard}>
+                <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
+                  {errorMessage || copy.noUpcomingLessons}
                 </AppText>
-              </Pressable>
-            </Stack>
-          )}
-        </Card>
+              </Card>
+            )}
 
-        <Card padding="lg" radius="lg" style={styles.sectionCard}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-              {copy.completedTitle}
-            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.libraryButton}
+              onPress={() => router.push('/(tabs)/lessons')}>
+              <AppText language={uiLanguage} variant="caption" style={styles.libraryButtonText}>
+                {hasMembership ? copy.browseLibrary : copy.browseFreeLibrary}
+              </AppText>
+            </Pressable>
           </Stack>
-
-          {completedPreview.length > 0 ? (
-            <Stack gap="sm">
-              {completedPreview.map((lesson) => (
-                <View key={`completed-${lesson.id}`} style={styles.completedRow}>
-                  <View style={styles.completedRowMain}>
-                    <AppText language={uiLanguage} variant="body" style={styles.completedNumber}>
-                      {getLessonNumber(lesson)}
-                    </AppText>
-                    <View style={styles.completedCopy}>
-                      <AppText language={uiLanguage} variant="body" style={styles.completedTitle}>
-                        {getLessonTitle(lesson, uiLanguage, copy.untitledLesson)}
-                      </AppText>
-                      {getLessonFocus(lesson, uiLanguage) ? (
-                        <AppText language={uiLanguage} variant="muted" style={styles.completedFocus}>
-                          {getLessonFocus(lesson, uiLanguage)}
-                        </AppText>
-                      ) : null}
-                    </View>
-                  </View>
-                  <Image source={checkCircleImage} style={styles.completedIcon} resizeMode="contain" />
-                </View>
-              ))}
-
-              <Pressable accessibilityRole="button" style={styles.linkButton} onPress={() => router.push('/pathway/completed')}>
-                <AppText language={uiLanguage} variant="caption" style={styles.linkButtonText}>
-                  {copy.seeCompleted}
-                </AppText>
-              </Pressable>
-            </Stack>
-          ) : (
-            <AppText language={uiLanguage} variant="muted" style={styles.sectionSubtitle}>
-              {errorMessage || copy.completedEmpty}
-            </AppText>
-          )}
-        </Card>
+        </Stack>
       </Stack>
     </ScrollView>
   );
@@ -430,253 +473,295 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  headerCard: {
-    gap: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
+  headerBlock: {
+    marginHorizontal: -theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: 14,
+  },
+  avatarButton: {
+    borderRadius: 29,
   },
   avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.accent,
   },
   avatarFallback: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarFallbackText: {
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.lg,
+    color: theme.colors.surface,
     fontWeight: theme.typography.weights.bold,
   },
   headerCopy: {
     flex: 1,
-    gap: theme.spacing.xs,
   },
-  eyebrow: {
-    color: theme.colors.mutedText,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  headerTextGroup: {
+    flex: 1,
+    gap: 0,
   },
   headerTitle: {
-    fontSize: theme.typography.sizes['2xl'],
-    lineHeight: theme.typography.lineHeights.xl,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
+  },
+  headerName: {
+    marginTop: -2,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accent,
   },
   planBadge: {
+    flexShrink: 0,
     alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.surface,
   },
   planBadgeFree: {
-    backgroundColor: theme.colors.warningSurface,
+    backgroundColor: theme.colors.surface,
   },
   planBadgePaid: {
     backgroundColor: theme.colors.success,
   },
   planBadgeText: {
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
   },
-  statsRow: {
+  planMeta: {
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  upgradeLink: {
+    marginTop: 2,
+    marginLeft: 6,
+    color: theme.colors.primary,
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.bold,
+  },
+  progressCard: {
+    backgroundColor: '#DCEEFF',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  sectionEyebrow: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  detailsLink: {
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.bold,
+  },
+  progressMetrics: {
+    gap: theme.spacing.sm,
+  },
+  progressMetricPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+  },
+  stageText: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: theme.typography.weights.bold,
+  },
+  levelPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.radii.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  levelPillText: {
+    fontWeight: theme.typography.weights.bold,
+  },
+  statsGrid: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
   },
-  statCard: {
+  statBox: {
     flex: 1,
-    backgroundColor: theme.colors.accentSurface,
+    minHeight: 84,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.md,
-    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
-  },
-  statLabel: {
-    color: theme.colors.mutedText,
+    justifyContent: 'space-between',
   },
   statValue: {
-    fontSize: theme.typography.sizes.xl,
-    lineHeight: theme.typography.lineHeights.lg,
-  },
-  heroCard: {
-    gap: theme.spacing.md,
-    backgroundColor: theme.colors.accentMuted,
-  },
-  sectionCard: {
-    gap: theme.spacing.md,
-  },
-  noticeCard: {
-    backgroundColor: theme.colors.surface,
-  },
-  sectionTitle: {
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: theme.typography.weights.bold,
   },
-  sectionSubtitle: {
-    color: theme.colors.mutedText,
+  statLabel: {
+    color: '#66758A',
+    fontWeight: theme.typography.weights.medium,
   },
-  heroHint: {
-    color: theme.colors.mutedText,
-  },
-  noticeTitle: {
-    fontWeight: theme.typography.weights.bold,
-  },
-  noticeBody: {
-    color: theme.colors.mutedText,
-  },
-  centerState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.lg,
-  },
-  resumeCard: {
-    gap: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+  progressTrack: {
+    height: 10,
+    borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    padding: theme.spacing.md,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.surface,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.accent,
+    borderRightWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  progressFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  progressSummary: {
+    color: '#435267',
+  },
+  progressPercent: {
+    color: '#435267',
+    fontWeight: theme.typography.weights.bold,
+  },
+  resumeCard: {
+    backgroundColor: theme.colors.surface,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   resumeMeta: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: theme.spacing.md,
   },
-  resumeCheckpointIcon: {
-    width: 28,
-    height: 28,
-  },
   resumeNumber: {
-    minWidth: 44,
+    minWidth: 54,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: theme.typography.weights.bold,
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.lg,
   },
   resumeTextGroup: {
     flex: 1,
     gap: 2,
   },
   resumeTitle: {
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: theme.typography.weights.bold,
   },
   resumeFocus: {
-    color: theme.colors.mutedText,
+    color: '#66758A',
   },
-  lessonRow: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  membershipHint: {
+    marginTop: theme.spacing.xs,
+    color: '#66758A',
+  },
+  resumeButton: {
+    width: '100%',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  upNextCard: {
+    minHeight: 84,
     borderRadius: theme.radii.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#C7D9EE',
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-  },
-  lessonRowPrimary: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accentSurface,
-  },
-  lessonRowLocked: {
-    opacity: 0.78,
-  },
-  lessonMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  lessonNumber: {
-    minWidth: 42,
-    fontWeight: theme.typography.weights.bold,
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.lg,
-  },
-  checkpointIcon: {
-    width: 28,
-    height: 28,
-  },
-  lessonCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  lessonTitle: {
-    fontWeight: theme.typography.weights.semibold,
-  },
-  lessonFocus: {
-    color: theme.colors.mutedText,
-  },
-  lessonRight: {
-    width: 28,
-    alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  lockIcon: {
-    width: 20,
-    height: 20,
-  },
-  completedIcon: {
-    width: 20,
-    height: 20,
-  },
-  chevron: {
-    fontSize: 24,
-    lineHeight: 24,
-    color: theme.colors.mutedText,
-  },
-  linkButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: theme.spacing.xs,
-  },
-  linkButtonText: {
-    color: theme.colors.text,
-    textDecorationLine: 'underline',
-    textTransform: 'uppercase',
-    fontWeight: theme.typography.weights.semibold,
-  },
-  completedRow: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  completedRowMain: {
-    flex: 1,
+  upNextMain: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
   },
-  completedNumber: {
-    minWidth: 42,
-    fontWeight: theme.typography.weights.semibold,
+  upNextNumber: {
+    minWidth: 34,
+    color: '#94A6BB',
+    fontWeight: theme.typography.weights.bold,
   },
-  completedCopy: {
+  upNextCopy: {
     flex: 1,
     gap: 2,
   },
-  completedTitle: {
-    fontWeight: theme.typography.weights.semibold,
+  upNextTitle: {
+    fontWeight: theme.typography.weights.bold,
+    fontSize: 18,
+    lineHeight: 22,
   },
-  completedFocus: {
+  upNextFocus: {
+    color: '#7B8797',
+  },
+  lockIcon: {
+    width: 18,
+    height: 18,
+  },
+  libraryButton: {
+    minHeight: 54,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  libraryButtonText: {
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontWeight: theme.typography.weights.bold,
+  },
+  centerState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.lg,
+  },
+  emptyText: {
     color: theme.colors.mutedText,
   },
 });

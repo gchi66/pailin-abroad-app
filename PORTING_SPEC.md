@@ -30,8 +30,15 @@
 - This means the project is past the initial "can we get it onto a real phone?" stage and can proceed with normal feature work.
 
 ### Current Focus
-- Immediate next work is the login/auth screen experience.
-- Priority is improving the mobile feel, clarity, and polish of the login page before moving on to other UI cleanup passes.
+- Login/auth screen polish pass is now done for the current round.
+- Recent auth work focused on:
+  - full-screen signed-out presentation without the bottom tab bar
+  - updated mobile auth layout / branding treatment
+  - sign up / log in mode switching cleanup
+  - improved spacing / sizing behavior for smaller phones
+  - refined visual polish on shadows, headline treatment, and password-rule presentation
+- Immediate next work is the native `My Pathway` page.
+- Priority is improving the `My Pathway` screen experience before moving on to later UI cleanup passes.
 
 ### Step A: Theme
 - Added: `src/theme/theme.ts`

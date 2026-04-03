@@ -223,6 +223,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     resumeRow,
     completedLessons,
     completedProgress,
+    allLessons,
     isLoading,
     errorMessage,
     setLessonCompletedOptimistically,
