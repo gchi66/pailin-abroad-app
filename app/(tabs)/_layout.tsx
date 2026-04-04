@@ -94,6 +94,12 @@ export default function TabLayout() {
           title: text.more,
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="ellipsis.circle.fill" color={color} />,
         }}
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push('/(tabs)/account');
+          },
+        }}
       />
       <Tabs.Screen
         name="explore"

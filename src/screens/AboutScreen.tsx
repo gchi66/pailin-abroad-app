@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { aboutImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
@@ -233,6 +234,7 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
 };
 
 export function AboutScreen() {
+  const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const copy = useMemo(() => getAboutPageCopy(uiLanguage), [uiLanguage]);
   const [activeSection, setActiveSection] = useState<AboutSectionKey>('method');
@@ -250,7 +252,7 @@ export function AboutScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} />
+        <StandardPageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account')} topInsetOffset={52} />
 
         <View style={styles.sectionTabs}>
           {sectionOptions.map((option) => {
