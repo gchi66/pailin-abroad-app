@@ -101,7 +101,7 @@ export function ExerciseBankSectionScreen() {
               <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
                 {errorMessage}
               </AppText>
-              <Button language={uiLanguage} title={copy.backToBank} onPress={() => router.push('/resources/exercise-bank')} />
+              <Button language={uiLanguage} title={copy.backToBank} onPress={() => router.push('/(tabs)/resources/exercise-bank')} />
             </Stack>
           </Card>
         </View>
@@ -116,7 +116,7 @@ export function ExerciseBankSectionScreen() {
           exercises={Array.isArray(section.exercises) ? section.exercises : []}
           onSetContentLang={setContentLang}
           onBack={() => router.back()}
-          onDone={() => router.push('/resources/exercise-bank')}
+          onDone={() => router.push('/(tabs)/resources/exercise-bank')}
         />
       ) : null}
     </View>

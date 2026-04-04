@@ -1,7 +1,5 @@
-import React from 'react';
-
-import { TopicLibraryScreen } from '@/src/screens/TopicLibraryScreen';
+import { Redirect } from 'expo-router';
 
 export default function TopicLibraryRoute() {
-  return <TopicLibraryScreen />;
+  return <Redirect href="/(tabs)/resources/topic-library" />;
 }

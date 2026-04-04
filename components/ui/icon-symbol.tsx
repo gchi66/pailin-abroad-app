@@ -19,6 +19,7 @@ const MAPPING = {
   'book.fill': 'menu-book',
   'square.grid.2x2.fill': 'grid-view',
   'person.fill': 'person',
+  'ellipsis.circle.fill': 'more-horiz',
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',

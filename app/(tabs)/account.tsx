@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { AccountScreen } from '@/src/screens/AccountScreen';
+import { MoreScreen } from '@/src/screens/MoreScreen';
 
-export default function AccountTabScreen() {
-  return <AccountScreen />;
+export default function MoreTabScreen() {
+  return <MoreScreen />;
 }

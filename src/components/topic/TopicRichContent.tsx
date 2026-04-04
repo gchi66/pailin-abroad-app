@@ -146,7 +146,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     if (nextHref.startsWith('https://pa.invalid/topic-library/')) {
       const slug = nextHref.replace('https://pa.invalid/topic-library/', '').replace(/^\/+/, '');
       if (slug) {
-        router.push(`/resources/topic-library/${slug}`);
+        router.push(`/(tabs)/resources/topic-library/${slug}`);
       }
       return;
     }
@@ -162,7 +162,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     if (nextHref.startsWith('/topic-library/')) {
       const slug = nextHref.replace('/topic-library/', '').replace(/^\/+/, '');
       if (slug) {
-        router.push(`/resources/topic-library/${slug}`);
+        router.push(`/(tabs)/resources/topic-library/${slug}`);
       }
       return;
     }

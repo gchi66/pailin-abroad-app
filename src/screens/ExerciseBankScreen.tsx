@@ -188,7 +188,7 @@ export function ExerciseBankScreen() {
       return;
     }
 
-    router.push(`/resources/exercise-bank/${categorySlug}/${sectionSlug}`);
+    router.push(`/(tabs)/resources/exercise-bank/${categorySlug}/${sectionSlug}`);
   };
 
   return (

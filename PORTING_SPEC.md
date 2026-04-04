@@ -448,7 +448,9 @@
 - Added native `My Pathway` shell work:
   - `src/screens/MyPathwayScreen.tsx`
   - `src/screens/CompletedLessonsScreen.tsx`
+  - `src/screens/LearningProgressScreen.tsx`
   - `app/pathway/completed.tsx`
+  - `app/pathway/progress.tsx`
 - Signed-in primary tab now routes to native `My Pathway` instead of the older placeholder:
   - `src/screens/PrimaryScreen.tsx`
 - Current `My Pathway` implementation notes:
@@ -465,15 +467,46 @@
   - avoids the web mobile dropdown/tab pattern and instead uses one vertical native flow:
     - header + plan/state
     - continue learning
-    - free-plan notice
-    - pathway list
-    - recent completed history
+    - lightweight progress summary
+    - upcoming lessons
+    - links into deeper progress/history views
+- Current related progress/navigation implementation notes:
+  - `My Pathway` header is now a custom compact/mobile-native treatment rather than the older large hero header
+  - `Learning Progress` now has its own native screen with:
+    - current stage
+    - learning since
+    - lessons completed / levels completed / current level / total lessons
+    - stage breakdown
+    - recent completed lessons
+  - shared `StandardPageHeader` has been refactored to the lighter compact style used across remaining standard pages
+  - `Lesson Library` has its own custom compact header variant and no longer shows the old shared subtitle-heavy hero header
+  - resource-library routes were moved under the tab tree so top spacing matches tab-root pages and the bottom tab bar remains visible on:
+    - Exercise Bank
+    - Topic Library
+    - Topic detail
+    - Exercise bank section detail
 - Current Pathway limitations:
   - lesson completion writes are not yet wired in native because lesson detail is still a shell
   - `Continue learning` depends on the current backend pathway endpoint behavior
   - `liked lessons` remain intentionally excluded from the app MVP for now
   - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1
   - final structure/spacing/content order should still be treated as provisional until cofounder review
+- Immediate next review target:
+  - review the `Account` tab against the new compact header / nav direction and decide what should stay or be simplified there
+- `Account` tab is now relabeled to `More` in the bottom nav and uses an ellipsis icon instead of the profile/person icon.
+- The tab entry screen has been refactored away from the old account-summary card shell:
+  - source file is now `src/screens/MoreScreen.tsx`
+  - top treatment uses app branding on the left and the existing language toggle on the right
+  - main body is now a simple menu of standalone destination cards:
+    - Profile
+    - About
+    - Contact
+    - Settings
+  - account metadata and logout are intentionally no longer shown on the `More` screen
+  - membership access remains available from `Profile`
+- Added placeholder native Settings route:
+  - `src/screens/SettingsScreen.tsx`
+  - `app/account/settings.tsx`
 
 ## Source of Truth for Future Chats
 - This file should be used as the first context document in new chats.

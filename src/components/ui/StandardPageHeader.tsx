@@ -5,59 +5,41 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '@/src/theme/theme';
 
 import { AppText } from './AppText';
-import { Stack } from './Stack';
 
 type StandardPageHeaderProps = {
   language: 'en' | 'th';
   title: string;
-  subtitle: string;
+  subtitle?: string;
 };
 
-export function StandardPageHeader({ language, title, subtitle }: StandardPageHeaderProps) {
+export function StandardPageHeader({ language, title }: StandardPageHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View
-      style={[
-        styles.headerBlock,
-        {
-          marginTop: Math.min(insets.top + theme.spacing.lg, theme.spacing.xl + theme.spacing.sm),
-          paddingTop: theme.spacing.lg + theme.spacing.sm,
-        },
-      ]}>
-      <Stack gap="sm">
-        <AppText language={language} variant="title" style={styles.title}>
-          {title}
-        </AppText>
-        <AppText language={language} variant="body" style={styles.subtitle}>
-          {subtitle}
-        </AppText>
-      </Stack>
+    <View style={styles.headerBlock}>
+      <View style={{ height: Math.max(insets.top - 28, 0) }} />
+      <AppText language={language} variant="title" numberOfLines={1} style={styles.title}>
+        {title}
+      </AppText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
+    marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingBottom: 6,
+    borderBottomWidth: 2,
+    borderColor: theme.colors.border,
   },
   title: {
+    marginTop: 0,
+    marginBottom: 8,
     color: theme.colors.text,
     textAlign: 'center',
-    fontSize: 44,
-    lineHeight: 52,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
-    textAlign: 'center',
-    fontSize: 17,
-    lineHeight: 26,
+    fontSize: 36,
+    lineHeight: 40,
+    fontWeight: theme.typography.weights.bold,
   },
 });

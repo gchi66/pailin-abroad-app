@@ -130,12 +130,12 @@ export function ResourcesScreen() {
 
   const handleCardPress = (card: ResourceCardCopy) => {
     if (card.id === 'exercise-bank') {
-      router.push('/resources/exercise-bank');
+      router.push('/(tabs)/resources/exercise-bank');
       return;
     }
 
     if (card.id === 'topic-library') {
-      router.push('/resources/topic-library');
+      router.push('/(tabs)/resources/topic-library');
       return;
     }
 

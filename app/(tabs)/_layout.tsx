@@ -11,20 +11,20 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
-const labels: Record<UiLanguage, { home: string; pathway: string; lessons: string; resources: string; account: string }> = {
+const labels: Record<UiLanguage, { home: string; pathway: string; lessons: string; resources: string; more: string }> = {
   en: {
     home: 'Home',
     pathway: 'Pathway',
     lessons: 'Lessons',
     resources: 'Resources',
-    account: 'Account',
+    more: 'More',
   },
   th: {
     home: 'หน้าหลัก',
     pathway: 'เส้นทาง',
     lessons: 'บทเรียน',
     resources: 'คลังเสริม',
-    account: 'บัญชี',
+    more: 'เพิ่มเติม',
   },
 };
 
@@ -91,8 +91,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          title: text.account,
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+          title: text.more,
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="ellipsis.circle.fill" color={color} />,
         }}
       />
       <Tabs.Screen

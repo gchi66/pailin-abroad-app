@@ -192,7 +192,7 @@ export function TopicLibraryScreen() {
       return;
     }
 
-    router.push(`/resources/topic-library/${topic.slug}`);
+    router.push(`/(tabs)/resources/topic-library/${topic.slug}`);
   };
 
   return (

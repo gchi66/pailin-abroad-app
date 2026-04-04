@@ -1,7 +1,5 @@
-import React from 'react';
-
-import { ExerciseBankScreen } from '@/src/screens/ExerciseBankScreen';
+import { Redirect } from 'expo-router';
 
 export default function ExerciseBankRoute() {
-  return <ExerciseBankScreen />;
+  return <Redirect href="/(tabs)/resources/exercise-bank" />;
 }

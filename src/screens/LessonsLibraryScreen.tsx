@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useNavigation, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getLessonsIndex } from '@/src/api/lessons';
@@ -46,7 +46,6 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
 
 export function LessonsLibraryScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const [items, setItems] = useState<LessonListItem[]>([]);
@@ -155,21 +154,12 @@ export function LessonsLibraryScreen() {
   }, [items, selectedLevel, selectedStage]);
 
   const title = uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library';
-  const backLabel = uiLanguage === 'th' ? 'กลับ' : 'Back';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
         <View style={styles.headerBlock}>
-          <View style={{ height: Math.max(insets.top - 36, 0) }} />
-          {navigation.canGoBack() ? (
-            <Pressable accessibilityRole="button" style={styles.backButton} onPress={() => router.back()}>
-              <AppText language={uiLanguage} variant="caption" style={styles.backButtonText}>
-                ‹ {backLabel}
-              </AppText>
-            </Pressable>
-          ) : null}
-
+          <View style={{ height: Math.max(insets.top - 28, 0) }} />
           <AppText language={uiLanguage} variant="title" numberOfLines={1} style={styles.headerTitle}>
             {title}
           </AppText>
@@ -313,20 +303,12 @@ const styles = StyleSheet.create({
     marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: 6,
-    borderBottomWidth: 1,
+    borderBottomWidth: 2,
     borderColor: theme.colors.border,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 0,
-    marginBottom: 16,
-  },
-  backButtonText: {
-    color: theme.colors.accent,
-    fontWeight: theme.typography.weights.bold,
   },
   headerTitle: {
     marginTop: 0,
+    marginBottom: 8,
     fontSize: 36,
     lineHeight: 40,
     fontWeight: theme.typography.weights.bold,
