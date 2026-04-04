@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { FreeLessonLibraryScreen } from '@/src/screens/FreeLessonLibraryScreen';
+import { Redirect } from 'expo-router';
 
 export default function FreeLessonLibraryRoute() {
-  return <FreeLessonLibraryScreen />;
+  return <Redirect href="/(tabs)/lessons/free-library" />;
 }

@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { LearningProgressScreen } from '@/src/screens/LearningProgressScreen';
+import { Redirect } from 'expo-router';
 
 export default function PathwayProgressRoute() {
-  return <LearningProgressScreen />;
+  return <Redirect href="/(tabs)/pathway/progress" />;
 }

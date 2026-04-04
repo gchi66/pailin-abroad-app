@@ -754,7 +754,7 @@ export function OnboardingScreen() {
         compact={compact}
         veryCompact={veryCompact}
         onContinueFree={() => goToStep(4)}
-        onUpgrade={() => router.push('/account/membership')}
+        onUpgrade={() => router.push('/(tabs)/account/membership')}
       />,
       <ConfirmationStep
         key="confirmation"

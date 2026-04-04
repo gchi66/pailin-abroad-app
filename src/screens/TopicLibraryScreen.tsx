@@ -183,7 +183,7 @@ export function TopicLibraryScreen() {
   const handleTopicPress = (topic: TopicLibraryTopic) => {
     const isLocked = !hasMembership && !topic.is_featured;
     if (isLocked) {
-      router.push('/account/membership');
+      router.push('/(tabs)/account/membership');
       return;
     }
 
@@ -213,7 +213,7 @@ export function TopicLibraryScreen() {
                       {copy.freeDesc}
                     </AppText>
                   </View>
-                  <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => router.push('/account/membership')}>
+                  <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => router.push('/(tabs)/account/membership')}>
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.freeCta}
                     </AppText>

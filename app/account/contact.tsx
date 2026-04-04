@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { ContactScreen } from '@/src/screens/ContactScreen';
+import { Redirect } from 'expo-router';
 
 export default function AccountContactRoute() {
-  return <ContactScreen />;
+  return <Redirect href="/(tabs)/account/contact" />;
 }

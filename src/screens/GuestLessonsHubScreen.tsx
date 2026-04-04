@@ -26,7 +26,7 @@ export function GuestLessonsHubScreen() {
         />
 
         <Stack gap="sm" style={styles.linksWrap}>
-          <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/library')}>
+          <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/(tabs)/lessons/library')}>
             <View style={styles.linkCopy}>
               <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
                 {uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library'}
@@ -42,7 +42,7 @@ export function GuestLessonsHubScreen() {
             </AppText>
           </Pressable>
 
-          <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/lessons/free-library')}>
+          <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/(tabs)/lessons/free-library')}>
             <View style={styles.linkCopy}>
               <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
                 {uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}

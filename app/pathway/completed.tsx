@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { CompletedLessonsScreen } from '@/src/screens/CompletedLessonsScreen';
+import { Redirect } from 'expo-router';
 
 export default function CompletedPathwayRoute() {
-  return <CompletedLessonsScreen />;
+  return <Redirect href="/(tabs)/pathway/completed" />;
 }

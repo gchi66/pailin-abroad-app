@@ -4508,7 +4508,7 @@ export default function LessonDetailShellScreen() {
                         <Button
                           language={uiLanguage}
                           title={uiCopy.unlockLesson}
-                          onPress={() => router.push('/account/membership')}
+                          onPress={() => router.push('/(tabs)/account/membership')}
                           style={styles.coverStartButton}
                         />
                       </View>

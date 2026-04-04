@@ -58,7 +58,7 @@ export function TryLessonsScreen() {
 
   const handlePlaceholderAction = (kind: 'signup' | 'membership') => {
     if (kind === 'membership') {
-      router.push('/account/membership');
+      router.push('/(tabs)/account/membership');
       return;
     }
 

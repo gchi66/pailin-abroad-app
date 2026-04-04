@@ -62,16 +62,6 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="onboarding/index" />
-              <Stack.Screen name="lessons/try" />
-              <Stack.Screen name="lessons/library" />
-              <Stack.Screen name="account/membership" />
-              <Stack.Screen name="account/profile" />
-              <Stack.Screen name="account/about" />
-              <Stack.Screen name="account/contact" />
-              <Stack.Screen name="resources/exercise-bank/index" />
-              <Stack.Screen name="resources/exercise-bank/[categorySlug]/[sectionSlug]" />
-              <Stack.Screen name="resources/topic-library" />
-              <Stack.Screen name="resources/topic-library/[slug]" />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             </Stack>
             <StatusBar style="auto" />

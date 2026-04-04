@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { MembershipScreen } from '@/src/screens/MembershipScreen';
+import { Redirect } from 'expo-router';
 
 export default function AccountMembershipRoute() {
-  return <MembershipScreen />;
+  return <Redirect href="/(tabs)/account/membership" />;
 }

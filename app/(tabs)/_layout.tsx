@@ -101,6 +101,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="pathway"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { SettingsScreen } from '@/src/screens/SettingsScreen';
+import { Redirect } from 'expo-router';
 
 export default function AccountSettingsRoute() {
-  return <SettingsScreen />;
+  return <Redirect href="/(tabs)/account/settings" />;
 }

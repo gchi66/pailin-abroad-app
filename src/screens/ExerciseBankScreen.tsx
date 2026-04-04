@@ -178,7 +178,7 @@ export function ExerciseBankScreen() {
   const handleSectionPress = (section: ExerciseBankSectionSummary) => {
     const isLocked = !hasMembership && (filterMode !== 'featured' || !hasAccount);
     if (isLocked) {
-      router.push('/account/membership');
+      router.push('/(tabs)/account/membership');
       return;
     }
 
@@ -209,7 +209,7 @@ export function ExerciseBankScreen() {
                       {hasAccount ? copy.freeBody : copy.noAccountBody}
                     </AppText>
                   </View>
-                  <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => router.push('/account/membership')}>
+                  <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => router.push('/(tabs)/account/membership')}>
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.membershipCta}
                     </AppText>

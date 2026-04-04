@@ -15,7 +15,7 @@ import fullLogo from '@/assets/images/full-logo.webp';
 type MoreAction = {
   key: 'profile' | 'about' | 'contact' | 'settings';
   label: string;
-  href: '/account/profile' | '/account/about' | '/account/contact' | '/account/settings';
+  href: '/(tabs)/account/profile' | '/(tabs)/account/about' | '/(tabs)/account/contact' | '/(tabs)/account/settings';
 };
 
 export function MoreScreen() {
@@ -27,18 +27,18 @@ export function MoreScreen() {
     uiLanguage === 'th'
       ? {
           actions: [
-            { key: 'profile', label: 'โปรไฟล์', href: '/account/profile' },
-            { key: 'about', label: 'เกี่ยวกับเรา', href: '/account/about' },
-            { key: 'contact', label: 'ติดต่อเรา', href: '/account/contact' },
-            { key: 'settings', label: 'การตั้งค่า', href: '/account/settings' },
+            { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },
+            { key: 'about', label: 'เกี่ยวกับเรา', href: '/(tabs)/account/about' },
+            { key: 'contact', label: 'ติดต่อเรา', href: '/(tabs)/account/contact' },
+            { key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' },
           ] satisfies MoreAction[],
         }
       : {
           actions: [
-            { key: 'profile', label: 'Profile', href: '/account/profile' },
-            { key: 'about', label: 'About', href: '/account/about' },
-            { key: 'contact', label: 'Contact', href: '/account/contact' },
-            { key: 'settings', label: 'Settings', href: '/account/settings' },
+            { key: 'profile', label: 'Profile', href: '/(tabs)/account/profile' },
+            { key: 'about', label: 'About', href: '/(tabs)/account/about' },
+            { key: 'contact', label: 'Contact', href: '/(tabs)/account/contact' },
+            { key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' },
           ] satisfies MoreAction[],
         };
 
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionCard: {
-    minHeight: 80,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 1.75, height: 1.75 },
     shadowOpacity: 1,

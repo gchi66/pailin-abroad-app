@@ -5,6 +5,7 @@ import { aboutImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
@@ -115,14 +116,14 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
           name: 'CARISSA',
           role: 'Co-Founder & Head of Content',
           description:
-            'I\'m passionate about teaching English to non-native speakers and creating engaging, accessible resources on my ESL education website. I focus on quality, clarity, and inclusivity, offering free lessons and placement tests to guide learners on their journey. With thoughtful design and messaging.',
+            'สวัสดีทุกคน! ฉันเติบโตที่ลอสแอนเจลิส แต่ย้ายมาเมืองไทยตอนอายุเพียง 23 ปี ฉันเริ่มต้นจากการสอนนักเรียนชั้น ป.2 ที่ชัยภูมิ ซึ่งเป็นที่ที่ฉันได้รู้จักกับ Grant ผู้ร่วมก่อตั้งของเรา หลังจากอยู่ที่นั่น 6 เดือน ฉันก็ไปใช้ชีวิตต่อที่เชียงใหม่อีก 7 ปีที่แสนยอดเยี่ยม การได้เรียนภาษาไทยเปลี่ยนทุกอย่างสำหรับฉัน เพราะมันทำให้ฉันเห็นชัดเลยว่าคนไทยมักติดตรงไหนเวลาเรียนภาษาอังกฤษ และเพราะอะไร ฉันร่วมสร้าง Pailin Abroad ขึ้นมาเพื่อช่วยสร้างความมั่นใจให้ผู้เรียน และเพื่อทำให้บทเรียนจากเจ้าของภาษาอังกฤษเข้าถึงได้สำหรับทุกคน ไม่ว่าจะอยู่ที่ไหนก็ตาม',
           imagePlaceholderLabel: 'ใส่รูป Carissa ภายหลัง',
         },
         {
           name: 'GRANT',
           role: 'Co-Founder & Lead Developer',
           description:
-            'I\'m passionate about teaching English to non-native speakers and creating engaging, accessible resources on my ESL education website. I focus on quality, clarity, and inclusivity, offering free lessons and placement tests to guide learners on their journey. With thoughtful design and messaging.',
+            'สวัสดีครับ! ผมชื่อ Grant เดิมผมมาจากรัฐเท็กซัส แต่หลังจากเรียนจบมหาวิทยาลัย ผมก็เดินทางมาที่ประเทศไทยเพื่อสอนภาษาอังกฤษ ผมเป็นครูอยู่ในไทยเกือบ 4 ปี และหลังจากนั้นอีก 4 ปีในประเทศจีน ต่อมาผมก็เปลี่ยนสายมาทำงานด้านโค้ดและพัฒนาเว็บไซต์ ตอนที่อยู่เมืองไทย ผมได้เจอกับ Carissa ผู้ร่วมก่อตั้งของเรา ที่ชัยภูมิซึ่งเป็นเมืองชนบท คนไทยอบอุ่นและเป็นมิตรมาก และพวกเขาก็ช่วยผมมากในเส้นทางการเรียนภาษาไทยของผม ผมหวังว่า Pailin Abroad จะได้ช่วยพวกเขากลับคืนบ้าง!',
           imagePlaceholderLabel: 'ใส่รูป Grant ภายหลัง',
         },
       ] as TeamMember[],
@@ -217,14 +218,14 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
         name: 'CARISSA',
         role: 'Co-Founder & Head of Content',
         description:
-          "I'm passionate about teaching English to non-native speakers and creating engaging, accessible resources on my ESL education website. I focus on quality, clarity, and inclusivity, offering free lessons and placement tests to guide learners on their journey. With thoughtful design and messaging.",
+          'Hey everyone! I grew up in Los Angeles, but moved to Thailand when I was just 23 years old. I started out teaching 2nd grade in Chaiyaphum, where I became friends with my co-founder, Grant. After 6 months there, I spent 7 amazing years in Chiang Mai. Learning Thai changed everything for me - it helped me see exactly where Thai people get stuck learning English, and why. I helped create Pailin Abroad to build confidence in learners, and to make lessons from native English speakers accessible to everyone, everywhere.',
         imagePlaceholderLabel: 'Add Carissa image later',
       },
       {
         name: 'GRANT',
         role: 'Co-Founder & Lead Developer',
         description:
-          "I'm passionate about teaching English to non-native speakers and creating engaging, accessible resources on my ESL education website. I focus on quality, clarity, and inclusivity, offering free lessons and placement tests to guide learners on their journey. With thoughtful design and messaging.",
+          'Hi! I’m Grant. I’m originally from Texas, but after I graduated from University I went over to Thailand to teach English. I was a teacher for almost 4 years in Thailand, and for 4 more years after that in China. After that I pivoted to coding and website development. While I was in Thailand, I met my co-founder, Carissa in rural Chaiypahum. Thai people are so warm and welcoming and they helped me a lot in my journey of learning Thai, and I hope that Pailin Abroad will help them!',
         imagePlaceholderLabel: 'Add Grant image later',
       },
     ] as TeamMember[],
@@ -249,16 +250,7 @@ export function AboutScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <View style={styles.headerBlock}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {copy.title}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {copy.subtitle}
-            </AppText>
-          </Stack>
-        </View>
+        <StandardPageHeader language={uiLanguage} title={copy.title} />
 
         <View style={styles.sectionTabs}>
           {sectionOptions.map((option) => {
@@ -285,11 +277,11 @@ export function AboutScreen() {
             {copy.methodCards.map((card, index) => {
               const isExpanded = Boolean(expandedCards[index]);
               return (
-                <Card key={card.title} padding="lg" radius="lg">
+                <Card key={card.title} padding="lg" radius="lg" style={[styles.contentCard, !isExpanded ? styles.contentCardCollapsed : null]}>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => toggleCard(index)}
-                    style={styles.cardHeader}>
+                    style={[styles.cardHeader, !isExpanded ? styles.cardHeaderCollapsed : null]}>
                     <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
                       {card.title}
                     </AppText>
@@ -325,16 +317,18 @@ export function AboutScreen() {
         ) : (
           <Stack gap="md">
             {copy.teamMembers.map((member) => (
-              <Card key={member.name} padding="lg" radius="lg">
+              <Card key={member.name} padding="lg" radius="lg" style={styles.contentCard}>
                 <Stack gap="md">
-                  <Image source={getTeamImage(member.name)} style={styles.teamImage} resizeMode="cover" />
-                  <View style={styles.teamHeading}>
-                    <AppText language={uiLanguage} variant="body" style={styles.teamName}>
-                      {member.name}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.teamRole}>
-                      {member.role}
-                    </AppText>
+                  <View style={styles.teamTopRow}>
+                    <Image source={getTeamImage(member.name)} style={styles.teamImage} resizeMode="cover" />
+                    <View style={styles.teamHeading}>
+                      <AppText language={uiLanguage} variant="body" style={styles.teamName}>
+                        {member.name}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="muted" style={styles.teamRole}>
+                        {member.role}
+                      </AppText>
+                    </View>
                   </View>
                   <View style={styles.teamDivider} />
                   <AppText language={uiLanguage} variant="body" style={styles.bodyText}>
@@ -359,20 +353,6 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-  },
-  title: {
-    color: theme.colors.text,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
-  },
   sectionTabs: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
@@ -380,16 +360,33 @@ const styles = StyleSheet.create({
   sectionTab: {
     flex: 1,
     minHeight: 52,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   sectionTabActive: {
     backgroundColor: '#91CAFF',
+  },
+  contentCard: {
+    borderWidth: 1.5,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  contentCardCollapsed: {
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
   },
   sectionTabText: {
     color: theme.colors.mutedText,
@@ -407,6 +404,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
+  },
+  cardHeaderCollapsed: {
+    marginBottom: 0,
   },
   cardTitle: {
     flex: 1,
@@ -441,15 +441,19 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     backgroundColor: '#F4F0E6',
   },
+  teamTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
   teamImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: theme.radii.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    width: 104,
+    height: 104,
+    borderRadius: 999,
     backgroundColor: '#F4F0E6',
   },
   teamHeading: {
+    flex: 1,
     gap: theme.spacing.xs,
   },
   teamName: {
@@ -462,8 +466,8 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.md,
   },
   teamDivider: {
-    height: 1,
-    backgroundColor: theme.colors.border,
+    height: 2,
+    backgroundColor: '#99CEFF',
   },
 });
 

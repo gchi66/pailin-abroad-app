@@ -218,7 +218,7 @@ export function MyPathwayScreen() {
       <Stack gap="md">
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
-            <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/account/profile')}>
+            <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
               {avatarSource ? (
                 <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
               ) : (
@@ -248,7 +248,7 @@ export function MyPathwayScreen() {
                     </AppText>
                   </View>
                   {!hasMembership ? (
-                    <Pressable accessibilityRole="button" onPress={() => router.push('/account/membership')}>
+                    <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/account/membership')}>
                       <AppText language={uiLanguage} variant="caption" style={styles.upgradeLink}>
                         {copy.upgrade}
                       </AppText>
@@ -266,7 +266,7 @@ export function MyPathwayScreen() {
               <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
                 {copy.progressTitle}
               </AppText>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/pathway/progress')}>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/pathway/progress')}>
                 <AppText language={uiLanguage} variant="caption" style={styles.detailsLink}>
                   {copy.viewDetails}
                 </AppText>
@@ -374,7 +374,7 @@ export function MyPathwayScreen() {
                   title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
                   onPress={() => {
                     if (resumeRow.state === 'locked') {
-                      router.push('/account/membership');
+                      router.push('/(tabs)/account/membership');
                       return;
                     }
 
@@ -414,7 +414,7 @@ export function MyPathwayScreen() {
                     style={styles.upNextCard}
                     onPress={() => {
                       if (isLocked) {
-                        router.push('/account/membership');
+                        router.push('/(tabs)/account/membership');
                         return;
                       }
 

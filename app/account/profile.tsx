@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { ProfileScreen } from '@/src/screens/ProfileScreen';
+import { Redirect } from 'expo-router';
 
 export default function AccountProfileRoute() {
-  return <ProfileScreen />;
+  return <Redirect href="/(tabs)/account/profile" />;
 }

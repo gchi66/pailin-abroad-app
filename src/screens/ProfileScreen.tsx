@@ -240,7 +240,7 @@ export function ProfileScreen() {
             <Pressable
               accessibilityRole="button"
               style={styles.linkRow}
-              onPress={() => router.push('/account/membership')}>
+              onPress={() => router.push('/(tabs)/account/membership')}>
               <AppText language={uiLanguage} variant="body" style={styles.linkText}>
                 {copy.membership}
               </AppText>

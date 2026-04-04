@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { GuestLessonLibraryScreen } from '@/src/screens/GuestLessonLibraryScreen';
+import { Redirect } from 'expo-router';
 
 export default function GuestLessonLibraryRoute() {
-  return <GuestLessonLibraryScreen />;
+  return <Redirect href="/(tabs)/lessons/library" />;
 }

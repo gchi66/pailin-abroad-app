@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { AboutScreen } from '@/src/screens/AboutScreen';
+import { Redirect } from 'expo-router';
 
 export default function AccountAboutRoute() {
-  return <AboutScreen />;
+  return <Redirect href="/(tabs)/account/about" />;
 }
