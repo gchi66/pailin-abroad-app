@@ -13,9 +13,14 @@ import { theme } from '@/src/theme/theme';
 import fullLogo from '@/assets/images/full-logo.webp';
 
 type MoreAction = {
-  key: 'profile' | 'about' | 'contact' | 'settings';
+  key: 'profile' | 'membership' | 'about' | 'contact' | 'settings';
   label: string;
-  href: '/(tabs)/account/profile' | '/(tabs)/account/about' | '/(tabs)/account/contact' | '/(tabs)/account/settings';
+  href:
+    | '/(tabs)/account/profile'
+    | '/(tabs)/account/membership'
+    | '/(tabs)/account/about'
+    | '/(tabs)/account/contact'
+    | '/(tabs)/account/settings';
 };
 
 export function MoreScreen() {
@@ -28,6 +33,7 @@ export function MoreScreen() {
       ? {
           actions: [
             { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },
+            { key: 'membership', label: 'Membership', href: '/(tabs)/account/membership' },
             { key: 'about', label: 'เกี่ยวกับเรา', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'ติดต่อเรา', href: '/(tabs)/account/contact' },
             { key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' },
@@ -36,6 +42,7 @@ export function MoreScreen() {
       : {
           actions: [
             { key: 'profile', label: 'Profile', href: '/(tabs)/account/profile' },
+            { key: 'membership', label: 'Membership', href: '/(tabs)/account/membership' },
             { key: 'about', label: 'About', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'Contact', href: '/(tabs)/account/contact' },
             { key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' },

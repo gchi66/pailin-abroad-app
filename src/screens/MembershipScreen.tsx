@@ -617,12 +617,11 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   bannerImage: {
-    width: '100%',
+    width: 'auto',
     minHeight: 150,
     height: 150,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    marginTop: -55,
+    marginHorizontal: -theme.spacing.md,
   },
   cardPressable: {
     width: '100%',

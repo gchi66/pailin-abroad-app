@@ -1,13 +1,14 @@
-import React from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { updateOnboardingProfile } from '@/src/api/onboarding';
 import { useAppSession } from '@/src/context/app-session-context';
-import { useOnboarding } from '@/src/context/onboarding-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
@@ -20,6 +21,17 @@ type ProfileDisplayData = {
   membershipLabel: string;
   joinedLabel: string;
 };
+
+const AVATAR_OPTIONS = [
+  '/images/characters/avatar_1.webp',
+  '/images/characters/avatar_2.webp',
+  '/images/characters/avatar_3.webp',
+  '/images/characters/avatar_4.webp',
+  '/images/characters/avatar_5.webp',
+  '/images/characters/avatar_6.webp',
+  '/images/characters/avatar_7.webp',
+  '/images/characters/avatar_8.webp',
+] as const;
 
 const formatJoinedLabel = (value: string | null, uiLanguage: UiLanguage) => {
   if (!value) {
@@ -60,66 +72,63 @@ const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
       title: 'โปรไฟล์',
-      subtitle: 'นี่คือภาพรวมบัญชีจริงจาก session ปัจจุบันและข้อมูลโปรไฟล์จาก backend',
+      edit: 'แก้ไข',
+      cancel: 'ยกเลิก',
       guestTitle: 'ยังไม่ได้เข้าสู่ระบบ',
       guestBody: 'กลับไปที่หน้า Account เพื่อเข้าสู่ระบบหรือสมัครสมาชิกก่อน',
       profileCardTitle: 'ข้อมูลสมาชิก',
+      editCardTitle: 'แก้ไขโปรไฟล์',
+      usernameLabel: 'ชื่อผู้ใช้',
+      usernamePlaceholder: 'ตั้งชื่อผู้ใช้',
+      avatarPickerTitle: 'เลือกรูปโปรไฟล์',
+      saveChanges: 'บันทึกการเปลี่ยนแปลง',
+      saving: 'กำลังบันทึก...',
+      profileNameError: 'กรุณากรอกชื่อผู้ใช้',
+      updateSuccess: 'อัปเดตโปรไฟล์แล้ว',
       membershipLabel: 'สถานะสมาชิก',
       languageLabel: 'ภาษาหน้าแอป',
       joinedLabel: 'เข้าร่วมเมื่อ',
-      editProfile: 'แก้ไขโปรไฟล์',
-      membership: 'Membership',
       signOut: 'ออกจากระบบ',
-      actionPlaceholder: 'จะเชื่อม action นี้ในขั้นตอนถัดไป',
       languageValue: 'ไทย',
       signOutSuccess: 'ออกจากระบบแล้ว',
       avatarLabel: 'PP',
-      devToolsTitle: 'Dev Tools',
-      onboardingStatusLabel: 'สถานะ Onboarding',
-      onboardingSeen: 'เสร็จแล้ว',
-      onboardingNotSeen: 'ยังไม่เสร็จ',
-      openOnboarding: 'เปิด Onboarding',
-      resetOnboarding: 'รีเซ็ต Onboarding',
-      completeOnboarding: 'ตั้งค่าเป็น Complete',
-      onboardingResetSuccess: 'รีเซ็ต onboarding แล้ว',
-      onboardingCompleteSuccess: 'ตั้งค่า onboarding เป็น complete แล้ว',
     };
   }
 
   return {
     title: 'Profile',
-    subtitle: 'This screen now reads from the current auth session and backend profile data.',
+    edit: 'Edit',
+    cancel: 'Cancel',
     guestTitle: 'You are not signed in',
     guestBody: 'Go back to Account to sign in or create an account first.',
     profileCardTitle: 'Member Snapshot',
+    editCardTitle: 'Edit Profile',
+    usernameLabel: 'Username',
+    usernamePlaceholder: 'Choose a username',
+    avatarPickerTitle: 'Choose an avatar',
+    saveChanges: 'Save Changes',
+    saving: 'Saving...',
+    profileNameError: 'Please enter a username.',
+    updateSuccess: 'Profile updated.',
     membershipLabel: 'Membership',
     languageLabel: 'App Language',
     joinedLabel: 'Joined',
-    editProfile: 'Edit Profile',
-    membership: 'Membership',
     signOut: 'Sign Out',
-    actionPlaceholder: 'This action will be connected in a later step.',
     languageValue: 'English',
     signOutSuccess: 'Signed out successfully.',
     avatarLabel: 'PP',
-    devToolsTitle: 'Dev Tools',
-    onboardingStatusLabel: 'Onboarding Status',
-    onboardingSeen: 'Completed',
-    onboardingNotSeen: 'Not completed',
-    openOnboarding: 'Open Onboarding',
-    resetOnboarding: 'Reset Onboarding',
-    completeOnboarding: 'Mark Complete',
-    onboardingResetSuccess: 'Onboarding state reset.',
-    onboardingCompleteSuccess: 'Onboarding marked complete.',
   };
 };
 
 export function ProfileScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership, profile, signOut, user } = useAppSession();
-  const { hasSeenOnboarding, markOnboardingComplete, resetOnboarding } = useOnboarding();
+  const { hasAccount, hasMembership, profile, refreshProfile, signOut, user } = useAppSession();
   const copy = getCopy(uiLanguage);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftUsername, setDraftUsername] = useState('');
+  const [draftAvatarPath, setDraftAvatarPath] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const displayName =
     profile?.name?.trim() ||
     profile?.username?.trim() ||
@@ -137,11 +146,70 @@ export function ProfileScreen() {
     createdAt: profile?.created_at ?? null,
   });
   const avatarLabel = displayName.slice(0, 2).toUpperCase();
+  const initialUsername =
+    profile?.username?.trim() ||
+    profile?.name?.trim() ||
+    (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
+    (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '') ||
+    '';
+  const initialAvatarPath =
+    profile?.avatar_image ||
+    (typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null) ||
+    AVATAR_OPTIONS[0];
+  const draftAvatarSource = useMemo(() => resolveAvatarSource(draftAvatarPath), [draftAvatarPath]);
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+
+    setDraftUsername(initialUsername);
+    setDraftAvatarPath(initialAvatarPath);
+  }, [initialAvatarPath, initialUsername, isEditing]);
+
+  const handleStartEditing = () => {
+    setDraftUsername(initialUsername);
+    setDraftAvatarPath(initialAvatarPath);
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    setDraftUsername(initialUsername);
+    setDraftAvatarPath(initialAvatarPath);
+    setIsEditing(false);
+  };
+
+  const handleSaveProfile = async () => {
+    const username = draftUsername.trim();
+    if (!username) {
+      Alert.alert(copy.editCardTitle, copy.profileNameError);
+      return;
+    }
+
+    if (!draftAvatarPath) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateOnboardingProfile({
+        username,
+        avatarImage: draftAvatarPath,
+      });
+      await refreshProfile();
+      setIsEditing(false);
+      Alert.alert(copy.editCardTitle, copy.updateSuccess);
+    } catch (error) {
+      Alert.alert(copy.editCardTitle, error instanceof Error ? error.message : 'Something went wrong.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!hasAccount) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-        <Card padding="lg" radius="lg">
+        <Card padding="lg" radius="lg" style={styles.neoCard}>
           <Stack gap="sm">
             <AppText language={uiLanguage} variant="title" style={styles.title}>
               {copy.guestTitle}
@@ -158,22 +226,22 @@ export function ProfileScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <View style={styles.headerBlock}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {copy.title}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {copy.subtitle}
-            </AppText>
-          </Stack>
-        </View>
+        <StandardPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          onBackPress={() => router.push('/(tabs)/account')}
+          rightActionLabel={isEditing ? copy.cancel : copy.edit}
+          onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
+          topInsetOffset={52}
+        />
 
-        <Card padding="lg" radius="lg">
+        <Card padding="lg" radius="lg" style={styles.neoCard}>
           <Stack gap="md">
             <View style={styles.profileHeaderRow}>
               <View style={styles.avatar}>
-                {avatarSource ? (
+                {isEditing && draftAvatarSource ? (
+                  <Image source={draftAvatarSource} style={styles.avatarImage} resizeMode="cover" />
+                ) : avatarSource ? (
                   <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
                 ) : (
                   <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
@@ -191,130 +259,113 @@ export function ProfileScreen() {
               </View>
             </View>
 
-            <Stack gap="sm">
-              <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                {copy.profileCardTitle}
-              </AppText>
-              <View style={styles.metaRow}>
-                <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                  {copy.membershipLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                  {profileData.membershipLabel}
-                </AppText>
-              </View>
-              <View style={styles.metaRow}>
-                <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                  {copy.languageLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                  {copy.languageValue}
-                </AppText>
-              </View>
-              <View style={styles.metaRow}>
-                <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                  {copy.joinedLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                  {profileData.joinedLabel}
-                </AppText>
-              </View>
-            </Stack>
-          </Stack>
-        </Card>
-
-        <Card padding="lg" radius="lg">
-          <Stack gap="sm">
-            <Pressable
-              accessibilityRole="button"
-              style={styles.linkRow}
-              onPress={() => Alert.alert(copy.editProfile, copy.actionPlaceholder)}>
-              <AppText language={uiLanguage} variant="body" style={styles.linkText}>
-                {copy.editProfile}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              style={styles.linkRow}
-              onPress={() => router.push('/(tabs)/account/membership')}>
-              <AppText language={uiLanguage} variant="body" style={styles.linkText}>
-                {copy.membership}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              style={styles.linkRow}
-              onPress={() => {
-                void signOut().then(({ error }) => {
-                  if (error) {
-                    Alert.alert(copy.signOut, error);
-                    return;
-                  }
-                  Alert.alert(copy.signOut, copy.signOutSuccess);
-                  router.replace('/(tabs)/account');
-                });
-              }}>
-              <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
-                {copy.signOut}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
-              </AppText>
-            </Pressable>
-          </Stack>
-        </Card>
-
-        {__DEV__ ? (
-          <Card padding="lg" radius="lg">
-            <Stack gap="md">
-              <Stack gap="xs">
+            {isEditing ? (
+              <Stack gap="md">
                 <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                  {copy.devToolsTitle}
+                  {copy.editCardTitle}
+                </AppText>
+                <Stack gap="xs">
+                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
+                    {copy.usernameLabel}
+                  </AppText>
+                  <View style={styles.inputShell}>
+                    <TextInput
+                      placeholder={copy.usernamePlaceholder}
+                      placeholderTextColor={theme.colors.mutedText}
+                      style={styles.textInput}
+                      value={draftUsername}
+                      onChangeText={setDraftUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </Stack>
+
+                <Stack gap="xs">
+                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
+                    {copy.avatarPickerTitle}
+                  </AppText>
+                  <View style={styles.avatarGrid}>
+                    {AVATAR_OPTIONS.map((avatarPath) => {
+                      const optionSource = resolveAvatarSource(avatarPath);
+                      if (!optionSource) {
+                        return null;
+                      }
+
+                      return (
+                        <Pressable
+                          key={avatarPath}
+                          accessibilityRole="button"
+                          style={styles.avatarOption}
+                          onPress={() => setDraftAvatarPath(avatarPath)}>
+                          <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
+                          {draftAvatarPath === avatarPath ? <View style={styles.avatarSelectedRing} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </Stack>
+
+                <Button
+                  title={isSaving ? copy.saving : copy.saveChanges}
+                  language={uiLanguage}
+                  onPress={() => {
+                    void handleSaveProfile();
+                  }}
+                  disabled={isSaving}
+                />
+              </Stack>
+            ) : (
+              <Stack gap="sm">
+                <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
+                  {copy.profileCardTitle}
                 </AppText>
                 <View style={styles.metaRow}>
                   <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                    {copy.onboardingStatusLabel}
+                    {copy.membershipLabel}
                   </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.devStatusValue}>
-                    {hasSeenOnboarding ? copy.onboardingSeen : copy.onboardingNotSeen}
+                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                    {profileData.membershipLabel}
+                  </AppText>
+                </View>
+                <View style={styles.metaRow}>
+                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                    {copy.languageLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                    {copy.languageValue}
+                  </AppText>
+                </View>
+                <View style={styles.metaRow}>
+                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                    {copy.joinedLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                    {profileData.joinedLabel}
                   </AppText>
                 </View>
               </Stack>
+            )}
+          </Stack>
+        </Card>
 
-              <Stack gap="sm">
-                <Button title={copy.openOnboarding} language={uiLanguage} onPress={() => router.push('/onboarding')} />
-                <Button
-                  title={copy.resetOnboarding}
-                  language={uiLanguage}
-                  variant="outline"
-                  onPress={() => {
-                    void resetOnboarding().then(() => {
-                      Alert.alert(copy.devToolsTitle, copy.onboardingResetSuccess);
-                    });
-                  }}
-                />
-                <Button
-                  title={copy.completeOnboarding}
-                  language={uiLanguage}
-                  variant="outline"
-                  onPress={() => {
-                    void markOnboardingComplete().then(() => {
-                      Alert.alert(copy.devToolsTitle, copy.onboardingCompleteSuccess);
-                    });
-                  }}
-                />
-              </Stack>
-            </Stack>
-          </Card>
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          style={styles.signOutRow}
+          onPress={() => {
+            void signOut().then(({ error }) => {
+              if (error) {
+                Alert.alert(copy.signOut, error);
+                return;
+              }
+              Alert.alert(copy.signOut, copy.signOutSuccess);
+              router.replace('/(tabs)/account');
+            });
+          }}>
+          <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
+            {copy.signOut}
+          </AppText>
+        </Pressable>
       </Stack>
     </ScrollView>
   );
@@ -329,26 +380,22 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
+  neoCard: {
+    borderWidth: 1.5,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontWeight: theme.typography.weights.semibold,
   },
   title: {
     color: theme.colors.text,
   },
   subtitle: {
     color: theme.colors.mutedText,
-  },
-  sectionTitle: {
-    fontWeight: theme.typography.weights.semibold,
-  },
-  devStatusValue: {
-    color: theme.colors.accent,
-    fontWeight: theme.typography.weights.semibold,
   },
   profileHeaderRow: {
     flexDirection: 'row',
@@ -385,6 +432,50 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.lg,
     lineHeight: theme.typography.lineHeights.lg,
   },
+  fieldLabel: {
+    color: theme.colors.mutedText,
+  },
+  inputShell: {
+    minHeight: 56,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+  },
+  textInput: {
+    minHeight: 56,
+    color: theme.colors.text,
+    fontFamily: theme.typography.fonts.en,
+    fontSize: theme.typography.sizes.md,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: theme.spacing.md,
+  },
+  avatarOption: {
+    width: '23%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOptionImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarSelectedRing: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    bottom: -3,
+    left: -3,
+    borderWidth: 2,
+    borderColor: theme.colors.text,
+    borderRadius: 999,
+  },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -415,6 +506,13 @@ const styles = StyleSheet.create({
   signOutText: {
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.primary,
+  },
+  signOutRow: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
   },
   linkChevron: {
     fontSize: 20,

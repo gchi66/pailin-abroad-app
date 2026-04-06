@@ -1661,6 +1661,7 @@ export default function LessonDetailShellScreen() {
     [activeTab, pageLanguage]
   );
   const isPrepareTab = activeTab?.type === 'prepare';
+  const useTwoColumnPrepareLayout = windowWidth >= 360;
   const isComprehensionTab = activeTab?.type === 'comprehension';
   const isTranscriptTab = activeTab?.type === 'transcript';
   const isApplyTab = activeTab?.type === 'apply';
@@ -3425,7 +3426,13 @@ export default function LessonDetailShellScreen() {
     const isLoading = isPlaying && isSnippetLoading;
 
     return (
-      <View key={nodeKey} style={[styles.prepareItemRow, indentStyle]}>
+      <View
+        key={nodeKey}
+        style={[
+          styles.prepareItemRow,
+          useTwoColumnPrepareLayout ? styles.prepareItemRowTwoColumn : null,
+          indentStyle,
+        ]}>
         <View style={styles.prepareAudioSlot}>
           {snippet ? (
             <LessonSnippetAudioButton
@@ -4595,7 +4602,7 @@ export default function LessonDetailShellScreen() {
                   <View style={styles.sectionDivider} />
 
                   {isPrepareTab ? (
-                    <Card padding="lg" radius="lg" style={styles.prepareCard}>
+                    <Card padding="md" radius="lg" style={styles.prepareCard}>
                       <Stack gap="md">
                         <View style={styles.prepareCardHeader}>
                           <AppText language={pageLanguage} variant="caption" style={styles.prepareCardEyebrow}>
@@ -4607,7 +4614,7 @@ export default function LessonDetailShellScreen() {
                         </View>
 
                         {prepareItems.length ? (
-                          <View style={styles.prepareList}>
+                          <View style={[styles.prepareList, useTwoColumnPrepareLayout ? styles.prepareListTwoColumn : null]}>
                             {prepareItems.map((item) => renderPrepareItem(item))}
                           </View>
                         ) : (
@@ -5899,11 +5906,20 @@ const styles = StyleSheet.create({
   prepareList: {
     gap: theme.spacing.sm,
   },
+  prepareListTwoColumn: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: theme.spacing.sm,
+  },
   prepareItemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: theme.spacing.sm,
     paddingVertical: 2,
+  },
+  prepareItemRowTwoColumn: {
+    width: '48%',
   },
   prepareAudioSlot: {
     width: 28,

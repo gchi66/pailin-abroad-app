@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   ActivityIndicator,
   Alert,
@@ -11,14 +12,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { submitContactMessage } from '@/src/api/contact';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { FACEBOOK_URL, INSTAGRAM_URL, LINE_URL } from '@/src/config/social';
+import { FACEBOOK_URL, INSTAGRAM_URL } from '@/src/config/social';
 import { theme } from '@/src/theme/theme';
 
 type ContactFormState = {
@@ -36,16 +39,14 @@ const INITIAL_FORM_STATE: ContactFormState = {
 };
 
 const SOCIAL_LINKS = [
-  { key: 'facebook', label: 'Facebook', url: FACEBOOK_URL },
-  { key: 'instagram', label: 'Instagram', url: INSTAGRAM_URL },
-  { key: 'line', label: 'LINE', url: LINE_URL },
+  { key: 'facebook', label: 'Facebook', url: FACEBOOK_URL, icon: 'facebook-square' },
+  { key: 'instagram', label: 'Instagram', url: INSTAGRAM_URL, icon: 'instagram' },
 ] as const;
 
 const getCopy = (uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
     return {
       title: 'ติดต่อเรา',
-      subtitle: 'พวกเราอยากได้ยินความคิดเห็นจากคุณ! ถามคำถามหรือทิ้งความคิดเห็นของคุณให้เราได้เลย',
       intro:
         'เราพร้อมช่วยเหลือคุณ ลองดูหน้า FAQ ก่อนเผื่อมีคำตอบอยู่แล้ว หรือส่งข้อความหาเราผ่านช่องทางด้านล่างและแบบฟอร์มนี้ได้เลย',
       nameLabel: 'ชื่อ',
@@ -64,7 +65,6 @@ const getCopy = (uiLanguage: 'en' | 'th') => {
 
   return {
     title: 'Contact Us',
-    subtitle: 'We love to hear from you! Ask us your questions or leave your feedback.',
     intro:
       'We are here to help. Check the FAQ first if your question may already be answered, or message us through the links below and the form here.',
     nameLabel: 'Name',
@@ -82,6 +82,7 @@ const getCopy = (uiLanguage: 'en' | 'th') => {
 };
 
 export function ContactScreen() {
+  const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const copy = getCopy(uiLanguage);
   const [formData, setFormData] = useState<ContactFormState>(INITIAL_FORM_STATE);
@@ -139,119 +140,110 @@ export function ContactScreen() {
       style={styles.keyboardAvoidingView}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <Stack gap="md">
-          <View style={styles.headerBlock}>
-            <Stack gap="sm">
-              <AppText language={uiLanguage} variant="title" style={styles.title}>
-                {copy.title}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-                {copy.subtitle}
-              </AppText>
-            </Stack>
-          </View>
+          <StandardPageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account')} topInsetOffset={52} />
 
-          <Card padding="lg" radius="lg">
+          <Card padding="lg" radius="lg" style={styles.neoCard}>
             <AppText language={uiLanguage} variant="body" style={styles.introText}>
               {copy.intro}
             </AppText>
           </Card>
+
+          {status !== 'idle' ? (
+            <View
+              style={[
+                styles.statusBox,
+                styles.neoCard,
+                status === 'success' ? styles.statusBoxSuccess : null,
+                status === 'error' ? styles.statusBoxError : null,
+              ]}>
+              {isSending ? <ActivityIndicator color={theme.colors.text} /> : null}
+              <AppText language={uiLanguage} variant="body" style={styles.statusText}>
+                {isSending ? copy.sending : feedback}
+              </AppText>
+            </View>
+          ) : null}
+
+          <Stack gap="sm">
+            <View style={styles.fieldGroup}>
+              <AppText language={uiLanguage} variant="caption" style={styles.label}>
+                {copy.nameLabel}
+              </AppText>
+              <TextInput
+                accessibilityLabel={copy.nameLabel}
+                autoCapitalize="words"
+                autoCorrect={false}
+                editable={!isSending}
+                onChangeText={(value) => updateField('name', value)}
+                placeholder={copy.namePlaceholder}
+                placeholderTextColor={theme.colors.mutedText}
+                style={[styles.input, styles.neoInput, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+                value={formData.name}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <AppText language={uiLanguage} variant="caption" style={styles.label}>
+                {copy.emailLabel}
+              </AppText>
+              <TextInput
+                accessibilityLabel={copy.emailLabel}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isSending}
+                keyboardType="email-address"
+                onChangeText={(value) => updateField('email', value)}
+                placeholder={copy.emailPlaceholder}
+                placeholderTextColor={theme.colors.mutedText}
+                style={[styles.input, styles.neoInput, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+                value={formData.email}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <AppText language={uiLanguage} variant="caption" style={styles.label}>
+                {copy.messageLabel}
+              </AppText>
+              <TextInput
+                accessibilityLabel={copy.messageLabel}
+                autoCapitalize="sentences"
+                autoCorrect
+                editable={!isSending}
+                multiline
+                onChangeText={(value) => updateField('message', value)}
+                placeholder={copy.messagePlaceholder}
+                placeholderTextColor={theme.colors.mutedText}
+                style={[
+                  styles.input,
+                  styles.neoInput,
+                  styles.messageInput,
+                  uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish,
+                ]}
+                textAlignVertical="top"
+                value={formData.message}
+              />
+            </View>
+
+            <Button
+              disabled={isSending}
+              language={uiLanguage}
+              onPress={handleSubmit}
+              title={isSending ? copy.sending : copy.submit}
+              style={styles.submitButton}
+            />
+          </Stack>
 
           <View style={styles.socialLinksRow}>
             {SOCIAL_LINKS.map((link) => (
               <Pressable
                 key={link.key}
                 accessibilityRole="button"
-                style={styles.socialLink}
+                accessibilityLabel={link.label}
+                style={styles.socialIconButton}
                 onPress={() => openSocialLink(link.url)}>
-                <AppText language={uiLanguage} variant="caption" style={styles.socialLinkText}>
-                  {link.label}
-                </AppText>
+                <FontAwesome name={link.icon} size={24} color={theme.colors.text} />
               </Pressable>
             ))}
           </View>
-
-          <Card padding="lg" radius="lg">
-            <Stack gap="sm">
-              {status !== 'idle' ? (
-                <View
-                  style={[
-                    styles.statusBox,
-                    status === 'success' ? styles.statusBoxSuccess : null,
-                    status === 'error' ? styles.statusBoxError : null,
-                  ]}>
-                  {isSending ? <ActivityIndicator color={theme.colors.text} /> : null}
-                  <AppText language={uiLanguage} variant="body" style={styles.statusText}>
-                    {isSending ? copy.sending : feedback}
-                  </AppText>
-                </View>
-              ) : null}
-
-              <View style={styles.fieldGroup}>
-                <AppText language={uiLanguage} variant="caption" style={styles.label}>
-                  {copy.nameLabel}
-                </AppText>
-                <TextInput
-                  accessibilityLabel={copy.nameLabel}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  editable={!isSending}
-                  onChangeText={(value) => updateField('name', value)}
-                  placeholder={copy.namePlaceholder}
-                  placeholderTextColor={theme.colors.mutedText}
-                  style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-                  value={formData.name}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <AppText language={uiLanguage} variant="caption" style={styles.label}>
-                  {copy.emailLabel}
-                </AppText>
-                <TextInput
-                  accessibilityLabel={copy.emailLabel}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isSending}
-                  keyboardType="email-address"
-                  onChangeText={(value) => updateField('email', value)}
-                  placeholder={copy.emailPlaceholder}
-                  placeholderTextColor={theme.colors.mutedText}
-                  style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-                  value={formData.email}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <AppText language={uiLanguage} variant="caption" style={styles.label}>
-                  {copy.messageLabel}
-                </AppText>
-                <TextInput
-                  accessibilityLabel={copy.messageLabel}
-                  autoCapitalize="sentences"
-                  autoCorrect
-                  editable={!isSending}
-                  multiline
-                  onChangeText={(value) => updateField('message', value)}
-                  placeholder={copy.messagePlaceholder}
-                  placeholderTextColor={theme.colors.mutedText}
-                  style={[
-                    styles.input,
-                    styles.messageInput,
-                    uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish,
-                  ]}
-                  textAlignVertical="top"
-                  value={formData.message}
-                />
-              </View>
-
-              <Button
-                disabled={isSending}
-                language={uiLanguage}
-                onPress={handleSubmit}
-                title={isSending ? copy.sending : copy.submit}
-              />
-            </Stack>
-          </Card>
         </Stack>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -270,46 +262,41 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-  },
-  title: {
-    color: theme.colors.text,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
+  neoCard: {
+    borderWidth: 1.5,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   introText: {
     color: theme.colors.text,
   },
   socialLinksRow: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    justifyContent: 'center',
+    gap: theme.spacing.md,
   },
-  socialLink: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#91CAFF',
+  socialIconButton: {
+    width: 60,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.sm,
-  },
-  socialLinkText: {
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    borderRadius: theme.radii.xl,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#91CAFF',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   statusBox: {
     minHeight: 52,
     borderRadius: theme.radii.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: '#F7F4C5',
     alignItems: 'center',
@@ -335,7 +322,7 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 52,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.md,
     backgroundColor: theme.colors.surface,
@@ -345,6 +332,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.md,
   },
+  neoInput: {
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
   inputEnglish: {
     fontFamily: theme.typography.fonts.en,
   },
@@ -353,5 +347,8 @@ const styles = StyleSheet.create({
   },
   messageInput: {
     minHeight: 150,
+  },
+  submitButton: {
+    marginTop: theme.spacing.xs,
   },
 });

@@ -281,26 +281,22 @@
 - Added native Contact page work:
   - `src/api/contact.ts`
   - `src/screens/ContactScreen.tsx`
-  - `app/account/contact.tsx`
-  - `src/screens/AccountScreen.tsx` now routes Contact from Account
+  - `app/(tabs)/account/contact.tsx`
 - Added native About page work:
   - `src/screens/AboutScreen.tsx`
-  - `app/account/about.tsx`
-  - `src/screens/AccountScreen.tsx` now routes About from Account
+  - `app/(tabs)/account/about.tsx`
   - About now uses bundled local images for:
     - Pailin image in the method section
     - Carissa team image
     - Grant team image
 - Added native Profile shell work tied to real session/profile state:
   - `src/screens/ProfileScreen.tsx`
-  - `app/account/profile.tsx`
-  - `src/screens/AccountScreen.tsx` now routes Profile from Account in both free-plan and paid states
-  - dev-only Profile controls can open onboarding and reset/complete local onboarding state for testing
+  - `app/(tabs)/account/profile.tsx`
 - Added native Membership frontend shell with live pricing fetch:
   - `src/api/pricing.ts`
   - `src/screens/MembershipScreen.tsx`
-  - `app/account/membership.tsx`
-  - `src/screens/AccountScreen.tsx` and `src/screens/ProfileScreen.tsx` now route Membership into the shell
+  - `app/(tabs)/account/membership.tsx`
+  - `src/screens/ProfileScreen.tsx` routes Membership into the shell
 - Membership intentionally mirrors the web page structure closely, but `JOIN NOW!` remains frontend-only and does not start checkout yet.
 - Membership styling notes:
   - App background should stay aligned with web `--app-bg` (`#F7FAFD`)
@@ -418,7 +414,6 @@
   - `src/api/onboarding.ts`
 - Current onboarding implementation notes:
   - onboarding state is kept separate from auth/session local state for testing convenience
-  - dev-only Profile controls can reopen onboarding and reset/complete local onboarding state
   - signed-in users with incomplete onboarding are now routed into onboarding automatically
   - signed-out users still see the normal auth screen first
   - OAuth/Google users skip the password step and use the shortened onboarding flow
@@ -480,11 +475,25 @@
     - recent completed lessons
   - shared `StandardPageHeader` has been refactored to the lighter compact style used across remaining standard pages
   - `Lesson Library` has its own custom compact header variant and no longer shows the old shared subtitle-heavy hero header
-  - resource-library routes were moved under the tab tree so top spacing matches tab-root pages and the bottom tab bar remains visible on:
+  - non-lesson secondary app pages are now routed under the tab tree so top spacing matches tab-root pages and the bottom tab bar remains visible on:
+    - More subpages:
+      - Profile
+      - About
+      - Contact
+      - Membership
+      - Settings
+    - Pathway subpages:
+      - Learning Progress
+      - Completed Lessons
+    - lesson secondary pages:
+      - Try Lessons
+      - Guest Lesson Library
+      - Free Lesson Library
     - Exercise Bank
     - Topic Library
     - Topic detail
     - Exercise bank section detail
+  - lesson detail (`app/lessons/[id].tsx`) remains intentionally outside the tab navigator so it can keep the full-screen guided-study treatment without the bottom nav
 - Current Pathway limitations:
   - lesson completion writes are not yet wired in native because lesson detail is still a shell
   - `Continue learning` depends on the current backend pathway endpoint behavior
@@ -492,10 +501,12 @@
   - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1
   - final structure/spacing/content order should still be treated as provisional until cofounder review
 - Immediate next review target:
-  - review the `Account` tab against the new compact header / nav direction and decide what should stay or be simplified there
-- `Account` tab is now relabeled to `More` in the bottom nav and uses an ellipsis icon instead of the profile/person icon.
-- The tab entry screen has been refactored away from the old account-summary card shell:
+  - major redesign pass for the native `Profile` page
+- `Account` tab has now been renamed to `More` in the bottom nav and uses an ellipsis icon instead of the profile/person icon.
+- The `More` entry screen has been refactored away from the older account-summary card shell:
   - source file is now `src/screens/MoreScreen.tsx`
+  - route entry is now under the tab tree:
+    - `app/(tabs)/account/index.tsx`
   - top treatment uses app branding on the left and the existing language toggle on the right
   - main body is now a simple menu of standalone destination cards:
     - Profile
@@ -504,9 +515,29 @@
     - Settings
   - account metadata and logout are intentionally no longer shown on the `More` screen
   - membership access remains available from `Profile`
-- Added placeholder native Settings route:
+  - tapping the `More` tab icon always returns to the root `More` page
+- Added native Settings placeholder route:
   - `src/screens/SettingsScreen.tsx`
-  - `app/account/settings.tsx`
+  - `app/(tabs)/account/settings.tsx`
+- About page current status:
+  - now uses the shared `StandardPageHeader`
+  - header supports an in-header back arrow for pages like About
+  - About back behavior is intentionally aimed at the root `More` page
+  - `The Method` / `Our Team` controls now use the same rounded/neo-brutalist treatment as the page cards
+  - About content cards now use the same neo-brutalist border/shadow direction as the current app
+  - collapsed method cards have reduced bottom whitespace so the collapsed state is more balanced
+  - team cards now mirror the mobile web structure more closely:
+    - smaller circular portrait
+    - heading content to the right
+    - divider and body text below
+  - app-only customized bios were added for Carissa and Grant, with Thai translations
+- Profile page current status:
+  - still uses the earlier shell/layout and should be treated as provisional
+  - dev-only onboarding/dev-tools controls have now been removed from the page
+  - current next task is a larger redesign/refactor pass rather than small polish only
+- Next recommended work:
+  - do a major native `Profile` page redesign/refactor
+  - after that, continue cleanup/polish across `More` and its subpages as needed
 
 ## Source of Truth for Future Chats
 - This file should be used as the first context document in new chats.
