@@ -16,12 +16,12 @@ type StandardPageHeaderProps = {
   topInsetOffset?: number;
 };
 
-export function StandardPageHeader({ language, title, onBackPress, rightActionLabel, onRightActionPress, topInsetOffset = 28 }: StandardPageHeaderProps) {
+export function StandardPageHeader({ language, title, onBackPress, rightActionLabel, onRightActionPress, topInsetOffset = 42 }: StandardPageHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.headerBlock}>
-      <View style={{ height: Math.max(insets.top - (topInsetOffset + 10), 0) }} />
+      <View style={{ height: Math.max(insets.top - (topInsetOffset + 12), 0) }} />
       <View style={styles.actionRow}>
         {onBackPress ? (
           <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
@@ -55,23 +55,23 @@ const styles = StyleSheet.create({
   headerBlock: {
     marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 6,
+    paddingBottom: 4,
     borderBottomWidth: 2,
     borderColor: theme.colors.border,
   },
   actionRow: {
-    minHeight: 32,
+    minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   actionSpacer: {
     width: 56,
-    minHeight: 32,
+    minHeight: 28,
   },
   backButton: {
     width: 56,
-    minHeight: 32,
+    minHeight: 28,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   rightActionButton: {
     minWidth: 56,
-    minHeight: 32,
+    minHeight: 28,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   title: {
-    marginTop: 0,
+    marginTop: -2,
     marginBottom: 8,
     color: theme.colors.text,
     textAlign: 'center',
