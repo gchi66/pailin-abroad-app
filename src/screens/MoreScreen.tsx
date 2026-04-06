@@ -13,11 +13,10 @@ import { theme } from '@/src/theme/theme';
 import fullLogo from '@/assets/images/full-logo.webp';
 
 type MoreAction = {
-  key: 'profile' | 'membership' | 'about' | 'contact' | 'settings';
+  key: 'profile' | 'about' | 'contact' | 'settings';
   label: string;
   href:
     | '/(tabs)/account/profile'
-    | '/(tabs)/account/membership'
     | '/(tabs)/account/about'
     | '/(tabs)/account/contact'
     | '/(tabs)/account/settings';
@@ -26,23 +25,25 @@ type MoreAction = {
 export function MoreScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount } = useAppSession();
+  const { hasAccount, hasMembership } = useAppSession();
 
   const copy =
     uiLanguage === 'th'
       ? {
+          membershipTitle: 'Membership',
+          membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
           actions: [
             { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },
-            { key: 'membership', label: 'Membership', href: '/(tabs)/account/membership' },
             { key: 'about', label: 'เกี่ยวกับเรา', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'ติดต่อเรา', href: '/(tabs)/account/contact' },
             { key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' },
           ] satisfies MoreAction[],
         }
       : {
+          membershipTitle: 'Membership',
+          membershipBody: 'Unlock all lessons and our full content library.',
           actions: [
             { key: 'profile', label: 'Profile', href: '/(tabs)/account/profile' },
-            { key: 'membership', label: 'Membership', href: '/(tabs)/account/membership' },
             { key: 'about', label: 'About', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'Contact', href: '/(tabs)/account/contact' },
             { key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' },
@@ -67,6 +68,22 @@ export function MoreScreen() {
 
         <View style={styles.actionsWrap}>
           <Stack gap="md">
+            {!hasMembership ? (
+              <Pressable accessibilityRole="button" style={styles.membershipCard} onPress={() => router.push('/(tabs)/account/membership')}>
+                <View style={styles.membershipCopy}>
+                  <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
+                    {copy.membershipTitle}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="muted" style={styles.membershipBody}>
+                    {copy.membershipBody}
+                  </AppText>
+                </View>
+                <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
+                  ›
+                </AppText>
+              </Pressable>
+            ) : null}
+
             {copy.actions.map((action) => (
               <Pressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
                 <AppText language={uiLanguage} variant="body" style={styles.linkText}>
@@ -122,6 +139,39 @@ const styles = StyleSheet.create({
   actionsWrap: {
     flex: 1,
     justifyContent: 'center',
+  },
+  membershipCard: {
+    minHeight: 92,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFF4D6',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  membershipCopy: {
+    flex: 1,
+    gap: theme.spacing.xs,
+    paddingRight: theme.spacing.md,
+  },
+  membershipTitle: {
+    fontSize: theme.typography.sizes.lg,
+    lineHeight: theme.typography.lineHeights.lg,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  membershipBody: {
+    color: theme.colors.mutedText,
   },
   actionCard: {
     minHeight: 68,

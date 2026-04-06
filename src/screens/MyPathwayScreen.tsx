@@ -3,9 +3,11 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } fro
 import { useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
+import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -21,6 +23,9 @@ type PathwayCopy = {
   freePlanBadge: string;
   paidBadge: string;
   upgrade: string;
+  upgradeBannerTitle: string;
+  upgradeBannerBody: string;
+  upgradeBannerCta: string;
   progressTitle: string;
   viewDetails: string;
   lessonsDone: string;
@@ -47,6 +52,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
       freePlanBadge: 'แพ็กเกจฟรี',
       paidBadge: 'สมาชิก',
       upgrade: 'อัปเกรด',
+      upgradeBannerTitle: 'ปลดล็อกการเข้าถึงทั้งหมด',
+      upgradeBannerBody: 'ทุกบทเรียน ทุกเส้นทาง',
+      upgradeBannerCta: 'อัปเกรด →',
       progressTitle: 'ความคืบหน้าของฉัน',
       viewDetails: 'ดูรายละเอียด →',
       lessonsDone: 'บทเรียนที่จบ',
@@ -73,6 +81,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     freePlanBadge: 'Free plan',
     paidBadge: 'Member',
     upgrade: 'Upgrade',
+    upgradeBannerTitle: 'Unlock full access',
+    upgradeBannerBody: 'All lessons · full pathway',
+    upgradeBannerCta: 'Upgrade →',
     progressTitle: 'My Progress',
     viewDetails: 'View details →',
     lessonsDone: 'Lessons done',
@@ -210,6 +221,7 @@ export function MyPathwayScreen() {
       return;
     }
 
+    prefetchResolvedLesson(lessonId, 'en');
     router.push(`/lessons/${lessonId}`);
   };
 
@@ -242,23 +254,31 @@ export function MyPathwayScreen() {
                 </View>
 
                 <View style={styles.planMeta}>
-                  <View style={[styles.planBadge, hasMembership ? styles.planBadgePaid : styles.planBadgeFree]}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.planBadgeText}>
-                      {hasMembership ? copy.paidBadge : copy.freePlanBadge}
-                    </AppText>
-                  </View>
-                  {!hasMembership ? (
-                    <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/account/membership')}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.upgradeLink}>
-                        {copy.upgrade}
-                      </AppText>
-                    </Pressable>
-                  ) : null}
+                  <LanguageToggle />
                 </View>
               </View>
             </View>
           </View>
         </View>
+
+        {!hasMembership ? (
+          <Pressable accessibilityRole="button" style={styles.upgradeBanner} onPress={() => router.push('/(tabs)/account/membership')}>
+            <View style={styles.upgradeBannerCopy}>
+              <AppText language={uiLanguage} variant="body" style={styles.upgradeBannerTitle}>
+                {copy.upgradeBannerTitle}
+              </AppText>
+              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerBody}>
+                {copy.upgradeBannerBody}
+              </AppText>
+            </View>
+
+            <View style={styles.upgradeBannerButton}>
+              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerButtonText}>
+                {copy.upgradeBannerCta}
+              </AppText>
+            </View>
+          </Pressable>
+        ) : null}
 
         <Card padding="md" radius="lg" style={styles.progressCard}>
           <Stack gap="sm">
@@ -529,37 +549,52 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.accent,
   },
-  planBadge: {
-    flexShrink: 0,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  planBadgeFree: {
-    backgroundColor: theme.colors.surface,
-  },
-  planBadgePaid: {
-    backgroundColor: theme.colors.success,
-  },
-  planBadgeText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: theme.typography.weights.bold,
-  },
   planMeta: {
     alignItems: 'flex-start',
     gap: 4,
   },
-  upgradeLink: {
-    marginTop: 2,
-    marginLeft: 6,
-    color: theme.colors.primary,
-    fontSize: 15,
-    lineHeight: 18,
+  upgradeBanner: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: -theme.spacing.md,
+    marginTop: -theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    backgroundColor: '#FFF8EA',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  upgradeBannerCopy: {
+    flex: 1,
+    gap: 2,
+    paddingRight: theme.spacing.md,
+  },
+  upgradeBannerTitle: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+  },
+  upgradeBannerBody: {
+    color: theme.colors.mutedText,
+  },
+  upgradeBannerButton: {
+    minHeight: 36,
+    borderRadius: theme.radii.xl,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  upgradeBannerButtonText: {
+    color: theme.colors.surface,
     fontWeight: theme.typography.weights.bold,
   },
   progressCard: {

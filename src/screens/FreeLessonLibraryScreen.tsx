@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } fro
 import { useRouter } from 'expo-router';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
-import { getLessonsIndex } from '@/src/api/lessons';
+import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
@@ -120,6 +120,10 @@ export function FreeLessonLibraryScreen() {
     });
   };
 
+  const handleLessonPressIn = (lessonId: string) => {
+    prefetchResolvedLesson(lessonId, 'en');
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
@@ -189,6 +193,7 @@ export function FreeLessonLibraryScreen() {
                               key={lesson.id}
                               accessibilityRole="button"
                               style={[styles.itemPressable, index < lessons.length - 1 ? styles.lessonItemBorder : null]}
+                              onPressIn={() => handleLessonPressIn(lesson.id)}
                               onPress={() => handleLessonPress(lesson)}>
                               <View style={styles.lessonRow}>
                                 <View style={styles.lessonLeft}>

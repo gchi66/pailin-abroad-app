@@ -90,6 +90,13 @@ type NormalizedApplyContent = {
   responseNodes: LessonRichNode[];
 };
 
+const EMPTY_NORMALIZED_APPLY: NormalizedApplyContent = {
+  promptText: '',
+  responseText: '',
+  promptNodes: [],
+  responseNodes: [],
+};
+
 type RichSectionGroup = {
   key: string;
   heading: LessonRichNode | null;
@@ -1536,59 +1543,71 @@ export default function LessonDetailShellScreen() {
   const activeTab = lessonTabs[activeSectionIndex] ?? null;
   const activeSection = activeTab?.section ?? null;
   const normalizedQuestions = useMemo(
-    () => (lesson?.questions ?? []).map((question, index) => ({
-      ...normalizeQuestion(question, contentLang),
-      id: String(question.id ?? `question-${index + 1}`),
-      sortOrder: Number(question.sort_order ?? index + 1),
-    })),
-    [contentLang, lesson?.questions]
+    () =>
+      hasStartedLesson
+        ? (lesson?.questions ?? []).map((question, index) => ({
+            ...normalizeQuestion(question, contentLang),
+            id: String(question.id ?? `question-${index + 1}`),
+            sortOrder: Number(question.sort_order ?? index + 1),
+          }))
+        : [],
+    [contentLang, hasStartedLesson, lesson?.questions]
   );
   const normalizedTranscript = useMemo(
     () =>
-      (lesson?.transcript ?? [])
-        .map((line, index) => normalizeTranscriptLine(line, index))
-        .sort((a, b) => a.sortOrder - b.sortOrder),
-    [lesson?.transcript]
+      hasStartedLesson
+        ? (lesson?.transcript ?? [])
+            .map((line, index) => normalizeTranscriptLine(line, index))
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+        : [],
+    [hasStartedLesson, lesson?.transcript]
   );
   const normalizedApply = useMemo(
-    () => normalizeApplyContent(activeTab?.type === 'apply' ? activeSection : null, contentLang),
-    [activeSection, activeTab?.type, contentLang]
+    () =>
+      hasStartedLesson ? normalizeApplyContent(activeTab?.type === 'apply' ? activeSection : null, contentLang) : EMPTY_NORMALIZED_APPLY,
+    [activeSection, activeTab?.type, contentLang, hasStartedLesson]
   );
   const normalizedLessonPhrases = useMemo(
     () =>
-      (lesson?.phrases ?? [])
-        .map((phrase, index) => normalizeLessonPhrase(phrase, index, contentLang))
-        .filter((phrase): phrase is NormalizedLessonPhrase => phrase !== null),
-    [contentLang, lesson?.phrases]
+      hasStartedLesson
+        ? (lesson?.phrases ?? [])
+            .map((phrase, index) => normalizeLessonPhrase(phrase, index, contentLang))
+            .filter((phrase): phrase is NormalizedLessonPhrase => phrase !== null)
+        : [],
+    [contentLang, hasStartedLesson, lesson?.phrases]
   );
   const normalizedPracticeExercises = useMemo(
     () =>
-      (lesson?.practice_exercises ?? [])
-        .map((exercise) => normalizePracticeExercise(exercise, contentLang))
-        .filter(
-          (exercise) =>
-            exercise.kind === 'multiple_choice' ||
-            exercise.kind === 'open' ||
-            exercise.kind === 'fill_blank' ||
-            exercise.kind === 'sentence_transform'
-        )
-        .sort((a, b) => a.sortOrder - b.sortOrder),
-    [contentLang, lesson?.practice_exercises]
+      hasStartedLesson
+        ? (lesson?.practice_exercises ?? [])
+            .map((exercise) => normalizePracticeExercise(exercise, contentLang))
+            .filter(
+              (exercise) =>
+                exercise.kind === 'multiple_choice' ||
+                exercise.kind === 'open' ||
+                exercise.kind === 'fill_blank' ||
+                exercise.kind === 'sentence_transform'
+            )
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+        : [],
+    [contentLang, hasStartedLesson, lesson?.practice_exercises]
   );
   const normalizedQuickPracticeExercises = useMemo(
     () =>
-      (lesson?.practice_exercises ?? [])
-        .filter(isQuickPracticeExercise)
-        .map((exercise) => normalizePracticeExercise(exercise, contentLang))
-        .filter(
-          (exercise) =>
-            exercise.kind === 'multiple_choice' ||
-            exercise.kind === 'open' ||
-            exercise.kind === 'fill_blank' ||
-            exercise.kind === 'sentence_transform'
-        )
-        .sort((a, b) => a.sortOrder - b.sortOrder),
-    [contentLang, lesson?.practice_exercises]
+      hasStartedLesson
+        ? (lesson?.practice_exercises ?? [])
+            .filter(isQuickPracticeExercise)
+            .map((exercise) => normalizePracticeExercise(exercise, contentLang))
+            .filter(
+              (exercise) =>
+                exercise.kind === 'multiple_choice' ||
+                exercise.kind === 'open' ||
+                exercise.kind === 'fill_blank' ||
+                exercise.kind === 'sentence_transform'
+            )
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+        : [],
+    [contentLang, hasStartedLesson, lesson?.practice_exercises]
   );
   const allAnswersCorrect = useMemo(
     () =>
@@ -1672,8 +1691,8 @@ export default function LessonDetailShellScreen() {
   const isPhrasesTab = activeTab?.type === 'phrases_verbs';
   const isCompactLayout = windowWidth < 768;
   const prepareNodes = useMemo(
-    () => getRichNodesForLanguage(isPrepareTab ? activeSection : null, contentLang),
-    [activeSection, contentLang, isPrepareTab]
+    () => (hasStartedLesson ? getRichNodesForLanguage(isPrepareTab ? activeSection : null, contentLang) : []),
+    [activeSection, contentLang, hasStartedLesson, isPrepareTab]
   );
   const prepareItems = useMemo(() => {
     if (!isPrepareTab) {
@@ -1697,20 +1716,22 @@ export default function LessonDetailShellScreen() {
   }, [contentLang, isPrepareTab, prepareNodes, snippetIndex]);
   const understandNodes = useMemo(
     () =>
-      injectQuickPracticeNodes(
-        getRichNodesForLanguage(isUnderstandTab ? activeSection : null, contentLang),
-        normalizedQuickPracticeExercises,
-        contentLang
-      ),
-    [activeSection, contentLang, isUnderstandTab, normalizedQuickPracticeExercises]
+      hasStartedLesson
+        ? injectQuickPracticeNodes(
+            getRichNodesForLanguage(isUnderstandTab ? activeSection : null, contentLang),
+            normalizedQuickPracticeExercises,
+            contentLang
+          )
+        : [],
+    [activeSection, contentLang, hasStartedLesson, isUnderstandTab, normalizedQuickPracticeExercises]
   );
   const commonMistakeNodes = useMemo(
-    () => getRichNodesForLanguage(isCommonMistakeTab ? activeSection : null, contentLang),
-    [activeSection, contentLang, isCommonMistakeTab]
+    () => (hasStartedLesson ? getRichNodesForLanguage(isCommonMistakeTab ? activeSection : null, contentLang) : []),
+    [activeSection, contentLang, hasStartedLesson, isCommonMistakeTab]
   );
   const cultureNoteNodes = useMemo(
-    () => getRichNodesForLanguage(isCultureNoteTab ? activeSection : null, contentLang),
-    [activeSection, contentLang, isCultureNoteTab]
+    () => (hasStartedLesson ? getRichNodesForLanguage(isCultureNoteTab ? activeSection : null, contentLang) : []),
+    [activeSection, contentLang, hasStartedLesson, isCultureNoteTab]
   );
   const understandGroups = useMemo(
     () => groupRichSectionNodes(selectNodesForTableVisibility(understandNodes, isCompactLayout), contentLang),
@@ -1818,6 +1839,10 @@ export default function LessonDetailShellScreen() {
   const startLessonLabel = uiCopy.startLesson;
   const coverMinHeight = Math.max(windowHeight || 0, 720);
   const backToLibraryLabel = uiCopy.backToLibrary;
+  const coverLessonNumber =
+    typeof lesson?.level === 'number' && typeof lesson?.lesson_order === 'number'
+      ? `${lesson.level}.${lesson.lesson_order}`
+      : lesson?.lesson_order?.toString() ?? '-';
   const translateToThaiLabel = pageCopy.translateToThaiLabel;
   const translateToEnglishLabel = pageCopy.translateToEnglishLabel;
   const backstoryToggleLabel = isBackstoryExpanded
@@ -1879,6 +1904,10 @@ export default function LessonDetailShellScreen() {
       return collectSnippetsForNodes(cultureNoteNodes, snippetIndex);
     }
 
+    if (isPrepareTab) {
+      return collectSnippetsForNodes(prepareNodes, snippetIndex);
+    }
+
     if (isPhrasesTab) {
       const snippets: LessonAudioSnippet[] = [];
       const seenKeys = new Set<string>();
@@ -1915,9 +1944,11 @@ export default function LessonDetailShellScreen() {
     activeUnderstandGroupIndex,
     cultureNoteNodes,
     isCultureNoteTab,
+    isPrepareTab,
     isPhrasesTab,
     isRichPagerTab,
     normalizedLessonPhrases,
+    prepareNodes,
     phraseSnippetIndex,
     snippetIndex,
   ]);
@@ -2248,7 +2279,7 @@ export default function LessonDetailShellScreen() {
     let isMounted = true;
 
     const run = async () => {
-      if (!lesson?.id || !lesson.conversation_audio_url) {
+      if (!hasStartedLesson || !lesson?.id || !lesson.conversation_audio_url) {
         setAudioUrls({ main: null, noBg: null, bg: null });
         return;
       }
@@ -2272,13 +2303,13 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [lesson]);
+  }, [hasStartedLesson, lesson]);
 
   useEffect(() => {
     let isMounted = true;
 
     const run = async () => {
-      if (!lesson?.id || !lesson.lesson_external_id) {
+      if (!hasStartedLesson || !lesson?.id || !lesson.lesson_external_id) {
         setSnippetIndex(EMPTY_SNIPPET_INDEX);
         return;
       }
@@ -2302,13 +2333,13 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [lesson]);
+  }, [hasStartedLesson, lesson]);
 
   useEffect(() => {
     let isMounted = true;
 
     const run = async () => {
-      if (!lesson?.id) {
+      if (!hasStartedLesson || !lesson?.id) {
         setPhraseSnippetIndex(EMPTY_PHRASE_SNIPPET_INDEX);
         return;
       }
@@ -2332,7 +2363,7 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [lesson]);
+  }, [hasStartedLesson, lesson]);
 
   useEffect(() => {
     return () => {
@@ -2595,13 +2626,13 @@ export default function LessonDetailShellScreen() {
           delete inflightSnippetPreloadsRef.current[audioKey];
         });
       });
-    }, 150);
+    }, isPrepareTab ? 0 : 150);
 
     return () => {
       isActive = false;
       clearTimeout(preloadTimer);
     };
-  }, [snippetPreloadTargets]);
+  }, [isPrepareTab, snippetPreloadTargets]);
 
   const handleToggleSnippet = async (snippet: LessonAudioSnippet | null) => {
     const audioKey = snippet?.audio_key?.trim();
@@ -4426,22 +4457,21 @@ export default function LessonDetailShellScreen() {
                 <View style={styles.coverOverlay} />
 
                 <View style={styles.coverContent}>
-                    <View style={styles.coverTopMetaRow}>
+                  <View style={styles.coverTopMetaRow}>
                     <View style={styles.coverTopBar}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={backToLibraryLabel}
-                        onPress={() => router.push('/(tabs)/lessons')}
-                        style={styles.backButton}>
-                        <AppText language={uiLanguage} variant="body" style={styles.backButtonText}>
-                          ←
-                        </AppText>
-                      </Pressable>
+                      <View style={styles.coverTopLeft}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={backToLibraryLabel}
+                          onPress={() => router.push('/(tabs)/lessons')}
+                          style={styles.backButton}>
+                          <AppText language={uiLanguage} variant="body" style={styles.backButtonText}>
+                            ←
+                          </AppText>
+                        </Pressable>
+                      </View>
 
-                      <View style={styles.heroMetaGroup}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.metaText}>
-                          {uiCopy.lessonLabel} {lesson.lesson_order ?? '-'}
-                        </AppText>
+                      <View pointerEvents="none" style={styles.coverTopCenter}>
                         <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
                           {sectionCount} {uiCopy.lessonSections}
                         </AppText>
@@ -4451,11 +4481,9 @@ export default function LessonDetailShellScreen() {
 
                   <View style={styles.coverBottomPanel}>
                     <Stack gap="sm">
-                      {lesson.stage ? (
-                        <AppText language={uiLanguage} variant="caption" style={styles.coverStageLabel}>
-                          {lesson.stage}
-                        </AppText>
-                      ) : null}
+                      <AppText language={uiLanguage} variant="caption" style={styles.coverLessonLabel}>
+                        {uiCopy.lessonLabel} {coverLessonNumber}
+                      </AppText>
 
                       <AppText language="en" variant="title" style={styles.coverTitle}>
                         {englishTitle ?? 'Untitled lesson'}
@@ -5288,22 +5316,28 @@ const styles = StyleSheet.create({
   },
   coverTopMetaRow: {
     alignItems: 'flex-start',
+    marginTop: theme.spacing.xs,
   },
   coverTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    width: '100%',
+    minHeight: 44,
+    position: 'relative',
   },
-  heroMetaGroup: {
-    flexDirection: 'row',
+  coverTopLeft: {
+    width: 44,
+    alignItems: 'flex-start',
+    zIndex: 1,
+  },
+  coverTopCenter: {
+    position: 'absolute',
+    left: 56,
+    right: 56,
+    top: 0,
+    bottom: 0,
     alignItems: 'center',
-    gap: theme.spacing.sm,
-    flexWrap: 'wrap',
-  },
-  metaText: {
-    color: theme.colors.surface,
-    fontWeight: theme.typography.weights.semibold,
-    textTransform: 'uppercase',
+    justifyContent: 'center',
   },
   stagePill: {
     color: theme.colors.surface,
@@ -5339,9 +5373,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
   },
-  coverStageLabel: {
+  coverLessonLabel: {
     color: theme.colors.primary,
-    textTransform: 'uppercase',
     fontWeight: theme.typography.weights.semibold,
   },
   coverTitle: {

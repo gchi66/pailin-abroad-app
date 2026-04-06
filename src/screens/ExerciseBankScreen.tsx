@@ -194,7 +194,7 @@ export function ExerciseBankScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
+        <StandardPageHeader language={uiLanguage} title={copy.title} />
 
         <View style={styles.contentWrap}>
           <Stack gap="md">

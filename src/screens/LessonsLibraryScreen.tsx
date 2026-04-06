@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getLessonsIndex } from '@/src/api/lessons';
+import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
@@ -46,7 +46,6 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
 
 export function LessonsLibraryScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,16 +153,14 @@ export function LessonsLibraryScreen() {
   }, [items, selectedLevel, selectedStage]);
 
   const title = uiLanguage === 'th' ? 'คลังบทเรียน' : 'Lesson Library';
+  const prefetchLesson = (lessonId: string) => {
+    prefetchResolvedLesson(lessonId, 'en');
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <View style={styles.headerBlock}>
-          <View style={{ height: Math.max(insets.top - 28, 0) }} />
-          <AppText language={uiLanguage} variant="title" numberOfLines={1} style={styles.headerTitle}>
-            {title}
-          </AppText>
-        </View>
+        <StandardPageHeader language={uiLanguage} title={title} />
 
         <Stack gap="sm">
           <View style={styles.stageSelector}>
@@ -251,6 +248,7 @@ export function LessonsLibraryScreen() {
                   key={lesson.id}
                   accessibilityRole="button"
                   style={styles.itemPressable}
+                  onPressIn={() => prefetchLesson(lesson.id)}
                   onPress={() => router.push(`/lessons/${lesson.id}`)}>
                   <Card padding="md" radius="md" style={styles.lessonCard}>
                     <View style={styles.lessonRow}>
@@ -298,21 +296,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: theme.spacing.xl,
-  },
-  headerBlock: {
-    marginHorizontal: -theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 6,
-    borderBottomWidth: 2,
-    borderColor: theme.colors.border,
-  },
-  headerTitle: {
-    marginTop: 0,
-    marginBottom: 8,
-    fontSize: 36,
-    lineHeight: 40,
-    fontWeight: theme.typography.weights.bold,
-    textAlign: 'center',
   },
   stageSelector: {
     paddingHorizontal: theme.spacing.md,

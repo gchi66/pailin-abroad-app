@@ -21,7 +21,7 @@ export function StandardPageHeader({ language, title, onBackPress, rightActionLa
 
   return (
     <View style={styles.headerBlock}>
-      <View style={{ height: Math.max(insets.top - topInsetOffset, 0) }} />
+      <View style={{ height: Math.max(insets.top - (topInsetOffset + 10), 0) }} />
       <View style={styles.actionRow}>
         {onBackPress ? (
           <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>

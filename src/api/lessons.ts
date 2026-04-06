@@ -11,7 +11,10 @@ import {
 
 const LESSON_SELECT_FIELDS =
   'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
+const LESSONS_INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 const RESOLVED_LESSON_CACHE_TTL_MS = 5 * 60 * 1000;
+const lessonsIndexCache = new Map<string, { payload: LessonListItem[]; timestamp: number }>();
+const inflightLessonsIndexRequests = new Map<string, Promise<LessonListItem[]>>();
 const resolvedLessonCache = new Map<string, { payload: ResolvedLessonPayload; timestamp: number }>();
 const inflightResolvedLessonRequests = new Map<string, Promise<ResolvedLessonPayload>>();
 const TRY_LESSON_IDS = new Set([
@@ -31,6 +34,23 @@ const assertApiBaseUrl = () => {
 };
 
 const resolvedLessonCacheKey = (lessonId: string, lang: 'en' | 'th') => `${lessonId}:${lang}`;
+const lessonsIndexCacheKey = 'all-lessons';
+
+const getCachedLessonsIndex = () => {
+  const entry = lessonsIndexCache.get(lessonsIndexCacheKey);
+  if (!entry) {
+    return null;
+  }
+  if (Date.now() - entry.timestamp > LESSONS_INDEX_CACHE_TTL_MS) {
+    lessonsIndexCache.delete(lessonsIndexCacheKey);
+    return null;
+  }
+  return entry.payload;
+};
+
+const setCachedLessonsIndex = (payload: LessonListItem[]) => {
+  lessonsIndexCache.set(lessonsIndexCacheKey, { payload, timestamp: Date.now() });
+};
 
 const getCachedResolvedLesson = (lessonId: string, lang: 'en' | 'th') => {
   const key = resolvedLessonCacheKey(lessonId, lang);
@@ -99,15 +119,45 @@ async function getCurrentLessonSession() {
 }
 
 export async function getLessonsIndex(): Promise<LessonListItem[]> {
-  return supabaseSelect<LessonListItem>({
-    table: 'lessons',
-    select: LESSON_SELECT_FIELDS,
-    orderBy: { column: 'lesson_order', ascending: true },
-    limit: 500,
-  });
+  const cached = getCachedLessonsIndex();
+  if (cached) {
+    return cached;
+  }
+
+  const inflightRequest = inflightLessonsIndexRequests.get(lessonsIndexCacheKey);
+  if (inflightRequest) {
+    return inflightRequest;
+  }
+
+  const requestPromise = (async () => {
+    const rows = await supabaseSelect<LessonListItem>({
+      table: 'lessons',
+      select: LESSON_SELECT_FIELDS,
+      orderBy: { column: 'lesson_order', ascending: true },
+      limit: 500,
+    });
+    setCachedLessonsIndex(rows);
+    return rows;
+  })();
+
+  inflightLessonsIndexRequests.set(lessonsIndexCacheKey, requestPromise);
+
+  try {
+    return await requestPromise;
+  } finally {
+    inflightLessonsIndexRequests.delete(lessonsIndexCacheKey);
+  }
 }
 
 export async function getLessonById(lessonId: string): Promise<LessonListItem | null> {
+  const cachedLessons = getCachedLessonsIndex();
+  if (cachedLessons) {
+    const cachedLesson = cachedLessons.find((lesson) => lesson.id === lessonId);
+    if (cachedLesson) {
+      return cachedLesson;
+    }
+  }
+
   const rows = await supabaseSelect<LessonListItem>({
     table: 'lessons',
     select: LESSON_SELECT_FIELDS,
@@ -169,6 +219,10 @@ export async function fetchResolvedLesson(
 
 export function prefetchResolvedLesson(lessonId: string, lang: 'en' | 'th') {
   void fetchResolvedLesson(lessonId, lang).catch(() => undefined);
+}
+
+export function prefetchLessonsIndex() {
+  void getLessonsIndex().catch(() => undefined);
 }
 
 export type EvaluateLessonAnswerInput = {

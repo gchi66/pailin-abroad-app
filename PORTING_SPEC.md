@@ -282,6 +282,11 @@
   - `src/api/contact.ts`
   - `src/screens/ContactScreen.tsx`
   - `app/(tabs)/account/contact.tsx`
+  - Contact now uses the shared compact `StandardPageHeader`
+  - the old subtitle-heavy hero header has been removed
+  - the contact form no longer sits inside one large parent bubble
+  - form fields/status treatment now follows the app neo-brutalist border/shadow styling directly
+  - social actions now sit below the form as icon-only Facebook / Instagram buttons wired to the real configured URLs
 - Added native About page work:
   - `src/screens/AboutScreen.tsx`
   - `app/(tabs)/account/about.tsx`
@@ -292,11 +297,20 @@
 - Added native Profile shell work tied to real session/profile state:
   - `src/screens/ProfileScreen.tsx`
   - `app/(tabs)/account/profile.tsx`
+  - Profile now uses the same shared compact `StandardPageHeader` treatment as About
+  - Membership entry has been removed from the Profile action list
+  - Profile editing is now handled inline on the page rather than through a dedicated edit card/route:
+    - header-right `Edit` action
+    - username editing
+    - preset avatar selection
+    - in-place save/cancel
+  - sign-out is now a standalone row and no longer wrapped in a neo-brutalist card
+  - profile cards now use the same neo-brutalist border/shadow treatment as the rest of the app
 - Added native Membership frontend shell with live pricing fetch:
   - `src/api/pricing.ts`
   - `src/screens/MembershipScreen.tsx`
   - `app/(tabs)/account/membership.tsx`
-  - `src/screens/ProfileScreen.tsx` routes Membership into the shell
+  - Membership is no longer entered from Profile; it now lives under `More` for free users only
 - Membership intentionally mirrors the web page structure closely, but `JOIN NOW!` remains frontend-only and does not start checkout yet.
 - Membership styling notes:
   - App background should stay aligned with web `--app-bg` (`#F7FAFD`)
@@ -304,6 +318,8 @@
   - Membership now uses bundled local images for:
     - launch pricing banner
     - loading/error state illustration
+  - the launch banner now stretches edge-to-edge and no longer sits inside a rounded/bordered container
+  - the launch banner has been pulled upward closer to the title block
   - Pricing cards now match the web treatment more closely:
     - unselected border/shadow use `#9D9D9D`
     - selected state uses blue border/shadow `#3CA0FE` with `#F8FCFF` background
@@ -341,6 +357,7 @@
     - open sections use zebra-group body treatment similar to the web renderer
     - `[✓]` / `[X]` inline markers now follow web-style blue/red coloring
   - topic detail links to lesson/topic sentinel URLs are now routed natively where possible
+  - Topic Library now uses the shared title-only compact header rather than passing unused subtitle copy into the shared header
 - Added native `Exercise Bank` work:
   - `src/api/exercise-bank.ts`
   - `src/types/exercise-bank.ts`
@@ -374,6 +391,7 @@
     - `sentence_transform`
   - answer evaluation is wired through the existing backend `/api/evaluate_answer` flow using native `sourceType: 'bank'`
   - fill-blank rows now use a native `onTextLayout` measurement pass so bracketed hint tokens and blank placeholders wrap more naturally
+  - Exercise Bank now uses the shared title-only compact header rather than passing unused subtitle copy into the shared header
 - Asset workflow notes:
   - Bundled app images live under `assets/images/*`
   - Added:
@@ -465,6 +483,8 @@
     - lightweight progress summary
     - upcoming lessons
     - links into deeper progress/history views
+  - the old member/free badge in the header has been removed in favor of the shared language toggle
+  - free users now see a dedicated full-width upgrade strip under the header rather than a tiny inline header link
 - Current related progress/navigation implementation notes:
   - `My Pathway` header is now a custom compact/mobile-native treatment rather than the older large hero header
   - `Learning Progress` now has its own native screen with:
@@ -474,7 +494,8 @@
     - stage breakdown
     - recent completed lessons
   - shared `StandardPageHeader` has been refactored to the lighter compact style used across remaining standard pages
-  - `Lesson Library` has its own custom compact header variant and no longer shows the old shared subtitle-heavy hero header
+  - `Lesson Library`, `Topic Library`, and `Exercise Bank` now all use the shared compact `StandardPageHeader`
+  - the compact shared header spacing has been tightened slightly so the title sits higher with less top whitespace
   - non-lesson secondary app pages are now routed under the tab tree so top spacing matches tab-root pages and the bottom tab bar remains visible on:
     - More subpages:
       - Profile
@@ -500,8 +521,6 @@
   - `liked lessons` remain intentionally excluded from the app MVP for now
   - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1
   - final structure/spacing/content order should still be treated as provisional until cofounder review
-- Immediate next review target:
-  - major redesign pass for the native `Profile` page
 - `Account` tab has now been renamed to `More` in the bottom nav and uses an ellipsis icon instead of the profile/person icon.
 - The `More` entry screen has been refactored away from the older account-summary card shell:
   - source file is now `src/screens/MoreScreen.tsx`
@@ -514,11 +533,26 @@
     - Contact
     - Settings
   - account metadata and logout are intentionally no longer shown on the `More` screen
-  - membership access remains available from `Profile`
+  - Membership is no longer shown for paid users
+  - free users now see a featured Membership CTA card at the top of `More`, above the normal destination cards
   - tapping the `More` tab icon always returns to the root `More` page
-- Added native Settings placeholder route:
+- Added native Settings route:
   - `src/screens/SettingsScreen.tsx`
   - `app/(tabs)/account/settings.tsx`
+  - Settings is no longer a placeholder
+  - current Settings structure includes:
+    - Membership & Billing summary
+    - Change Plan CTA into native Membership
+    - App Preferences links to dedicated legal pages
+    - a softer collapsible `More` section that contains cancel-membership / delete-account actions behind confirmation alerts
+  - password change is intentionally not included
+  - dedicated legal screens now exist under the account stack:
+    - `src/screens/LegalScreen.tsx`
+    - `src/copy/legal.ts`
+    - `app/(tabs)/account/terms.tsx`
+    - `app/(tabs)/account/privacy.tsx`
+    - `app/account/terms.tsx`
+    - `app/account/privacy.tsx`
 - About page current status:
   - now uses the shared `StandardPageHeader`
   - header supports an in-header back arrow for pages like About
@@ -532,12 +566,22 @@
     - divider and body text below
   - app-only customized bios were added for Carissa and Grant, with Thai translations
 - Profile page current status:
-  - still uses the earlier shell/layout and should be treated as provisional
-  - dev-only onboarding/dev-tools controls have now been removed from the page
-  - current next task is a larger redesign/refactor pass rather than small polish only
+  - current page has already moved beyond the earlier placeholder shell and now includes inline profile editing
+  - dev-only onboarding/dev-tools controls have been removed from the page
+  - Profile no longer carries the Membership entry point
+  - account-management detail should now be treated as split across Profile, Settings, and More rather than all living on Profile
 - Next recommended work:
-  - do a major native `Profile` page redesign/refactor
-  - after that, continue cleanup/polish across `More` and its subpages as needed
+  - continue cleanup/polish across `More`, `Settings`, and Membership/payment surfaces as needed
+  - connect real membership cancellation / account deletion flows when backend/app-store behavior is finalized
+
+## Recent Native Cleanup Pass
+- Lesson detail / guided study polish:
+  - `Prepare` section now uses reduced internal card padding and a responsive two-column audio-bullet layout on normal-width screens
+  - `Prepare` audio bullets now preload correctly on the native lesson screen, including the `Prepare` tab itself, so first-play latency is reduced and behavior is closer to the webapp
+  - lesson cover top meta row (back button + lesson pills) has been nudged slightly lower on the banner for better visual balance
+- Shared header cleanup:
+  - `src/components/ui/StandardPageHeader.tsx` now also supports an optional right-side action used by Profile inline editing
+  - title positioning has been adjusted upward slightly to reduce extra whitespace above the heading
 
 ## Source of Truth for Future Chats
 - This file should be used as the first context document in new chats.
