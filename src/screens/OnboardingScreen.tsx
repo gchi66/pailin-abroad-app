@@ -18,12 +18,14 @@ import { completeOnboarding, ensureOnboardingUserRecord, setOnboardingPassword, 
 import arrowLeftImage from '@/assets/images/black-carrot-arrow-left.webp';
 import arrowRightImage from '@/assets/images/black-carrot-arrow-right.webp';
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
+import fullLogoImage from '@/assets/images/full-logo.webp';
 import greyPasswordCheckmarkImage from '@/assets/images/grey-password-checkmark.webp';
 import hidePasswordImage from '@/assets/images/hide-password.webp';
 import pailinWelcomeImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import passwordLockImage from '@/assets/images/password-lock.webp';
 import showPasswordImage from '@/assets/images/show-password.webp';
 import { AppText } from '@/src/components/ui/AppText';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useOnboarding } from '@/src/context/onboarding-context';
@@ -517,7 +519,7 @@ export function OnboardingScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { uiLanguage, setUiLanguage } = useUiLanguage();
+  const { uiLanguage } = useUiLanguage();
   const { markOnboardingComplete } = useOnboarding();
   const { isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
 
@@ -801,21 +803,8 @@ export function OnboardingScreen() {
         <Stack gap="md">
           <View style={[styles.onboardingShell, compact ? styles.onboardingShellCompact : null, { height: shellHeight, paddingHorizontal: shellInnerHorizontalPadding }]}>
             <View style={styles.shellTopRow}>
-              <View style={styles.languageToggleInline}>
-                <Pressable accessibilityRole="button" onPress={() => setUiLanguage('en')} style={styles.languageOption}>
-                  <AppText language="en" variant="body" style={uiLanguage === 'en' ? styles.languageTextActive : styles.languageText}>
-                    EN
-                  </AppText>
-                </Pressable>
-                <AppText language="en" variant="body" style={styles.languageDivider}>
-                  |
-                </AppText>
-                <Pressable accessibilityRole="button" onPress={() => setUiLanguage('th')} style={styles.languageOption}>
-                  <AppText language="en" variant="body" style={uiLanguage === 'th' ? styles.languageTextActive : styles.languageText}>
-                    TH
-                  </AppText>
-                </Pressable>
-              </View>
+              <Image source={fullLogoImage} style={styles.shellLogo} contentFit="contain" />
+              <LanguageToggle />
             </View>
 
             <ScrollView
@@ -900,8 +889,15 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.lg,
   },
   shellTopRow: {
-    alignItems: 'flex-end',
-    minHeight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    minHeight: 32,
+  },
+  shellLogo: {
+    width: 136,
+    height: 30,
   },
   pagerContent: {
     alignItems: 'stretch',
@@ -913,32 +909,6 @@ const styles = StyleSheet.create({
   centeredStep: {
     flex: 1,
     justifyContent: 'center',
-  },
-  languageToggleInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  languageOption: {
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: 2,
-  },
-  languageText: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.mutedText,
-  },
-  languageTextActive: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-  },
-  languageDivider: {
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#B8B8B8',
   },
   avatarWrap: {
     width: 184,

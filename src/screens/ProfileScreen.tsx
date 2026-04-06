@@ -89,6 +89,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       languageLabel: 'ภาษาหน้าแอป',
       joinedLabel: 'เข้าร่วมเมื่อ',
       signOut: 'ออกจากระบบ',
+      onboardingDevtools: 'เปิด Onboarding Devtools',
       languageValue: 'ไทย',
       signOutSuccess: 'ออกจากระบบแล้ว',
       avatarLabel: 'PP',
@@ -114,6 +115,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     languageLabel: 'App Language',
     joinedLabel: 'Joined',
     signOut: 'Sign Out',
+    onboardingDevtools: 'Open Onboarding Devtools',
     languageValue: 'English',
     signOutSuccess: 'Signed out successfully.',
     avatarLabel: 'PP',
@@ -366,6 +368,20 @@ export function ProfileScreen() {
             {copy.signOut}
           </AppText>
         </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          style={styles.devtoolsRow}
+          onPress={() =>
+            router.push({
+              pathname: '/onboarding',
+              params: { devtools: '1' },
+            })
+          }>
+          <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
+            {copy.onboardingDevtools}
+          </AppText>
+        </Pressable>
       </Stack>
     </ScrollView>
   );
@@ -513,6 +529,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
+  },
+  devtoolsRow: {
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: 0,
+    paddingBottom: theme.spacing.sm,
+  },
+  devtoolsText: {
+    color: theme.colors.mutedText,
+    fontWeight: theme.typography.weights.medium,
   },
   linkChevron: {
     fontSize: 20,

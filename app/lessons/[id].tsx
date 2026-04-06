@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
 import { AudioPlayer, AudioStatus, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Image } from 'expo-image';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -89,6 +91,14 @@ type NormalizedApplyContent = {
   promptNodes: LessonRichNode[];
   responseNodes: LessonRichNode[];
 };
+
+const RICH_PAGER_ACTIVE_OFFSET_X: [number, number] = [-6, 10];
+const RICH_PAGER_FAIL_OFFSET_Y: [number, number] = [-22, 22];
+const RICH_PAGER_LEFT_SWIPE_DISTANCE = 18;
+const RICH_PAGER_RIGHT_SWIPE_DISTANCE = 28;
+const RICH_PAGER_LEFT_SWIPE_VELOCITY = 500;
+const RICH_PAGER_RIGHT_SWIPE_VELOCITY = 700;
+const RICH_PAGER_DRAG_LIMIT = 28;
 
 const EMPTY_NORMALIZED_APPLY: NormalizedApplyContent = {
   promptText: '',
@@ -1685,6 +1695,7 @@ export default function LessonDetailShellScreen() {
   const isTranscriptTab = activeTab?.type === 'transcript';
   const isApplyTab = activeTab?.type === 'apply';
   const isUnderstandTab = activeTab?.type === 'understand';
+  const isExtraTipTab = activeTab?.type === 'extra_tip';
   const isCommonMistakeTab = activeTab?.type === 'common_mistake';
   const isCultureNoteTab = activeTab?.type === 'culture_note';
   const isPracticeTab = activeTab?.type === 'practice';
@@ -1725,6 +1736,17 @@ export default function LessonDetailShellScreen() {
         : [],
     [activeSection, contentLang, hasStartedLesson, isUnderstandTab, normalizedQuickPracticeExercises]
   );
+  const extraTipNodes = useMemo(
+    () =>
+      hasStartedLesson
+        ? injectQuickPracticeNodes(
+            getRichNodesForLanguage(isExtraTipTab ? activeSection : null, contentLang),
+            normalizedQuickPracticeExercises,
+            contentLang
+          )
+        : [],
+    [activeSection, contentLang, hasStartedLesson, isExtraTipTab, normalizedQuickPracticeExercises]
+  );
   const commonMistakeNodes = useMemo(
     () => (hasStartedLesson ? getRichNodesForLanguage(isCommonMistakeTab ? activeSection : null, contentLang) : []),
     [activeSection, contentLang, hasStartedLesson, isCommonMistakeTab]
@@ -1741,13 +1763,17 @@ export default function LessonDetailShellScreen() {
     () => groupRichSectionNodes(selectNodesForTableVisibility(commonMistakeNodes, isCompactLayout), contentLang),
     [commonMistakeNodes, contentLang, isCompactLayout]
   );
+  const extraTipGroups = useMemo(
+    () => groupRichSectionNodes(selectNodesForTableVisibility(extraTipNodes, isCompactLayout), contentLang),
+    [contentLang, extraTipNodes, isCompactLayout]
+  );
   const visibleCultureNoteNodes = useMemo(
     () => selectNodesForTableVisibility(cultureNoteNodes, isCompactLayout),
     [cultureNoteNodes, isCompactLayout]
   );
   const activePagerGroups = useMemo(
-    () => (isUnderstandTab ? understandGroups : isCommonMistakeTab ? commonMistakeGroups : []),
-    [commonMistakeGroups, isCommonMistakeTab, isUnderstandTab, understandGroups]
+    () => (isUnderstandTab ? understandGroups : isExtraTipTab ? extraTipGroups : isCommonMistakeTab ? commonMistakeGroups : []),
+    [commonMistakeGroups, extraTipGroups, isCommonMistakeTab, isExtraTipTab, isUnderstandTab, understandGroups]
   );
   const activePracticeExercise = isPracticeTab ? normalizedPracticeExercises[activePracticeCardIndex] ?? null : null;
   const activePhraseCard = isPhrasesTab ? normalizedLessonPhrases[activePhraseCardIndex] ?? null : null;
@@ -1755,7 +1781,7 @@ export default function LessonDetailShellScreen() {
   const progressRatio = sectionCount > 0 ? (activeSectionIndex + 1) / sectionCount : 0;
   const progressWidthStyle = useMemo(() => ({ width: `${progressRatio * 100}%` as const }), [progressRatio]);
   const isLastSection = activeSectionIndex >= sectionCount - 1;
-  const isRichPagerTab = isUnderstandTab || isCommonMistakeTab;
+  const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab;
   const isInnerPagerTab =
     isRichPagerTab ||
     (isPracticeTab && normalizedPracticeExercises.length > 0) ||
@@ -1791,40 +1817,64 @@ export default function LessonDetailShellScreen() {
     },
     [activeInnerCardCount, isPhrasesTab, isPracticeTab]
   );
-  const richPagerPanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) => {
-          if (!isInnerPagerTab || activeInnerCardCount <= 1) {
-            return false;
-          }
+  const richPagerTranslateX = useSharedValue(0);
+  const handleRichPagerSwipe = useCallback(
+    (translationX: number, velocityX: number) => {
+      if (!isInnerPagerTab || activeInnerCardCount <= 1) {
+        return;
+      }
 
-          const horizontalDistance = Math.abs(gestureState.dx);
-          const verticalDistance = Math.abs(gestureState.dy);
-          return horizontalDistance > 10 && horizontalDistance > verticalDistance * 1.1;
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          if (!isInnerPagerTab || activeInnerCardCount <= 1) {
-            return;
-          }
+      const movingLeft =
+        translationX <= -RICH_PAGER_LEFT_SWIPE_DISTANCE || velocityX <= -RICH_PAGER_LEFT_SWIPE_VELOCITY;
+      const movingRight =
+        translationX >= RICH_PAGER_RIGHT_SWIPE_DISTANCE || velocityX >= RICH_PAGER_RIGHT_SWIPE_VELOCITY;
 
-          const horizontalDistance = gestureState.dx;
-          const verticalDistance = Math.abs(gestureState.dy);
-          if (Math.abs(horizontalDistance) < 24 || Math.abs(horizontalDistance) <= verticalDistance) {
-            return;
-          }
+      if (movingLeft && activeInnerCardIndex < activeInnerCardCount - 1) {
+        handleSetActiveInnerCardIndex(activeInnerCardIndex + 1);
+        return;
+      }
 
-          if (horizontalDistance < 0 && activeInnerCardIndex < activeInnerCardCount - 1) {
-            handleSetActiveInnerCardIndex(activeInnerCardIndex + 1);
-            return;
-          }
-
-          if (horizontalDistance > 0 && activeInnerCardIndex > 0) {
-            handleSetActiveInnerCardIndex(activeInnerCardIndex - 1);
-          }
-        },
-      }),
+      if (movingRight && activeInnerCardIndex > 0) {
+        handleSetActiveInnerCardIndex(activeInnerCardIndex - 1);
+      }
+    },
     [activeInnerCardCount, activeInnerCardIndex, handleSetActiveInnerCardIndex, isInnerPagerTab]
+  );
+  const richPagerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: richPagerTranslateX.value }],
+  }));
+  const richPagerGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(hasMultiplePagerCards)
+        .activeOffsetX(RICH_PAGER_ACTIVE_OFFSET_X)
+        .failOffsetY(RICH_PAGER_FAIL_OFFSET_Y)
+        .shouldCancelWhenOutside(false)
+        .onBegin(() => {
+          'worklet';
+          richPagerTranslateX.value = 0;
+        })
+        .onUpdate((event) => {
+          'worklet';
+          const clampedTranslation = Math.max(
+            -RICH_PAGER_DRAG_LIMIT,
+            Math.min(event.translationX, RICH_PAGER_DRAG_LIMIT)
+          );
+          richPagerTranslateX.value = clampedTranslation;
+        })
+        .onEnd((event) => {
+          'worklet';
+          runOnJS(handleRichPagerSwipe)(event.translationX, event.velocityX);
+        })
+        .onFinalize(() => {
+          'worklet';
+          richPagerTranslateX.value = withTiming(0, { duration: 140 });
+        }),
+    [
+      handleRichPagerSwipe,
+      hasMultiplePagerCards,
+      richPagerTranslateX,
+    ]
   );
   const comprehensionButtonLabel = hasCheckedAnswers
     ? allAnswersCorrect
@@ -2025,6 +2075,10 @@ export default function LessonDetailShellScreen() {
     richPagerScrollRef.current?.scrollTo({ y: 0, animated: false });
     contentScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [activePhraseCardIndex, activePracticeCardIndex, activeTab?.id, activeUnderstandGroupIndex, contentLang, isInnerPagerTab]);
+
+  useEffect(() => {
+    richPagerTranslateX.value = 0;
+  }, [activeInnerCardIndex, richPagerTranslateX]);
 
   const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
     setSelectedAnswers((previous) => {
@@ -3580,6 +3634,44 @@ export default function LessonDetailShellScreen() {
     ));
   };
 
+  const renderExtraTipGroupBody = (nodes: LessonRichNode[], keyPrefix: string) => {
+    const zebraGroups: LessonRichNode[][] = [];
+    let currentGroup: LessonRichNode[] = [];
+
+    nodes.forEach((node) => {
+      if (isBoldParagraphNode(node) && currentGroup.length) {
+        zebraGroups.push(currentGroup);
+        currentGroup = [];
+      }
+      currentGroup.push(node);
+    });
+
+    if (currentGroup.length) {
+      zebraGroups.push(currentGroup);
+    }
+
+    let numberedIndex = 0;
+
+    return zebraGroups.map((group, index) => (
+      <View
+        key={`${keyPrefix}-group-${index}`}
+        style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
+        {group.map((node, nodeIndex) => {
+          if (node.kind === 'numbered_item') {
+            numberedIndex += 1;
+            return renderRichNode(node, nodeIndex, {
+              keyPrefix: 'extra-tip-node',
+              enableHighlights: true,
+              numberedLabel: `${numberedIndex}.`,
+            });
+          }
+
+          return renderRichNode(node, nodeIndex, { keyPrefix: 'extra-tip-node', enableHighlights: true });
+        })}
+      </View>
+    ));
+  };
+
   const renderCultureNoteBody = (nodes: LessonRichNode[]) => (
     <Stack gap="sm">
       {nodes.map((node, index) =>
@@ -4902,45 +4994,52 @@ export default function LessonDetailShellScreen() {
                         </Stack>
                       ) : null}
                     </Stack>
-                  ) : isPracticeTab || isUnderstandTab || isCommonMistakeTab || isPhrasesTab ? (
+                  ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isPhrasesTab ? (
                     (isPracticeTab ? activePracticeExercise : isPhrasesTab ? activePhraseCard : activePagerGroup) ? (
                       <View style={styles.richPagerShell}>
-                        <View
-                          {...(hasMultiplePagerCards ? richPagerPanResponder.panHandlers : {})}
-                          style={[styles.richPagerCard, windowHeight < 780 ? styles.richPagerCardCompact : null]}>
-                          <View style={styles.richPagerMetaRow}>
-                            {(isPracticeTab ? activePracticeHeading : isPhrasesTab ? activePhraseHeading : activePagerHeading) ? (
-                              <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
-                                {isPracticeTab ? activePracticeHeading : isPhrasesTab ? activePhraseHeading : activePagerHeading}
-                              </AppText>
-                            ) : null}
+                        <GestureDetector gesture={richPagerGesture}>
+                          <Animated.View
+                            style={[
+                              styles.richPagerCard,
+                              windowHeight < 780 ? styles.richPagerCardCompact : null,
+                              richPagerAnimatedStyle,
+                            ]}>
+                            <View style={styles.richPagerMetaRow}>
+                              {(isPracticeTab ? activePracticeHeading : isPhrasesTab ? activePhraseHeading : activePagerHeading) ? (
+                                <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
+                                  {isPracticeTab ? activePracticeHeading : isPhrasesTab ? activePhraseHeading : activePagerHeading}
+                                </AppText>
+                              ) : null}
 
-                            <View style={styles.richPagerCounterPill}>
-                              <AppText language="en" variant="caption" style={styles.richPagerCounterText}>
-                                {`${Math.min(activeInnerCardIndex + 1, activeInnerCardCount)} of ${activeInnerCardCount}`}
-                              </AppText>
+                              <View style={styles.richPagerCounterPill}>
+                                <AppText language="en" variant="caption" style={styles.richPagerCounterText}>
+                                  {`${Math.min(activeInnerCardIndex + 1, activeInnerCardCount)} of ${activeInnerCardCount}`}
+                                </AppText>
+                              </View>
                             </View>
-                          </View>
 
-                          <View style={styles.richPagerBody}>
-                            <ScrollView
-                              ref={richPagerScrollRef}
-                              nestedScrollEnabled
-                              showsVerticalScrollIndicator={false}
-                              style={styles.richPagerScrollView}
-                              contentContainerStyle={styles.richPagerScrollContent}>
-                              {isPracticeTab && activePracticeExercise
-                                ? renderPracticeExerciseBody(activePracticeExercise)
-                                : isPhrasesTab && activePhraseCard
-                                  ? renderPhraseBody(activePhraseCard)
-                                : activePagerGroup && isUnderstandTab
-                                  ? renderUnderstandGroupBody(activePagerGroup.body, activePagerGroup.key)
-                                  : activePagerGroup
-                                    ? renderCommonMistakeGroupBody(activePagerGroup.body, activePagerGroup.key)
-                                    : null}
-                            </ScrollView>
-                          </View>
-                        </View>
+                            <View style={styles.richPagerBody}>
+                              <ScrollView
+                                ref={richPagerScrollRef}
+                                nestedScrollEnabled
+                                showsVerticalScrollIndicator={false}
+                                style={styles.richPagerScrollView}
+                                contentContainerStyle={styles.richPagerScrollContent}>
+                                {isPracticeTab && activePracticeExercise
+                                  ? renderPracticeExerciseBody(activePracticeExercise)
+                                  : isPhrasesTab && activePhraseCard
+                                    ? renderPhraseBody(activePhraseCard)
+                                    : activePagerGroup && isUnderstandTab
+                                      ? renderUnderstandGroupBody(activePagerGroup.body, activePagerGroup.key)
+                                      : activePagerGroup && isExtraTipTab
+                                        ? renderExtraTipGroupBody(activePagerGroup.body, activePagerGroup.key)
+                                      : activePagerGroup
+                                        ? renderCommonMistakeGroupBody(activePagerGroup.body, activePagerGroup.key)
+                                        : null}
+                              </ScrollView>
+                            </View>
+                          </Animated.View>
+                        </GestureDetector>
 
                         {hasMultiplePagerCards ? (
                           <View style={styles.richPagerControls}>
@@ -5017,7 +5116,10 @@ export default function LessonDetailShellScreen() {
                             </AppText>
                             <AppText language={pageLanguage} variant="body" style={styles.placeholderTitle}>
                               {pageCopy.rendererReady(
-                                getLessonSectionLabel(pageLanguage, isUnderstandTab ? 'understand' : 'common_mistake')
+                                getLessonSectionLabel(
+                                  pageLanguage,
+                                  isUnderstandTab ? 'understand' : isExtraTipTab ? 'extra_tip' : 'common_mistake'
+                                )
                               )}
                             </AppText>
                             <AppText language={pageLanguage} variant="muted" style={styles.placeholderBody}>
@@ -5311,12 +5413,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.xl,
+    paddingTop: theme.spacing.xl + theme.spacing.xs,
     paddingBottom: theme.spacing.xl,
   },
   coverTopMetaRow: {
     alignItems: 'flex-start',
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
   },
   coverTopBar: {
     flexDirection: 'row',
@@ -5360,10 +5462,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
   backButtonText: {
+    position: 'absolute',
+    top: '50%',
     color: theme.colors.surface,
     fontSize: 24,
     lineHeight: 24,
     fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
+    includeFontPadding: false,
+    transform: [{ translateY: -12 }],
   },
   coverBottomPanel: {
     borderRadius: 28,

@@ -28,6 +28,11 @@
   - use Xcode signing/device selection for physical iPhone installs
   - `npx expo run:ios --device` is expected to work after signing is configured in Xcode
 - This means the project is past the initial "can we get it onto a real phone?" stage and can proceed with normal feature work.
+- Project status is now approaching the point where broader real-device testing should be practical.
+- The next testing gate should be:
+  - first, confirm the current app build and core flows on Grant's device
+  - then, if that passes cleanly, move to cofounder-device testing
+- Treat Grant-device testing as required before handing off a build for cofounder review/testing.
 
 ### Current Focus
 - Login/auth screen polish pass is now done for the current round.
@@ -37,8 +42,15 @@
   - sign up / log in mode switching cleanup
   - improved spacing / sizing behavior for smaller phones
   - refined visual polish on shadows, headline treatment, and password-rule presentation
-- Immediate next work is the native `My Pathway` page.
-- Priority is improving the `My Pathway` screen experience before moving on to later UI cleanup passes.
+- `My Pathway`, lesson-library, lesson-detail, onboarding, and standard-page polish have all moved the app much closer to a realistic device-test candidate.
+- Immediate near-term focus is no longer broad feature scaffolding; it is:
+  - tightening remaining mobile polish and edge cases
+  - validating the current build on Grant's device
+  - then preparing the app for cofounder-device testing
+- Priority order for the next pass:
+  - first-party testing on Grant's device
+  - fix issues found there
+  - then external/cofounder device testing
 
 ### Step A: Theme
 - Added: `src/theme/theme.ts`
@@ -185,6 +197,28 @@
   - the footer is sticky and owns both the audio bar and the CTA row
   - fullscreen mode hides the top chrome and audio bar while keeping content + CTA visible
   - safe-area spacing keeps lesson chrome/footer away from the notch and bottom edge
+- Next focused lesson-detail interaction item:
+  - improve inner-card swipe behavior for the guided mini-pager sections on mobile
+  - current issue is that horizontal swipes still lose too often to the vertical content scroll, especially when advancing to the next card
+  - this affects the shared mini-pager pattern used by:
+    - `Understand`
+    - `Common Mistake`
+    - `Practice`
+    - `Phrases & Verbs`
+  - implementation direction should be:
+    - stop relying on threshold tuning alone in the current `PanResponder`
+    - add early directional intent detection and axis locking
+    - once a gesture is classified as horizontal, keep the card-pager in control for the rest of that gesture instead of continuing to compete with vertical scrolling
+    - once a gesture is classified as vertical, allow the inner content scroll to own it normally
+  - preferred implementation path:
+    - move this interaction to `react-native-gesture-handler` instead of continuing to iterate on `PanResponder`
+    - use gesture configuration that mirrors swipe-heavy mobile apps:
+      - low `activeOffsetX` so horizontal intent is recognized earlier
+      - constrained `failOffsetY` so slight downward drift does not immediately lose the swipe
+      - explicit horizontal-vs-vertical gesture arbitration rather than end-of-gesture direction guessing
+    - keep the current shared mini-pager architecture (`activeInnerCardIndex`, `handleSetActiveInnerCardIndex`, shared pager shell) and only replace the gesture layer
+  - implementation note:
+    - solve this once in the shared mini-pager path inside `app/lessons/[id].tsx` so all mini-card sections benefit together rather than patching each section separately
 
 ### Audio
 - Shared lesson audio tray has been restyled toward the target lesson mock:
@@ -253,6 +287,10 @@
     - light divider between the lead definition bullet and following example bullets
     - continuation lines in mini-conversation examples stay visually indented under the active audio bullet
   - duplicate in-body phrase headings are suppressed when they repeat the already-visible section title
+- `Extra Tip`
+  - section ordering/tab inclusion exists in the native lesson flow via `MASTER_ORDER`
+  - dedicated native rendering is still not implemented in `app/lessons/[id].tsx`
+  - current behavior falls through to the generic placeholder renderer rather than a real section-specific path
 
 ### Known Gaps / Follow-Up Work
 - Table parity across rich sections is still incomplete and needs a dedicated mobile-only cleanup/signoff pass.
@@ -414,13 +452,27 @@
 - Explicit non-goal for mobile v1:
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
 - Next recommended phase before detailed testing/debugging:
-  - finish the remaining functional gaps that still block broader signoff:
+  - immediate next item of attention:
+    - fix the lesson-detail mini-pager swipe interaction on mobile using directional locking / gesture arbitration
+    - do this before broader device-test signoff because it directly affects study usability in core lesson flows
+  - specific implementation plan for that item:
+    - replace or substantially rework the current shared mini-pager `PanResponder` in `app/lessons/[id].tsx`
+    - prefer `react-native-gesture-handler` for the shared pager shell
+    - detect gesture intent early
+    - lock the active gesture to horizontal or vertical once intent is clear
+    - route locked horizontal gestures to pager navigation
+    - route locked vertical gestures to the nested content scroll view
+    - keep the fix centralized so `Understand`, `Common Mistake`, `Practice`, and `Phrases & Verbs` all inherit the same improved swipe behavior
+  - then finish the remaining functional gaps that still block broader signoff:
     - lesson completion / mark-complete write-back
   - then move into focused parity testing/debugging for:
     - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants, locked-cover copy/states)
     - Topic Library content/layout edge cases
     - Exercise Bank exercise-type and bilingual wrapping edge cases
     - free-plan lessons hub / library navigation and lock-icon polish
+- Device-test readiness note:
+  - the app now appears close to being ready for cofounder-device testing, but that should not happen first
+  - complete a solid test pass on Grant's own device before treating cofounder-device testing as the next milestone
 - Keep design flexible since cofounder may change direction.
 
 ## Onboarding (Current Native Direction)

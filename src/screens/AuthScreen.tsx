@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +16,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import googleLogoImage from '../../assets/images/google_logo.png';
+import fullLogoImage from '../../assets/images/full-logo.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -42,7 +45,6 @@ export function AuthScreen() {
     () =>
       uiLanguage === 'th'
         ? {
-            wordmark: 'Pailin Abroad',
             signUpTitleLineOne: 'สร้าง',
             signUpTitleAccent: 'บัญชี',
             signUpTitleTail: 'ของคุณ',
@@ -78,7 +80,6 @@ export function AuthScreen() {
             termsPrivacy: 'นโยบายความเป็นส่วนตัว',
           }
         : {
-            wordmark: 'Pailin Abroad',
             signUpTitleLineOne: 'Create your',
             signUpTitleAccent: 'account.',
             signUpTitleTail: '',
@@ -222,9 +223,7 @@ export function AuthScreen() {
         <View style={[styles.centerShell, isCompactScreen ? styles.centerShellCompact : null]}>
           <View style={[styles.panel, isCompactScreen ? styles.panelCompact : null]}>
             <View style={[styles.topRow, isCompactScreen ? styles.topRowCompact : null]}>
-              <AppText language={uiLanguage} variant="caption" style={[styles.wordmark, isCompactScreen ? styles.wordmarkCompact : null]}>
-                {copy.wordmark}
-              </AppText>
+              <Image source={fullLogoImage} style={[styles.wordmarkLogo, isCompactScreen ? styles.wordmarkLogoCompact : null]} contentFit="contain" />
               <LanguageToggle />
             </View>
 
@@ -476,15 +475,7 @@ function PasswordRule({ isMet, isCompact, language, text }: { isMet: boolean; is
 }
 
 function GoogleBadge() {
-  return (
-    <View style={styles.googleBadgeOuter}>
-      <View style={[styles.googleBadgeQuarter, styles.googleBadgeBlue]} />
-      <View style={[styles.googleBadgeQuarter, styles.googleBadgeRed]} />
-      <View style={[styles.googleBadgeQuarter, styles.googleBadgeYellow]} />
-      <View style={[styles.googleBadgeQuarter, styles.googleBadgeGreen]} />
-      <View style={styles.googleBadgeInner} />
-    </View>
-  );
+  return <Image source={googleLogoImage} style={styles.googleBadgeImage} contentFit="contain" />;
 }
 
 const styles = StyleSheet.create({
@@ -519,17 +510,13 @@ const styles = StyleSheet.create({
   topRowCompact: {
     marginBottom: 2,
   },
-  wordmark: {
-    color: '#3CA0FE',
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '900',
-    letterSpacing: 0.96,
-    textTransform: 'uppercase',
+  wordmarkLogo: {
+    width: 142,
+    height: 26,
   },
-  wordmarkCompact: {
-    fontSize: 11,
-    lineHeight: 14,
+  wordmarkLogoCompact: {
+    width: 128,
+    height: 24,
   },
   headerBlock: {
     marginTop: 18,
@@ -605,40 +592,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
   },
-  googleBadgeOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderWidth: 1,
-    borderColor: '#1A2332',
-  },
-  googleBadgeQuarter: {
-    width: 9,
-    height: 9,
-  },
-  googleBadgeBlue: {
-    backgroundColor: '#4285F4',
-  },
-  googleBadgeRed: {
-    backgroundColor: '#EA4335',
-  },
-  googleBadgeYellow: {
-    backgroundColor: '#FBBC05',
-  },
-  googleBadgeGreen: {
-    backgroundColor: '#34A853',
-  },
-  googleBadgeInner: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+  googleBadgeImage: {
+    width: 20,
+    height: 20,
   },
   dividerRow: {
     flexDirection: 'row',

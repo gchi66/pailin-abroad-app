@@ -210,33 +210,38 @@ function MembershipPlanCard({
       <Pressable onPress={onPress} style={[styles.cardPressable, isSelected ? styles.selectedCardPressable : null]}>
         <Card padding="lg" radius="lg" style={[styles.lifetimeCard, isSelected ? styles.selectedCard : null]}>
           <Stack gap="md">
-            <View style={styles.lifetimeHeaderRow}>
-              <AppText language={uiLanguage} variant="body" style={styles.lifetimeTitle}>
-                {card.duration}
-              </AppText>
-              <AppText language={uiLanguage} variant="caption" style={styles.paymentLabel}>
-                {card.paymentLabel}
-              </AppText>
-            </View>
-
-            <View style={styles.lifetimeTopRow}>
-              <View style={styles.bestForBlock}>
-                <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
-                  {bestForLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
-                  {card.bestFor}
+            <View style={styles.lifetimeCardShell}>
+              <View style={styles.paymentLabelWrap}>
+                <AppText language={uiLanguage} variant="caption" style={styles.paymentLabel}>
+                  {card.paymentLabel}
                 </AppText>
               </View>
-              <View style={styles.lifetimePriceBlock}>
-                {card.originalPrice ? (
-                  <AppText language={uiLanguage} variant="muted" style={styles.crossedOutPrice}>
-                    {buildPriceWithSymbol(card.billingPeriod, card.originalPrice)}
-                  </AppText>
-                ) : null}
-                <AppText language={uiLanguage} variant="title" style={styles.lifetimePrice}>
-                  {card.price}
+
+              <View style={styles.lifetimeHeaderRow}>
+                <AppText language={uiLanguage} variant="body" style={styles.lifetimeTitle}>
+                  {card.duration}
                 </AppText>
+              </View>
+
+              <View style={styles.lifetimeTopRow}>
+                <View style={styles.bestForBlock}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
+                    {bestForLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
+                    {card.bestFor}
+                  </AppText>
+                </View>
+                <View style={styles.lifetimePriceBlock}>
+                  {card.originalPrice ? (
+                    <AppText language={uiLanguage} variant="muted" style={styles.crossedOutPrice}>
+                      {buildPriceWithSymbol(card.billingPeriod, card.originalPrice)}
+                    </AppText>
+                  ) : null}
+                  <AppText language={uiLanguage} variant="title" style={styles.lifetimePrice}>
+                    {card.price}
+                  </AppText>
+                </View>
               </View>
             </View>
 
@@ -323,7 +328,7 @@ function MembershipPlanCard({
 export function MembershipScreen() {
   const { uiLanguage } = useUiLanguage();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>('6-month');
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('lifetime');
   const [showPlanWarning, setShowPlanWarning] = useState(false);
   const [pricingState, setPricingState] = useState<PricingState>(INITIAL_PRICING_STATE);
 
@@ -515,6 +520,8 @@ export function MembershipScreen() {
             setShowPlanWarning(false);
             Alert.alert(copy.joinCta, copy.joinPlaceholder);
           }}
+          style={styles.joinButton}
+          textStyle={styles.joinButtonText}
           title={copy.joinCta}
         />
 
@@ -597,7 +604,7 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     alignItems: 'center',
-    paddingTop: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
   },
   membershipTitle: {
     textAlign: 'center',
@@ -631,6 +638,7 @@ const styles = StyleSheet.create({
   },
   lifetimeCard: {
     backgroundColor: '#FFF3DC',
+    borderWidth: 2,
     borderColor: '#9D9D9D',
     shadowColor: '#9D9D9D',
     shadowOffset: { width: 4, height: 4 },
@@ -640,6 +648,7 @@ const styles = StyleSheet.create({
   },
   planCard: {
     backgroundColor: theme.colors.surface,
+    borderWidth: 2,
     borderColor: '#9D9D9D',
     shadowColor: '#9D9D9D',
     shadowOffset: { width: 4, height: 4 },
@@ -657,14 +666,19 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 4,
   },
+  lifetimeCardShell: {
+    position: 'relative',
+  },
+  paymentLabelWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
+  },
   lifetimeHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: theme.spacing.md,
+    paddingRight: 0,
   },
   lifetimeTitle: {
-    flex: 1,
     fontWeight: theme.typography.weights.bold,
     fontSize: 28,
     lineHeight: 32,
@@ -678,6 +692,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: theme.spacing.md,
+    marginTop: theme.spacing.md,
   },
   bestForBlock: {
     flex: 1,
@@ -772,8 +787,8 @@ const styles = StyleSheet.create({
   },
   planDuration: {
     fontWeight: theme.typography.weights.bold,
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 26,
+    lineHeight: 30,
   },
   planRightColumn: {
     alignItems: 'flex-end',
@@ -812,6 +827,22 @@ const styles = StyleSheet.create({
   summaryFinalPrice: {
     fontSize: 36,
     lineHeight: 40,
+  },
+  joinButton: {
+    minHeight: 58,
+    borderWidth: 2,
+    borderRadius: theme.radii.lg,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  joinButtonText: {
+    fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.3,
   },
   warningBox: {
     alignItems: 'center',
