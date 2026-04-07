@@ -127,23 +127,7 @@ export function FreeLessonLibraryScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader
-          language={uiLanguage}
-          title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}
-          subtitle={
-            uiLanguage === 'th'
-              ? 'รวมบทเรียนแรกของแต่ละเลเวลที่คุณเข้าเรียนได้ทันทีในแพ็กเกจฟรี'
-              : 'A collection of the first lesson from each level that you can study on the free plan'
-          }
-        />
-
-        <View style={styles.freePlanMessage}>
-          <AppText language={uiLanguage} variant="body" style={styles.freePlanLine}>
-            {uiLanguage === 'th'
-              ? 'นี่คือบทเรียนฟรีที่เปิดให้เข้าเรียนได้ทันที'
-              : 'These are the lessons that are fully open on your free plan.'}
-          </AppText>
-        </View>
+        <StandardPageHeader language={uiLanguage} title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'} />
 
         {isLoading ? (
           <View style={styles.centerState}>
@@ -165,24 +149,23 @@ export function FreeLessonLibraryScreen() {
               {STAGE_ORDER.map((stage) => {
                 const lessons = lessonsByStage.get(stage) ?? [];
                 return (
-                  <Card key={stage} padding="xs" radius="lg" style={styles.stageCard}>
-                    <Stack gap="xs">
-                      <View style={styles.stageHeader}>
+                  <View key={stage} style={styles.stageSection}>
+                    <View style={styles.stageDivider}>
+                      <View style={styles.stageDividerLine} />
+                      <View style={styles.stageHeaderChip}>
                         <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
                           {getStageTitle(stage, uiLanguage)}
                         </AppText>
                       </View>
+                    </View>
 
+                    <Card padding="xs" radius="lg" style={styles.stageCard}>
                       <View style={styles.lessonList}>
                         {lessons.map((lesson, index) => {
                           const titleText =
                             uiLanguage === 'th'
                               ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
                               : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
-                          const focusText =
-                            uiLanguage === 'th'
-                              ? pickText(lesson.focus_th, lesson.focus, '')
-                              : pickText(lesson.focus, lesson.focus_th, '');
                           const lessonNumber =
                             typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
                               ? `${lesson.level}.${lesson.lesson_order}`
@@ -201,14 +184,13 @@ export function FreeLessonLibraryScreen() {
                                     {lessonNumber}
                                   </AppText>
                                   <View style={styles.lessonTextGroup}>
-                                    <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
+                                    <AppText
+                                      language={uiLanguage}
+                                      variant="body"
+                                      numberOfLines={3}
+                                      style={styles.lessonTitle}>
                                       {titleText}
                                     </AppText>
-                                    {focusText ? (
-                                      <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
-                                        {focusText}
-                                      </AppText>
-                                    ) : null}
                                   </View>
                                 </View>
                                 <View style={styles.lessonRight}>
@@ -219,23 +201,30 @@ export function FreeLessonLibraryScreen() {
                           );
                         })}
                       </View>
-                    </Stack>
-                  </Card>
+                    </Card>
+                  </View>
                 );
               })}
 
-              <Card padding="xs" radius="lg" style={[styles.stageCard, styles.comingSoonStage]}>
-                <View style={styles.stageHeader}>
-                  <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
-                    {uiLanguage === 'th' ? 'ระดับเชี่ยวชาญ' : 'EXPERT'}
-                  </AppText>
-                  <View style={styles.comingSoonBadge}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.comingSoonBadgeText}>
-                      {uiLanguage === 'th' ? 'เร็วๆ นี้' : 'Coming Soon'}
+              <View style={styles.stageSection}>
+                <View style={styles.stageDivider}>
+                  <View style={styles.stageDividerLine} />
+                  <View style={styles.stageHeaderChip}>
+                    <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
+                      {uiLanguage === 'th' ? 'ระดับเชี่ยวชาญ' : 'EXPERT'}
                     </AppText>
                   </View>
                 </View>
-              </Card>
+                <Card padding="xs" radius="lg" style={[styles.stageCard, styles.comingSoonStage]}>
+                  <View style={styles.comingSoonBody}>
+                    <View style={styles.comingSoonBadge}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.comingSoonBadgeText}>
+                        {uiLanguage === 'th' ? 'เร็วๆ นี้' : 'Coming Soon'}
+                      </AppText>
+                    </View>
+                  </View>
+                </Card>
+              </View>
             </Stack>
           </View>
         ) : null}
@@ -252,15 +241,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.xl,
   },
-  freePlanMessage: {
-    marginTop: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  freePlanLine: {
-    textAlign: 'center',
-    lineHeight: 28,
-  },
   centerState: {
     minHeight: 180,
     alignItems: 'center',
@@ -276,30 +256,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
   },
+  stageSection: {
+    gap: theme.spacing.sm,
+  },
+  stageDivider: {
+    position: 'relative',
+    minHeight: 30,
+    justifyContent: 'center',
+  },
+  stageDividerLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '50%',
+    height: 1,
+    backgroundColor: theme.colors.border,
+    opacity: 0.16,
+  },
+  stageHeaderChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xl,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.background,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
   stageCard: {
     padding: 0,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   comingSoonStage: {
     opacity: 0.8,
   },
-  stageHeader: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
   stageTitle: {
     fontWeight: theme.typography.weights.semibold,
+    letterSpacing: 0.8,
   },
   lessonList: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
     overflow: 'hidden',
   },
   itemPressable: {
@@ -310,7 +317,7 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   lessonRow: {
-    minHeight: 70,
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -327,19 +334,17 @@ const styles = StyleSheet.create({
   lessonNumber: {
     minWidth: 42,
     fontWeight: theme.typography.weights.bold,
+    lineHeight: 24,
   },
   lessonTextGroup: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    justifyContent: 'center',
   },
   lessonTitle: {
     fontWeight: theme.typography.weights.semibold,
     flexShrink: 1,
-  },
-  lessonSubtitle: {
-    color: theme.colors.mutedText,
-    flexShrink: 1,
+    lineHeight: 22,
   },
   lessonRight: {
     width: 24,
@@ -350,6 +355,13 @@ const styles = StyleSheet.create({
   checkIcon: {
     width: 22,
     height: 22,
+  },
+  comingSoonBody: {
+    minHeight: 72,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
   },
   comingSoonBadge: {
     borderRadius: theme.radii.xl,

@@ -312,6 +312,7 @@
   - `app/lessons/library.tsx`
   - `app/(tabs)/lessons.tsx` now routes free-plan users into the free lesson library and paid users into the full library
   - Free lesson library now keeps its original page structure, but lesson rows visually align with the main lesson library list while keeping right-side checkmarks
+  - next styling pass should push the free lesson library closer to the actual/main lesson library visual treatment rather than leaving it as a lighter variant
 - App session/auth state now separates account presence from membership entitlement:
   - `src/context/app-session-context.tsx`
   - current session drives signed-in vs signed-out behavior
@@ -453,23 +454,20 @@
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
 - Next recommended phase before detailed testing/debugging:
   - immediate next item of attention:
-    - fix the lesson-detail mini-pager swipe interaction on mobile using directional locking / gesture arbitration
-    - do this before broader device-test signoff because it directly affects study usability in core lesson flows
+    - restyle the free lesson library so it reflects the actual/main lesson library more closely
+    - focus especially on the overall row/card treatment, spacing, hierarchy, and general visual parity rather than leaving it as a noticeably different free-plan surface
   - specific implementation plan for that item:
-    - replace or substantially rework the current shared mini-pager `PanResponder` in `app/lessons/[id].tsx`
-    - prefer `react-native-gesture-handler` for the shared pager shell
-    - detect gesture intent early
-    - lock the active gesture to horizontal or vertical once intent is clear
-    - route locked horizontal gestures to pager navigation
-    - route locked vertical gestures to the nested content scroll view
-    - keep the fix centralized so `Understand`, `Common Mistake`, `Practice`, and `Phrases & Verbs` all inherit the same improved swipe behavior
+    - review `src/screens/GuestLessonLibraryScreen.tsx` against the main/native lesson library implementation
+    - bring the free lesson list container, row styling, spacing rhythm, and visual hierarchy closer to the main lesson library
+    - preserve any free-plan-specific affordances that still need to remain distinct, such as right-side checkmarks or lock-state cues
+    - treat this as styling/parity work first, not a navigation or architecture rewrite
   - then finish the remaining functional gaps that still block broader signoff:
     - lesson completion / mark-complete write-back
   - then move into focused parity testing/debugging for:
     - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants, locked-cover copy/states)
     - Topic Library content/layout edge cases
     - Exercise Bank exercise-type and bilingual wrapping edge cases
-    - free-plan lessons hub / library navigation and lock-icon polish
+    - free-plan lessons hub / library styling polish, navigation polish, and lock-icon polish
 - Device-test readiness note:
   - the app now appears close to being ready for cofounder-device testing, but that should not happen first
   - complete a solid test pass on Grant's own device before treating cofounder-device testing as the next milestone

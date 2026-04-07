@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { membershipImages } from '@/src/assets/app-images';
@@ -196,6 +196,9 @@ type MembershipPlanCardProps = {
   bestForLabel: string;
   isSelected: boolean;
   onPress: () => void;
+  onJoinPress: () => void;
+  joinLabel: string;
+  showInlineJoinButton?: boolean;
 };
 
 function MembershipPlanCard({
@@ -204,129 +207,157 @@ function MembershipPlanCard({
   bestForLabel,
   isSelected,
   onPress,
+  onJoinPress,
+  joinLabel,
+  showInlineJoinButton = true,
 }: MembershipPlanCardProps) {
   if (card.isLifetime) {
     return (
-      <Pressable onPress={onPress} style={[styles.cardPressable, isSelected ? styles.selectedCardPressable : null]}>
-        <Card padding="lg" radius="lg" style={[styles.lifetimeCard, isSelected ? styles.selectedCard : null]}>
-          <Stack gap="md">
-            <View style={styles.lifetimeCardShell}>
-              <View style={styles.paymentLabelWrap}>
-                <AppText language={uiLanguage} variant="caption" style={styles.paymentLabel}>
-                  {card.paymentLabel}
-                </AppText>
-              </View>
-
-              <View style={styles.lifetimeHeaderRow}>
-                <AppText language={uiLanguage} variant="body" style={styles.lifetimeTitle}>
-                  {card.duration}
-                </AppText>
-              </View>
-
-              <View style={styles.lifetimeTopRow}>
-                <View style={styles.bestForBlock}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
-                    {bestForLabel}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
-                    {card.bestFor}
+      <View style={styles.cardPressable}>
+        <Pressable onPress={onPress} style={isSelected ? styles.selectedCardPressable : null}>
+          <Card padding="lg" radius="lg" style={[styles.lifetimeCard, isSelected ? styles.selectedCard : null]}>
+            <Stack gap="md">
+              <View style={styles.lifetimeCardShell}>
+                <View style={styles.paymentLabelWrap}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.paymentLabel}>
+                    {card.paymentLabel}
                   </AppText>
                 </View>
-                <View style={styles.lifetimePriceBlock}>
-                  {card.originalPrice ? (
-                    <AppText language={uiLanguage} variant="muted" style={styles.crossedOutPrice}>
-                      {buildPriceWithSymbol(card.billingPeriod, card.originalPrice)}
+
+                <View style={styles.lifetimeHeaderRow}>
+                  <AppText language={uiLanguage} variant="body" style={styles.lifetimeTitle}>
+                    {card.duration}
+                  </AppText>
+                </View>
+
+                <View style={styles.lifetimeTopRow}>
+                  <View style={styles.bestForBlock}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
+                      {bestForLabel}
                     </AppText>
-                  ) : null}
-                  <AppText language={uiLanguage} variant="title" style={styles.lifetimePrice}>
-                    {card.price}
+                    <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
+                      {card.bestFor}
+                    </AppText>
+                  </View>
+                  <View style={styles.lifetimePriceBlock}>
+                    {card.originalPrice ? (
+                      <AppText language={uiLanguage} variant="muted" style={styles.crossedOutPrice}>
+                        {buildPriceWithSymbol(card.billingPeriod, card.originalPrice)}
+                      </AppText>
+                    ) : null}
+                    <AppText language={uiLanguage} variant="title" style={styles.lifetimePrice}>
+                      {card.price}
+                    </AppText>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.lifetimeBody}>
+                <View style={styles.includesBlock}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.includesLabel}>
+                    {card.includesLabel}
+                  </AppText>
+                  <Stack gap="xs">
+                    {(card.includes ?? []).map((item) => (
+                      <View key={item} style={styles.includeRow}>
+                        <View style={styles.checkIconDot} />
+                        <AppText language={uiLanguage} variant="body" style={styles.includeText}>
+                          {item}
+                        </AppText>
+                      </View>
+                    ))}
+                  </Stack>
+                </View>
+                <View style={styles.bestValueBadge}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.bestValueText}>
+                    {card.bestValue}
                   </AppText>
                 </View>
               </View>
-            </View>
+            </Stack>
+          </Card>
+        </Pressable>
 
-            <View style={styles.divider} />
-
-            <View style={styles.lifetimeBody}>
-              <View style={styles.includesBlock}>
-                <AppText language={uiLanguage} variant="caption" style={styles.includesLabel}>
-                  {card.includesLabel}
-                </AppText>
-                <Stack gap="xs">
-                  {(card.includes ?? []).map((item) => (
-                    <View key={item} style={styles.includeRow}>
-                      <View style={styles.checkIconDot} />
-                      <AppText language={uiLanguage} variant="body" style={styles.includeText}>
-                        {item}
-                      </AppText>
-                    </View>
-                  ))}
-                </Stack>
-              </View>
-              <View style={styles.bestValueBadge}>
-                <AppText language={uiLanguage} variant="caption" style={styles.bestValueText}>
-                  {card.bestValue}
-                </AppText>
-              </View>
-            </View>
-          </Stack>
-        </Card>
-      </Pressable>
+        {isSelected && showInlineJoinButton ? (
+          <Button
+            language={uiLanguage}
+            onPress={onJoinPress}
+            style={styles.inlineJoinButton}
+            textStyle={styles.joinButtonText}
+            title={joinLabel}
+          />
+        ) : null}
+      </View>
     );
   }
 
   return (
-    <Pressable onPress={onPress} style={[styles.cardPressable, isSelected ? styles.selectedCardPressable : null]}>
-      <Card padding="lg" radius="lg" style={[styles.planCard, isSelected ? styles.selectedCard : null]}>
-        {card.savings ? (
-          <View style={styles.savingsBadge}>
-            <AppText language={uiLanguage} variant="caption" style={styles.savingsText}>
-              {card.savings}
-            </AppText>
-          </View>
-        ) : null}
-        <View style={styles.planContentRow}>
-          <View style={styles.planLeftColumn}>
-            <AppText language={uiLanguage} variant="body" style={styles.planDuration}>
-              {card.duration}
-            </AppText>
-            <View style={styles.bestForBlock}>
-              <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
-                {bestForLabel}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
-                {card.bestFor}
+    <View style={styles.cardPressable}>
+      <Pressable onPress={onPress} style={isSelected ? styles.selectedCardPressable : null}>
+        <Card padding="lg" radius="lg" style={[styles.planCard, isSelected ? styles.selectedCard : null]}>
+          {card.savings ? (
+            <View style={styles.savingsBadge}>
+              <AppText language={uiLanguage} variant="caption" style={styles.savingsText}>
+                {card.savings}
               </AppText>
             </View>
-          </View>
+          ) : null}
+          <View style={styles.planContentRow}>
+            <View style={styles.planLeftColumn}>
+              <AppText language={uiLanguage} variant="body" style={styles.planDuration}>
+                {card.duration}
+              </AppText>
+              <View style={styles.bestForBlock}>
+                <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
+                  {bestForLabel}
+                </AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
+                  {card.bestFor}
+                </AppText>
+              </View>
+            </View>
 
-          <View
-            style={[
-              styles.planRightColumn,
-              !card.savings ? styles.planRightColumnWithoutBadge : null,
-            ]}>
-            {card.originalDisplayPrice ? (
-              <AppText language={uiLanguage} variant="muted" style={styles.crossedOutMonthlyPrice}>
-                {buildPriceWithSymbol(card.billingPeriod, card.originalDisplayPrice)}
-              </AppText>
-            ) : null}
-            <View style={styles.planPriceRow}>
-              <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
-                {card.price}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.periodText}>
-                / {card.period}
-              </AppText>
+            <View
+              style={[
+                styles.planRightColumn,
+                !card.savings ? styles.planRightColumnWithoutBadge : null,
+              ]}>
+              {card.originalDisplayPrice ? (
+                <AppText language={uiLanguage} variant="muted" style={styles.crossedOutMonthlyPrice}>
+                  {buildPriceWithSymbol(card.billingPeriod, card.originalDisplayPrice)}
+                </AppText>
+              ) : null}
+              <View style={styles.planPriceRow}>
+                <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
+                  {card.price}
+                </AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.periodText}>
+                  / {card.period}
+                </AppText>
+              </View>
             </View>
           </View>
-        </View>
-      </Card>
-    </Pressable>
+        </Card>
+      </Pressable>
+
+      {isSelected && showInlineJoinButton ? (
+        <Button
+          language={uiLanguage}
+          onPress={onJoinPress}
+          style={styles.inlineJoinButton}
+          textStyle={styles.joinButtonText}
+          title={joinLabel}
+        />
+      ) : null}
+    </View>
   );
 }
 
 export function MembershipScreen() {
   const { uiLanguage } = useUiLanguage();
+  const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('lifetime');
   const [showPlanWarning, setShowPlanWarning] = useState(false);
@@ -430,6 +461,22 @@ export function MembershipScreen() {
   }, [allPlans, selectedPlanId]);
 
   const selectedPlan = allPlans.find((plan) => plan.id === selectedPlanId) ?? null;
+  const isCompactLayout = width < 768;
+
+  const handleJoinPress = () => {
+    if (!selectedPlan) {
+      setShowPlanWarning(true);
+      return;
+    }
+    setShowPlanWarning(false);
+    Alert.alert(copy.joinCta, copy.joinPlaceholder);
+  };
+
+  const stickyPlanLabel = selectedPlan
+    ? selectedPlan.isLifetime
+      ? selectedPlan.duration
+      : `${selectedPlan.duration} • ${selectedPlan.price}/${selectedPlan.period}`
+    : '';
 
   if (pricingState.loading) {
     return (
@@ -462,8 +509,11 @@ export function MembershipScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <Stack gap="md">
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.contentContainer, isCompactLayout ? styles.contentContainerWithStickyBar : null]}>
+        <Stack gap="md">
         <View style={styles.headerBlock}>
           <AppText language={uiLanguage} variant="title" style={styles.membershipTitle}>
             <AppText language={uiLanguage} variant="title" style={styles.membershipTitleHighlight}>
@@ -485,7 +535,10 @@ export function MembershipScreen() {
                 bestForLabel={copy.bestForLabel}
                 card={plan}
                 isSelected={selectedPlanId === plan.id}
+                joinLabel={copy.joinCta}
+                onJoinPress={handleJoinPress}
                 onPress={() => setSelectedPlanId(plan.id)}
+                showInlineJoinButton={!isCompactLayout}
                 uiLanguage={uiLanguage}
               />
               {index === 0 ? (
@@ -497,7 +550,7 @@ export function MembershipScreen() {
           ))}
         </Stack>
 
-        {selectedPlan ? (
+        {selectedPlan && !isCompactLayout ? (
           <View style={styles.pricingSummary}>
             {selectedPlan.originalPrice ? (
               <AppText language={uiLanguage} variant="muted" style={styles.summaryOriginalPrice}>
@@ -510,20 +563,15 @@ export function MembershipScreen() {
           </View>
         ) : null}
 
-        <Button
-          language={uiLanguage}
-          onPress={() => {
-            if (!selectedPlan) {
-              setShowPlanWarning(true);
-              return;
-            }
-            setShowPlanWarning(false);
-            Alert.alert(copy.joinCta, copy.joinPlaceholder);
-          }}
-          style={styles.joinButton}
-          textStyle={styles.joinButtonText}
-          title={copy.joinCta}
-        />
+        {!isCompactLayout ? (
+          <Button
+            language={uiLanguage}
+            onPress={handleJoinPress}
+            style={styles.joinButton}
+            textStyle={styles.joinButtonText}
+            title={copy.joinCta}
+          />
+        ) : null}
 
         {showPlanWarning ? (
           <View style={styles.warningBox}>
@@ -561,8 +609,31 @@ export function MembershipScreen() {
             </Stack>
           </Stack>
         </Card>
-      </Stack>
-    </ScrollView>
+        </Stack>
+      </ScrollView>
+
+      {selectedPlan && isCompactLayout ? (
+        <View style={styles.stickyBarShell}>
+          <View style={styles.stickyBar}>
+            <View style={styles.stickyBarCopy}>
+              <AppText language={uiLanguage} variant="caption" style={styles.stickyBarLabel}>
+                {stickyPlanLabel}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.stickyBarPrice}>
+                {buildPriceWithSymbol(pricingState.currency, selectedPlan.totalPrice)}
+              </AppText>
+            </View>
+            <Button
+              language={uiLanguage}
+              onPress={handleJoinPress}
+              style={styles.stickyJoinButton}
+              textStyle={styles.stickyJoinButtonText}
+              title={copy.joinCta}
+            />
+          </View>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -574,6 +645,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
+  },
+  contentContainerWithStickyBar: {
+    paddingBottom: 120,
   },
   stateScreen: {
     flex: 1,
@@ -844,6 +918,19 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     letterSpacing: 0.3,
   },
+  inlineJoinButton: {
+    marginTop: theme.spacing.sm,
+    minHeight: 54,
+    borderWidth: 2,
+    borderRadius: theme.radii.lg,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
   warningBox: {
     alignItems: 'center',
     paddingVertical: theme.spacing.sm,
@@ -866,6 +953,53 @@ const styles = StyleSheet.create({
   },
   featuresCard: {
     backgroundColor: '#FFFDF9',
+  },
+  stickyBarShell: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: 'transparent',
+  },
+  stickyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.lg,
+    backgroundColor: '#FFFDF9',
+    padding: theme.spacing.sm,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  stickyBarCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  stickyBarLabel: {
+    color: theme.colors.mutedText,
+  },
+  stickyBarPrice: {
+    fontWeight: theme.typography.weights.bold,
+  },
+  stickyJoinButton: {
+    minHeight: 48,
+    minWidth: 132,
+    borderWidth: 2,
+    borderRadius: theme.radii.lg,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+  },
+  stickyJoinButtonText: {
+    fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.3,
   },
   featuresTitle: {
     fontWeight: theme.typography.weights.bold,
