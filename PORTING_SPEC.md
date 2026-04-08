@@ -3,6 +3,9 @@
 ## Workspace Repos
 - `pailin-abroad` (web app): reference only, **read-only**.
 - `pailin-abroad-app` (Expo RN app): implementation target, **write here only**.
+- This Mac workspace should treat `pailin-abroad` as browse-only/reference-only.
+- Do not make backend/frontend changes for `pailin-abroad` from this machine as part of normal mobile work.
+- Production web/backend deployment is handled from the separate webapp machine/workflow, not from this Expo app workflow.
 
 ## Non-Negotiable Rules
 - Never modify `pailin-abroad`.
@@ -626,8 +629,11 @@
 
 ## Recent Native Cleanup Pass
 - Lesson detail / guided study polish:
+  - lesson cover now renders quickly from lightweight lesson metadata while the full resolved lesson continues loading in the background
+  - lesson entry CTA stays on the cover until the full lesson payload is ready instead of blocking the entire route behind the resolved fetch
   - `Prepare` section now uses reduced internal card padding and a responsive two-column audio-bullet layout on normal-width screens
-  - `Prepare` audio bullets now preload correctly on the native lesson screen, including the `Prepare` tab itself, so first-play latency is reduced and behavior is closer to the webapp
+  - snippet pause/resume behavior has been corrected so tapping pause no longer restarts the snippet from the beginning on the next tap
+  - `Prepare` audio bullets now preload correctly on the native lesson screen, including before lesson start, so first-play latency is reduced and behavior is closer to the webapp
   - lesson cover top meta row (back button + lesson pills) has been nudged slightly lower on the banner for better visual balance
 - Shared header cleanup:
   - `src/components/ui/StandardPageHeader.tsx` now also supports an optional right-side action used by Profile inline editing

@@ -12,6 +12,7 @@ import {
   fetchLessonAudioSnippetIndex,
   fetchLessonPhraseAudioSnippetIndex,
   fetchLessonAudioUrls,
+  getLessonById,
   getLessonsIndex,
   fetchResolvedLesson,
   fetchSignedLessonAudioUrl,
@@ -37,6 +38,7 @@ import {
   LessonApplyContent,
   LessonAudioSnippet,
   LessonAudioSnippetIndex,
+  LessonListItem,
   LessonPhraseAudioSnippetIndex,
   LessonRichInline,
   LessonRichNode,
@@ -1330,6 +1332,7 @@ export default function LessonDetailShellScreen() {
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
+  const [coverLesson, setCoverLesson] = useState<LessonListItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
@@ -1353,6 +1356,7 @@ export default function LessonDetailShellScreen() {
   const [snippetIndex, setSnippetIndex] = useState<LessonAudioSnippetIndex>(EMPTY_SNIPPET_INDEX);
   const [phraseSnippetIndex, setPhraseSnippetIndex] = useState<LessonPhraseAudioSnippetIndex>(EMPTY_PHRASE_SNIPPET_INDEX);
   const [activeSnippetKey, setActiveSnippetKey] = useState<string | null>(null);
+  const [playingSnippetKey, setPlayingSnippetKey] = useState<string | null>(null);
   const [isSnippetLoading, setIsSnippetLoading] = useState(false);
   const [applyText, setApplyText] = useState('');
   const [showApplyResponse, setShowApplyResponse] = useState(false);
@@ -1385,6 +1389,35 @@ export default function LessonDetailShellScreen() {
   useEffect(() => {
     lessonRef.current = lesson;
   }, [lesson]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      if (!lessonId) {
+        setCoverLesson(null);
+        return;
+      }
+
+      try {
+        const row = await getLessonById(lessonId);
+        if (!isMounted) {
+          return;
+        }
+        setCoverLesson(row);
+      } catch {
+        if (isMounted) {
+          setCoverLesson(null);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lessonId]);
 
   useEffect(() => {
     if (hasMembership) {
@@ -1459,6 +1492,7 @@ export default function LessonDetailShellScreen() {
           return;
         }
         setLesson(row);
+        setCoverLesson(row);
         const otherLang = contentLang === 'th' ? 'en' : 'th';
         prefetchResolvedLesson(lessonId, otherLang);
       } catch (error) {
@@ -1482,6 +1516,10 @@ export default function LessonDetailShellScreen() {
   }, [contentLang, lessonId, uiCopy.fetchLessonFailed, uiCopy.missingLessonId]);
 
   useEffect(() => {
+    setLesson(null);
+    setCoverLesson(null);
+    setIsLoading(true);
+    setErrorMessage(null);
     setActiveSectionIndex(0);
     setIsMenuOpen(false);
     setHasStartedLesson(false);
@@ -1499,6 +1537,7 @@ export default function LessonDetailShellScreen() {
     setSnippetIndex(EMPTY_SNIPPET_INDEX);
     setPhraseSnippetIndex(EMPTY_PHRASE_SNIPPET_INDEX);
     setActiveSnippetKey(null);
+    setPlayingSnippetKey(null);
     setIsSnippetLoading(false);
     setApplyText('');
     setShowApplyResponse(false);
@@ -1521,33 +1560,33 @@ export default function LessonDetailShellScreen() {
     }).catch(() => undefined);
   }, []);
 
+  const lessonCover = lesson ?? coverLesson;
+  const isLessonReady = Boolean(lesson);
+
   const englishTitle = useMemo(() => {
-    if (!lesson) return null;
-    return lesson.title_en?.trim() || lesson.title?.trim() || lesson.title_th?.trim() || null;
-  }, [lesson]);
+    return lesson?.title_en?.trim() || lesson?.title?.trim() || coverLesson?.title?.trim() || lesson?.title_th?.trim() || coverLesson?.title_th?.trim() || null;
+  }, [coverLesson, lesson]);
 
   const thaiTitle = useMemo(() => {
-    if (!lesson) return null;
-    return lesson.title_th?.trim() || null;
-  }, [lesson]);
+    if (!lessonCover) return null;
+    return lessonCover.title_th?.trim() || null;
+  }, [lessonCover]);
 
   const resolvedFocus = useMemo(() => {
-    if (!lesson) return null;
-    return lesson.focus?.trim() || lesson.focus_th?.trim() || null;
-  }, [lesson]);
+    return lesson?.focus_en?.trim() || lesson?.focus?.trim() || coverLesson?.focus?.trim() || lesson?.focus_th?.trim() || coverLesson?.focus_th?.trim() || null;
+  }, [coverLesson, lesson]);
 
   const resolvedBackstory = useMemo(() => {
-    if (!lesson) return null;
-    return (
-      (uiLanguage === 'th'
-        ? lesson.backstory_th || lesson.backstory || lesson.backstory_en
-        : lesson.backstory_en || lesson.backstory || lesson.backstory_th) ?? null
-    );
-  }, [lesson, uiLanguage]);
+    if (uiLanguage === 'th') {
+      return lesson?.backstory_th || coverLesson?.backstory_th || lesson?.backstory || coverLesson?.backstory || lesson?.backstory_en || null;
+    }
+
+    return lesson?.backstory_en || lesson?.backstory || coverLesson?.backstory || lesson?.backstory_th || coverLesson?.backstory_th || null;
+  }, [coverLesson, lesson, uiLanguage]);
 
   const headerImageUrl = useMemo(
-    () => lesson?.header_image_url ?? resolveHeaderImageUrl(lesson?.header_image_path ?? lesson?.header_img ?? null),
-    [lesson?.header_image_path, lesson?.header_image_url, lesson?.header_img]
+    () => lesson?.header_image_url ?? resolveHeaderImageUrl(lesson?.header_image_path ?? lesson?.header_img ?? coverLesson?.header_img ?? null),
+    [coverLesson?.header_img, lesson?.header_image_path, lesson?.header_image_url, lesson?.header_img]
   );
   const lessonTabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
   const activeTab = lessonTabs[activeSectionIndex] ?? null;
@@ -1663,16 +1702,16 @@ export default function LessonDetailShellScreen() {
       return true;
     }
 
-    if (!lesson?.id) {
+    if (!lessonCover?.id) {
       return false;
     }
 
     if (freeLessonIds.size > 0) {
-      return !freeLessonIds.has(lesson.id);
+      return !freeLessonIds.has(lessonCover.id);
     }
 
-    return lesson.locked === true;
-  }, [freeLessonIds, hasMembership, lesson?.id, lesson?.locked, lockedParam]);
+    return 'locked' in lessonCover ? lessonCover.locked === true : false;
+  }, [freeLessonIds, hasMembership, lessonCover, lockedParam]);
   const activeSectionTitle = useMemo(
     () => (activeTab ? getLessonSectionTitle(pageLanguage, activeTab.type, activeSectionIndex) : null),
     [activeSectionIndex, activeTab, pageLanguage]
@@ -1701,6 +1740,14 @@ export default function LessonDetailShellScreen() {
   const isPracticeTab = activeTab?.type === 'practice';
   const isPhrasesTab = activeTab?.type === 'phrases_verbs';
   const isCompactLayout = windowWidth < 768;
+  const prepareSectionForPreload = useMemo(
+    () => lessonTabs.find((tab) => tab.type === 'prepare')?.section ?? null,
+    [lessonTabs]
+  );
+  const preparePreloadNodes = useMemo(
+    () => getRichNodesForLanguage(prepareSectionForPreload, contentLang),
+    [contentLang, prepareSectionForPreload]
+  );
   const prepareNodes = useMemo(
     () => (hasStartedLesson ? getRichNodesForLanguage(isPrepareTab ? activeSection : null, contentLang) : []),
     [activeSection, contentLang, hasStartedLesson, isPrepareTab]
@@ -1886,13 +1933,13 @@ export default function LessonDetailShellScreen() {
       ? pageCopy.noSectionsYet
       : pageCopy.sectionCounter(activeSectionIndex, sectionCount);
   const sectionMenuLabel = pageCopy.sectionMenuLabel;
-  const startLessonLabel = uiCopy.startLesson;
+  const startLessonLabel = isLessonReady ? uiCopy.startLesson : uiCopy.loadingLessonCta;
   const coverMinHeight = Math.max(windowHeight || 0, 720);
   const backToLibraryLabel = uiCopy.backToLibrary;
   const coverLessonNumber =
-    typeof lesson?.level === 'number' && typeof lesson?.lesson_order === 'number'
-      ? `${lesson.level}.${lesson.lesson_order}`
-      : lesson?.lesson_order?.toString() ?? '-';
+    typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
+      ? `${lessonCover.level}.${lessonCover.lesson_order}`
+      : lessonCover?.lesson_order?.toString() ?? '-';
   const translateToThaiLabel = pageCopy.translateToThaiLabel;
   const translateToEnglishLabel = pageCopy.translateToEnglishLabel;
   const backstoryToggleLabel = isBackstoryExpanded
@@ -1933,6 +1980,10 @@ export default function LessonDetailShellScreen() {
       if (!isPhrasesTab || !Object.keys(phraseSnippetIndex.byKey).length) {
         return [];
       }
+    }
+
+    if (!hasStartedLesson) {
+      return collectSnippetsForNodes(preparePreloadNodes, snippetIndex);
     }
 
     if (isRichPagerTab) {
@@ -1999,8 +2050,10 @@ export default function LessonDetailShellScreen() {
     isRichPagerTab,
     normalizedLessonPhrases,
     prepareNodes,
+    preparePreloadNodes,
     phraseSnippetIndex,
     snippetIndex,
+    hasStartedLesson,
   ]);
 
   useEffect(() => {
@@ -2363,7 +2416,7 @@ export default function LessonDetailShellScreen() {
     let isMounted = true;
 
     const run = async () => {
-      if (!hasStartedLesson || !lesson?.id || !lesson.lesson_external_id) {
+      if (!lesson?.id || !lesson.lesson_external_id) {
         setSnippetIndex(EMPTY_SNIPPET_INDEX);
         return;
       }
@@ -2387,7 +2440,7 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [hasStartedLesson, lesson]);
+  }, [lesson]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2621,6 +2674,7 @@ export default function LessonDetailShellScreen() {
     }
 
     setActiveSnippetKey(null);
+    setPlayingSnippetKey(null);
     setIsSnippetLoading(false);
   };
 
@@ -2698,10 +2752,11 @@ export default function LessonDetailShellScreen() {
     if (existingPlayer && activeSnippetKey === audioKey && existingPlayer.isLoaded) {
       if (existingPlayer.playing) {
         existingPlayer.pause();
-        setActiveSnippetKey(null);
+        setPlayingSnippetKey(null);
       } else {
         existingPlayer.play();
         setActiveSnippetKey(audioKey);
+        setPlayingSnippetKey(audioKey);
       }
       return;
     }
@@ -2736,16 +2791,24 @@ export default function LessonDetailShellScreen() {
         }
 
         setIsSnippetLoading(false);
-        if (status.didJustFinish || !status.playing) {
+        if (status.didJustFinish) {
+          setPlayingSnippetKey((current) => (current === audioKey ? null : current));
           setActiveSnippetKey((current) => (current === audioKey ? null : current));
+          void player.seekTo(0).catch(() => undefined);
+        } else if (status.playing) {
+          setActiveSnippetKey(audioKey);
+          setPlayingSnippetKey(audioKey);
         } else {
           setActiveSnippetKey(audioKey);
+          setPlayingSnippetKey((current) => (current === audioKey ? null : current));
         }
       });
 
+      snippetSubscriptionRef.current?.remove();
       snippetSoundRef.current = player;
       snippetSubscriptionRef.current = subscription;
       setActiveSnippetKey(audioKey);
+      setPlayingSnippetKey(audioKey);
       player.play();
     } catch {
       unloadSnippetPlayer();
@@ -3037,8 +3100,8 @@ export default function LessonDetailShellScreen() {
       getSnippetForNode(node, snippetIndex) ??
       getPhraseSnippetForNode(node, phraseSnippetIndex, options?.phraseId, options?.phraseVariant);
     const audioKey = snippet?.audio_key?.trim() || node.audio_key?.trim() || null;
-    const isPlaying = Boolean(audioKey) && activeSnippetKey === audioKey;
-    const isLoading = isPlaying && isSnippetLoading;
+    const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
+    const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
 
     return (
       <View key={nodeKey} style={styles.phraseAudioBlock}>
@@ -3108,8 +3171,8 @@ export default function LessonDetailShellScreen() {
       const { cleanText, audioKeys } = parseAudioTaggedText(line);
       const snippet = audioKeys.length ? getSnippetForAudioKey(audioKeys[0]) : null;
       const audioKey = snippet?.audio_key?.trim() || audioKeys[0]?.trim() || null;
-      const isPlaying = Boolean(audioKey) && activeSnippetKey === audioKey;
-      const isLoading = isPlaying && isSnippetLoading;
+      const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
+      const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
       const textValue = cleanText || (audioKeys.length ? '' : line.trim());
 
       if (audioKeys.length) {
@@ -3507,8 +3570,8 @@ export default function LessonDetailShellScreen() {
     const indentStyle = getRichIndentStyle(node);
     const snippet = getSnippetForNode(node, snippetIndex);
     const audioKey = snippet?.audio_key?.trim() || node.audio_key?.trim() || null;
-    const isPlaying = Boolean(audioKey) && activeSnippetKey === audioKey;
-    const isLoading = isPlaying && isSnippetLoading;
+    const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
+    const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
 
     return (
       <View
@@ -3921,14 +3984,14 @@ export default function LessonDetailShellScreen() {
           if (block.type === 'audio') {
             const audioKey = block.audioKey?.trim();
             const snippet = audioKey ? snippetIndex.byKey[audioKey] ?? phraseSnippetIndex.byKey[audioKey] ?? null : null;
-            const isPlaying = Boolean(audioKey) && activeSnippetKey === audioKey;
+            const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
 
             return (
               <View key={`practice-prompt-audio-${index}`} style={styles.practicePromptAudioRow}>
                 <LessonSnippetAudioButton
                   accessibilityLabel={pageLanguage === 'th' ? 'เล่นเสียงโจทย์' : 'Play prompt audio'}
                   disabled={!snippet}
-                  isLoading={isPlaying && isSnippetLoading}
+                  isLoading={Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading}
                   isPlaying={isPlaying}
                   onPress={() => {
                     void handleToggleSnippet(snippet);
@@ -4509,11 +4572,11 @@ export default function LessonDetailShellScreen() {
     <View style={styles.screen}>
       <RouterStack.Screen options={{ headerShown: false }} />
 
-      {isLoading && !lesson ? (
+      {isLoading && !lessonCover ? (
         <PageLoadingState language={uiLanguage} />
       ) : null}
 
-      {!lesson && !isLoading && errorMessage ? (
+      {!lessonCover && !isLoading && errorMessage ? (
         <PageLoadingState
           language={uiLanguage}
           errorTitle={uiCopy.loadingErrorTitle}
@@ -4521,7 +4584,7 @@ export default function LessonDetailShellScreen() {
         />
       ) : null}
 
-      {lesson ? (
+      {lessonCover ? (
         <View style={styles.lessonContainer}>
           {!hasStartedLesson ? (
             <View style={[styles.fullScreenCover, { minHeight: coverMinHeight }]}>
@@ -4563,11 +4626,13 @@ export default function LessonDetailShellScreen() {
                         </Pressable>
                       </View>
 
-                      <View pointerEvents="none" style={styles.coverTopCenter}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
-                          {sectionCount} {uiCopy.lessonSections}
-                        </AppText>
-                      </View>
+                      {isLessonReady ? (
+                        <View pointerEvents="none" style={styles.coverTopCenter}>
+                          <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
+                            {sectionCount} {uiCopy.lessonSections}
+                          </AppText>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
 
@@ -4640,12 +4705,20 @@ export default function LessonDetailShellScreen() {
                         />
                       </View>
                     ) : (
-                      <Button
-                        language={uiLanguage}
-                        title={startLessonLabel}
-                        onPress={() => setHasStartedLesson(true)}
-                        style={styles.coverStartButton}
-                      />
+                      <Stack gap="xs">
+                        <Button
+                          language={uiLanguage}
+                          title={startLessonLabel}
+                          disabled={!isLessonReady}
+                          onPress={() => setHasStartedLesson(true)}
+                          style={styles.coverStartButton}
+                        />
+                        {errorMessage && !isLessonReady ? (
+                          <AppText language={uiLanguage} variant="muted" style={styles.coverInlineError}>
+                            {errorMessage}
+                          </AppText>
+                        ) : null}
+                      </Stack>
                     )}
                   </View>
                 </View>
@@ -4802,7 +4875,7 @@ export default function LessonDetailShellScreen() {
                                 const isSelected = currentSelections.includes(option.label);
                                 const isCorrectOption = answerSet.has(option.label);
                                 const optionImageUrl = resolveLessonImageUrl(
-                                  option.imageKey ? lesson.images?.[option.imageKey] : null,
+                                  option.imageKey ? lesson?.images?.[option.imageKey] : null,
                                   option.imageKey
                                 );
 
@@ -5539,6 +5612,10 @@ const styles = StyleSheet.create({
   },
   coverStartButton: {
     minHeight: 56,
+  },
+  coverInlineError: {
+    color: theme.colors.mutedText,
+    textAlign: 'center',
   },
   stepperScreen: {
     flex: 1,
