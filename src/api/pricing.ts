@@ -59,3 +59,7 @@ export async function getPricing(): Promise<PricingResponse> {
     pricingRequest = null;
   }
 }
+
+export function prefetchPricing() {
+  void getPricing().catch(() => undefined);
+}

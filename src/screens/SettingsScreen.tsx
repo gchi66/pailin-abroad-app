@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { prefetchPricing } from '@/src/api/pricing';
+import { cancelUserSubscription, deleteUserAccount } from '@/src/api/user';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -22,6 +24,7 @@ type SettingsCopy = {
   priceLabel: string;
   statusLabel: string;
   statusActive: string;
+  statusCancelling: string;
   statusFree: string;
   currentPlanPaid: string;
   currentPlanFree: string;
@@ -45,9 +48,13 @@ type SettingsCopy = {
   deleteAccountConfirmBody: string;
   goBack: string;
   continueDelete: string;
-  notConnectedTitle: string;
-  cancelMembershipPlaceholder: string;
-  deleteAccountPlaceholder: string;
+  requestInFlight: string;
+  successTitle: string;
+  errorTitle: string;
+  cancellationSuccess: string;
+  deleteSuccess: string;
+  genericError: string;
+  cancellationScheduledLabel: string;
 };
 
 const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
@@ -61,6 +68,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       priceLabel: 'ราคา',
       statusLabel: 'สถานะ',
       statusActive: 'ใช้งานอยู่',
+      statusCancelling: 'ยกเลิกเมื่อสิ้นสุดรอบบิล',
       statusFree: 'ฟรี',
       currentPlanPaid: 'Premium Monthly',
       currentPlanFree: 'Free Plan',
@@ -84,9 +92,13 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       deleteAccountConfirmBody: 'การกระทำนี้จะลบบัญชีและความคืบหน้าของคุณอย่างถาวร และไม่สามารถย้อนกลับได้',
       goBack: 'ย้อนกลับ',
       continueDelete: 'ลบบัญชี',
-      notConnectedTitle: 'ยังไม่เชื่อมต่อ',
-      cancelMembershipPlaceholder: 'ยังไม่ได้เชื่อม flow การยกเลิกสมาชิกในแอป',
-      deleteAccountPlaceholder: 'ยังไม่ได้เชื่อม flow การลบบัญชีในแอป',
+      requestInFlight: 'กรุณารอสักครู่',
+      successTitle: 'สำเร็จ',
+      errorTitle: 'เกิดข้อผิดพลาด',
+      cancellationSuccess: 'ยกเลิกสมาชิกเรียบร้อยแล้ว คุณยังใช้งานได้จนกว่าจะสิ้นสุดรอบบิลปัจจุบัน',
+      deleteSuccess: 'ลบบัญชีเรียบร้อยแล้ว',
+      genericError: 'มีบางอย่างผิดพลาด กรุณาลองอีกครั้ง',
+      cancellationScheduledLabel: 'กำหนดยกเลิกแล้ว',
     };
   }
 
@@ -99,6 +111,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     priceLabel: 'Price',
     statusLabel: 'Status',
     statusActive: 'Active',
+    statusCancelling: 'Cancels at period end',
     statusFree: 'Free',
     currentPlanPaid: 'Premium Monthly',
     currentPlanFree: 'Free Plan',
@@ -122,18 +135,42 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     deleteAccountConfirmBody: 'This permanently deletes your account and progress. This action cannot be undone.',
     goBack: 'Go Back',
     continueDelete: 'Delete Account',
-    notConnectedTitle: 'Not connected yet',
-    cancelMembershipPlaceholder: 'Membership cancellation flow is not connected in the app yet.',
-    deleteAccountPlaceholder: 'Account deletion flow is not connected in the app yet.',
+    requestInFlight: 'Please wait a moment.',
+    successTitle: 'Success',
+    errorTitle: 'Something went wrong',
+    cancellationSuccess: "Your subscription has been cancelled. You'll retain access until the end of your billing period.",
+    deleteSuccess: 'Your account has been deleted successfully.',
+    genericError: 'Something went wrong. Please try again.',
+    cancellationScheduledLabel: 'Cancellation scheduled',
   };
+};
+
+const formatBillingDate = (value: string | null, uiLanguage: 'en' | 'th') => {
+  if (!value) {
+    return uiLanguage === 'th' ? 'ไม่มี' : 'None';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 };
 
 export function SettingsScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership } = useAppSession();
+  const { hasMembership, profile, refreshProfile, signOut } = useAppSession();
   const copy = getCopy(uiLanguage);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
+  const [isCancellingMembership, setIsCancellingMembership] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const hasPendingCancellation = profile?.cancel_at_period_end === true;
 
   const subscriptionRows = useMemo(
     () => [
@@ -145,7 +182,7 @@ export function SettingsScreen() {
       {
         key: 'billing',
         label: copy.billingLabel,
-        value: hasMembership ? copy.billingPaid : copy.billingFree,
+        value: hasMembership ? formatBillingDate(profile?.current_period_end ?? null, uiLanguage) : copy.billingFree,
       },
       {
         key: 'price',
@@ -155,13 +192,14 @@ export function SettingsScreen() {
       {
         key: 'status',
         label: copy.statusLabel,
-        value: hasMembership ? copy.statusActive : copy.statusFree,
+        value: hasMembership ? (hasPendingCancellation ? copy.statusCancelling : copy.statusActive) : copy.statusFree,
       },
     ],
-    [copy, hasMembership]
+    [copy, hasMembership, hasPendingCancellation, profile?.current_period_end, uiLanguage]
   );
 
   const handleChangePlan = () => {
+    prefetchPricing();
     router.push('/(tabs)/account/membership');
   };
 
@@ -171,7 +209,26 @@ export function SettingsScreen() {
       {
         text: copy.cancelMembership,
         style: 'destructive',
-        onPress: () => Alert.alert(copy.notConnectedTitle, copy.cancelMembershipPlaceholder),
+        onPress: () => {
+          if (isCancellingMembership) {
+            Alert.alert(copy.requestInFlight);
+            return;
+          }
+
+          void (async () => {
+            try {
+              setIsCancellingMembership(true);
+              const result = await cancelUserSubscription();
+              await refreshProfile();
+              Alert.alert(copy.successTitle, result.message ?? copy.cancellationSuccess);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : copy.genericError;
+              Alert.alert(copy.errorTitle, message);
+            } finally {
+              setIsCancellingMembership(false);
+            }
+          })();
+        },
       },
     ]);
   };
@@ -182,7 +239,31 @@ export function SettingsScreen() {
       {
         text: copy.continueDelete,
         style: 'destructive',
-        onPress: () => Alert.alert(copy.notConnectedTitle, copy.deleteAccountPlaceholder),
+        onPress: () => {
+          if (isDeletingAccount) {
+            Alert.alert(copy.requestInFlight);
+            return;
+          }
+
+          void (async () => {
+            try {
+              setIsDeletingAccount(true);
+              const result = await deleteUserAccount();
+              await signOut();
+              Alert.alert(copy.successTitle, result.message ?? copy.deleteSuccess, [
+                {
+                  text: 'OK',
+                  onPress: () => router.replace('/(tabs)/account'),
+                },
+              ]);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : copy.genericError;
+              Alert.alert(copy.errorTitle, message);
+            } finally {
+              setIsDeletingAccount(false);
+            }
+          })();
+        },
       },
     ]);
   };
@@ -258,24 +339,46 @@ export function SettingsScreen() {
           {openSection === 'more' ? (
             <View style={styles.moreBody}>
               {hasMembership ? (
-                <Pressable accessibilityRole="button" style={styles.dangerRow} onPress={handleCancelMembership}>
-                  <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
-                    {copy.cancelMembership}
-                  </AppText>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isCancellingMembership || hasPendingCancellation}
+                  style={[styles.dangerRow, isCancellingMembership || hasPendingCancellation ? styles.disabledRow : null]}
+                  onPress={handleCancelMembership}>
+                  <View style={styles.dangerRowContent}>
+                    <View style={styles.dangerTextBlock}>
+                      <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
+                        {copy.cancelMembership}
+                      </AppText>
+                      {hasPendingCancellation ? (
+                        <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                          {copy.cancellationScheduledLabel}
+                          {profile?.cancel_at ? ` • ${formatBillingDate(profile.cancel_at, uiLanguage)}` : ''}
+                        </AppText>
+                      ) : null}
+                    </View>
+                    {isCancellingMembership ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
+                  </View>
                   <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
                     ›
                   </AppText>
                 </Pressable>
               ) : null}
 
-              <Pressable accessibilityRole="button" style={styles.dangerRow} onPress={handleDeleteAccount}>
-                <View style={styles.dangerTextBlock}>
-                  <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
-                    {copy.deleteAccount}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
-                    {copy.deleteAccountHint}
-                  </AppText>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isDeletingAccount}
+                style={[styles.dangerRow, isDeletingAccount ? styles.disabledRow : null]}
+                onPress={handleDeleteAccount}>
+                <View style={styles.dangerRowContent}>
+                  <View style={styles.dangerTextBlock}>
+                    <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
+                      {copy.deleteAccount}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                      {copy.deleteAccountHint}
+                    </AppText>
+                  </View>
+                  {isDeletingAccount ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
                 </View>
                 <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
                   ›
@@ -399,9 +502,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
   },
+  dangerRowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
   dangerTextBlock: {
     flex: 1,
     gap: theme.spacing.xs,
+  },
+  disabledRow: {
+    opacity: 0.6,
   },
   dangerActionText: {
     color: theme.colors.primary,

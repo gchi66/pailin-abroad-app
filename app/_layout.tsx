@@ -3,10 +3,11 @@ import { Stack, useGlobalSearchParams, usePathname, useRouter } from 'expo-route
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { AppSessionProvider, useAppSession } from '@/src/context/app-session-context';
 import { OnboardingProvider } from '@/src/context/onboarding-context';
 import { UiLanguageProvider } from '@/src/context/ui-language-context';
@@ -45,7 +46,7 @@ function AppRouteGate() {
   if (shouldRedirectToOnboarding || shouldRedirectToApp) {
     return (
       <View pointerEvents="none" style={styles.routeGateOverlay}>
-        <ActivityIndicator color={theme.colors.text} />
+        <PageLoadingState />
       </View>
     );
   }

@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
-import { AudioPlayer, AudioStatus, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioMetadata } from 'expo-audio';
 import { Image } from 'expo-image';
+import { useFocusEffect } from '@react-navigation/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +20,7 @@ import {
   fetchSignedLessonAudioUrl,
   prefetchResolvedLesson,
 } from '@/src/api/lessons';
+import { prefetchPricing } from '@/src/api/pricing';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
 import { AppText } from '@/src/components/ui/AppText';
@@ -101,6 +104,12 @@ const RICH_PAGER_RIGHT_SWIPE_DISTANCE = 28;
 const RICH_PAGER_LEFT_SWIPE_VELOCITY = 500;
 const RICH_PAGER_RIGHT_SWIPE_VELOCITY = 700;
 const RICH_PAGER_DRAG_LIMIT = 28;
+const SECTION_SWIPE_ACTIVE_OFFSET_X: [number, number] = [-10, 10];
+const SECTION_SWIPE_FAIL_OFFSET_Y: [number, number] = [-18, 18];
+const SECTION_SWIPE_LEFT_DISTANCE = 28;
+const SECTION_SWIPE_RIGHT_DISTANCE = 28;
+const SECTION_SWIPE_LEFT_VELOCITY = 650;
+const SECTION_SWIPE_RIGHT_VELOCITY = 650;
 
 const EMPTY_NORMALIZED_APPLY: NormalizedApplyContent = {
   promptText: '',
@@ -1336,6 +1345,7 @@ export default function LessonDetailShellScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [maxVisitedSectionIndex, setMaxVisitedSectionIndex] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasStartedLesson, setHasStartedLesson] = useState(false);
   const [isBackstoryExpanded, setIsBackstoryExpanded] = useState(false);
@@ -1374,21 +1384,35 @@ export default function LessonDetailShellScreen() {
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
-  const bgSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSubscriptionRef = useRef<{ remove: () => void } | null>(null);
   const preloadedSnippetPlayersRef = useRef<Record<string, AudioPlayer>>({});
   const inflightSnippetPreloadsRef = useRef<Partial<Record<string, Promise<void>>>>({});
+  const isConversationLockScreenActiveRef = useRef(false);
+  const conversationAudioMetadataRef = useRef<AudioMetadata>({});
+  const audioRateRef = useRef(1);
   const applyInputRef = useRef<TextInput | null>(null);
   const richPagerScrollRef = useRef<ScrollView | null>(null);
   const contentScrollRef = useRef<ScrollView | null>(null);
-  const lastBgSyncRef = useRef(0);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
   const audioTrayExpandCounterRef = useRef(0);
 
   useEffect(() => {
     lessonRef.current = lesson;
   }, [lesson]);
+
+  useEffect(() => {
+    audioRateRef.current = audioRate;
+  }, [audioRate]);
+
+  useEffect(() => {
+    if (!hasStartedLesson) {
+      setMaxVisitedSectionIndex(0);
+      return;
+    }
+
+    setMaxVisitedSectionIndex((previous) => Math.max(previous, activeSectionIndex));
+  }, [activeSectionIndex, hasStartedLesson]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1521,6 +1545,7 @@ export default function LessonDetailShellScreen() {
     setIsLoading(true);
     setErrorMessage(null);
     setActiveSectionIndex(0);
+    setMaxVisitedSectionIndex(0);
     setIsMenuOpen(false);
     setHasStartedLesson(false);
     setIsBackstoryExpanded(false);
@@ -1555,8 +1580,8 @@ export default function LessonDetailShellScreen() {
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: false,
-      interruptionMode: 'duckOthers',
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
     }).catch(() => undefined);
   }, []);
 
@@ -1923,6 +1948,56 @@ export default function LessonDetailShellScreen() {
       richPagerTranslateX,
     ]
   );
+  const canSwipeToPreviousSection = hasStartedLesson && activeSectionIndex > 0;
+  const canSwipeToNextVisitedSection =
+    hasStartedLesson && activeSectionIndex < Math.min(maxVisitedSectionIndex, Math.max(0, sectionCount - 1));
+  const handleSectionSwipe = useCallback(
+    (translationX: number, velocityX: number) => {
+      if (isInnerPagerTab || sectionCount <= 1) {
+        return;
+      }
+
+      const movingLeft =
+        translationX <= -SECTION_SWIPE_LEFT_DISTANCE || velocityX <= -SECTION_SWIPE_LEFT_VELOCITY;
+      const movingRight =
+        translationX >= SECTION_SWIPE_RIGHT_DISTANCE || velocityX >= SECTION_SWIPE_RIGHT_VELOCITY;
+
+      if (movingLeft && canSwipeToNextVisitedSection) {
+        setActiveSectionIndex((previous) => Math.min(previous + 1, Math.min(maxVisitedSectionIndex, sectionCount - 1)));
+        return;
+      }
+
+      if (movingRight && canSwipeToPreviousSection) {
+        setActiveSectionIndex((previous) => Math.max(previous - 1, 0));
+      }
+    },
+    [
+      canSwipeToNextVisitedSection,
+      canSwipeToPreviousSection,
+      isInnerPagerTab,
+      maxVisitedSectionIndex,
+      sectionCount,
+    ]
+  );
+  const sectionSwipeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!isInnerPagerTab && sectionCount > 1 && (canSwipeToPreviousSection || canSwipeToNextVisitedSection))
+        .activeOffsetX(SECTION_SWIPE_ACTIVE_OFFSET_X)
+        .failOffsetY(SECTION_SWIPE_FAIL_OFFSET_Y)
+        .shouldCancelWhenOutside(false)
+        .onEnd((event) => {
+          'worklet';
+          runOnJS(handleSectionSwipe)(event.translationX, event.velocityX);
+        }),
+    [
+      canSwipeToNextVisitedSection,
+      canSwipeToPreviousSection,
+      handleSectionSwipe,
+      isInnerPagerTab,
+      sectionCount,
+    ]
+  );
   const comprehensionButtonLabel = hasCheckedAnswers
     ? allAnswersCorrect
       ? pageCopy.greatJob
@@ -1966,6 +2041,15 @@ export default function LessonDetailShellScreen() {
     (isInnerPagerTab || isPrepareTab) && activeTab?.id
       ? `${activeTab.id}:${activeSectionIndex}:${isPrepareTab ? 'prepare' : 'pager'}`
       : null;
+  const conversationAudioMetadata = useMemo<AudioMetadata>(
+    () => ({
+      title: audioTrayTitle,
+      artist: 'Pailin Abroad',
+      albumTitle: audioTraySubtitle || 'Lesson audio',
+      artworkUrl: headerImageUrl ?? undefined,
+    }),
+    [audioTraySubtitle, audioTrayTitle, headerImageUrl]
+  );
   const fullscreenToggleIcon = isFullscreen ? '⤡' : '⤢';
   const nextSectionButtonLabel =
     sectionCount === 0
@@ -1975,6 +2059,99 @@ export default function LessonDetailShellScreen() {
           : pageLanguage === 'th'
             ? 'ส่วนถัดไป →'
             : 'Next section →';
+
+  useEffect(() => {
+    conversationAudioMetadataRef.current = conversationAudioMetadata;
+
+    if (!isConversationLockScreenActiveRef.current) {
+      return;
+    }
+
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded) {
+      return;
+    }
+
+    voiceSound.updateLockScreenMetadata(conversationAudioMetadata);
+  }, [conversationAudioMetadata]);
+
+  const clearConversationLockScreenControls = () => {
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded || !isConversationLockScreenActiveRef.current) {
+      isConversationLockScreenActiveRef.current = false;
+      return;
+    }
+
+    voiceSound.clearLockScreenControls();
+    isConversationLockScreenActiveRef.current = false;
+  };
+
+  const activateConversationLockScreenControls = () => {
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded) {
+      return;
+    }
+
+    voiceSound.setActiveForLockScreen(true, conversationAudioMetadataRef.current, {
+      showSeekForward: true,
+      showSeekBackward: true,
+    });
+    isConversationLockScreenActiveRef.current = true;
+  };
+
+  const pauseConversationAudio = () => {
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded) {
+      return;
+    }
+
+    voiceSound.pause();
+  };
+
+  const seekConversationAudioToMillis = async (nextPositionMillis: number) => {
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded) {
+      return;
+    }
+
+    await voiceSound.seekTo(millisToSeconds(nextPositionMillis));
+    setHasAudioFinished(false);
+  };
+
+  const playConversationAudio = async () => {
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded || isAudioLoading) {
+      return;
+    }
+
+    unloadSnippetPlayer();
+
+    const durationMillis = secondsToMillis(voiceSound.duration);
+    const positionMillis = secondsToMillis(voiceSound.currentTime);
+    const shouldRestart = hasAudioFinished || (durationMillis > 0 && positionMillis >= durationMillis - 250);
+    const startPositionMillis = shouldRestart ? 0 : positionMillis;
+
+    if (shouldRestart) {
+      await seekConversationAudioToMillis(0);
+    }
+
+    activateConversationLockScreenControls();
+    if (!shouldRestart && startPositionMillis > 0) {
+      await voiceSound.seekTo(millisToSeconds(startPositionMillis));
+    }
+    voiceSound.play();
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        pauseConversationAudio();
+        void seekConversationAudioToMillis(0).catch(() => undefined);
+        clearConversationLockScreenControls();
+      };
+    }, [])
+  );
+
   const snippetPreloadTargets = useMemo(() => {
     if (!Object.keys(snippetIndex.byKey).length && !Object.keys(snippetIndex.bySection).length) {
       if (!isPhrasesTab || !Object.keys(phraseSnippetIndex.byKey).length) {
@@ -2474,6 +2651,7 @@ export default function LessonDetailShellScreen() {
 
   useEffect(() => {
     return () => {
+      clearConversationLockScreenControls();
       snippetSubscriptionRef.current?.remove();
       snippetSubscriptionRef.current = null;
 
@@ -2507,9 +2685,9 @@ export default function LessonDetailShellScreen() {
     let isActive = true;
 
     const unloadCurrentPlayers = () => {
-      const players = [voiceSoundRef.current, bgSoundRef.current].filter(Boolean) as AudioPlayer[];
+      clearConversationLockScreenControls();
+      const players = [voiceSoundRef.current].filter(Boolean) as AudioPlayer[];
       voiceSoundRef.current = null;
-      bgSoundRef.current = null;
       players.forEach((player) => {
         try {
           player.remove();
@@ -2519,34 +2697,14 @@ export default function LessonDetailShellScreen() {
       });
     };
 
-    const syncBackgroundPlayer = (status: AudioStatus) => {
-      const bgPlayer = bgSoundRef.current;
-      if (!status.playing || !bgPlayer?.isLoaded) {
-        return;
-      }
-
-      const now = Date.now();
-      if (now - lastBgSyncRef.current < 500) {
-        return;
-      }
-
-      lastBgSyncRef.current = now;
-      const drift = Math.abs(secondsToMillis(bgPlayer.currentTime) - secondsToMillis(status.currentTime));
-      if (drift > 250) {
-        void bgPlayer.seekTo(status.currentTime).catch(() => undefined);
-      }
-    };
-
     const loadPlayers = async () => {
       unloadCurrentPlayers();
       setIsAudioPlaying(false);
       setAudioPositionMillis(0);
       setAudioDurationMillis(0);
       setHasAudioFinished(false);
-      lastBgSyncRef.current = 0;
 
-      const voiceUrl = audioUrls.noBg || audioUrls.main;
-      const bgUrl = audioUrls.noBg && audioUrls.bg ? audioUrls.bg : null;
+      const voiceUrl = audioUrls.main;
 
       if (!voiceUrl) {
         setIsAudioLoading(false);
@@ -2556,65 +2714,43 @@ export default function LessonDetailShellScreen() {
       setIsAudioLoading(true);
 
       try {
-        const voiceCandidates = Array.from(new Set([audioUrls.noBg, audioUrls.main].filter(Boolean))) as string[];
         let voiceSound: AudioPlayer | null = null;
-        let usingSplitVoice = false;
         let voiceStatusSubscription: { remove: () => void } | null = null;
+        const player = createAudioPlayer(voiceUrl, {
+          updateInterval: 500,
+        });
+        player.setPlaybackRate(audioRateRef.current, PITCH_CORRECTION_QUALITY);
 
-        for (const candidate of voiceCandidates) {
-          try {
-            const player = createAudioPlayer(candidate, {
-              updateInterval: 500,
-            });
-            player.setPlaybackRate(audioRate, PITCH_CORRECTION_QUALITY);
-
-            const subscription = player.addListener('playbackStatusUpdate', (status) => {
-              if (!isActive || !status.isLoaded) {
-                return;
-              }
-
-              setIsAudioLoading(false);
-              setIsAudioPlaying(status.playing);
-              setAudioPositionMillis(secondsToMillis(status.currentTime));
-              setAudioDurationMillis(secondsToMillis(status.duration));
-              setHasAudioFinished(Boolean(status.didJustFinish));
-              syncBackgroundPlayer(status);
-            });
-
-            voiceSound = player;
-            voiceStatusSubscription = subscription;
-            usingSplitVoice = candidate === audioUrls.noBg;
-            break;
-          } catch {
-            continue;
+        const subscription = player.addListener('playbackStatusUpdate', (status) => {
+          if (!isActive || !status.isLoaded) {
+            return;
           }
-        }
+
+          setIsAudioLoading(false);
+          setIsAudioPlaying(status.playing);
+          setAudioPositionMillis(secondsToMillis(status.currentTime));
+          setAudioDurationMillis(secondsToMillis(status.duration));
+          setHasAudioFinished(Boolean(status.didJustFinish));
+
+          if (status.didJustFinish) {
+            clearConversationLockScreenControls();
+          }
+        });
+
+        voiceSound = player;
+        voiceStatusSubscription = subscription;
 
         if (!voiceSound || !voiceStatusSubscription) {
           throw new Error('Unable to load lesson audio');
         }
 
-        let bgSound: AudioPlayer | null = null;
-        if (usingSplitVoice && bgUrl) {
-          try {
-            bgSound = createAudioPlayer(bgUrl, {
-              updateInterval: 500,
-            });
-            bgSound.setPlaybackRate(1);
-          } catch {
-            bgSound = null;
-          }
-        }
-
         if (!isActive) {
           voiceStatusSubscription.remove();
           voiceSound.remove();
-          bgSound?.remove();
           return;
         }
 
         voiceSoundRef.current = voiceSound;
-        bgSoundRef.current = bgSound;
       } catch {
         if (isActive) {
           setIsAudioPlaying(false);
@@ -2634,15 +2770,12 @@ export default function LessonDetailShellScreen() {
       isActive = false;
       unloadCurrentPlayers();
     };
-  }, [audioRate, audioUrls, lessonId]);
+  }, [audioUrls.main, lessonId]);
 
   useEffect(() => {
     const voiceSound = voiceSoundRef.current;
     if (voiceSound?.isLoaded) {
       voiceSound.setPlaybackRate(audioRate, PITCH_CORRECTION_QUALITY);
-    }
-    if (bgSoundRef.current?.isLoaded) {
-      bgSoundRef.current.setPlaybackRate(1);
     }
   }, [audioRate]);
 
@@ -2761,6 +2894,7 @@ export default function LessonDetailShellScreen() {
       return;
     }
 
+    pauseConversationAudio();
     unloadSnippetPlayer();
     setActiveSnippetKey(audioKey);
     setIsSnippetLoading(true);
@@ -2819,37 +2953,15 @@ export default function LessonDetailShellScreen() {
 
   const handleToggleAudio = async () => {
     const voiceSound = voiceSoundRef.current;
-    const bgSound = bgSoundRef.current;
     if (!voiceSound || isAudioLoading || !voiceSound.isLoaded) {
       return;
     }
 
     try {
       if (voiceSound.playing) {
-        voiceSound.pause();
-        bgSound?.pause();
+        pauseConversationAudio();
       } else {
-        const durationMillis = secondsToMillis(voiceSound.duration);
-        const positionMillis = secondsToMillis(voiceSound.currentTime);
-        const shouldRestart =
-          hasAudioFinished || (durationMillis > 0 && positionMillis >= durationMillis - 250);
-        const startPositionMillis =
-          shouldRestart
-            ? 0
-            : positionMillis;
-
-        if (shouldRestart) {
-          await Promise.all([
-            voiceSound.seekTo(0),
-            bgSound?.seekTo(0).catch(() => undefined),
-          ]);
-          setHasAudioFinished(false);
-        }
-        if (bgSound?.isLoaded) {
-          await bgSound.seekTo(millisToSeconds(startPositionMillis)).catch(() => undefined);
-          bgSound.play();
-        }
-        voiceSound.play();
+        await playConversationAudio();
       }
     } catch {
       return;
@@ -2858,7 +2970,6 @@ export default function LessonDetailShellScreen() {
 
   const handleSkipAudio = async (millisDelta: number) => {
     const voiceSound = voiceSoundRef.current;
-    const bgSound = bgSoundRef.current;
     if (!voiceSound || !voiceSound.isLoaded) {
       return;
     }
@@ -2868,11 +2979,7 @@ export default function LessonDetailShellScreen() {
         0,
         Math.min(secondsToMillis(voiceSound.duration), secondsToMillis(voiceSound.currentTime) + millisDelta)
       );
-      await Promise.all([
-        voiceSound.seekTo(millisToSeconds(nextPosition)),
-        bgSound?.seekTo(millisToSeconds(nextPosition)).catch(() => undefined),
-      ]);
-      setHasAudioFinished(false);
+      await seekConversationAudioToMillis(nextPosition);
     } catch {
       return;
     }
@@ -2880,18 +2987,13 @@ export default function LessonDetailShellScreen() {
 
   const handleSeekAudio = async (ratio: number) => {
     const voiceSound = voiceSoundRef.current;
-    const bgSound = bgSoundRef.current;
     if (!voiceSound || !voiceSound.isLoaded || !voiceSound.duration) {
       return;
     }
 
     try {
       const nextPosition = Math.round(secondsToMillis(voiceSound.duration) * ratio);
-      await Promise.all([
-        voiceSound.seekTo(millisToSeconds(nextPosition)),
-        bgSound?.seekTo(millisToSeconds(nextPosition)).catch(() => undefined),
-      ]);
-      setHasAudioFinished(false);
+      await seekConversationAudioToMillis(nextPosition);
     } catch {
       return;
     }
@@ -4700,7 +4802,10 @@ export default function LessonDetailShellScreen() {
                         <Button
                           language={uiLanguage}
                           title={uiCopy.unlockLesson}
-                          onPress={() => router.push('/(tabs)/account/membership')}
+                          onPress={() => {
+                            prefetchPricing();
+                            router.push('/(tabs)/account/membership');
+                          }}
                           style={styles.coverStartButton}
                         />
                       </View>
@@ -4768,14 +4873,15 @@ export default function LessonDetailShellScreen() {
                 </>
               ) : null}
 
-              <View style={styles.studyBody}>
-                <ScrollView
-                  ref={contentScrollRef}
-                  contentContainerStyle={styles.contentScrollContent}
-                  keyboardDismissMode="none"
-                  keyboardShouldPersistTaps="always"
-                  showsVerticalScrollIndicator={false}
-                  style={styles.contentScroll}>
+              <GestureDetector gesture={sectionSwipeGesture}>
+                <View style={styles.studyBody}>
+                  <ScrollView
+                    ref={contentScrollRef}
+                    contentContainerStyle={styles.contentScrollContent}
+                    keyboardDismissMode="none"
+                    keyboardShouldPersistTaps="always"
+                    showsVerticalScrollIndicator={false}
+                    style={styles.contentScroll}>
                   <View style={styles.sectionHeaderRow}>
                     <AppText language={pageLanguage} variant="title" style={styles.studySectionTitle}>
                       {activeSectionTitle ?? pageCopy.noSectionAvailable}
@@ -5280,61 +5386,62 @@ export default function LessonDetailShellScreen() {
                       </View>
                     </Stack>
                   )}
-                </ScrollView>
+                  </ScrollView>
 
-                <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-                  {shouldShowAudioTray ? (
-                    <LessonAudioTray
-                      language={pageLanguage}
-                      title={audioTrayTitle}
-                      subtitle={audioTraySubtitle}
-                      statusLabel={audioTrayStatusLabel}
-                      autoCollapseSignal={audioTrayAutoCollapseSignal}
-                      autoExpandSignal={audioTrayAutoExpandSignal}
-                      audioUrl={audioUrls.noBg || audioUrls.main}
-                      isPlaying={isAudioPlaying}
-                      isLoading={isAudioLoading}
-                      currentMillis={audioPositionMillis}
-                      durationMillis={audioDurationMillis}
-                      rate={audioRate}
-                      onTogglePlay={handleToggleAudio}
-                      onSkip={handleSkipAudio}
-                      onSeek={handleSeekAudio}
-                      onSetRate={handleSetAudioRate}
-                    />
-                  ) : null}
+                  <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+                    {shouldShowAudioTray ? (
+                      <LessonAudioTray
+                        language={pageLanguage}
+                        title={audioTrayTitle}
+                        subtitle={audioTraySubtitle}
+                        statusLabel={audioTrayStatusLabel}
+                        autoCollapseSignal={audioTrayAutoCollapseSignal}
+                        autoExpandSignal={audioTrayAutoExpandSignal}
+                        audioUrl={audioUrls.main}
+                        isPlaying={isAudioPlaying}
+                        isLoading={isAudioLoading}
+                        currentMillis={audioPositionMillis}
+                        durationMillis={audioDurationMillis}
+                        rate={audioRate}
+                        onTogglePlay={handleToggleAudio}
+                        onSkip={handleSkipAudio}
+                        onSeek={handleSeekAudio}
+                        onSetRate={handleSetAudioRate}
+                      />
+                    ) : null}
 
-                  <View style={styles.ctaRow}>
-                    <Pressable
-                      accessibilityRole="button"
-                      disabled={(!activeTab && sectionCount === 0) || isPrimaryActionDisabled}
-                      onPress={() => {
-                        if (sectionCount === 0 || isLastSection) {
-                          setHasStartedLesson(false);
-                        } else {
-                          if (activeTab?.type === 'prepare') {
-                            audioTrayExpandCounterRef.current += 1;
-                            setAudioTrayAutoExpandSignal(`prepare-next-${audioTrayExpandCounterRef.current}`);
+                    <View style={styles.ctaRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={(!activeTab && sectionCount === 0) || isPrimaryActionDisabled}
+                        onPress={() => {
+                          if (sectionCount === 0 || isLastSection) {
+                            setHasStartedLesson(false);
+                          } else {
+                            if (activeTab?.type === 'prepare') {
+                              audioTrayExpandCounterRef.current += 1;
+                              setAudioTrayAutoExpandSignal(`prepare-next-${audioTrayExpandCounterRef.current}`);
+                            }
+                            setActiveSectionIndex((prev) => Math.min(prev + 1, sectionCount - 1));
                           }
-                          setActiveSectionIndex((prev) => Math.min(prev + 1, sectionCount - 1));
-                        }
-                      }}
-                      style={({ pressed }) => [
-                        styles.ctaButton,
-                        styles.ctaNextButton,
-                        styles.ctaNextButtonFull,
-                        ((!activeTab && sectionCount === 0) || isPrimaryActionDisabled) ? styles.ctaButtonDisabled : null,
-                        pressed && !((!activeTab && sectionCount === 0) || isPrimaryActionDisabled)
-                          ? styles.ctaButtonPressed
-                          : null,
-                      ]}>
-                      <AppText language={pageLanguage} variant="caption" style={styles.ctaNextButtonText}>
-                        {nextSectionButtonLabel}
-                      </AppText>
-                    </Pressable>
+                        }}
+                        style={({ pressed }) => [
+                          styles.ctaButton,
+                          styles.ctaNextButton,
+                          styles.ctaNextButtonFull,
+                          ((!activeTab && sectionCount === 0) || isPrimaryActionDisabled) ? styles.ctaButtonDisabled : null,
+                          pressed && !((!activeTab && sectionCount === 0) || isPrimaryActionDisabled)
+                            ? styles.ctaButtonPressed
+                            : null,
+                        ]}>
+                        <AppText language={pageLanguage} variant="caption" style={styles.ctaNextButtonText}>
+                          {nextSectionButtonLabel}
+                        </AppText>
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </GestureDetector>
             </View>
           )}
         </View>
@@ -5432,7 +5539,7 @@ const styles = StyleSheet.create({
   },
   coverRemoteImage: {
     position: 'absolute',
-    top: 14,
+    top: -24,
     left: 18,
     right: 18,
     bottom: 360,
@@ -5559,6 +5666,7 @@ const styles = StyleSheet.create({
   },
   coverTitle: {
     color: theme.colors.text,
+    lineHeight: 32,
   },
   coverThaiTitle: {
     color: '#54565C',

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
@@ -7,6 +7,7 @@ import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -124,18 +125,16 @@ export function FreeLessonLibraryScreen() {
     prefetchResolvedLesson(lessonId, 'en');
   };
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'} />
 
-        {isLoading ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator color={theme.colors.primary} />
-          </View>
-        ) : null}
-
-        {!isLoading && errorMessage ? (
+        {errorMessage ? (
           <Card padding="md" radius="md" style={styles.errorCard}>
             <AppText language={uiLanguage} variant="body" style={styles.errorText}>
               {errorMessage}
@@ -143,7 +142,7 @@ export function FreeLessonLibraryScreen() {
           </Card>
         ) : null}
 
-        {!isLoading && !errorMessage ? (
+        {!errorMessage ? (
           <View style={styles.contentWrap}>
             <Stack gap="lg">
               {STAGE_ORDER.map((stage) => {

@@ -1,14 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
+import filledCheckmarkImage from '@/assets/images/filled-checkmark-lesson-complete.webp';
 import lockImage from '@/assets/images/lock.webp';
 import { getLessonsIndex } from '@/src/api/lessons';
+import { prefetchPricing } from '@/src/api/pricing';
+import { fetchUserCompletedLessons } from '@/src/api/user';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
@@ -49,9 +54,11 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
 export function GuestLessonLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
+  const { hasAccount } = useAppSession();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<StageName>('Beginner');
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
@@ -85,6 +92,43 @@ export function GuestLessonLibraryScreen() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasAccount) {
+      setCompletedLessonIds(new Set());
+      return;
+    }
+
+    let isMounted = true;
+
+    const run = async () => {
+      try {
+        const completedLessons = await fetchUserCompletedLessons();
+        if (!isMounted) {
+          return;
+        }
+
+        setCompletedLessonIds(
+          new Set(
+            completedLessons
+              .filter((entry) => entry.is_completed !== false)
+              .map((entry) => entry.lesson_id)
+              .filter((lessonId): lessonId is string => Boolean(lessonId))
+          )
+        );
+      } catch {
+        if (isMounted) {
+          setCompletedLessonIds(new Set());
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasAccount]);
 
   const freeLessonIds = useMemo(() => {
     const firstByLevel = new Map<string, string>();
@@ -184,6 +228,23 @@ export function GuestLessonLibraryScreen() {
       });
   }, [items, selectedLevel, selectedStage]);
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
+  const upgradeCopy =
+    uiLanguage === 'th'
+      ? {
+          title: 'ปลดล็อกทุกบทเรียน',
+          body: 'แพ็กเกจฟรียังเรียนบทแรกของแต่ละเลเวลได้ อัปเกรดเพื่อเข้าใช้คลังทั้งหมด',
+          cta: 'อัปเกรด',
+        }
+      : {
+          title: 'Unlock every lesson',
+          body: 'Your free plan includes the first lesson of each level. Upgrade for full library access.',
+          cta: 'Upgrade',
+        };
+
   const handleLessonPress = (lesson: LessonListItem) => {
     const isLocked = !freeLessonIds.has(lesson.id);
     router.push({
@@ -210,17 +271,30 @@ export function GuestLessonLibraryScreen() {
           />
         </View>
 
-        <View style={styles.freePlanMessage}>
-          <AppText language={uiLanguage} variant="body" style={styles.freePlanLine}>
-            {uiLanguage === 'th'
-              ? 'แพ็กเกจฟรีของคุณยังเข้าเรียนบทเรียนแรกของแต่ละเลเวลได้ตามปกติ'
-              : 'Your free plan still gives you access to the first lesson of each level.'}
-          </AppText>
-          <AppText language={uiLanguage} variant="body" style={styles.freePlanLine}>
-            {uiLanguage === 'th'
-              ? 'บทเรียนอื่นๆ จะแสดงเป็นล็อก และอัปเกรดได้ทุกเมื่อเพื่อปลดล็อกทั้งหมด'
-              : 'The rest of the lessons stay visible with lock icons, and you can upgrade anytime to unlock them all.'}
-          </AppText>
+        <View style={styles.noticeWrap}>
+          <Card padding="lg" radius="lg" style={styles.noticeCard}>
+            <View style={styles.noticeRow}>
+              <View style={styles.noticeCopy}>
+                <AppText language={uiLanguage} variant="body" style={styles.noticeTitle}>
+                  {upgradeCopy.title}
+                </AppText>
+                <AppText language={uiLanguage} variant="muted" style={styles.noticeBody}>
+                  {upgradeCopy.body}
+                </AppText>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.noticeButton}
+                onPress={() => {
+                  prefetchPricing();
+                  router.push('/(tabs)/account/membership');
+                }}>
+                <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
+                  {upgradeCopy.cta}
+                </AppText>
+              </Pressable>
+            </View>
+          </Card>
         </View>
 
         <Stack gap="sm">
@@ -274,13 +348,7 @@ export function GuestLessonLibraryScreen() {
           </View>
         </Stack>
 
-        {isLoading ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator color={theme.colors.primary} />
-          </View>
-        ) : null}
-
-        {!isLoading && errorMessage ? (
+        {errorMessage ? (
           <Card padding="md" radius="md">
             <AppText language={uiLanguage} variant="body" style={styles.errorText}>
               {errorMessage}
@@ -288,7 +356,7 @@ export function GuestLessonLibraryScreen() {
           </Card>
         ) : null}
 
-        {!isLoading && !errorMessage ? (
+        {!errorMessage ? (
           <Stack gap="sm">
             {lessonsForSelection.map((lesson) => {
               const titleText =
@@ -329,11 +397,23 @@ export function GuestLessonLibraryScreen() {
                       </View>
 
                       <View style={styles.lessonRight}>
+                        {(() => {
+                          const isFreeLesson = freeLessonIds.has(lesson.id);
+                          const isCompleted = completedLessonIds.has(lesson.id);
+                          const statusImage = !isFreeLesson
+                            ? lockImage
+                            : isCompleted
+                              ? filledCheckmarkImage
+                              : checkCircleImage;
+
+                          return (
                         <Image
-                          source={freeLessonIds.has(lesson.id) ? checkCircleImage : lockImage}
+                          source={statusImage}
                           style={styles.statusIcon}
                           resizeMode="contain"
                         />
+                          );
+                        })()}
                       </View>
                     </View>
                   </Card>
@@ -366,14 +446,43 @@ const styles = StyleSheet.create({
   headerWrap: {
     marginTop: theme.spacing.sm,
   },
-  freePlanMessage: {
-    marginTop: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
-    alignItems: 'center',
+  noticeWrap: {
+    paddingHorizontal: theme.spacing.md,
   },
-  freePlanLine: {
-    textAlign: 'center',
-    lineHeight: 28,
+  noticeCard: {
+    backgroundColor: '#FFF4E8',
+  },
+  noticeRow: {
+    gap: theme.spacing.md,
+  },
+  noticeCopy: {
+    gap: theme.spacing.xs,
+  },
+  noticeTitle: {
+    fontWeight: theme.typography.weights.semibold,
+  },
+  noticeBody: {
+    color: theme.colors.mutedText,
+  },
+  noticeButton: {
+    minHeight: 44,
+    width: '100%',
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  noticeButtonText: {
+    color: theme.colors.surface,
+    fontWeight: theme.typography.weights.bold,
   },
   stageSelector: {
     paddingHorizontal: theme.spacing.md,

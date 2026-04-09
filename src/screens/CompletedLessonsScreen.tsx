@@ -1,11 +1,12 @@
 import React from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { usePathwayData } from '@/src/hooks/use-pathway-data';
@@ -54,6 +55,10 @@ export function CompletedLessonsScreen() {
     hasMembership,
   });
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
@@ -61,14 +66,7 @@ export function CompletedLessonsScreen() {
 
         <View style={styles.listWrap}>
           <Stack gap="sm">
-            {isLoading ? (
-              <View style={styles.centerState}>
-                <ActivityIndicator color={theme.colors.accent} />
-                <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                  {copy.loading}
-                </AppText>
-              </View>
-            ) : completedProgress.length > 0 ? (
+            {completedProgress.length > 0 ? (
               completedProgress.map((progress) => {
                 const lesson = progress.lessons;
                 if (!lesson) {

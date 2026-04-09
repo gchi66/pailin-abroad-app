@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
+import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -216,6 +218,10 @@ export function MyPathwayScreen() {
     return pathwayRows.slice(resumeIndex + 1).filter((row) => row.state !== 'completed').slice(0, 2);
   }, [pathwayRows, resumeRow]);
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
   const handleOpenLesson = (lessonId: string | null) => {
     if (!lessonId) {
       return;
@@ -262,7 +268,13 @@ export function MyPathwayScreen() {
         </View>
 
         {!hasMembership ? (
-          <Pressable accessibilityRole="button" style={styles.upgradeBanner} onPress={() => router.push('/(tabs)/account/membership')}>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.upgradeBanner}
+            onPress={() => {
+              prefetchPricing();
+              router.push('/(tabs)/account/membership');
+            }}>
             <View style={styles.upgradeBannerCopy}>
               <AppText language={uiLanguage} variant="body" style={styles.upgradeBannerTitle}>
                 {copy.upgradeBannerTitle}
@@ -361,11 +373,7 @@ export function MyPathwayScreen() {
           </AppText>
 
           <Card padding="md" radius="lg" style={styles.resumeCard}>
-            {isLoading ? (
-              <View style={styles.centerState}>
-                <ActivityIndicator color={theme.colors.accent} />
-              </View>
-            ) : resumeRow ? (
+            {resumeRow ? (
               <Stack gap="md">
                 <View style={styles.resumeMeta}>
                   <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
@@ -394,6 +402,7 @@ export function MyPathwayScreen() {
                   title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
                   onPress={() => {
                     if (resumeRow.state === 'locked') {
+                      prefetchPricing();
                       router.push('/(tabs)/account/membership');
                       return;
                     }
@@ -417,13 +426,7 @@ export function MyPathwayScreen() {
           </AppText>
 
           <Stack gap="sm">
-            {isLoading ? (
-              <Card padding="md" radius="lg" style={styles.upNextCard}>
-                <View style={styles.centerState}>
-                  <ActivityIndicator color={theme.colors.accent} />
-                </View>
-              </Card>
-            ) : upcomingRows.length > 0 ? (
+            {upcomingRows.length > 0 ? (
               upcomingRows.map((row) => {
                 const isLocked = row.state === 'locked';
 
@@ -434,6 +437,7 @@ export function MyPathwayScreen() {
                     style={styles.upNextCard}
                     onPress={() => {
                       if (isLocked) {
+                        prefetchPricing();
                         router.push('/(tabs)/account/membership');
                         return;
                       }

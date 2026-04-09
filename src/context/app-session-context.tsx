@@ -10,7 +10,14 @@ import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type AppProfile = UserProfile & { is_paid: boolean; onboarding_completed: boolean };
+type AppProfile = UserProfile & {
+  is_paid: boolean;
+  onboarding_completed: boolean;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  cancel_at: string | null;
+};
 
 type AppSessionContextValue = {
   session: Session | null;
@@ -92,7 +99,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       const data = await fetchUserProfile();
       const { data: userRow } = await supabase
         .from('users')
-        .select('id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed')
+        .select(
+          'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, current_period_end, cancel_at_period_end, cancel_at'
+        )
         .eq('id', currentUser.id)
         .maybeSingle();
       setAuthError(null);
@@ -107,12 +116,18 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         is_paid: userRow?.is_paid === true,
         onboarding_completed: userRow?.onboarding_completed === true,
         lessons_complete: data.lessons_complete ?? 0,
+        subscription_status: userRow?.subscription_status ?? data.subscription_status ?? null,
+        current_period_end: userRow?.current_period_end ?? data.current_period_end ?? null,
+        cancel_at_period_end: userRow?.cancel_at_period_end === true || data.cancel_at_period_end === true,
+        cancel_at: userRow?.cancel_at ?? data.cancel_at ?? null,
       });
       return;
     } catch (error) {
       const { data, error: usersError } = await supabase
         .from('users')
-        .select('id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed')
+        .select(
+          'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, current_period_end, cancel_at_period_end, cancel_at'
+        )
         .eq('id', currentUser.id)
         .maybeSingle();
 
@@ -129,6 +144,10 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           is_paid: false,
           onboarding_completed: false,
           lessons_complete: 0,
+          subscription_status: null,
+          current_period_end: null,
+          cancel_at_period_end: false,
+          cancel_at: null,
         });
         return;
       }
@@ -145,6 +164,10 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         is_paid: data?.is_paid === true,
         onboarding_completed: data?.onboarding_completed === true,
         lessons_complete: 0,
+        subscription_status: data?.subscription_status ?? null,
+        current_period_end: data?.current_period_end ?? null,
+        cancel_at_period_end: data?.cancel_at_period_end === true,
+        cancel_at: data?.cancel_at ?? null,
       });
     }
   }, []);

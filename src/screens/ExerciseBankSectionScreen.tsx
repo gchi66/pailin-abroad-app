@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { fetchExerciseBankSection } from '@/src/api/exercise-bank';
 import { ExerciseBankPager } from '@/src/components/exercise-bank/ExerciseBankPager';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -80,18 +81,13 @@ export function ExerciseBankSectionScreen() {
     return contentLang === 'th' ? section.section_th || section.section || '' : section.section || section.section_th || '';
   }, [contentLang, section]);
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
   return (
     <View style={styles.screen}>
-      {isLoading ? (
-        <View style={styles.centeredState}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-            {copy.loading}
-          </AppText>
-        </View>
-      ) : null}
-
-      {!isLoading && errorMessage ? (
+      {errorMessage ? (
         <View style={styles.centeredState}>
           <Card padding="lg" radius="lg" style={styles.errorCard}>
             <Stack gap="md">
@@ -107,7 +103,7 @@ export function ExerciseBankSectionScreen() {
         </View>
       ) : null}
 
-      {!isLoading && !errorMessage && section ? (
+      {!errorMessage && section ? (
         <ExerciseBankPager
           language={uiLanguage}
           contentLang={contentLang}

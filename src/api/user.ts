@@ -12,6 +12,10 @@ export type UserProfile = {
   is_admin: boolean;
   created_at: string | null;
   lessons_complete: number;
+  subscription_status?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean | null;
+  cancel_at?: string | null;
 };
 
 type UserProfileResponse = {
@@ -62,15 +66,16 @@ async function getAccessToken() {
   return accessToken;
 }
 
-async function fetchAuthedJson<T>(path: string): Promise<T> {
+async function fetchAuthedJson<T>(path: string, options?: { method?: 'GET' | 'POST'; body?: Record<string, unknown> }): Promise<T> {
   const baseUrl = assertApiBaseUrl();
   const accessToken = await getAccessToken();
   const response = await fetch(`${baseUrl}${path}`, {
-    method: 'GET',
+    method: options?.method ?? 'GET',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
+    body: options?.body ? JSON.stringify(options.body) : undefined,
   });
 
   const json = (await response.json().catch(() => null)) as T | { error?: string } | null;
@@ -104,6 +109,45 @@ export async function fetchUserCompletedLessons() {
 export async function fetchUserPathwayLessons() {
   const json = await fetchAuthedJson<PathwayLessonsResponse>('/api/user/pathway-lessons');
   return json.pathway_lessons ?? [];
+}
+
+type CancelSubscriptionResponse = {
+  message?: string;
+  cancel_at?: string | null;
+  current_period_end?: string | null;
+};
+
+type DeleteAccountResponse = {
+  message?: string;
+};
+
+export async function cancelUserSubscription() {
+  return fetchAuthedJson<CancelSubscriptionResponse>('/api/cancel-subscription', {
+    method: 'POST',
+  });
+}
+
+export async function deleteUserAccount() {
+  const baseUrl = assertApiBaseUrl();
+  const accessToken = await getAccessToken();
+  const response = await fetch(`${baseUrl}/api/delete_account`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ access_token: accessToken }),
+  });
+
+  const json = (await response.json().catch(() => null)) as DeleteAccountResponse | { error?: string } | null;
+  if (!response.ok) {
+    const message =
+      json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
+        ? json.error
+        : `Request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  return json as DeleteAccountResponse;
 }
 
 export async function upsertLessonCompletion(params: { lessonId: string; completed: boolean }) {

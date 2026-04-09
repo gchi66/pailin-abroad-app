@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { completeOnboarding, ensureOnboardingUserRecord, setOnboardingPassword, updateOnboardingProfile } from '@/src/api/onboarding';
+import { prefetchPricing } from '@/src/api/pricing';
 import arrowLeftImage from '@/assets/images/black-carrot-arrow-left.webp';
 import arrowRightImage from '@/assets/images/black-carrot-arrow-right.webp';
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
@@ -756,7 +757,10 @@ export function OnboardingScreen() {
         compact={compact}
         veryCompact={veryCompact}
         onContinueFree={() => goToStep(4)}
-        onUpgrade={() => router.push('/(tabs)/account/membership')}
+        onUpgrade={() => {
+          prefetchPricing();
+          router.push('/(tabs)/account/membership');
+        }}
       />,
       <ConfirmationStep
         key="confirmation"

@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -214,16 +215,7 @@ export function LearningProgressScreen() {
   const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
 
   if (isLoading) {
-    return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.loadingState}>
-          <ActivityIndicator color={theme.colors.accent} />
-          <AppText language={uiLanguage} variant="muted" style={styles.loadingText}>
-            {copy.loading}
-          </AppText>
-        </View>
-      </ScrollView>
-    );
+    return <PageLoadingState language={uiLanguage} />;
   }
 
   return (

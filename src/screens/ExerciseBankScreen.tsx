@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { prefetchPricing } from '@/src/api/pricing';
 import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/exercise-bank';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -49,11 +51,11 @@ const getCopy = (language: UiLanguage): Copy => {
       featuredBadge: 'แนะนำ',
       exercisesSuffixSingle: 'แบบฝึกหัด',
       exercisesSuffixPlural: 'แบบฝึกหัด',
-      freeTitle: 'แพ็กเกจฟรีจะเปิดให้เฉพาะหัวข้อแนะนำ',
-      freeBody: 'หัวข้อแนะนำยังทำได้ตามปกติ ส่วนคลังทั้งหมดจะปลดล็อกเมื่ออัปเกรดสมาชิก',
-      noAccountTitle: 'ลงชื่อเข้าใช้เพื่อใช้งานคลังแบบฝึกหัด',
-      noAccountBody: 'คุณจะเห็นคลังทั้งหมดได้หลังจากสร้างบัญชี และสมาชิกจะปลดล็อกทุกหัวข้อ',
-      membershipCta: 'ดู Membership',
+      freeTitle: 'แพ็กเกจฟรี',
+      freeBody: 'หัวข้อแนะนำยังเปิดอยู่ อัปเกรดเพื่อใช้คลังทั้งหมด',
+      noAccountTitle: 'เปิดคลังแบบฝึกหัดให้ครบ',
+      noAccountBody: 'สร้างบัญชีแล้วอัปเกรดเมื่อพร้อม',
+      membershipCta: 'อัปเกรด',
       lockedLabel: 'สมาชิก',
       openLabel: 'เปิดได้',
       loadingFallback: 'ไม่สามารถโหลดคลังแบบฝึกหัดได้',
@@ -72,11 +74,11 @@ const getCopy = (language: UiLanguage): Copy => {
     featuredBadge: 'Featured',
     exercisesSuffixSingle: 'exercise',
     exercisesSuffixPlural: 'exercises',
-    freeTitle: 'The free plan keeps the full bank partially locked',
-    freeBody: 'Featured sections remain open, while the wider bank unlocks with membership.',
-    noAccountTitle: 'Sign in to use the exercise bank',
-    noAccountBody: 'Create an account to browse the bank, then upgrade for full access.',
-    membershipCta: 'View Membership',
+    freeTitle: 'Free plan',
+    freeBody: 'Featured sections stay open. Upgrade for the full bank.',
+    noAccountTitle: 'Unlock the exercise bank',
+    noAccountBody: 'Create an account, then upgrade for full access.',
+    membershipCta: 'Upgrade',
     lockedLabel: 'Members',
     openLabel: 'Open',
     loadingFallback: 'Failed to load the exercise bank.',
@@ -178,6 +180,7 @@ export function ExerciseBankScreen() {
   const handleSectionPress = (section: ExerciseBankSectionSummary) => {
     const isLocked = !hasMembership && (filterMode !== 'featured' || !hasAccount);
     if (isLocked) {
+      prefetchPricing();
       router.push('/(tabs)/account/membership');
       return;
     }
@@ -190,6 +193,10 @@ export function ExerciseBankScreen() {
 
     router.push(`/(tabs)/resources/exercise-bank/${categorySlug}/${sectionSlug}`);
   };
+
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
@@ -209,7 +216,13 @@ export function ExerciseBankScreen() {
                       {hasAccount ? copy.freeBody : copy.noAccountBody}
                     </AppText>
                   </View>
-                  <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => router.push('/(tabs)/account/membership')}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.noticeButton}
+                    onPress={() => {
+                      prefetchPricing();
+                      router.push('/(tabs)/account/membership');
+                    }}>
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.membershipCta}
                     </AppText>
@@ -250,9 +263,11 @@ export function ExerciseBankScreen() {
                   value={searchTerm}
                   onChangeText={setSearchTerm}
                 />
-                <AppText language="en" variant="caption" style={styles.searchIcon}>
-                  ⌕
-                </AppText>
+                <View pointerEvents="none" style={styles.searchIconWrap}>
+                  <AppText language="en" variant="caption" style={styles.searchIcon}>
+                    ⌕
+                  </AppText>
+                </View>
               </View>
 
               {filterMode === 'categories' ? (
@@ -275,13 +290,7 @@ export function ExerciseBankScreen() {
               ) : null}
             </View>
 
-            {isLoading ? (
-              <View style={styles.loadingWrap}>
-                <ActivityIndicator color={theme.colors.primary} />
-              </View>
-            ) : null}
-
-            {!isLoading && errorMessage ? (
+            {errorMessage ? (
               <Card padding="lg" radius="lg" style={styles.emptyCard}>
                 <Stack gap="xs">
                   <AppText language={uiLanguage} variant="body" style={styles.emptyTitle}>
@@ -294,7 +303,7 @@ export function ExerciseBankScreen() {
               </Card>
             ) : null}
 
-            {!isLoading && !errorMessage && visibleSections.length === 0 ? (
+            {!errorMessage && visibleSections.length === 0 ? (
               <Card padding="lg" radius="lg" style={styles.emptyCard}>
                 <Stack gap="xs">
                   <AppText language={uiLanguage} variant="body" style={styles.emptyTitle}>
@@ -307,7 +316,7 @@ export function ExerciseBankScreen() {
               </Card>
             ) : null}
 
-            {!isLoading && !errorMessage ? (
+            {!errorMessage ? (
               <Stack gap="md">
                 {visibleSections.map((section) => {
                   const isLocked = !hasMembership && (filterMode !== 'featured' || !hasAccount);
@@ -384,36 +393,39 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
   },
   noticeCard: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: '#FFF4E8',
   },
   noticeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
   noticeCopy: {
-    flex: 1,
     gap: theme.spacing.xs,
   },
   noticeTitle: {
-    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
   },
   noticeBody: {
     color: theme.colors.mutedText,
   },
   noticeButton: {
     minHeight: 44,
+    width: '100%',
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing.md,
+    alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   noticeButtonText: {
     color: theme.colors.surface,
+    fontWeight: theme.typography.weights.bold,
   },
   toolbarShell: {
     gap: theme.spacing.md,
@@ -432,37 +444,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.md,
+    shadowColor: '#132042',
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   filterButtonActive: {
     backgroundColor: '#8EC5FF',
-    borderColor: '#2D4C7C',
+    borderColor: '#132042',
   },
   filterButtonText: {
     color: '#132042',
     fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.2,
   },
   filterButtonTextActive: {
     color: '#132042',
   },
   searchShell: {
-    position: 'relative',
-  },
-  searchInput: {
     minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: '#132042',
     backgroundColor: theme.colors.surface,
     paddingLeft: theme.spacing.md,
-    paddingRight: 44,
-    color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    paddingRight: theme.spacing.md,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 1,
+  },
+  searchInput: {
+    flex: 1,
+    alignSelf: 'center',
+    height: 22,
+    paddingLeft: 0,
+    paddingRight: theme.spacing.sm,
+    paddingVertical: 0,
+    marginTop: 1,
+    color: theme.colors.text,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.sizes.md,
   },
   searchInputEnglish: {
     fontFamily: theme.typography.fonts.en,
@@ -470,11 +496,15 @@ const styles = StyleSheet.create({
   searchInputThai: {
     fontFamily: theme.typography.fonts.th,
   },
+  searchIconWrap: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   searchIcon: {
-    position: 'absolute',
-    right: theme.spacing.md,
-    top: 16,
     color: '#132042',
+    fontSize: 28,
+    lineHeight: 28,
   },
   categoryRow: {
     gap: theme.spacing.sm,

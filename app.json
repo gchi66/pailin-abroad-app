@@ -12,7 +12,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.grant.pailinabroad",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone."
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone.",
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {

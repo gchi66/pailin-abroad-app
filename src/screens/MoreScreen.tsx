@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { prefetchPricing } from '@/src/api/pricing';
 import { AuthScreen } from '@/src/screens/AuthScreen';
 import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
@@ -69,7 +70,13 @@ export function MoreScreen() {
         <View style={styles.actionsWrap}>
           <Stack gap="md">
             {!hasMembership ? (
-              <Pressable accessibilityRole="button" style={styles.membershipCard} onPress={() => router.push('/(tabs)/account/membership')}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.membershipCard}
+                onPress={() => {
+                  prefetchPricing();
+                  router.push('/(tabs)/account/membership');
+                }}>
                 <View style={styles.membershipCopy}>
                   <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
                     {copy.membershipTitle}

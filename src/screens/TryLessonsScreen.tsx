@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { prefetchPricing } from '@/src/api/pricing';
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
 import { freeLessonImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
@@ -58,6 +59,7 @@ export function TryLessonsScreen() {
 
   const handlePlaceholderAction = (kind: 'signup' | 'membership') => {
     if (kind === 'membership') {
+      prefetchPricing();
       router.push('/(tabs)/account/membership');
       return;
     }

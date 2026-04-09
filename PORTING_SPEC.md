@@ -476,6 +476,41 @@
   - complete a solid test pass on Grant's own device before treating cofounder-device testing as the next milestone
 - Keep design flexible since cofounder may change direction.
 
+## Pre-Apple-Account / Cofounder-Handoff Checklist
+- Add iPhone audio player integration first:
+  - support proper iPhone/system audio behavior for lesson playback
+  - treat lock-screen / Control Center / interruption behavior as part of this pass
+  - finish this before broader cofounder testing so audio is judged in a realistic device context
+- Add lesson completion / mark-complete write-back:
+  - lesson study is usable, but the full learn-complete-progress loop should exist before broader handoff
+  - pathway/progress should not be treated as truly signed off until completion writes back correctly
+- Restyle the free lesson library so it matches the main/native lesson library more closely:
+  - focus on container treatment, row/card styling, spacing rhythm, and visual hierarchy
+  - keep free-plan-specific affordances like lock/check states where needed
+- Run a full Grant-device QA pass before cofounder testing:
+  - auth
+  - onboarding
+  - lesson playback/study flow
+  - free-plan vs paid-plan routing
+  - settings / account management
+- Do focused parity / edge-case testing after that pass for:
+  - lesson detail (`Extra Tip`, tables, payload variants, locked-cover copy/states)
+  - Topic Library content/layout edge cases
+  - Exercise Bank exercise-type and bilingual wrapping edge cases
+  - free-plan lessons hub / library styling polish, navigation polish, and lock-icon polish
+- Decide the iOS payment direction before Apple-account / App Review prep:
+  - current native Membership pricing/UI exists, but real native checkout is still not connected
+  - do not leave payment behavior ambiguous once the build is moving toward App Store-facing setup
+- Hide, defer, or intentionally label unfinished destinations:
+  - keep any remaining non-ported areas from feeling accidental during cofounder testing
+- Clean up release/config readiness before Apple setup:
+  - confirm final bundle/app identity direction
+  - confirm versioning/build-number workflow
+  - document required `.env` setup and tester run/build steps
+  - decide whether current iPad/tablet support should remain enabled for the first release candidate
+- Do a final privacy / permissions / review-surface pass:
+  - make sure app permissions, privacy manifest, and App Store-facing behavior match the actual shipped feature set
+
 ## Onboarding (Current Native Direction)
 - Native onboarding is now implemented in-app and should be treated as part of the current mobile flow, not a placeholder.
 - Added:
@@ -597,7 +632,7 @@
     - Membership & Billing summary
     - Change Plan CTA into native Membership
     - App Preferences links to dedicated legal pages
-    - a softer collapsible `More` section that contains cancel-membership / delete-account actions behind confirmation alerts
+    - a softer collapsible `More` section with live cancel-membership / delete-account actions
   - password change is intentionally not included
   - dedicated legal screens now exist under the account stack:
     - `src/screens/LegalScreen.tsx`
@@ -625,7 +660,7 @@
   - account-management detail should now be treated as split across Profile, Settings, and More rather than all living on Profile
 - Next recommended work:
   - continue cleanup/polish across `More`, `Settings`, and Membership/payment surfaces as needed
-  - connect real membership cancellation / account deletion flows when backend/app-store behavior is finalized
+  - continue refining membership/payment behavior and App Store-facing account-management details as needed
 
 ## Recent Native Cleanup Pass
 - Lesson detail / guided study polish:

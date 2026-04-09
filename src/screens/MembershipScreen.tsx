@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { membershipImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -400,7 +401,7 @@ export function MembershipScreen() {
     };
   }, []);
 
-  const allPlans = useMemo(() => {
+  const allPlans = useMemo<MembershipCard[]>(() => {
     if (pricingState.loading || pricingState.error) {
       return [];
     }
@@ -426,7 +427,7 @@ export function MembershipScreen() {
     const monthlyTier = pricingState.plans.find((plan) => plan.billing_period === 'monthly');
     const baseMonthlyPrice = monthlyTier ? Number(monthlyTier.amount_per_month) : null;
 
-    const plans = [...pricingState.plans]
+    const plans: MembershipCard[] = [...pricingState.plans]
       .sort((a, b) => (monthsByPeriod[b.billing_period] ?? 0) - (monthsByPeriod[a.billing_period] ?? 0))
       .map((plan) => {
         const copyKey = billingPeriodToCopyKey[plan.billing_period];
@@ -479,33 +480,11 @@ export function MembershipScreen() {
     : '';
 
   if (pricingState.loading) {
-    return (
-      <View style={styles.stateScreen}>
-        <View style={styles.loadingInner}>
-          <Image source={membershipImages.state} style={styles.loadingImage} resizeMode="contain" accessibilityLabel={copy.loadingImageAlt} />
-          <ActivityIndicator color={theme.colors.primary} />
-          <AppText language={uiLanguage} variant="body" style={styles.loadingText}>
-            {copy.loadingTitle}
-          </AppText>
-        </View>
-      </View>
-    );
+    return <PageLoadingState language={uiLanguage} />;
   }
 
   if (pricingState.error) {
-    return (
-      <View style={styles.stateScreen}>
-        <View style={styles.loadingInner}>
-          <Image source={membershipImages.state} style={styles.loadingImage} resizeMode="contain" accessibilityLabel={copy.loadingImageAlt} />
-          <AppText language={uiLanguage} variant="title" style={styles.errorTitle}>
-            {copy.loadingErrorTitle}
-          </AppText>
-          <AppText language={uiLanguage} variant="body" style={styles.errorBody}>
-            {copy.loadingErrorBody}
-          </AppText>
-        </View>
-      </View>
-    );
+    return <PageLoadingState language={uiLanguage} errorTitle={copy.loadingErrorTitle} errorBody={copy.loadingErrorBody} />;
   }
 
   return (

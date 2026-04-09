@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { fetchTopicDetail } from '@/src/api/topic-library';
@@ -7,6 +7,7 @@ import { TopicRichContent } from '@/src/components/topic/TopicRichContent';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -119,6 +120,10 @@ export function TopicDetailScreen() {
 
   const topicName = topic?.name?.trim() || copy.notFoundTitle;
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
@@ -159,16 +164,7 @@ export function TopicDetailScreen() {
               </View>
             </View>
 
-            {isLoading ? (
-              <View style={styles.centerState}>
-                <ActivityIndicator color={theme.colors.accent} />
-                <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                  {copy.loadingBody}
-                </AppText>
-              </View>
-            ) : null}
-
-            {!isLoading && !topic ? (
+            {!topic ? (
               <Card padding="lg" radius="lg" style={styles.stateCard}>
                 <Stack gap="sm">
                   <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>
@@ -182,7 +178,7 @@ export function TopicDetailScreen() {
               </Card>
             ) : null}
 
-            {!isLoading && topic ? (
+            {topic ? (
               <>
                 <View style={styles.heroSection}>
                   <Stack gap="sm">

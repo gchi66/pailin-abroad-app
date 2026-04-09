@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { prefetchPricing } from '@/src/api/pricing';
 import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -68,9 +70,9 @@ const getCopy = (uiLanguage: UiLanguage): TopicLibraryCopy => {
       emptyBody: 'ลองล้างคำค้นหาหรือเปลี่ยนตัวกรองแล้วค้นหาอีกครั้ง',
       loadingErrorFallback: 'ไม่สามารถโหลดหัวข้อได้',
       untitledTopic: 'ไม่มีชื่อหัวข้อ',
-      freeTitle: 'บางหัวข้อยังล็อกอยู่ในแพ็กเกจฟรี',
-      freeDesc: 'หัวข้อแนะนำยังอ่านได้ ส่วนหัวข้อทั้งหมดจะปลดล็อกเมื่ออัปเกรดสมาชิก',
-      freeCta: 'ดู Membership',
+      freeTitle: 'แพ็กเกจฟรี',
+      freeDesc: 'หัวข้อแนะนำยังอ่านได้ อัปเกรดเพื่อเปิดทั้งคลัง',
+      freeCta: 'อัปเกรด',
       lockedLabel: 'สมาชิก',
       lockedBody: 'อัปเกรดเพื่อปลดล็อกหัวข้อนี้',
       openTopicPlaceholder: 'หน้ารายละเอียดหัวข้อจะเชื่อมในขั้นตอนถัดไป',
@@ -88,9 +90,9 @@ const getCopy = (uiLanguage: UiLanguage): TopicLibraryCopy => {
     emptyBody: 'Try clearing your search or switching the active filter.',
     loadingErrorFallback: 'Failed to load topics.',
     untitledTopic: 'Untitled topic',
-    freeTitle: 'Some topics stay locked on the free plan',
-    freeDesc: 'Featured topics remain open, while the full library unlocks with membership.',
-    freeCta: 'View Membership',
+    freeTitle: 'Free plan',
+    freeDesc: 'Featured topics stay open. Upgrade for the full library.',
+    freeCta: 'Upgrade',
     lockedLabel: 'Members',
     lockedBody: 'Upgrade to unlock this topic',
     openTopicPlaceholder: 'Topic detail will be connected in the next step.',
@@ -180,9 +182,14 @@ export function TopicLibraryScreen() {
       });
   }, [filterMode, searchTerm, topics]);
 
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
+
   const handleTopicPress = (topic: TopicLibraryTopic) => {
     const isLocked = !hasMembership && !topic.is_featured;
     if (isLocked) {
+      prefetchPricing();
       router.push('/(tabs)/account/membership');
       return;
     }
@@ -213,7 +220,13 @@ export function TopicLibraryScreen() {
                       {copy.freeDesc}
                     </AppText>
                   </View>
-                  <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => router.push('/(tabs)/account/membership')}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.noticeButton}
+                    onPress={() => {
+                      prefetchPricing();
+                      router.push('/(tabs)/account/membership');
+                    }}>
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.freeCta}
                     </AppText>
@@ -261,19 +274,15 @@ export function TopicLibraryScreen() {
                   value={searchTerm}
                   onChangeText={setSearchTerm}
                 />
-                <AppText language="en" variant="caption" style={styles.searchIcon}>
-                  ⌕
-                </AppText>
+                <View pointerEvents="none" style={styles.searchIconWrap}>
+                  <AppText language="en" variant="caption" style={styles.searchIcon}>
+                    ⌕
+                  </AppText>
+                </View>
               </View>
             </View>
 
-            {isLoading ? (
-              <View style={styles.centerState}>
-                <ActivityIndicator color={theme.colors.accent} />
-              </View>
-            ) : null}
-
-            {!isLoading && errorMessage ? (
+            {errorMessage ? (
               <Card padding="md" radius="md" style={styles.errorCard}>
                 <AppText language={uiLanguage} variant="body" style={styles.errorText}>
                   {errorMessage}
@@ -281,7 +290,7 @@ export function TopicLibraryScreen() {
               </Card>
             ) : null}
 
-            {!isLoading && !errorMessage ? (
+            {!errorMessage ? (
               <Stack gap="sm">
                 {visibleTopics.length > 0 ? (
                   visibleTopics.map((topic) => {
@@ -382,13 +391,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF4E8',
   },
   noticeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
   noticeCopy: {
-    flex: 1,
     gap: theme.spacing.xs,
   },
   noticeTitle: {
@@ -399,6 +404,7 @@ const styles = StyleSheet.create({
   },
   noticeButton: {
     minHeight: 44,
+    width: '100%',
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radii.xl,
     borderWidth: 1,
@@ -433,35 +439,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
+    shadowColor: '#132042',
+    shadowOffset: { width: 1.75, height: 1.75 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   filterButtonActive: {
     backgroundColor: '#8EC5FF',
-    borderColor: '#2D4C7C',
+    borderColor: '#132042',
   },
   filterButtonText: {
     color: '#132042',
     fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.2,
   },
   filterButtonTextActive: {
     color: '#132042',
   },
   searchShell: {
-    position: 'relative',
-  },
-  searchInput: {
     minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: theme.radii.xl,
     borderWidth: 1,
     borderColor: '#132042',
     backgroundColor: theme.colors.surface,
     paddingLeft: theme.spacing.md,
-    paddingRight: 44,
-    color: theme.colors.text,
+    paddingRight: theme.spacing.md,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 1,
+  },
+  searchInput: {
+    flex: 1,
+    alignSelf: 'center',
+    height: 22,
+    paddingLeft: 0,
+    paddingRight: theme.spacing.sm,
+    paddingVertical: 0,
+    marginTop: 1,
+    color: theme.colors.text,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.sizes.md,
   },
   searchInputEnglish: {
     fontFamily: theme.typography.fonts.en,
@@ -469,11 +491,15 @@ const styles = StyleSheet.create({
   searchInputThai: {
     fontFamily: theme.typography.fonts.th,
   },
+  searchIconWrap: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   searchIcon: {
-    position: 'absolute',
-    right: theme.spacing.md,
-    top: 16,
     color: '#132042',
+    fontSize: 28,
+    lineHeight: 28,
   },
   centerState: {
     paddingVertical: theme.spacing.xl,
