@@ -2104,6 +2104,8 @@ export default function LessonDetailShellScreen() {
         : pageLanguage === 'th'
             ? 'ส่วนถัดไป →'
             : 'Next section →';
+  const isFinishLessonButtonDisabled =
+    isLastSection && !isLessonCompleted && !allPracticeExercisesChecked;
 
   useEffect(() => {
     conversationAudioMetadataRef.current = conversationAudioMetadata;
@@ -2357,10 +2359,6 @@ export default function LessonDetailShellScreen() {
 
   const closeCompletionModal = useCallback(() => {
     setCompletionModalState(null);
-  }, []);
-
-  const openIncompleteCompletionModal = useCallback(() => {
-    setCompletionModalState('incomplete');
   }, []);
 
   const completeLesson = useCallback(async () => {
@@ -4565,7 +4563,7 @@ export default function LessonDetailShellScreen() {
                     </View>
                   </View>
 
-                  {evaluation ? (
+                  {evaluation && evaluation.correct !== null ? (
                     <View style={styles.practiceFeedbackBox}>
                       <View style={styles.practiceFeedbackRow}>
                         <View
@@ -4715,7 +4713,7 @@ export default function LessonDetailShellScreen() {
                     </View>
                   </View>
 
-                  {!item.isExample && evaluation ? (
+                  {!item.isExample && evaluation && evaluation.correct !== null ? (
                     <View style={styles.practiceFeedbackBox}>
                       <View style={styles.practiceFeedbackRow}>
                         <View
@@ -5618,7 +5616,12 @@ export default function LessonDetailShellScreen() {
 
                       <Pressable
                         accessibilityRole="button"
-                        disabled={(!activeTab && sectionCount === 0) || isPrimaryActionDisabled || isSavingLessonCompletion}
+                        disabled={
+                          (!activeTab && sectionCount === 0) ||
+                          isPrimaryActionDisabled ||
+                          isSavingLessonCompletion ||
+                          isFinishLessonButtonDisabled
+                        }
                         onPress={() => {
                           if (sectionCount === 0) {
                             setHasStartedLesson(false);
@@ -5628,11 +5631,6 @@ export default function LessonDetailShellScreen() {
                           if (isLastSection) {
                             if (isLessonCompleted) {
                               router.push('/(tabs)/lessons');
-                              return;
-                            }
-
-                            if (!allPracticeExercisesChecked) {
-                              openIncompleteCompletionModal();
                               return;
                             }
 
@@ -5650,10 +5648,21 @@ export default function LessonDetailShellScreen() {
                           styles.ctaButton,
                           styles.ctaNextButton,
                           styles.ctaNextButtonFull,
-                          ((!activeTab && sectionCount === 0) || isPrimaryActionDisabled || isSavingLessonCompletion)
+                          (
+                            (!activeTab && sectionCount === 0) ||
+                            isPrimaryActionDisabled ||
+                            isSavingLessonCompletion ||
+                            isFinishLessonButtonDisabled
+                          )
                             ? styles.ctaButtonDisabled
                             : null,
-                          pressed && !((!activeTab && sectionCount === 0) || isPrimaryActionDisabled || isSavingLessonCompletion)
+                          pressed &&
+                          !(
+                            (!activeTab && sectionCount === 0) ||
+                            isPrimaryActionDisabled ||
+                            isSavingLessonCompletion ||
+                            isFinishLessonButtonDisabled
+                          )
                             ? styles.ctaButtonPressed
                             : null,
                         ]}>
@@ -7355,8 +7364,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 6,
     paddingHorizontal: 10,
-    paddingTop: 5,
-    paddingBottom: 8,
+    paddingTop: 3,
+    paddingBottom: 16,
     backgroundColor: theme.colors.background,
   },
   lessonCompletionErrorText: {

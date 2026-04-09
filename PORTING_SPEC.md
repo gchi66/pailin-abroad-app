@@ -453,14 +453,16 @@
     - native app intentionally does not include the lesson discussion board, pinned comment, reply flow, or comment-history surfaces
     - mobile web may continue to expose lesson discussion without blocking native app signoff
     - do not treat missing native discussion parity as a v1 blocker unless product direction changes
-  - Add lesson completion / mark-complete write-back:
-    - lesson detail is usable for study, but native write-back is still missing
-    - pathway/progress UX should not be treated as complete until this is wired
+  - Lesson completion flow polish:
+    - native lesson completion / mark-complete write-back is now wired in lesson detail
+    - end-of-lesson completion popup flow is implemented
+    - one remaining polish item is swapping the completion popup checkmark to the final intended image asset
 - Explicit non-goal for mobile v1:
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
 - Next recommended phase before detailed testing/debugging:
-  - immediate next item of attention:
-    - lesson completion / mark-complete write-back
+  - immediate next items of attention:
+    - resolve the remaining lesson completion popup checkmark image swap
+    - verify pathway/progress behavior after lesson completion across real device flows
   - then move into focused parity testing/debugging for:
     - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants, locked-cover copy/states)
     - Topic Library content/layout edge cases
@@ -472,9 +474,10 @@
 - Keep design flexible since cofounder may change direction.
 
 ## Pre-Apple-Account / Cofounder-Handoff Checklist
-- Add lesson completion / mark-complete write-back:
-  - lesson study is usable, but the full learn-complete-progress loop should exist before broader handoff
-  - pathway/progress should not be treated as truly signed off until completion writes back correctly
+- Finalize lesson completion polish:
+  - lesson study, completion write-back, and the full learn-complete-progress loop now exist in native
+  - remaining lesson-completion item is the final popup checkmark image asset
+  - pathway/progress should still get a focused regression pass after the new completion flow
 - Run a full Grant-device QA pass before cofounder testing:
   - auth
   - onboarding
@@ -592,7 +595,8 @@
     - Exercise bank section detail
   - lesson detail (`app/lessons/[id].tsx`) remains intentionally outside the tab navigator so it can keep the full-screen guided-study treatment without the bottom nav
 - Current Pathway limitations:
-  - lesson completion writes are not yet wired in native because lesson detail is still a shell
+  - lesson completion writes are now wired in native, but pathway/progress should still be regression-tested against the new completion flow
+  - the end-of-lesson completion popup still needs its final intended checkmark image asset
   - `Continue learning` depends on the current backend pathway endpoint behavior
   - `liked lessons` remain intentionally excluded from the app MVP for now
   - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1

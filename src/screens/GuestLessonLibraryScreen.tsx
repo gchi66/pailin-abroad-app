@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import checkCircleImage from '@/assets/images/CheckCircle.png';
-import filledCheckmarkImage from '@/assets/images/filled-checkmark-lesson-complete.webp';
+import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
 import lockImage from '@/assets/images/lock.webp';
 import { getLessonsIndex } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
@@ -403,7 +403,7 @@ export function GuestLessonLibraryScreen() {
                           const statusImage = !isFreeLesson
                             ? lockImage
                             : isCompleted
-                              ? filledCheckmarkImage
+                              ? blueCompletedCheckImage
                               : checkCircleImage;
 
                           return (
