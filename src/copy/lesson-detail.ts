@@ -36,6 +36,7 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       sectionEyebrow: (index: number) => `ส่วนที่ ${index + 1}`,
       noSectionsYet: 'ยังไม่มี sections',
       backToLessonCover: 'กลับไปหน้าปกบทเรียน',
+      finishLesson: 'จบบทเรียน',
       nextSection: 'ไปยังส่วนถัดไป',
       sectionCounter: (activeIndex: number, count: number) => `${activeIndex + 1} จาก ${count} ส่วน`,
       sectionMenuLabel: 'สารบัญบทเรียน',
@@ -108,6 +109,15 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       prepareCardTitle: 'ก่อนเริ่มฟัง',
       prepareCardSubtitle: 'ลองดูคำหรือวลีสำคัญพร้อมเสียงสั้นๆ ก่อน แล้วค่อยไปทำความเข้าใจบทเรียนต่อ',
       prepareEmpty: 'ยังไม่มีรายการเตรียมตัวใน section นี้',
+      completionSavedError: 'เราไม่สามารถบันทึกความคืบหน้าของบทเรียนนี้ได้ ลองอีกครั้งอีกสักครู่นะ',
+      completionSuccessTitle: 'เก่งมาก!',
+      completionSuccessBody: (lessonNumber: string) => `คุณเรียนจบ บทเรียน ${lessonNumber} แล้ว`,
+      completionIncompleteTitle: 'Almost there!',
+      completionIncompleteBody: 'ทำแบบฝึกหัดให้ครบทุกข้อและกดตรวจคำตอบของแต่ละข้อก่อน จึงจะจบบทเรียนนี้ได้',
+      completionReview: 'ทบทวน',
+      completionKeepGoing: 'เรียนต่อ',
+      completionClose: 'ปิด',
+      completionOpenLibrary: 'คลังบทเรียน',
     };
   }
 
@@ -117,6 +127,7 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     sectionEyebrow: (index: number) => `Section ${index + 1}`,
     noSectionsYet: 'No sections yet',
     backToLessonCover: 'Back to lesson cover',
+    finishLesson: 'Finish lesson',
     nextSection: 'Next Section',
     sectionCounter: (activeIndex: number, count: number) => `${activeIndex + 1} of ${count} sections`,
     sectionMenuLabel: 'Lesson sections',
@@ -190,5 +201,14 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     prepareCardTitle: 'BEFORE YOU LISTEN',
     prepareCardSubtitle: "Get familiar with the words you'll hear in the conversation.",
     prepareEmpty: 'There are no preview items in this section yet.',
+    completionSavedError: 'We could not save this lesson as complete just yet. Please try again in a moment.',
+    completionSuccessTitle: 'Nice work!',
+    completionSuccessBody: (lessonNumber: string) => `You finished Lesson ${lessonNumber}.`,
+    completionIncompleteTitle: 'So close!',
+    completionIncompleteBody: 'Finish every practice and tap Check Answers for each one to mark this lesson complete.',
+    completionReview: 'Review',
+    completionKeepGoing: 'Keep going',
+    completionClose: 'Close',
+    completionOpenLibrary: 'Lesson Library',
   };
 };

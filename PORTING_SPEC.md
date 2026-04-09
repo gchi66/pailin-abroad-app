@@ -231,6 +231,9 @@
   - control sizing and typography are tuned closer to the current design target
 - Audio tray now auto-collapses on the native `Prepare` section and auto-expands when the user advances out of `Prepare` via `Next section`.
 - Inline snippet audio support is wired for rich lesson content and phrases where snippet data exists.
+- iPhone/system audio behavior is now treated as implemented for the current mobile scope:
+  - lesson playback has been verified with proper native/device audio behavior
+  - lock-screen / Control Center / interruption handling is no longer considered a pre-handoff blocker for the current round
 
 ### Completed Section Ports
 - `Prepare`
@@ -315,7 +318,7 @@
   - `app/lessons/library.tsx`
   - `app/(tabs)/lessons.tsx` now routes free-plan users into the free lesson library and paid users into the full library
   - Free lesson library now keeps its original page structure, but lesson rows visually align with the main lesson library list while keeping right-side checkmarks
-  - next styling pass should push the free lesson library closer to the actual/main lesson library visual treatment rather than leaving it as a lighter variant
+  - free-plan row/card styling, spacing rhythm, and check/lock-state parity are now treated as aligned closely enough with the main/native lesson library for the current handoff scope
 - App session/auth state now separates account presence from membership entitlement:
   - `src/context/app-session-context.tsx`
   - current session drives signed-in vs signed-out behavior
@@ -457,36 +460,21 @@
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
 - Next recommended phase before detailed testing/debugging:
   - immediate next item of attention:
-    - restyle the free lesson library so it reflects the actual/main lesson library more closely
-    - focus especially on the overall row/card treatment, spacing, hierarchy, and general visual parity rather than leaving it as a noticeably different free-plan surface
-  - specific implementation plan for that item:
-    - review `src/screens/GuestLessonLibraryScreen.tsx` against the main/native lesson library implementation
-    - bring the free lesson list container, row styling, spacing rhythm, and visual hierarchy closer to the main lesson library
-    - preserve any free-plan-specific affordances that still need to remain distinct, such as right-side checkmarks or lock-state cues
-    - treat this as styling/parity work first, not a navigation or architecture rewrite
-  - then finish the remaining functional gaps that still block broader signoff:
     - lesson completion / mark-complete write-back
   - then move into focused parity testing/debugging for:
     - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants, locked-cover copy/states)
     - Topic Library content/layout edge cases
     - Exercise Bank exercise-type and bilingual wrapping edge cases
-    - free-plan lessons hub / library styling polish, navigation polish, and lock-icon polish
+    - free-plan lessons hub / library navigation polish and any remaining lock-icon edge cases
 - Device-test readiness note:
   - the app now appears close to being ready for cofounder-device testing, but that should not happen first
   - complete a solid test pass on Grant's own device before treating cofounder-device testing as the next milestone
 - Keep design flexible since cofounder may change direction.
 
 ## Pre-Apple-Account / Cofounder-Handoff Checklist
-- Add iPhone audio player integration first:
-  - support proper iPhone/system audio behavior for lesson playback
-  - treat lock-screen / Control Center / interruption behavior as part of this pass
-  - finish this before broader cofounder testing so audio is judged in a realistic device context
 - Add lesson completion / mark-complete write-back:
   - lesson study is usable, but the full learn-complete-progress loop should exist before broader handoff
   - pathway/progress should not be treated as truly signed off until completion writes back correctly
-- Restyle the free lesson library so it matches the main/native lesson library more closely:
-  - focus on container treatment, row/card styling, spacing rhythm, and visual hierarchy
-  - keep free-plan-specific affordances like lock/check states where needed
 - Run a full Grant-device QA pass before cofounder testing:
   - auth
   - onboarding
@@ -497,7 +485,7 @@
   - lesson detail (`Extra Tip`, tables, payload variants, locked-cover copy/states)
   - Topic Library content/layout edge cases
   - Exercise Bank exercise-type and bilingual wrapping edge cases
-  - free-plan lessons hub / library styling polish, navigation polish, and lock-icon polish
+  - free-plan lessons hub / library navigation polish and any remaining lock-icon edge cases
 - Decide the iOS payment direction before Apple-account / App Review prep:
   - current native Membership pricing/UI exists, but real native checkout is still not connected
   - do not leave payment behavior ambiguous once the build is moving toward App Store-facing setup
