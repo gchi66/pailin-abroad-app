@@ -54,6 +54,7 @@ import {
   ResolvedLessonSection,
   ResolvedLessonTranscriptLine,
 } from '@/src/types/lesson';
+import pailinBlueThumbsUpImage from '@/assets/images/pailin-blue-circle-thumbs-up.webp';
 
 type UiLanguage = 'en' | 'th';
 type LessonTab = {
@@ -163,6 +164,7 @@ type NormalizedPracticeItem = {
   stemBlocks: Record<string, unknown>[];
   blanks: { id: string; minLen: number }[];
   answersV2: string[][];
+  inputCount: number;
   isExample: boolean;
 };
 
@@ -458,6 +460,71 @@ const safeParseStringMatrix = (value: unknown): string[][] => {
 
 const textJsonbToString = (inlines: LessonRichInline[]) => inlines.map((inline) => String(inline?.text ?? '')).join('');
 
+const INLINE_IMAGE_TAG_RE = /\[img:([^\]]+)\]/i;
+
+const stripInlineMediaTags = (value: string) =>
+  value
+    .replace(/\[audio:[^\]]+\]/gi, ' ')
+    .replace(/\[img:[^\]]+\]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const getInlineImageKey = (...values: unknown[]) => {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const match = value.match(INLINE_IMAGE_TAG_RE);
+      const key = match?.[1]?.trim();
+      if (key) {
+        return key;
+      }
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      const key = getInlineImageKey(
+        ...value.map((inline) =>
+          inline && typeof inline === 'object' && 'text' in inline
+            ? (inline as { text?: unknown }).text
+            : null
+        )
+      );
+      if (key) {
+        return key;
+      }
+    }
+  }
+
+  return null;
+};
+
+const getPracticeAnswerValue = (...sources: Record<string, unknown>[]) => {
+  for (const source of sources) {
+    const value =
+      typeof source.answer === 'string' && source.answer.trim()
+        ? source.answer
+        : typeof source.sample_answer === 'string' && source.sample_answer.trim()
+          ? source.sample_answer
+          : typeof source.expected_answer === 'string' && source.expected_answer.trim()
+            ? source.expected_answer
+            : typeof source.keywords === 'string' && source.keywords.trim()
+              ? source.keywords
+              : '';
+    if (value) {
+      return value.trim();
+    }
+  }
+
+  return '';
+};
+
+const normalizePracticeInputCount = (value: unknown) => {
+  const parsed =
+    typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
 const parsePracticePromptBlocks = (value: unknown): NormalizedPracticePromptBlock[] => {
   const blocks = safeParseObjectArray(value);
 
@@ -524,14 +591,7 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       ? raw.items
       : [];
   const thaiItemsSource = Array.isArray(raw.items_th) ? raw.items_th : [];
-  const itemsSource =
-    contentLang === 'th'
-      ? thaiItemsSource.length
-        ? thaiItemsSource
-        : englishItemsSource
-      : englishItemsSource.length
-        ? englishItemsSource
-        : thaiItemsSource;
+  const itemsSource = englishItemsSource.length ? englishItemsSource : thaiItemsSource;
 
   const items = itemsSource.map((item, index) => {
     const current = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
@@ -539,20 +599,31 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       englishItemsSource[index] && typeof englishItemsSource[index] === 'object'
         ? (englishItemsSource[index] as Record<string, unknown>)
         : {};
+    const currentNumber = current.number != null ? String(current.number) : null;
+    const thaiFallbackByNumber = currentNumber
+      ? thaiItemsSource.find(
+          (thaiItem) =>
+            thaiItem &&
+            typeof thaiItem === 'object' &&
+            String((thaiItem as Record<string, unknown>).number ?? '') === currentNumber
+        )
+      : null;
     const thaiFallback =
-      thaiItemsSource[index] && typeof thaiItemsSource[index] === 'object'
-        ? (thaiItemsSource[index] as Record<string, unknown>)
-        : {};
+      thaiFallbackByNumber && typeof thaiFallbackByNumber === 'object'
+        ? (thaiFallbackByNumber as Record<string, unknown>)
+        : thaiItemsSource[index] && typeof thaiItemsSource[index] === 'object'
+          ? (thaiItemsSource[index] as Record<string, unknown>)
+          : {};
 
-    const text = getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en');
-    const textTh = getPracticeFieldByLang(current, 'text', 'th') || getPracticeFieldByLang(thaiFallback, 'text', 'th');
-    const prompt = getPracticeFieldByLang(current, 'prompt', 'en') || getPracticeFieldByLang(current, 'question', 'en');
-    const promptTh = getPracticeFieldByLang(current, 'prompt', 'th') || getPracticeFieldByLang(current, 'question', 'th');
+    const text = stripInlineMediaTags(getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en'));
+    const textTh = stripInlineMediaTags(getPracticeFieldByLang(thaiFallback, 'text', 'th') || getPracticeFieldByLang(current, 'text', 'th'));
+    const prompt = stripInlineMediaTags(getPracticeFieldByLang(current, 'prompt', 'en') || getPracticeFieldByLang(current, 'question', 'en'));
+    const promptTh = stripInlineMediaTags(getPracticeFieldByLang(thaiFallback, 'prompt', 'th') || getPracticeFieldByLang(thaiFallback, 'question', 'th') || getPracticeFieldByLang(current, 'prompt', 'th') || getPracticeFieldByLang(current, 'question', 'th'));
     const placeholder =
       getPracticeFieldByLang(current, 'placeholder', 'en') || getPracticeFieldByLang(englishFallback, 'placeholder', 'en');
     const placeholderTh =
       getPracticeFieldByLang(current, 'placeholder', 'th') || getPracticeFieldByLang(thaiFallback, 'placeholder', 'th');
-    const answer = typeof current.answer === 'string' ? current.answer.trim() : '';
+    const answer = getPracticeAnswerValue(current, englishFallback, thaiFallback);
     const options = Array.isArray(current.options)
       ? current.options.map(parsePracticeOption)
       : Array.isArray(raw.options)
@@ -582,7 +653,29 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
             minLen: 4,
           }));
 
-    return {
+    const inlineImageKey = getInlineImageKey(
+      current.image_key,
+      englishFallback.image_key,
+      thaiFallback.image_key,
+      current.text,
+      current.text_th,
+      current.prompt,
+      current.prompt_th,
+      current.question,
+      current.question_th,
+      current.text_jsonb,
+      current.text_jsonb_th,
+      thaiFallback.text,
+      thaiFallback.text_th,
+      thaiFallback.prompt,
+      thaiFallback.prompt_th,
+      thaiFallback.question,
+      thaiFallback.question_th,
+      thaiFallback.text_jsonb,
+      thaiFallback.text_jsonb_th
+    );
+
+    const normalizedItem: NormalizedPracticeItem = {
       key: String(current.id ?? `${raw.id ?? 'exercise'}-${index + 1}`),
       rawNumber: String(numberValue),
       numberLabel: String(numberValue),
@@ -607,7 +700,7 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
             ? String(englishFallback.image_key)
             : typeof thaiFallback.image_key === 'string'
               ? String(thaiFallback.image_key)
-              : null,
+              : inlineImageKey,
       altText:
         getPracticeFieldByLang(current, 'alt_text', 'en') ||
         getPracticeFieldByLang(englishFallback, 'alt_text', 'en') ||
@@ -623,11 +716,14 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       stemBlocks: safeParseObjectArray(current.stem && typeof current.stem === 'object' ? (current.stem as Record<string, unknown>).blocks : []),
       blanks,
       answersV2: safeParseStringMatrix(current.answers_v2),
+      inputCount: normalizePracticeInputCount(current.inputs ?? englishFallback.inputs ?? thaiFallback.inputs),
       isExample:
         typeof current.is_example === 'boolean'
           ? current.is_example
           : ['example', 'ex', 'ตัวอย่าง'].includes(String(current.number ?? '').trim().toLowerCase()),
     };
+
+    return normalizedItem;
   });
 
   const promptEn = getPracticeFieldByLang(raw, 'prompt', 'en') || String(raw.prompt_md ?? '').trim();
@@ -883,6 +979,7 @@ const getRichNodesForLanguage = (
 const cleanAudioTags = (text: string) =>
   text
     .replace(/\[audio:[^\]]+\]/g, ' ')
+    .replace(/\[img:[^\]]+\]/g, ' ')
     .replace(/[^\S\r\n]+/g, ' ')
     .replace(/\s*\n\s*/g, '\n');
 
@@ -2444,7 +2541,16 @@ export default function LessonDetailShellScreen() {
   const normalizePracticeAnswerText = (value: string) => value.replace(/\s+/g, ' ').trim();
 
   const getPracticeItemStateKey = (exerciseId: string, itemKey: string) => `${exerciseId}:${itemKey}`;
+  const getPracticeOpenAnswerKey = (exerciseId: string, itemKey: string, inputIndex = 0) =>
+    inputIndex === 0 ? getPracticeItemStateKey(exerciseId, itemKey) : `${getPracticeItemStateKey(exerciseId, itemKey)}:${inputIndex}`;
   const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
+
+  const getPracticeOpenAnswer = (exerciseId: string, item: NormalizedPracticeItem) => {
+    const values = Array.from({ length: item.inputCount }, (_, index) =>
+      practiceOpenAnswers[getPracticeOpenAnswerKey(exerciseId, item.key, index)] ?? ''
+    );
+    return item.inputCount > 1 ? values.join('\n') : values[0] ?? '';
+  };
 
   const getSingleFillBlankAnswer = (exerciseId: string, item: NormalizedPracticeItem) => {
     if (!item.blanks.length) {
@@ -2466,6 +2572,7 @@ export default function LessonDetailShellScreen() {
 
   const handlePracticeBlankAnswerChange = (exerciseId: string, itemKey: string, blankId: string, value: string) => {
     const answerKey = getPracticeBlankKey(exerciseId, itemKey, blankId);
+
     setPracticeBlankAnswers((previous) => ({ ...previous, [answerKey]: value }));
     setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setPracticeEvaluations((previous) => {
@@ -2504,23 +2611,24 @@ export default function LessonDetailShellScreen() {
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
   };
 
-  const handlePracticeOpenAnswerChange = (exerciseId: string, itemKey: string, value: string) => {
-    const answerKey = getPracticeItemStateKey(exerciseId, itemKey);
+  const handlePracticeOpenAnswerChange = (exerciseId: string, itemKey: string, value: string, inputIndex = 0) => {
+    const answerKey = getPracticeOpenAnswerKey(exerciseId, itemKey, inputIndex);
+    const itemStateKey = getPracticeItemStateKey(exerciseId, itemKey);
 
     setPracticeOpenAnswers((previous) => ({ ...previous, [answerKey]: value }));
     setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setPracticeMarkedCorrect((previous) => {
-      if (!(answerKey in previous)) {
+      if (!(itemStateKey in previous)) {
         return previous;
       }
-      return { ...previous, [answerKey]: null };
+      return { ...previous, [itemStateKey]: null };
     });
     setPracticeEvaluations((previous) => {
-      if (!(answerKey in previous)) {
+      if (!(itemStateKey in previous)) {
         return previous;
       }
       const next = { ...previous };
-      delete next[answerKey];
+      delete next[itemStateKey];
       return next;
     });
     setPracticeErrorByExercise((previous) => ({ ...previous, [exerciseId]: '' }));
@@ -2576,7 +2684,9 @@ export default function LessonDetailShellScreen() {
         return !normalizePracticeAnswerText(practiceOpenAnswers[itemKey] ?? '');
       }
 
-      return !normalizePracticeAnswerText(practiceOpenAnswers[getPracticeItemStateKey(exercise.id, item.key)] ?? '');
+      return Array.from({ length: item.inputCount }, (_, index) =>
+        practiceOpenAnswers[getPracticeOpenAnswerKey(exercise.id, item.key, index)] ?? ''
+      ).some((value) => !normalizePracticeAnswerText(value));
     });
 
     if (hasUnanswered) {
@@ -2614,7 +2724,7 @@ export default function LessonDetailShellScreen() {
                   ? getSingleFillBlankAnswer(exercise.id, item)
                   : exercise.kind === 'sentence_transform'
                     ? getSentenceTransformAnswer(exercise.id, item)
-                    : practiceOpenAnswers[answerKey] ?? '',
+                    : getPracticeOpenAnswer(exercise.id, item),
               correctAnswer: item.answer || '',
               sourceType: 'practice',
               exerciseId: exercise.id,
@@ -4079,7 +4189,7 @@ export default function LessonDetailShellScreen() {
 
     inlines.forEach((inline) => {
       const text = cleanAudioTags(resolveRichInlineText(inline, contentLang));
-      if (!text) {
+      if (!text.trim()) {
         return;
       }
 
@@ -4226,6 +4336,8 @@ export default function LessonDetailShellScreen() {
     const openStates = exercise.items.map((item) => practiceEvaluations[getPracticeItemStateKey(exercise.id, item.key)]);
     const isCheckingExercise =
       (isOpenExercise || isFillBlankExercise || isSentenceTransformExercise) && openStates.some((state) => state?.loading);
+    const hasPromptBlocks = exercise.promptBlocks.length > 0;
+    const useCompactPracticeMediaLayout = windowWidth < 430;
 
     const renderCheckButton = () => (
       <View style={styles.practiceActionsRow}>
@@ -4250,7 +4362,7 @@ export default function LessonDetailShellScreen() {
 
     return (
       <Stack gap="md">
-        {!isInlineQuickPractice && exercise.prompt && exercise.title !== exercise.prompt ? (
+        {!isInlineQuickPractice && !hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
           <AppText
             language={contentLang === 'th' ? 'th' : 'en'}
             variant="muted"
@@ -4424,8 +4536,15 @@ export default function LessonDetailShellScreen() {
                 ? item.answer || item.text
                 : isSentenceTransformExercise && markState === true
                   ? item.text
-                  : practiceOpenAnswers[answerKey] ?? '';
+                  : isOpenExercise
+                    ? getPracticeOpenAnswer(exercise.id, item)
+                    : practiceOpenAnswers[answerKey] ?? '';
               const showMarkButtons = isSentenceTransformExercise && (item.correctTag === 'yes' || item.correctTag === 'no');
+              const shouldStackPracticeMedia = false;
+              const inputCount = isOpenExercise ? item.inputCount : 1;
+              const openAnswerKeys = Array.from({ length: inputCount }, (_, inputIndex) =>
+                getPracticeOpenAnswerKey(exercise.id, item.key, inputIndex)
+              );
 
               return item.isExample ? (
                 <View key={answerKey} style={styles.practiceExampleCard}>
@@ -4435,9 +4554,9 @@ export default function LessonDetailShellScreen() {
                     </AppText>
                   </View>
 
-                  <View style={styles.practiceExampleBody}>
-                    {itemImageUrl ? (
-                      <View style={styles.practiceExampleImageShell}>
+                    <View style={[styles.practiceExampleBody, useCompactPracticeMediaLayout ? styles.practiceExampleBodyStacked : null]}>
+                      {itemImageUrl ? (
+                      <View style={[styles.practiceExampleImageShell, useCompactPracticeMediaLayout ? styles.practiceExampleImageShellStacked : null]}>
                         <Image
                           source={{ uri: itemImageUrl }}
                           accessibilityLabel={itemAltText}
@@ -4447,7 +4566,7 @@ export default function LessonDetailShellScreen() {
                       </View>
                     ) : null}
 
-                    <View style={styles.practiceExampleContent}>
+                    <View style={[styles.practiceExampleContent, useCompactPracticeMediaLayout ? styles.practiceExampleContentStacked : null]}>
                       {item.prompt || item.text ? (
                         <AppText
                           language="en"
@@ -4484,7 +4603,7 @@ export default function LessonDetailShellScreen() {
                     </AppText>
 
                     <View style={styles.practiceQuestionTextWrap}>
-                      {item.prompt || item.text ? (
+                      {item.prompt || item.text || (isSentenceTransformExercise && item.textJsonb.length) ? (
                         <AppText
                           language="en"
                           variant="body"
@@ -4512,7 +4631,7 @@ export default function LessonDetailShellScreen() {
                           </Pressable>
                         </View>
                       ) : null}
-                      {contentLang === 'th' && (item.promptTh || item.textTh) ? (
+                      {contentLang === 'th' && (item.promptTh || item.textTh || (isSentenceTransformExercise && item.textJsonbTh.length)) ? (
                         <AppText
                           language="th"
                           variant="body"
@@ -4523,9 +4642,9 @@ export default function LessonDetailShellScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.practiceOpenRow}>
+                  <View style={shouldStackPracticeMedia ? styles.practiceOpenColumn : styles.practiceOpenRow}>
                     {itemImageUrl ? (
-                      <View style={styles.practicePromptImageShell}>
+                      <View style={[styles.practicePromptImageShell, shouldStackPracticeMedia ? styles.practicePromptImageShellStacked : null]}>
                         <Image
                           source={{ uri: itemImageUrl }}
                           accessibilityLabel={itemAltText}
@@ -4535,11 +4654,12 @@ export default function LessonDetailShellScreen() {
                       </View>
                     ) : null}
 
-                    <View style={styles.practiceOpenInputWrap}>
-                      <TextInput
-                        multiline
-                        numberOfLines={3}
-                        placeholder={
+                    <View style={[styles.practiceOpenInputWrap, shouldStackPracticeMedia ? styles.practiceOpenInputWrapStacked : null]}>
+                      {openAnswerKeys.map((openAnswerKey, inputIndex) => {
+                        const value = isOpenExercise
+                          ? practiceOpenAnswers[openAnswerKey] ?? ''
+                          : answerValue;
+                        const placeholder =
                           isSentenceTransformExercise
                             ? markState === true
                               ? contentLang === 'th'
@@ -4548,18 +4668,27 @@ export default function LessonDetailShellScreen() {
                               : contentLang === 'th'
                                 ? 'เขียนประโยคใหม่'
                                 : 'Rewrite this sentence'
-                            : item.placeholder || pageCopy.practiceOpenPlaceholder
-                        }
-                        placeholderTextColor="#9C9EA4"
-                        style={[
-                          styles.practiceOpenInput,
-                          markState === true ? styles.practiceOpenInputDisabled : null,
-                        ]}
-                        value={answerValue}
-                        onChangeText={(value) => handlePracticeOpenAnswerChange(exercise.id, item.key, value)}
-                        editable={!evaluation?.loading && markState !== true}
-                        textAlignVertical="top"
-                      />
+                            : item.placeholder || pageCopy.practiceOpenPlaceholder;
+
+                        return (
+                          <TextInput
+                            key={`${answerKey}-input-${inputIndex}`}
+                            multiline
+                            numberOfLines={3}
+                            placeholder={placeholder}
+                            placeholderTextColor="#9C9EA4"
+                            style={[
+                              styles.practiceOpenInput,
+                              inputIndex > 0 ? styles.practiceOpenInputStacked : null,
+                              markState === true ? styles.practiceOpenInputDisabled : null,
+                            ]}
+                            value={value}
+                            onChangeText={(nextValue) => handlePracticeOpenAnswerChange(exercise.id, item.key, nextValue, inputIndex)}
+                            editable={!evaluation?.loading && markState !== true}
+                            textAlignVertical="top"
+                          />
+                        );
+                      })}
                     </View>
                   </View>
 
@@ -4646,14 +4775,42 @@ export default function LessonDetailShellScreen() {
                 rows[rows.length - 1].push(token);
               });
 
+              for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
+                rows[rowIndex] = rows[rowIndex].filter(
+                  (token) => token.type === 'blank' || token.text.trim().length > 0
+                );
+
+                if (rows[rowIndex].length === 0 && rows.length > 1) {
+                  rows.splice(rowIndex, 1);
+                }
+              }
+
+              const remainingBlanks = item.blanks.slice(blankCursor);
+              remainingBlanks.forEach((blank) => {
+                const fallbackBlank = {
+                  type: 'blank' as const,
+                  length: blank.minLen,
+                  blankId: blank.id,
+                  minLen: blank.minLen,
+                };
+
+                if (rows.length === 1 && rows[0].length === 0) {
+                  rows[0].push(fallbackBlank);
+                } else {
+                  rows.push([fallbackBlank]);
+                }
+
+                blankCursor += 1;
+              });
+
               return (
                 <View key={answerKey} style={item.isExample ? styles.practiceExampleCard : styles.practiceQuestionCard}>
-                  <View style={styles.practiceQuestionHeader}>
+                  <View style={styles.practiceFillBlankQuestionHeader}>
                     <AppText language="en" variant="caption" style={styles.practiceQuestionNumber}>
                       {item.isExample ? 'EXAMPLE' : item.numberLabel || `${itemIndex + 1}`}
                     </AppText>
 
-                    <View style={styles.practiceQuestionTextWrap}>
+                    <View style={[styles.practiceQuestionTextWrap, styles.practiceFillBlankContentWrap]}>
                       {itemImageUrl ? (
                         <View style={styles.practicePromptImageShell}>
                           <Image
@@ -4797,9 +4954,7 @@ export default function LessonDetailShellScreen() {
             {completionModalState === 'success' ? (
               <>
                 <View style={styles.completionModalCheckWrap}>
-                  <AppText language="en" variant="body" style={styles.completionModalCheckText}>
-                    ✓
-                  </AppText>
+                  <Image source={pailinBlueThumbsUpImage} style={styles.completionModalSuccessImage} contentFit="contain" />
                 </View>
 
                 <Stack gap="xs">
@@ -6874,6 +7029,10 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     flexWrap: 'wrap',
   },
+  practiceExampleBodyStacked: {
+    flexDirection: 'column',
+    gap: theme.spacing.sm,
+  },
   practiceExampleImageShell: {
     flexBasis: 220,
     flexGrow: 1,
@@ -6884,15 +7043,56 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE7FA',
   },
+  practiceExampleImageShellStacked: {
+    width: '100%',
+    flexBasis: 'auto',
+    flexGrow: 0,
+    minWidth: 0,
+  },
   practiceExampleContent: {
     flexBasis: 240,
     flexGrow: 1,
     gap: theme.spacing.sm,
   },
+  practiceExampleContentStacked: {
+    width: '100%',
+    flexBasis: 'auto',
+    flexGrow: 0,
+    minWidth: 0,
+  },
   practiceQuestionHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: theme.spacing.xs,
+  },
+  practiceFillBlankQuestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+  },
+  practiceFillBlankContentWrap: {
+    gap: theme.spacing.md,
+  },
+  practiceOpenQuestionRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+  },
+  practiceOpenQuestionNumberSlot: {
+    minWidth: 14,
+    paddingTop: 4,
+    alignItems: 'flex-start',
+  },
+  practiceOpenQuestionMain: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'stretch',
+    gap: theme.spacing.sm,
+  },
+  practiceOpenQuestionTextWrap: {
+    width: '100%',
+    gap: 2,
   },
   practiceQuestionChevron: {
     width: 24,
@@ -6987,7 +7187,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   practiceFillBlankInputShort: {
-    minWidth: 96,
+    minWidth: 150,
   },
   practiceFillBlankInputLong: {
     minWidth: 140,
@@ -7001,6 +7201,12 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     flexWrap: 'wrap',
   },
+  practiceOpenColumn: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: theme.spacing.sm,
+  },
   practicePromptImageShell: {
     width: 148,
     minHeight: 148,
@@ -7011,13 +7217,28 @@ const styles = StyleSheet.create({
     padding: theme.spacing.sm,
     ...brutalShadow,
   },
+  practicePromptImageShellStacked: {
+    width: '100%',
+    alignSelf: 'stretch',
+    height: 136,
+    minHeight: 136,
+  },
   practicePromptImage: {
     width: '100%',
-    height: 148,
+    height: 120,
   },
   practiceOpenInputWrap: {
     flex: 1,
     minWidth: 210,
+  },
+  practiceOpenInputWrapStacked: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flex: 0,
+    minWidth: 0,
+  },
+  practiceOpenInputStacked: {
+    marginTop: theme.spacing.sm,
   },
   practiceOptionButton: {
     flexDirection: 'row',
@@ -7158,6 +7379,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   practiceOpenInput: {
+    width: '100%',
     minHeight: 100,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -7299,18 +7521,15 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   completionModalCheckWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#E2F4C8',
+    width: 105,
+    height: 105,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: -theme.spacing.xs,
   },
-  completionModalCheckText: {
-    color: '#4B8A10',
-    fontSize: 28,
-    lineHeight: 28,
-    fontWeight: theme.typography.weights.semibold,
+  completionModalSuccessImage: {
+    width: 105,
+    height: 105,
   },
   completionModalTitle: {
     textAlign: 'center',
@@ -7342,13 +7561,13 @@ const styles = StyleSheet.create({
     ...brutalShadow,
   },
   completionModalPrimaryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: '#91CAFF',
   },
   completionModalSecondaryButton: {
     backgroundColor: theme.colors.surface,
   },
   completionModalPrimaryButtonText: {
-    color: theme.colors.surface,
+    color: theme.colors.text,
     fontWeight: theme.typography.weights.semibold,
     textAlign: 'center',
   },
