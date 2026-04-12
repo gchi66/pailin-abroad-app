@@ -304,6 +304,13 @@
 - Quick-practice parity should be treated as good enough for current supported lesson types, not guaranteed-final for every future backend payload shape.
 - Mark-complete behavior / write-back strategy is still not implemented.
 - Additional backend-provided exercise kinds may still require future native support if new lesson content introduces them.
+- Lesson detail should show a persistent lesson number label in study mode, e.g. `Lesson 1.12`, so users can identify the lesson while inside the lesson page.
+- Known lesson/practice parity issues to revisit:
+  - `1.15` Listening Practice: audio bullets do not show up in the native app.
+  - `1.12` / exercise `24491` / `PRACTICE INTRODUCING PEOPLE`: this open practice has a single prompt image (`1.12_practice2`) followed by multiple blanks/questions that correspond to that one image. Native currently treats the image like a numbered question with its own input; it should instead render as a larger unnumbered prompt image, matching the behavior of `2.9` Open Ended Practice.
+  - `2.9` Practice Possessive Adjectives: question/blank rows are not aligned with the question number. This may affect all fill-blank exercises without images, so verify the generic no-image fill-blank row layout.
+  - `4.2` Multiple Choice / `PRACTICE RECEIVING DIRECTIONS`: option images do not show up in native.
+  - `6.4` Multiple Choice / `USING ADJECTIVES FOR WEATHER`: option/item images do not show up in native.
 
 ### Current Recommendation
 - Treat the lesson page as complete enough for the current MVP/basic mobile scope.

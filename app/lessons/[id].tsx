@@ -2545,11 +2545,20 @@ export default function LessonDetailShellScreen() {
     inputIndex === 0 ? getPracticeItemStateKey(exerciseId, itemKey) : `${getPracticeItemStateKey(exerciseId, itemKey)}:${inputIndex}`;
   const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
 
-  const getPracticeOpenAnswer = (exerciseId: string, item: NormalizedPracticeItem) => {
-    const values = Array.from({ length: item.inputCount }, (_, index) =>
-      practiceOpenAnswers[getPracticeOpenAnswerKey(exerciseId, item.key, index)] ?? ''
+  const getPracticeOpenInputCount = (exercise: NormalizedPracticeExercise, item: NormalizedPracticeItem) => {
+    const exerciseTitle = `${exercise.title} ${exercise.titleEn} ${exercise.titleTh}`.toLowerCase();
+    const shouldForceSingleInput =
+      exercise.kind === 'open' && lesson?.lesson_external_id === '1.13' && exerciseTitle.includes('open');
+
+    return shouldForceSingleInput ? 1 : item.inputCount;
+  };
+
+  const getPracticeOpenAnswer = (exercise: NormalizedPracticeExercise, item: NormalizedPracticeItem) => {
+    const inputCount = getPracticeOpenInputCount(exercise, item);
+    const values = Array.from({ length: inputCount }, (_, index) =>
+      practiceOpenAnswers[getPracticeOpenAnswerKey(exercise.id, item.key, index)] ?? ''
     );
-    return item.inputCount > 1 ? values.join('\n') : values[0] ?? '';
+    return inputCount > 1 ? values.join('\n') : values[0] ?? '';
   };
 
   const getSingleFillBlankAnswer = (exerciseId: string, item: NormalizedPracticeItem) => {
@@ -2684,7 +2693,7 @@ export default function LessonDetailShellScreen() {
         return !normalizePracticeAnswerText(practiceOpenAnswers[itemKey] ?? '');
       }
 
-      return Array.from({ length: item.inputCount }, (_, index) =>
+      return Array.from({ length: getPracticeOpenInputCount(exercise, item) }, (_, index) =>
         practiceOpenAnswers[getPracticeOpenAnswerKey(exercise.id, item.key, index)] ?? ''
       ).some((value) => !normalizePracticeAnswerText(value));
     });
@@ -2724,7 +2733,7 @@ export default function LessonDetailShellScreen() {
                   ? getSingleFillBlankAnswer(exercise.id, item)
                   : exercise.kind === 'sentence_transform'
                     ? getSentenceTransformAnswer(exercise.id, item)
-                    : getPracticeOpenAnswer(exercise.id, item),
+                    : getPracticeOpenAnswer(exercise, item),
               correctAnswer: item.answer || '',
               sourceType: 'practice',
               exerciseId: exercise.id,
@@ -4537,14 +4546,15 @@ export default function LessonDetailShellScreen() {
                 : isSentenceTransformExercise && markState === true
                   ? item.text
                   : isOpenExercise
-                    ? getPracticeOpenAnswer(exercise.id, item)
+                    ? getPracticeOpenAnswer(exercise, item)
                     : practiceOpenAnswers[answerKey] ?? '';
               const showMarkButtons = isSentenceTransformExercise && (item.correctTag === 'yes' || item.correctTag === 'no');
               const shouldStackPracticeMedia = false;
-              const inputCount = isOpenExercise ? item.inputCount : 1;
+              const inputCount = isOpenExercise ? getPracticeOpenInputCount(exercise, item) : 1;
               const openAnswerKeys = Array.from({ length: inputCount }, (_, inputIndex) =>
                 getPracticeOpenAnswerKey(exercise.id, item.key, inputIndex)
               );
+              const shouldUseLargePromptImage = item.imageKey === '2.9_practice';
 
               return item.isExample ? (
                 <View key={answerKey} style={styles.practiceExampleCard}>
@@ -4644,12 +4654,17 @@ export default function LessonDetailShellScreen() {
 
                   <View style={shouldStackPracticeMedia ? styles.practiceOpenColumn : styles.practiceOpenRow}>
                     {itemImageUrl ? (
-                      <View style={[styles.practicePromptImageShell, shouldStackPracticeMedia ? styles.practicePromptImageShellStacked : null]}>
+                      <View
+                        style={[
+                          styles.practicePromptImageShell,
+                          shouldStackPracticeMedia ? styles.practicePromptImageShellStacked : null,
+                          shouldUseLargePromptImage ? styles.practicePromptImageShellLarge : null,
+                        ]}>
                         <Image
                           source={{ uri: itemImageUrl }}
                           accessibilityLabel={itemAltText}
                           contentFit="contain"
-                          style={styles.practicePromptImage}
+                          style={[styles.practicePromptImage, shouldUseLargePromptImage ? styles.practicePromptImageLarge : null]}
                         />
                       </View>
                     ) : null}
@@ -7223,9 +7238,16 @@ const styles = StyleSheet.create({
     height: 136,
     minHeight: 136,
   },
+  practicePromptImageShellLarge: {
+    width: 184,
+    minHeight: 184,
+  },
   practicePromptImage: {
     width: '100%',
     height: 120,
+  },
+  practicePromptImageLarge: {
+    height: 158,
   },
   practiceOpenInputWrap: {
     flex: 1,
