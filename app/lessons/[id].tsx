@@ -2143,8 +2143,6 @@ export default function LessonDetailShellScreen() {
   const activePracticeExercise = isPracticeTab ? normalizedPracticeExercises[activePracticeCardIndex] ?? null : null;
   const activePhraseCard = isPhrasesTab ? normalizedLessonPhrases[activePhraseCardIndex] ?? null : null;
   const sectionCount = lessonTabs.length;
-  const progressRatio = sectionCount > 0 ? (activeSectionIndex + 1) / sectionCount : 0;
-  const progressWidthStyle = useMemo(() => ({ width: `${progressRatio * 100}%` as const }), [progressRatio]);
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab;
   const isInnerPagerTab =
@@ -2300,12 +2298,7 @@ export default function LessonDetailShellScreen() {
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
       : lessonCover?.lesson_order?.toString() ?? '-';
-  const studyCounterLabel =
-    sectionCount === 0
-      ? `${uiCopy.lessonLabel} ${coverLessonNumber}`
-      : pageLanguage === 'th'
-        ? `${uiCopy.lessonLabel} ${coverLessonNumber} • ส่วน ${activeSectionIndex + 1}/${sectionCount}`
-        : `${uiCopy.lessonLabel} ${coverLessonNumber} • Section ${activeSectionIndex + 1}/${sectionCount}`;
+  const studyLessonLabel = `${uiCopy.lessonLabel} ${coverLessonNumber}`;
   const sectionMenuLabel = pageCopy.sectionMenuLabel;
   const startLessonLabel = isLessonReady ? uiCopy.startLesson : uiCopy.loadingLessonCta;
   const coverMinHeight = Math.max(windowHeight || 0, 720);
@@ -5504,9 +5497,26 @@ export default function LessonDetailShellScreen() {
                         </AppText>
                       </Pressable>
 
-                      <AppText language={pageLanguage} variant="caption" style={styles.studyCounterText}>
-                        {studyCounterLabel}
-                      </AppText>
+                      <View style={styles.studyTitleBlock}>
+                        <AppText language={pageLanguage} variant="caption" style={styles.studyCounterText}>
+                          {studyLessonLabel}
+                        </AppText>
+
+                        {sectionCount > 0 ? (
+                          <View style={styles.sectionDotsRow}>
+                            {Array.from({ length: sectionCount }, (_, index) => (
+                              <View
+                                key={`section-dot-${index}`}
+                                style={[
+                                  styles.sectionDot,
+                                  index < activeSectionIndex ? styles.sectionDotVisited : null,
+                                  index === activeSectionIndex ? styles.sectionDotActive : null,
+                                ]}
+                              />
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
 
                       <View style={styles.studyNavActions}>
                         {isTranslatingContent ? (
@@ -5526,10 +5536,6 @@ export default function LessonDetailShellScreen() {
                           </AppText>
                         </Pressable>
                       </View>
-                    </View>
-
-                    <View style={styles.progressBarTrack}>
-                      <View style={[styles.progressBarFill, progressWidthStyle]} />
                     </View>
                   </View>
                 </>
@@ -6427,6 +6433,8 @@ const styles = StyleSheet.create({
   },
   studyTopChrome: {
     backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1.5,
+    borderBottomColor: theme.colors.border,
   },
   studyBody: {
     flex: 1,
@@ -6443,11 +6451,9 @@ const styles = StyleSheet.create({
   },
   studyNavBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
     backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1.5,
-    borderBottomColor: theme.colors.border,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -6468,16 +6474,22 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   studyCounterText: {
-    flex: 1,
     textAlign: 'center',
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: theme.typography.weights.semibold,
+  },
+  studyTitleBlock: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingTop: 2,
   },
   studyNavActions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'flex-end',
     gap: 8,
   },
@@ -6506,14 +6518,24 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: theme.typography.weights.semibold,
   },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: theme.colors.accentMuted,
-    overflow: 'hidden',
+  sectionDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: theme.colors.text,
+  sectionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#BDD1E6',
+  },
+  sectionDotVisited: {
+    backgroundColor: '#FF4B4B',
+  },
+  sectionDotActive: {
+    width: 26,
+    backgroundColor: '#FF4B4B',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
