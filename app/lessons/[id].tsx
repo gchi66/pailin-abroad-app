@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -9,6 +10,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import {
   evaluateLessonAnswer,
   fetchLessonAudioSnippetIndex,
@@ -5364,9 +5366,7 @@ export default function LessonDetailShellScreen() {
                           accessibilityLabel={backToLibraryLabel}
                           onPress={() => router.push('/(tabs)/lessons')}
                           style={styles.backButton}>
-                          <AppText language={uiLanguage} variant="body" style={styles.backButtonText}>
-                            ←
-                          </AppText>
+                          <MaterialIcons name="arrow-back" size={24} color={theme.colors.surface} />
                         </Pressable>
                       </View>
 
@@ -5472,45 +5472,47 @@ export default function LessonDetailShellScreen() {
               </View>
             </View>
           ) : (
-            <View style={[styles.stepperScreen, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.stepperScreen}>
               {!isFullscreen ? (
                 <>
-                  <View style={styles.studyNavBar}>
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => setIsMenuOpen(true)}
-                      style={styles.studyMenuButton}>
-                      <AppText language="en" variant="body" style={styles.studyMenuButtonText}>
-                        ☰
-                      </AppText>
-                    </Pressable>
-
-                    <AppText language={pageLanguage} variant="caption" style={styles.studyCounterText}>
-                      {sectionCounterLabel}
-                    </AppText>
-
-                    <View style={styles.studyNavActions}>
-                      {isTranslatingContent ? (
-                        <AppText language={pageLanguage} variant="caption" style={styles.studyNavStatusText}>
-                          {pageCopy.translatingContent}
-                        </AppText>
-                      ) : null}
-
+                  <View style={[styles.studyTopChrome, { paddingTop: insets.top + 8 }]}>
+                    <View style={styles.studyNavBar}>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={contentToggleLabel}
-                        disabled={isTranslatingContent}
-                        onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
-                        style={[styles.translatePill, isTranslatingContent ? styles.translatePillDisabled : null]}>
-                        <AppText language="en" variant="caption" style={styles.translatePillText}>
-                          {contentToggleText}
+                        onPress={() => setIsMenuOpen(true)}
+                        style={styles.studyMenuButton}>
+                        <AppText language="en" variant="body" style={styles.studyMenuButtonText}>
+                          ☰
                         </AppText>
                       </Pressable>
-                    </View>
-                  </View>
 
-                  <View style={styles.progressBarTrack}>
-                    <View style={[styles.progressBarFill, progressWidthStyle]} />
+                      <AppText language={pageLanguage} variant="caption" style={styles.studyCounterText}>
+                        {sectionCounterLabel}
+                      </AppText>
+
+                      <View style={styles.studyNavActions}>
+                        {isTranslatingContent ? (
+                          <AppText language={pageLanguage} variant="caption" style={styles.studyNavStatusText}>
+                            {pageCopy.translatingContent}
+                          </AppText>
+                        ) : null}
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={contentToggleLabel}
+                          disabled={isTranslatingContent}
+                          onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
+                          style={[styles.translatePill, isTranslatingContent ? styles.translatePillDisabled : null]}>
+                          <AppText language="en" variant="caption" style={styles.translatePillText}>
+                            {contentToggleText}
+                          </AppText>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <View style={styles.progressBarTrack}>
+                      <View style={[styles.progressBarFill, progressWidthStyle]} />
+                    </View>
                   </View>
                 </>
               ) : null}
@@ -6130,13 +6132,23 @@ export default function LessonDetailShellScreen() {
           <Card padding="md" radius="lg" style={styles.menuSheet}>
             <Stack gap="sm">
               <View style={styles.menuHeader}>
+                <Pressable
+                  accessibilityLabel={backToLibraryLabel}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setIsMenuOpen(false);
+                    router.push('/(tabs)/lessons');
+                  }}
+                  style={styles.menuHeaderButton}>
+                  <IconSymbol name="book.fill" size={20} color={theme.colors.text} />
+                </Pressable>
+
                 <AppText language={pageLanguage} variant="body" style={styles.menuTitle}>
                   {sectionMenuLabel}
                 </AppText>
-                <Pressable accessibilityRole="button" onPress={() => setIsMenuOpen(false)} style={styles.menuCloseButton}>
-                  <AppText language={pageLanguage} variant="body" style={styles.menuCloseButtonText}>
-                    ×
-                  </AppText>
+
+                <Pressable accessibilityRole="button" onPress={() => setIsMenuOpen(false)} style={styles.menuHeaderButton}>
+                  <MaterialIcons name="close" size={20} color={theme.colors.text} />
                 </Pressable>
               </View>
 
@@ -6318,17 +6330,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.surface,
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  backButtonText: {
-    position: 'absolute',
-    top: '50%',
-    color: theme.colors.surface,
-    fontSize: 24,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.semibold,
-    textAlign: 'center',
-    includeFontPadding: false,
-    transform: [{ translateY: -12 }],
-  },
   coverBottomPanel: {
     borderRadius: 28,
     borderWidth: 1,
@@ -6406,6 +6407,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  studyTopChrome: {
+    backgroundColor: theme.colors.surface,
+  },
   studyBody: {
     flex: 1,
   },
@@ -6430,8 +6434,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   studyMenuButton: {
-    width: 28,
-    height: 28,
+    width: 34,
+    height: 34,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -6441,8 +6445,8 @@ const styles = StyleSheet.create({
   },
   studyMenuButtonText: {
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 14,
+    fontSize: 16,
+    lineHeight: 16,
     fontWeight: theme.typography.weights.semibold,
   },
   studyCounterText: {
@@ -6464,13 +6468,13 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   translatePill: {
-    minWidth: 36,
+    minWidth: 44,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -6479,8 +6483,8 @@ const styles = StyleSheet.create({
   },
   translatePillText: {
     color: theme.colors.text,
-    fontSize: 12,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 15,
     fontWeight: theme.typography.weights.semibold,
   },
   progressBarTrack: {
@@ -8012,13 +8016,14 @@ const styles = StyleSheet.create({
   menuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: theme.spacing.sm,
   },
   menuTitle: {
+    flex: 1,
+    textAlign: 'center',
     fontWeight: theme.typography.weights.semibold,
   },
-  menuCloseButton: {
+  menuHeaderButton: {
     width: 36,
     height: 36,
     borderRadius: theme.radii.xl,
@@ -8027,11 +8032,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
-  },
-  menuCloseButtonText: {
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.md,
-    fontWeight: theme.typography.weights.semibold,
   },
   menuItem: {
     flexDirection: 'row',

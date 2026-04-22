@@ -26,6 +26,40 @@ type UsePathwayDataParams = {
 };
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+const PATHWAY_TIMING_LABEL = '[pathway-load]';
+
+const getElapsedMs = (startedAt: number) => Date.now() - startedAt;
+
+const logRequestTiming = (name: string, startedAt: number, metadata?: Record<string, unknown>) => {
+  console.info(PATHWAY_TIMING_LABEL, `${name} loaded`, {
+    elapsedMs: getElapsedMs(startedAt),
+    ...metadata,
+  });
+};
+
+const logRequestFailure = (name: string, startedAt: number, error: unknown) => {
+  console.warn(PATHWAY_TIMING_LABEL, `${name} failed`, {
+    elapsedMs: getElapsedMs(startedAt),
+    error: error instanceof Error ? error.message : 'Unknown error',
+  });
+};
+
+const withRequestTiming = async <T,>(
+  name: string,
+  request: () => Promise<T>,
+  getMetadata?: (result: T) => Record<string, unknown>,
+) => {
+  const startedAt = Date.now();
+
+  try {
+    const result = await request();
+    logRequestTiming(name, startedAt, getMetadata?.(result));
+    return result;
+  } catch (error) {
+    logRequestFailure(name, startedAt, error);
+    throw error;
+  }
+};
 
 const compareLessons = (left: LessonListItem, right: LessonListItem) => {
   const leftStageIndex = STAGE_ORDER.indexOf((left.stage ?? 'Beginner') as StageName);
@@ -64,40 +98,49 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
   const [completedProgress, setCompletedProgress] = useState<CompletedLessonProgress[]>([]);
   const [allLessons, setAllLessons] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
+  const [isCompletedProgressLoading, setIsCompletedProgressLoading] = useState(enabled);
+  const [isLessonIndexLoading, setIsLessonIndexLoading] = useState(enabled);
+  const [isStatsLoading, setIsStatsLoading] = useState(enabled);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
+      setIsCompletedProgressLoading(false);
+      setIsLessonIndexLoading(false);
+      setIsStatsLoading(false);
       return;
     }
 
     let isMounted = true;
 
-    const run = async () => {
+    const loadPathwayLessons = async () => {
+      const startedAt = Date.now();
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
-        const [statsResult, completedResult, pathwayResult, lessonsIndex] = await Promise.all([
-          fetchUserStats(),
-          fetchUserCompletedLessons(),
-          fetchUserPathwayLessons(),
-          getLessonsIndex(),
-        ]);
+        const pathwayResult = await withRequestTiming('pathway lessons', fetchUserPathwayLessons, (result) => ({
+          pathwayCount: result.length,
+        }));
 
         if (!isMounted) {
           return;
         }
 
-        setStats(statsResult);
-        setCompletedProgress([...completedResult].sort(sortCompletedProgress));
         setPathwayLessons([...pathwayResult].sort(compareLessons));
-        setAllLessons([...lessonsIndex].sort(compareLessons));
+        console.info(PATHWAY_TIMING_LABEL, 'critical data loaded', {
+          elapsedMs: getElapsedMs(startedAt),
+          pathwayCount: pathwayResult.length,
+        });
       } catch (error) {
         if (isMounted) {
           setErrorMessage(error instanceof Error ? error.message : 'Could not load pathway data.');
         }
+        console.warn(PATHWAY_TIMING_LABEL, 'critical data failed', {
+          elapsedMs: getElapsedMs(startedAt),
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -105,7 +148,76 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       }
     };
 
-    void run();
+    const loadStats = async () => {
+      setIsStatsLoading(true);
+
+      try {
+        const statsResult = await withRequestTiming('stats', fetchUserStats);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setStats(statsResult);
+      } catch {
+        // Timing helper already logs the request failure; keep the main pathway usable.
+      } finally {
+        if (isMounted) {
+          setIsStatsLoading(false);
+        }
+      }
+    };
+
+    const loadCompletedProgress = async () => {
+      setIsCompletedProgressLoading(true);
+
+      try {
+        const completedResult = await withRequestTiming('completed lessons', fetchUserCompletedLessons, (result) => ({
+          completedCount: result.length,
+        }));
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCompletedProgress([...completedResult].sort(sortCompletedProgress));
+      } catch {
+        // Timing helper already logs the request failure; keep the main pathway usable.
+      } finally {
+        if (isMounted) {
+          setIsCompletedProgressLoading(false);
+        }
+      }
+    };
+
+    const loadLessonIndex = async () => {
+      const startedAt = Date.now();
+      setIsLessonIndexLoading(true);
+
+      try {
+        const lessonsIndex = await getLessonsIndex();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setAllLessons([...lessonsIndex].sort(compareLessons));
+        logRequestTiming('lesson index', startedAt, {
+          lessonCount: lessonsIndex.length,
+        });
+      } catch (error) {
+        logRequestFailure('lesson index', startedAt, error);
+      } finally {
+        if (isMounted) {
+          setIsLessonIndexLoading(false);
+        }
+      }
+    };
+
+    void loadPathwayLessons();
+    void loadStats();
+    void loadCompletedProgress();
+    void loadLessonIndex();
 
     return () => {
       isMounted = false;
@@ -144,7 +256,10 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
         return { lesson, state: 'completed' } satisfies PathwayLessonRow;
       }
 
-      if (!hasMembership && firstLessonIds.size > 0 && !firstLessonIds.has(lesson.id)) {
+      const isFirstFreeLesson =
+        firstLessonIds.size > 0 ? firstLessonIds.has(lesson.id) : lesson.lesson_order === 1;
+
+      if (!hasMembership && !isFirstFreeLesson) {
         return { lesson, state: 'locked' } satisfies PathwayLessonRow;
       }
 
@@ -225,6 +340,9 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     completedProgress,
     allLessons,
     isLoading,
+    isCompletedProgressLoading,
+    isLessonIndexLoading,
+    isStatsLoading,
     errorMessage,
     setLessonCompletedOptimistically,
   };

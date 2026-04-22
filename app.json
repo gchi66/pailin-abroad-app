@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.grant.pailinabroad",
+      "bundleIdentifier": "com.pailinabroad.app",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone.",
         "UIBackgroundModes": [

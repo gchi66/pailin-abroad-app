@@ -29,6 +29,7 @@ type PathwayCopy = {
   upgradeBannerBody: string;
   upgradeBannerCta: string;
   progressTitle: string;
+  progressLoading: string;
   viewDetails: string;
   lessonsDone: string;
   levelsDone: string;
@@ -58,6 +59,7 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
       upgradeBannerBody: 'ทุกบทเรียน ทุกเส้นทาง',
       upgradeBannerCta: 'อัปเกรด →',
       progressTitle: 'ความคืบหน้าของฉัน',
+      progressLoading: 'กำลังโหลดรายละเอียดความคืบหน้า...',
       viewDetails: 'ดูรายละเอียด →',
       lessonsDone: 'บทเรียนที่จบ',
       levelsDone: 'เลเวลที่จบ',
@@ -87,6 +89,7 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     upgradeBannerBody: 'All lessons · full pathway',
     upgradeBannerCta: 'Upgrade →',
     progressTitle: 'My Progress',
+    progressLoading: 'Loading progress details...',
     viewDetails: 'View details →',
     lessonsDone: 'Lessons done',
     levelsDone: 'Levels done',
@@ -188,7 +191,17 @@ export function MyPathwayScreen() {
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile, user } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const { allLessons, completedLessons, errorMessage, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
+  const {
+    allLessons,
+    completedLessons,
+    errorMessage,
+    isCompletedProgressLoading,
+    isLessonIndexLoading,
+    isLoading,
+    pathwayRows,
+    resumeRow,
+    stats,
+  } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
   });
@@ -353,14 +366,18 @@ export function MyPathwayScreen() {
 
               <View style={styles.progressFooter}>
                 <AppText language={uiLanguage} variant="caption" style={styles.progressSummary}>
-                  {copy.lessonsCompleteForLevel(
-                    progressContext.levelCompletedCount,
-                    progressContext.levelTotalCount || 0,
-                    progressContext.level,
-                  )}
+                  {(isCompletedProgressLoading || isLessonIndexLoading) && (allLessons.length === 0 || completedLessons.length === 0)
+                    ? copy.progressLoading
+                    : copy.lessonsCompleteForLevel(
+                        progressContext.levelCompletedCount,
+                        progressContext.levelTotalCount || 0,
+                        progressContext.level,
+                      )}
                 </AppText>
                 <AppText language={uiLanguage} variant="caption" style={styles.progressPercent}>
-                  {progressContext.levelPercent}%
+                  {(isCompletedProgressLoading || isLessonIndexLoading) && (allLessons.length === 0 || completedLessons.length === 0)
+                    ? '–'
+                    : `${progressContext.levelPercent}%`}
                 </AppText>
               </View>
             </View>

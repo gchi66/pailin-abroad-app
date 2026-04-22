@@ -114,7 +114,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     membershipLabel: 'Membership',
     languageLabel: 'App Language',
     joinedLabel: 'Joined',
-    signOut: 'Sign Out',
+    signOut: 'Log Out',
     onboardingDevtools: 'Open Onboarding Devtools',
     languageValue: 'English',
     signOutSuccess: 'Signed out successfully.',

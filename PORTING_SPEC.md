@@ -24,18 +24,16 @@
   - Expo-managed app config
   - native `ios/` project checked into the app repo
   - CocoaPods workspace build via Xcode
-- Bundle identifier is now set to `com.grant.pailinabroad`.
+- Bundle identifier is now set to `com.pailinabroad.app`.
 - For ongoing day-to-day development, continue working in the Expo/RN app as normal.
 - When native/device verification is needed:
   - open `ios/pailinabroadmobile.xcworkspace` in Xcode
   - use Xcode signing/device selection for physical iPhone installs
   - `npx expo run:ios --device` is expected to work after signing is configured in Xcode
 - This means the project is past the initial "can we get it onto a real phone?" stage and can proceed with normal feature work.
-- Project status is now approaching the point where broader real-device testing should be practical.
-- The next testing gate should be:
-  - first, confirm the current app build and core flows on Grant's device
-  - then, if that passes cleanly, move to cofounder-device testing
-- Treat Grant-device testing as required before handing off a build for cofounder review/testing.
+- Project status is now ready for cofounder-device testing mode.
+- Grant-device QA for the core handoff flows has been completed for the current round.
+- The next testing gate is cofounder-device testing, with any remaining findings expected to be minor polish, regression fixes, or App Store/payment follow-up rather than known porting blockers.
 
 ### Current Focus
 - Login/auth screen polish pass is now done for the current round.
@@ -46,14 +44,11 @@
   - improved spacing / sizing behavior for smaller phones
   - refined visual polish on shadows, headline treatment, and password-rule presentation
 - `My Pathway`, lesson-library, lesson-detail, onboarding, and standard-page polish have all moved the app much closer to a realistic device-test candidate.
-- Immediate near-term focus is no longer broad feature scaffolding; it is:
-  - tightening remaining mobile polish and edge cases
-  - validating the current build on Grant's device
-  - then preparing the app for cofounder-device testing
+- Immediate near-term focus is no longer broad feature scaffolding or Grant-device validation; it is cofounder-device testing and lightweight polish as feedback comes in.
 - Priority order for the next pass:
-  - first-party testing on Grant's device
-  - fix issues found there
-  - then external/cofounder device testing
+  - hand the current build to cofounder testing
+  - fix concrete issues found there
+  - keep remaining non-critical polish flexible since product direction may still shift
 
 ### Step A: Theme
 - Added: `src/theme/theme.ts`
@@ -281,9 +276,15 @@
   - fill-blank practice supports native blank inputs and backend evaluation
   - sentence-transform practice supports native rewrite input / correctness toggle plus backend evaluation
   - prompt images are carried through item normalization and rendered natively when present
+  - item-level practice audio buttons are wired from `audio_key` / inline `[audio:...]` metadata where present
+  - multiple-choice practice now supports both item/question-level images and option-level images
   - example items use dedicated preview layouts
   - practice state is preserved within the current lesson session and stays aligned with the lesson `contentLang` payload model where applicable
   - quick-practice rendering is now wired for the currently supported practice exercise kinds
+  - practice exercise review is complete for the current MVP lesson set:
+    - checked and adjusted image-bearing open, fill-blank, sentence-transform, listening, and multiple-choice practices identified during the review pass
+    - completed targeted fixes for `1.12`, `1.15`, `2.9`, `4.2`, and `6.4`
+    - remaining expected work in this area is normal device QA/regression rather than known practice-specific porting work
 - `Phrases & Verbs`
   - uses dedicated native phrase-card handling driven by resolved `lesson.phrases`
   - phrase-specific audio snippet lookup is wired through native app code using `lesson_phrases` + `phrases_audio_snippets`
@@ -295,22 +296,16 @@
   - duplicate in-body phrase headings are suppressed when they repeat the already-visible section title
 - `Extra Tip`
   - section ordering/tab inclusion exists in the native lesson flow via `MASTER_ORDER`
-  - dedicated native rendering is still not implemented in `app/lessons/[id].tsx`
-  - current behavior falls through to the generic placeholder renderer rather than a real section-specific path
+  - current handling is acceptable for the cofounder-testing build
+  - any future dedicated/native path should be treated as non-blocking polish unless later content requires it
 
-### Known Gaps / Follow-Up Work
-- Table parity across rich sections is still incomplete and needs a dedicated mobile-only cleanup/signoff pass.
-- `Extra Tip` still needs a proper dedicated/native path if later lessons require it.
+### Non-Blocking Follow-Up Work
+- Table parity across rich sections can receive a later mobile-only cleanup/signoff pass if cofounder testing surfaces specific issues.
+- `Extra Tip` can receive a proper dedicated/native path later if future lessons require it.
 - Quick-practice parity should be treated as good enough for current supported lesson types, not guaranteed-final for every future backend payload shape.
-- Mark-complete behavior / write-back strategy is still not implemented.
 - Additional backend-provided exercise kinds may still require future native support if new lesson content introduces them.
-- Lesson detail should show a persistent lesson number label in study mode, e.g. `Lesson 1.12`, so users can identify the lesson while inside the lesson page.
-- Known lesson/practice parity issues to revisit:
-  - `1.15` Listening Practice: first-pass native fix applied to render item-level practice audio buttons from `audio_key` / inline `[audio:...]`; still needs visual/audio signoff on device.
-  - `1.12` / exercise `24491` / `PRACTICE INTRODUCING PEOPLE`: first-pass native fix applied so the single prompt image (`1.12_practice2`) renders as an unnumbered standalone prompt image and is skipped during answer evaluation; still needs visual signoff on device.
-  - `2.9` Practice Possessive Adjectives: first-pass native fix applied for no-image fill-blank number alignment; still needs visual signoff on device.
-  - `4.2` Multiple Choice / `PRACTICE RECEIVING DIRECTIONS`: first-pass native fix applied to render option-level images; still needs visual signoff on device.
-  - `6.4` Multiple Choice / `USING ADJECTIVES FOR WEATHER`: first-pass native fix applied to render question/item-level images; still needs visual signoff on device.
+- Lesson detail in-study lesson labeling has been checked for the current handoff round; any further label treatment is minor polish.
+- Practice exercise review is complete for the current MVP lesson set. No known practice-specific parity blockers remain for cofounder-device testing.
 
 ### Current Recommendation
 - Treat the lesson page as complete enough for the current MVP/basic mobile scope.
@@ -318,7 +313,7 @@
 - Use future work passes to handle:
   - table cleanup
   - `Extra Tip`
-  - mark-complete/write-back
+  - lesson completion popup asset polish and progress regression testing
   - newly encountered payload variants
 - Added native free-plan lessons flow:
   - `src/screens/GuestLessonLibraryScreen.tsx`
@@ -455,59 +450,160 @@
 - Current known TS issues that predate or sit outside this image/home pass:
   - `src/components/ui/Stack.tsx`
   - `src/screens/MembershipScreen.tsx` (`planCopy.savings` typing issue)
-- Current V1 TODO:
+- Current V1 Notes:
   - Keep lesson discussion web-only for v1:
     - native app intentionally does not include the lesson discussion board, pinned comment, reply flow, or comment-history surfaces
     - mobile web may continue to expose lesson discussion without blocking native app signoff
     - do not treat missing native discussion parity as a v1 blocker unless product direction changes
-  - Lesson completion flow polish:
-    - native lesson completion / mark-complete write-back is now wired in lesson detail
-    - end-of-lesson completion popup flow is implemented
-    - one remaining polish item is swapping the completion popup checkmark to the final intended image asset
+  - Lesson completion flow:
+    - native lesson completion / mark-complete write-back is wired in lesson detail
+    - end-of-lesson completion popup flow is implemented and polished enough for cofounder testing
+    - pathway/progress behavior has been regression-checked for the current handoff round
 - Explicit non-goal for mobile v1:
   - no-account `Try Lessons` browsing is not required if the app always pushes users into auth/account creation on entry
-- Next recommended phase before detailed testing/debugging:
-  - immediate next items of attention:
-    - resolve the remaining lesson completion popup checkmark image swap
-    - verify pathway/progress behavior after lesson completion across real device flows
-  - then move into focused parity testing/debugging for:
-    - lesson detail edge cases (`Extra Tip`, table cleanup, newly encountered payload variants, locked-cover copy/states)
-    - Topic Library content/layout edge cases
-    - Exercise Bank exercise-type and bilingual wrapping edge cases
-    - free-plan lessons hub / library navigation polish and any remaining lock-icon edge cases
+- Next recommended phase:
+  - move into cofounder-device testing with the current build
+  - track feedback as concrete QA issues rather than broad porting tasks
+  - treat remaining lesson detail edge cases, Topic Library / Exercise Bank layout edge cases, and free-plan library polish as minor follow-up unless a cofounder test exposes a blocking regression
 - Device-test readiness note:
-  - the app now appears close to being ready for cofounder-device testing, but that should not happen first
-  - complete a solid test pass on Grant's own device before treating cofounder-device testing as the next milestone
+  - the app is ready for cofounder-device testing mode
+  - Grant-device QA has been completed for the current handoff round
 - Keep design flexible since cofounder may change direction.
 
-## Pre-Apple-Account / Cofounder-Handoff Checklist
-- Finalize lesson completion polish:
-  - lesson study, completion write-back, and the full learn-complete-progress loop now exist in native
-  - remaining lesson-completion item is the final popup checkmark image asset
-  - pathway/progress should still get a focused regression pass after the new completion flow
-- Run a full Grant-device QA pass before cofounder testing:
-  - auth
-  - onboarding
-  - lesson playback/study flow
-  - free-plan vs paid-plan routing
+## TestFlight / Cofounder-Testing Handoff
+- Status: **implemented**.
+- TestFlight is now live for Grant and cofounder testing.
+- The current active phase is cofounder-device QA and feedback-driven fixes before public App Store launch.
+- Grant and cofounder have both been added to TestFlight for the current internal testing build.
+- Use TestFlight for stable checkpoint builds rather than every small local change:
+  - collect a meaningful batch of feedback
+  - fix blockers / important issues locally
+  - increment the iOS build number
+  - archive/upload a new build from Xcode
+  - assign the new build to the internal testing group
+- Keep future tester invites internal when possible for trusted team/cofounder testing.
+- Use external TestFlight only when inviting testers who should not have App Store Connect access; expect Apple beta-review overhead for the first external build.
+- Completed for current cofounder handoff:
+  - Grant-device QA across auth, onboarding, lesson playback/study, free-plan vs paid-plan routing, settings, and account management
+  - lesson completion popup polish and pathway/progress regression checks
+  - lesson detail edge-case spot checks, including `Extra Tip`, tables, payload variants, locked-cover copy/states, and in-study lesson labeling
+  - free-plan lessons hub / library navigation and lock-icon edge-case checks
+  - unfinished destinations have been hidden, deferred, or labeled clearly enough for cofounder testing
+  - current payment presentation has been decided for this testing round; native Membership pricing/UI exists, while real checkout remains a public-launch/App Review follow-up rather than a cofounder-testing blocker
+- Completed TestFlight setup:
+  - App Store Connect app record exists
+  - bundle identifier is `com.pailinabroad.app`
+  - local Xcode archive/upload path has been verified through `ios/pailinabroadmobile.xcworkspace`
+  - first TestFlight build has been uploaded, processed, and made available to internal testers
+  - export/compliance prompt has been cleared for the current build
+  - Grant and cofounder have access through TestFlight
+- Remaining work should be treated as feedback-driven QA/fix work unless cofounder testing reveals a larger product or architecture issue.
+- Triage feedback into:
+  - blocker: crash, auth failure, cannot start lessons, unusable audio, data loss, or broken core navigation
+  - important: confusing flow, broken layout, incorrect state/copy, membership/access confusion, or major regression
+  - polish: spacing, copy preference, small visual tweak, or non-blocking UI refinement
+  - idea: product/design suggestion for later
+- Keep a lightweight regression checklist during cofounder testing:
+  - auth and onboarding
+  - lesson library / pathway / study / completion
+  - practice exercise spot checks
+  - free-plan and membership routing
   - settings / account management
-- Do focused parity / edge-case testing after that pass for:
-  - lesson detail (`Extra Tip`, tables, payload variants, locked-cover copy/states)
-  - Topic Library content/layout edge cases
-  - Exercise Bank exercise-type and bilingual wrapping edge cases
-  - free-plan lessons hub / library navigation polish and any remaining lock-icon edge cases
-- Decide the iOS payment direction before Apple-account / App Review prep:
-  - current native Membership pricing/UI exists, but real native checkout is still not connected
-  - do not leave payment behavior ambiguous once the build is moving toward App Store-facing setup
-- Hide, defer, or intentionally label unfinished destinations:
-  - keep any remaining non-ported areas from feeling accidental during cofounder testing
-- Clean up release/config readiness before Apple setup:
+- Capture each cofounder issue with:
+  - device model
+  - iOS version
+  - account state (`signed out`, `free`, `paid/member`, `onboarding incomplete`)
+  - route/screen
+  - screenshot or screen recording when possible
+  - expected vs actual behavior
+
+## Public Launch / App Review Prep
+- Status: **not the active blocker for cofounder TestFlight**, but required before public App Store submission.
+- Treat these as launch-gate items after cofounder feedback has been triaged:
   - confirm final bundle/app identity direction
-  - confirm versioning/build-number workflow
-  - document required `.env` setup and tester run/build steps
-  - decide whether current iPad/tablet support should remain enabled for the first release candidate
-- Do a final privacy / permissions / review-surface pass:
-  - make sure app permissions, privacy manifest, and App Store-facing behavior match the actual shipped feature set
+  - confirm production versioning/build-number workflow
+  - decide whether current iPad/tablet support should remain enabled for the first public release candidate
+  - prepare App Store metadata, screenshots, support URL, privacy URL, demo/reviewer account, and review notes
+  - create a final public-release archive/build and submit it through the existing App Store Connect app record
+  - choose manual vs automatic release after approval
+  - prepare a short release-notes / "What's New" entry for the public version
+  - settle payment / membership unlock behavior for App Review:
+    - native Membership pricing/UI currently exists
+    - real checkout is not connected in the cofounder build
+    - public launch likely needs an Apple-compliant in-app purchase/subscription direction for digital lesson access
+  - convert Apple Developer enrollment from individual to Pailin Abroad LLC / organization if possible before public launch so App Store seller identity matches the company
+  - final-check account-management surfaces for public review:
+    - cancel membership
+    - delete account
+    - legal pages
+    - contact/support
+  - do a final privacy / permissions / review-surface pass:
+    - make sure app permissions, privacy manifest, and App Store-facing behavior match the actual shipped feature set
+  - final launch QA checklist:
+    - fresh install / first launch
+    - Google sign-in and normal sign-out/log-out
+    - onboarding completion
+    - free-plan pathway / library access and locked lesson handling
+    - member account pathway / library access
+    - lesson playback, guided study, practice answers, and completion write-back
+    - account settings, delete-account surface, legal/privacy/support links
+    - airplane/poor-network behavior on auth, pathway, lesson library, and lesson detail
+    - crash-free smoke test on the oldest iPhone/iOS version expected for launch
+  - current update policy note:
+    - native binary/code changes require a new uploaded build and App Review before App Store users receive them
+    - backend-only or content/data changes can affect the live app without a new App Store version if the shipped app already supports that behavior
+    - any change to App Store metadata / screenshots / privacy answers may still require App Store Connect submission/review depending on the field and app-version state
+- Practical "actually ship to the App Store" checklist for this app:
+  - Apple account / business setup
+    - make sure the Apple Developer Program membership is active and the existing App Store Connect app record is owned by the correct team
+    - strongly prefer converting enrollment to the company / LLC before launch so the App Store seller name matches the business customers expect
+    - confirm banking and tax forms are completed in App Store Connect so paid apps / subscriptions can go live without payout blockers
+  - Product / monetization compliance
+    - decide the real public payment model before submission
+    - if the app sells digital lesson access or memberships inside iOS, set up Apple in-app purchases / auto-renewable subscriptions in App Store Connect
+    - finish the native purchase flow, purchase restore flow, and subscription state syncing with the backend
+    - expose Apple-required account surfaces in the shipped app:
+      - restore purchases
+      - manage / cancel subscription guidance
+      - account deletion
+    - make sure the review build does not present a broken or fake checkout path
+  - App configuration / signing
+    - lock the production bundle identifier, app name, version number, and build-number process
+    - verify signing, certificates, and provisioning work on the machine used for release builds
+    - create a production EAS/iOS build profile if it is not already finalized
+    - confirm app icon, launch assets, and required Info.plist usage descriptions are final
+  - Privacy / legal / policy
+    - complete the App Privacy questionnaire in App Store Connect using the app's actual data collection and tracking behavior
+    - make sure the privacy policy URL and support URL are public, stable, and match the live app behavior
+    - verify Terms, Privacy, contact/support, and delete-account flows are reachable in-app without special reviewer knowledge
+    - review ATT/tracking implications and only request tracking permission if the app truly uses it
+    - confirm the privacy manifest and any third-party SDK declarations match the shipped dependencies
+  - App Store listing prep
+    - write the production app description, subtitle, keywords, category choice, age rating, and "What's New" text
+    - capture the final screenshots for required iPhone sizes, and iPad too if tablet support stays enabled
+    - decide whether preview video is needed or whether screenshots are sufficient for v1
+    - prepare reviewer notes that explain:
+      - how to sign in
+      - how free access vs membership works
+      - where subscription / restore / account deletion live
+      - any temporary limitations or test credentials
+  - Release QA before upload
+    - run a full smoke test on the exact release candidate build, not only in Expo/dev mode
+    - verify sign in, onboarding, lesson playback, completion tracking, membership gating, restore purchases, and account deletion on-device
+    - test at least one real subscription / purchase in Sandbox if subscriptions are part of launch
+    - verify all external links, legal links, and support flows from a clean install
+    - confirm there are no placeholder screens, dead buttons, debug logs, or unfinished paywall text in the release build
+  - Build / submit / release
+    - archive and upload the final build
+    - attach the build to the App Store version in App Store Connect
+    - submit any in-app purchase products together with the app version if required
+    - complete export-compliance and content-rights answers
+    - choose manual release for the first launch unless there is a strong reason to auto-release immediately after approval
+    - after approval, do one final production sanity check before pressing release
+  - Post-approval readiness
+    - make sure support inboxes / contact channels are monitored once the app is live
+    - prepare a fast-follow patch plan in case App Review or first users surface a launch issue
+    - keep version/build notes so the team can quickly map live issues back to the submitted binary
 
 ## Onboarding (Current Native Direction)
 - Native onboarding is now implemented in-app and should be treated as part of the current mobile flow, not a placeholder.
@@ -535,8 +631,8 @@
   - Google/default account data may exist before onboarding, but onboarding profile selection is intended to overwrite it
   - layout has had a compact/small-screen responsiveness pass and the Google dot-count/password-step skip behavior is now correct
 - Current onboarding caveats:
-  - payment/checkout is still not implemented from the upgrade CTA
-  - broader end-to-end QA across more auth/account edge cases is still recommended during the next testing pass
+  - payment/checkout remains intentionally outside the current cofounder-testing build; upgrade CTAs route to the native membership/payment handoff surface for this round
+  - broader end-to-end QA across more auth/account edge cases can continue during cofounder testing, but no known onboarding blocker remains for handoff
 
 ## My Pathway (Current Native Direction)
 - Added web-aligned theme tokens in `src/theme/theme.ts` for:
@@ -556,6 +652,15 @@
   - keeps the guest/no-account homepage flow unchanged
   - uses live auth session + backend profile data for account and membership state
   - uses backend-backed pathway lessons, completed lessons, and user stats
+  - app-side pathway loading has been split so the main `My Pathway` screen no longer waits for every related data source:
+    - `pathway lessons` remain the only blocking load for the main Continue Learning / Up Next content
+    - `stats`, `completed lessons`, and the full lesson index now load independently and fill in progress details afterward
+    - the full lesson index uses the existing app-side in-memory cache and no longer blocks the first pathway render
+    - timing logs use the `[pathway-load]` prefix and currently report per-request elapsed time for `pathway lessons`, `stats`, `completed lessons`, and `lesson index`
+  - recent measured behavior after app-side split:
+    - cold / signed-in pathway render is now gated by `/api/user/pathway-lessons`
+    - `stats` and `completed lessons` can still be slow, but they no longer block the main pathway screen
+    - further raw first-render improvement likely requires backend endpoint profiling/optimization or a native skeleton shell that renders before pathway lessons arrive
   - free-plan lock treatment still mirrors the web frontend rule:
     - only the first lesson of each level is available without membership
   - keeps visual styling aligned with the web palette:
@@ -602,8 +707,8 @@
     - Exercise bank section detail
   - lesson detail (`app/lessons/[id].tsx`) remains intentionally outside the tab navigator so it can keep the full-screen guided-study treatment without the bottom nav
 - Current Pathway limitations:
-  - lesson completion writes are now wired in native, but pathway/progress should still be regression-tested against the new completion flow
-  - the end-of-lesson completion popup still needs its final intended checkmark image asset
+  - lesson completion writes are wired in native and pathway/progress has been regression-checked for the current handoff round
+  - the end-of-lesson completion popup is polished enough for cofounder testing; any future asset swap is minor visual follow-up
   - `Continue learning` depends on the current backend pathway endpoint behavior
   - `liked lessons` remain intentionally excluded from the app MVP for now
   - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1
@@ -656,6 +761,7 @@
   - current page has already moved beyond the earlier placeholder shell and now includes inline profile editing
   - dev-only onboarding/dev-tools controls have been removed from the page
   - Profile no longer carries the Membership entry point
+  - English account-exit copy now uses `Log Out` instead of `Sign Out`
   - account-management detail should now be treated as split across Profile, Settings, and More rather than all living on Profile
 - Next recommended work:
   - continue cleanup/polish across `More`, `Settings`, and Membership/payment surfaces as needed

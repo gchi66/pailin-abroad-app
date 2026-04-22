@@ -202,7 +202,18 @@ export function LearningProgressScreen() {
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const { allLessons, completedLessons, completedProgress, isLoading, pathwayRows, resumeRow, stats } = usePathwayData({
+  const {
+    allLessons,
+    completedLessons,
+    completedProgress,
+    isCompletedProgressLoading,
+    isLessonIndexLoading,
+    isLoading,
+    isStatsLoading,
+    pathwayRows,
+    resumeRow,
+    stats,
+  } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
   });
@@ -214,7 +225,7 @@ export function LearningProgressScreen() {
   const stageBreakdown = useMemo(() => getStageBreakdown(allLessons, completedLessons), [allLessons, completedLessons]);
   const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
 
-  if (isLoading) {
+  if (isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading) {
     return <PageLoadingState language={uiLanguage} />;
   }
 

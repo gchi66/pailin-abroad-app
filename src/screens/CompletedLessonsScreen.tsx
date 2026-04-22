@@ -50,12 +50,12 @@ export function CompletedLessonsScreen() {
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const { completedProgress, errorMessage, isLoading } = usePathwayData({
+  const { completedProgress, errorMessage, isCompletedProgressLoading } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
   });
 
-  if (isLoading) {
+  if (isCompletedProgressLoading) {
     return <PageLoadingState language={uiLanguage} />;
   }
 
