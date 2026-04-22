@@ -1152,6 +1152,18 @@ const getNodeHeadingText = (node: LessonRichNode, contentLang: UiLanguage) => {
   return (inlineText || directText).replace(/\s+/g, ' ').trim();
 };
 
+const PHRASE_LINK_PLACEHOLDER_RE = /\blink\s*xx\b/i;
+
+const isPhraseLinkPlaceholderNode = (node: LessonRichNode, contentLang: UiLanguage) => {
+  const inlineText = Array.isArray(node.inlines)
+    ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join(' ')
+    : '';
+  const directText = resolveNodeText(node, contentLang);
+  const combinedText = `${inlineText} ${directText}`.replace(/\s+/g, ' ').trim();
+
+  return PHRASE_LINK_PLACEHOLDER_RE.test(combinedText);
+};
+
 const isBoldParagraphNode = (node: LessonRichNode) => {
   if (node.kind !== 'paragraph' || node.audio_key || node.audio_seq) {
     return false;
@@ -2284,18 +2296,20 @@ export default function LessonDetailShellScreen() {
       ? pageCopy.greatJob
       : pageCopy.tryAgain
     : pageCopy.checkAnswers;
-  const sectionCounterLabel =
-    sectionCount === 0
-      ? pageCopy.noSectionsYet
-      : pageCopy.sectionCounter(activeSectionIndex, sectionCount);
-  const sectionMenuLabel = pageCopy.sectionMenuLabel;
-  const startLessonLabel = isLessonReady ? uiCopy.startLesson : uiCopy.loadingLessonCta;
-  const coverMinHeight = Math.max(windowHeight || 0, 720);
-  const backToLibraryLabel = uiCopy.backToLibrary;
   const coverLessonNumber =
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
       : lessonCover?.lesson_order?.toString() ?? '-';
+  const studyCounterLabel =
+    sectionCount === 0
+      ? `${uiCopy.lessonLabel} ${coverLessonNumber}`
+      : pageLanguage === 'th'
+        ? `${uiCopy.lessonLabel} ${coverLessonNumber} • ส่วน ${activeSectionIndex + 1}/${sectionCount}`
+        : `${uiCopy.lessonLabel} ${coverLessonNumber} • Section ${activeSectionIndex + 1}/${sectionCount}`;
+  const sectionMenuLabel = pageCopy.sectionMenuLabel;
+  const startLessonLabel = isLessonReady ? uiCopy.startLesson : uiCopy.loadingLessonCta;
+  const coverMinHeight = Math.max(windowHeight || 0, 720);
+  const backToLibraryLabel = uiCopy.backToLibrary;
   const translateToThaiLabel = pageCopy.translateToThaiLabel;
   const translateToEnglishLabel = pageCopy.translateToEnglishLabel;
   const backstoryToggleLabel = isBackstoryExpanded
@@ -3955,6 +3969,10 @@ export default function LessonDetailShellScreen() {
     const hasAccent = applyNodeHasAccent(node);
     const hasAudio = Boolean(node.audio_key || node.audio_seq);
 
+    if (options?.isPhraseCard && isPhraseLinkPlaceholderNode(node, contentLang)) {
+      return null;
+    }
+
     if (node.kind === 'spacer') {
       return <View key={nodeKey} style={styles.richSpacer} />;
     }
@@ -5487,7 +5505,7 @@ export default function LessonDetailShellScreen() {
                       </Pressable>
 
                       <AppText language={pageLanguage} variant="caption" style={styles.studyCounterText}>
-                        {sectionCounterLabel}
+                        {studyCounterLabel}
                       </AppText>
 
                       <View style={styles.studyNavActions}>
@@ -6452,9 +6470,10 @@ const styles = StyleSheet.create({
   studyCounterText: {
     flex: 1,
     textAlign: 'center',
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    lineHeight: 14,
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: theme.typography.weights.semibold,
   },
   studyNavActions: {
     flexDirection: 'row',
@@ -6653,7 +6672,7 @@ const styles = StyleSheet.create({
   phraseBodyText: {
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    lineHeight: theme.typography.lineHeights.md,
   },
   phraseListRow: {
     marginBottom: theme.spacing.xs,
@@ -6668,6 +6687,7 @@ const styles = StyleSheet.create({
   },
   phraseAudioText: {
     paddingTop: 0,
+    lineHeight: theme.typography.lineHeights.md,
   },
   phraseLeadAudioText: {
     fontWeight: theme.typography.weights.semibold,
