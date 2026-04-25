@@ -250,6 +250,7 @@ const CYAN_HIGHLIGHT = '#00ffff';
 const APPLY_ACCENT_COLOR = '#7BE6C9';
 const UNDERSTAND_HIGHLIGHTS = new Set(['#f4cccc', '#d9ead3', '#c9daf7', '#c9daf8']);
 const INLINE_MARKER_RE = /(\[X\]|\[✓\]|\[-\])/g;
+const SPEAKER_PREFIX_RE = /^\s*((?:[A-Za-z][^:[\n]{0,40}|[\u0E00-\u0E7F][^:[\n]{0,40}):\s*)/;
 const INLINE_MARKER_COLORS: Record<string, string> = {
   '[X]': '#FD6969',
   '[✓]': '#3CA0FE',
@@ -1161,6 +1162,18 @@ const getApplyNodeText = (node: LessonRichNode, contentLang: UiLanguage) => {
   const directText = resolveNodeText(node, contentLang);
 
   return (inlineText || directText).replace(/\s+/g, ' ').trim();
+};
+
+const richNodeHasSpeakerPrefix = (node: LessonRichNode, contentLang: UiLanguage) => {
+  const inlineText = Array.isArray(node.inlines)
+    ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join('')
+    : '';
+  const directText = resolveNodeText(node, contentLang);
+  const combinedText = inlineText || directText;
+
+  return combinedText
+    .split('\n')
+    .some((line) => SPEAKER_PREFIX_RE.test(line.trimStart()));
 };
 
 const PHRASE_LINK_PLACEHOLDER_RE = /\blink\s*xx\b/i;
@@ -3424,7 +3437,10 @@ export default function LessonDetailShellScreen() {
     setAudioRate(nextRate);
   };
 
-  const renderApplyInlines = (inlines: LessonRichInline[] | null | undefined) => {
+  const renderApplyInlines = (
+    inlines: LessonRichInline[] | null | undefined,
+    options?: { treatAsDialogue?: boolean }
+  ) => {
     if (!Array.isArray(inlines) || !inlines.length) {
       return null;
     }
@@ -3435,15 +3451,96 @@ export default function LessonDetailShellScreen() {
         return null;
       }
 
+      const baseApplyTextStyle = [
+        styles.applyInlineText,
+        inline.bold ? styles.applyInlineBold : null,
+        inline.italic ? styles.applyInlineItalic : null,
+        inline.underline ? styles.applyInlineUnderline : null,
+      ];
+
+      const renderApplyLinePieces = (text: string, lineKey: string, isThaiLine: boolean) => {
+        const pieces = text
+          .split(/([\u0E00-\u0E7F]+|\d+(?:[.,]\d+)?|[.,!?;:'"(){}\[\]<>\\/\-–—…]+)/)
+          .filter(Boolean);
+
+        return pieces.map((piece, pieceIndex) => {
+          const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
+          const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
+          const isWhitespaceOnly = /^\s+$/.test(piece);
+          const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
+          const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
+          const adjacentThai = prevHasThai || nextHasThai;
+          const shouldMutePiece =
+            isThaiLine &&
+            (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
+
+          return (
+            <Text
+              key={`${lineKey}-${pieceIndex}`}
+              style={[
+                baseApplyTextStyle,
+                shouldMutePiece ? styles.richInlineThaiMuted : null,
+              ]}>
+              {piece}
+            </Text>
+          );
+        });
+      };
+
+      const renderDialogueText = (text: string, keyPrefix: string) => {
+        const lines = text.split('\n');
+
+        return lines.flatMap((line, lineIndex) => {
+          const lineKey = `${keyPrefix}-line-${lineIndex}`;
+          const isThaiLine = contentLang === 'th' && THAI_TEXT_RE.test(line);
+          const speakerPrefixMatch = line.match(SPEAKER_PREFIX_RE);
+          const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
+          const bodyText = speakerPrefix ? line.slice(speakerPrefix.length) : line;
+          const renderedLine: React.ReactNode[] = [];
+
+          if (speakerPrefix) {
+            const isEnglishSpeaker = /^[A-Za-z]/.test(speakerPrefix.trimStart());
+            renderedLine.push(
+              <Text
+                key={`${lineKey}-speaker`}
+                style={[
+                  baseApplyTextStyle,
+                  styles.richSpeakerPrefix,
+                  isEnglishSpeaker ? null : styles.richSpeakerPrefixThai,
+                ]}>
+                {speakerPrefix}
+              </Text>
+            );
+          }
+
+          renderedLine.push(...renderApplyLinePieces(bodyText, `${lineKey}-body`, isThaiLine));
+
+          if (lineIndex < lines.length - 1) {
+            renderedLine.push(
+              <Text
+                key={`${lineKey}-break`}
+                style={[baseApplyTextStyle, options?.treatAsDialogue ? styles.richAudioLineBreakGap : null]}>
+                {'\n'}
+              </Text>
+            );
+          }
+
+          return renderedLine;
+        });
+      };
+
+      if (options?.treatAsDialogue) {
+        return (
+          <Text key={`inline-${index}`} style={baseApplyTextStyle}>
+            {renderDialogueText(textValue, `apply-inline-${index}`)}
+          </Text>
+        );
+      }
+
       return (
         <Text
           key={`inline-${index}`}
-          style={[
-            styles.applyInlineText,
-            inline.bold ? styles.applyInlineBold : null,
-            inline.italic ? styles.applyInlineItalic : null,
-            inline.underline ? styles.applyInlineUnderline : null,
-          ]}>
+          style={baseApplyTextStyle}>
           {textValue}
         </Text>
       );
@@ -3481,7 +3578,7 @@ export default function LessonDetailShellScreen() {
             language={textLanguage}
             variant="body"
             style={[styles.applyParagraphText, emphasized ? styles.applyInstructionText : null]}>
-            {renderApplyInlines(node.inlines)}
+            {renderApplyInlines(node.inlines, { treatAsDialogue: compact })}
           </AppText>
         </View>
       );
@@ -3591,6 +3688,177 @@ export default function LessonDetailShellScreen() {
     void Linking.openURL(nextHref).catch(() => undefined);
   };
 
+  const renderRichAudioBulletLines = (
+    inlines: LessonRichInline[] | null | undefined,
+    keyPrefix: string,
+    options?: {
+      enableHighlights?: boolean;
+      phraseId?: string;
+      phraseVariant?: number | null;
+      isPhraseCard?: boolean;
+      phraseShowDivider?: boolean;
+      phraseIsLeadAudio?: boolean;
+    }
+  ) => {
+    if (!Array.isArray(inlines) || !inlines.length) {
+      return null;
+    }
+
+    const normalizedSpans: Array<LessonRichInline | { text: '\n'; isBreak: true }> = [];
+    inlines.forEach((inline) => {
+      const textValue = cleanAudioTags(resolveRichInlineText(inline, contentLang));
+      if (!textValue) {
+        return;
+      }
+
+      const parts = textValue.split('\n');
+      parts.forEach((part, partIndex) => {
+        if (part) {
+          normalizedSpans.push({ ...inline, text: part });
+        }
+        if (partIndex < parts.length - 1) {
+          normalizedSpans.push({ text: '\n', isBreak: true });
+        }
+      });
+    });
+
+    const lines: LessonRichInline[][] = [];
+    let currentLine: LessonRichInline[] = [];
+
+    normalizedSpans.forEach((span) => {
+      if ('isBreak' in span && span.isBreak) {
+        lines.push(currentLine);
+        currentLine = [];
+        return;
+      }
+      currentLine.push(span as LessonRichInline);
+    });
+    if (currentLine.length) {
+      lines.push(currentLine);
+    }
+
+    const shouldShowHighlightFor = (inline: LessonRichInline) => {
+      const highlightColor = typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
+      return options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
+    };
+
+    const renderLineContent = (lineSpans: LessonRichInline[], lineIndex: number) => {
+      const lineText = lineSpans.map((span) => String(span.text ?? '')).join('');
+      const isThaiLine = contentLang === 'th' && THAI_TEXT_RE.test(lineText);
+      const speakerPrefixMatch = lineText.match(SPEAKER_PREFIX_RE);
+      const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
+      let remainingPrefix = speakerPrefix.length;
+      const renderedSpans: React.ReactNode[] = [];
+
+      lineSpans.forEach((inline, spanIndex) => {
+        const rawText = String(inline.text ?? '');
+        if (!rawText) {
+          return;
+        }
+
+        const baseTextStyle = [
+          styles.richInlineText,
+          inline.bold ? styles.richInlineBold : null,
+          inline.italic ? styles.richInlineItalic : null,
+          inline.underline ? styles.richInlineUnderline : null,
+          shouldShowHighlightFor(inline) ? styles.richInlineHighlight : null,
+          shouldShowHighlightFor(inline) && String(inline.highlight).trim().toLowerCase() === '#f4cccc'
+            ? styles.richInlineHighlightPink
+            : null,
+          shouldShowHighlightFor(inline) && String(inline.highlight).trim().toLowerCase() === '#d9ead3'
+            ? styles.richInlineHighlightGreen
+            : null,
+          shouldShowHighlightFor(inline) &&
+          (String(inline.highlight).trim().toLowerCase() === '#c9daf7' ||
+            String(inline.highlight).trim().toLowerCase() === '#c9daf8')
+            ? styles.richInlineHighlightBlue
+            : null,
+        ];
+
+        const pieces = rawText
+          .split(/([\u0E00-\u0E7F]+|\d+(?:[.,]\d+)?|[.,!?;:'"(){}\[\]<>\\/\-–—…]+)/)
+          .filter((piece) => piece !== '');
+
+        let consumedChars = 0;
+        pieces.forEach((piece, pieceIndex) => {
+          const pieceStart = consumedChars;
+          const pieceEnd = pieceStart + piece.length;
+          consumedChars = pieceEnd;
+
+          const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
+          const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
+          const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
+          const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
+          const isWhitespaceOnly = /^\s+$/.test(piece);
+          const shouldMutePiece =
+            isThaiLine &&
+            (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && (prevHasThai || nextHasThai)));
+          const pieceWithinSpeakerPrefix = remainingPrefix > 0 && pieceStart < remainingPrefix;
+          const pieceCrossesSpeakerBoundary = remainingPrefix > 0 && pieceEnd > remainingPrefix;
+
+          const pushPiece = (text: string, extraStyle?: object | null) => {
+            const node = (
+              <Text
+                key={`${keyPrefix}-line-${lineIndex}-${spanIndex}-${pieceIndex}-${renderedSpans.length}`}
+                onPress={typeof inline.link === 'string' && inline.link.trim()
+                  ? () => handleOpenRichLink(inline.link as string)
+                  : undefined}
+                style={[
+                  baseTextStyle,
+                  shouldMutePiece ? styles.richInlineThaiMuted : null,
+                  typeof inline.link === 'string' && inline.link.trim() ? styles.richInlineLink : null,
+                  extraStyle ?? null,
+                ]}>
+                {text}
+              </Text>
+            );
+            renderedSpans.push(node);
+          };
+
+          if (pieceWithinSpeakerPrefix) {
+            if (pieceCrossesSpeakerBoundary) {
+              const prefixPart = piece.slice(0, remainingPrefix - pieceStart);
+              const restPart = piece.slice(remainingPrefix - pieceStart);
+              pushPiece(prefixPart, shouldMutePiece ? styles.richSpeakerPrefixThai : styles.richSpeakerPrefix);
+              if (restPart) {
+                pushPiece(restPart);
+              }
+            } else {
+              pushPiece(piece, shouldMutePiece ? styles.richSpeakerPrefixThai : styles.richSpeakerPrefix);
+            }
+          } else {
+            pushPiece(piece);
+          }
+        });
+
+        remainingPrefix = Math.max(0, remainingPrefix - rawText.length);
+      });
+
+      return renderedSpans;
+    };
+
+    return (
+      <View style={styles.richAudioLineStack}>
+        {lines.map((lineSpans, lineIndex) => (
+          <AppText
+            key={`${keyPrefix}-row-${lineIndex}`}
+            language={contentLang}
+            variant="body"
+            style={[
+              styles.understandAudioText,
+              contentLang === 'th' ? styles.richThaiTextCompact : null,
+              options?.isPhraseCard ? styles.phraseAudioText : null,
+              styles.richAudioTextCompact,
+              lineIndex > 0 ? styles.richAudioTranslationRow : null,
+              options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
+            ]}>
+            {renderLineContent(lineSpans, lineIndex)}
+          </AppText>
+        ))}
+      </View>
+    );
+  };
+
   const renderRichInlines = (
     inlines: LessonRichInline[] | null | undefined,
     keyPrefix: string,
@@ -3623,7 +3891,7 @@ export default function LessonDetailShellScreen() {
           : null,
       ];
       const renderThaiSegments = (part: string, partKey: string) => {
-        if (!(contentLang === 'th' && options?.muteThaiInAudioRow === true)) {
+        if (options?.muteThaiInAudioRow !== true) {
           return [
             <Text key={`${partKey}-plain`} style={baseTextStyle}>
               {part}
@@ -3635,37 +3903,64 @@ export default function LessonDetailShellScreen() {
 
         return lines.flatMap((line, lineIndex) => {
           const lineKey = `${partKey}-line-${lineIndex}`;
-          const isThaiLine = THAI_TEXT_RE.test(line);
-          const pieces = line
+          const isThaiLine = contentLang === 'th' && THAI_TEXT_RE.test(line);
+          const speakerPrefixMatch = line.match(SPEAKER_PREFIX_RE);
+          const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
+          const bodyText = speakerPrefix ? line.slice(speakerPrefix.length) : line;
+
+          const renderLinePieces = (text: string, bodyKey: string) => {
+            const pieces = text
             .split(/([\u0E00-\u0E7F]+|\d+(?:[.,]\d+)?|[.,!?;:'"(){}\[\]<>\\/\-–—…]+)/)
             .filter(Boolean);
 
-          const renderedLine = pieces.map((piece, pieceIndex) => {
-            const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
-            const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
-            const isWhitespaceOnly = /^\s+$/.test(piece);
-            const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
-            const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
-            const adjacentThai = prevHasThai || nextHasThai;
-            const shouldMutePiece =
-              isThaiLine &&
-              (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
+            return pieces.map((piece, pieceIndex) => {
+              const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
+              const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
+              const isWhitespaceOnly = /^\s+$/.test(piece);
+              const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
+              const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
+              const adjacentThai = prevHasThai || nextHasThai;
+              const shouldMutePiece =
+                isThaiLine &&
+                (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
 
-            return (
+              return (
+                <Text
+                  key={`${bodyKey}-${pieceIndex}`}
+                  style={[
+                    baseTextStyle,
+                    shouldMutePiece ? styles.richInlineThaiMuted : null,
+                  ]}>
+                  {piece}
+                </Text>
+              );
+            });
+          };
+
+          const renderedLine: React.ReactNode[] = [];
+
+          if (speakerPrefix) {
+            const isEnglishSpeaker = /^[A-Za-z]/.test(speakerPrefix.trimStart());
+            renderedLine.push(
               <Text
-                key={`${lineKey}-${pieceIndex}`}
+                key={`${lineKey}-speaker`}
                 style={[
                   baseTextStyle,
-                  shouldMutePiece ? styles.richInlineThaiMuted : null,
+                  styles.richSpeakerPrefix,
+                  isEnglishSpeaker ? null : styles.richSpeakerPrefixThai,
                 ]}>
-                {piece}
+                {speakerPrefix}
               </Text>
             );
-          });
+          }
+
+          renderedLine.push(...renderLinePieces(bodyText, `${lineKey}-body`));
 
           if (lineIndex < lines.length - 1) {
             renderedLine.push(
-              <Text key={`${lineKey}-break`} style={baseTextStyle}>
+              <Text
+                key={`${lineKey}-break`}
+                style={[baseTextStyle, options?.muteThaiInAudioRow === true ? styles.richAudioLineBreakGap : null]}>
                 {'\n'}
               </Text>
             );
@@ -3742,14 +4037,17 @@ export default function LessonDetailShellScreen() {
     const audioKey = snippet?.audio_key?.trim() || node.audio_key?.trim() || null;
     const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
     const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
+    const hasSpeakerPrefix = richNodeHasSpeakerPrefix(node, contentLang);
+    const shouldUseCompactAudioSpacing = !hasSpeakerPrefix;
 
     return (
-      <View key={nodeKey} style={styles.phraseAudioBlock}>
+      <View key={nodeKey} style={[styles.phraseAudioBlock, shouldUseCompactAudioSpacing ? styles.phraseAudioBlockCompact : null]}>
         {options?.isPhraseCard && options.phraseShowDivider ? <View style={styles.phraseDivider} /> : null}
         <View
           style={[
             styles.understandAudioRow,
             options?.isPhraseCard ? styles.phraseAudioRow : null,
+            options?.isPhraseCard && shouldUseCompactAudioSpacing ? styles.phraseAudioRowCompact : null,
             indentStyle,
             hasAccent ? styles.applyAccentBlock : null,
           ]}>
@@ -3768,16 +4066,9 @@ export default function LessonDetailShellScreen() {
               void handleToggleSnippet(snippet);
             }}
           />
-          <AppText
-            language={contentLang}
-            variant="body"
-            style={[
-              styles.understandAudioText,
-              options?.isPhraseCard ? styles.phraseAudioText : null,
-              options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
-            ]}>
-            {renderRichInlines(node.inlines, nodeKey, { ...options, muteThaiInAudioRow: true })}
-          </AppText>
+          <View style={styles.richAudioTextWrap}>
+            {renderRichAudioBulletLines(node.inlines, nodeKey, options)}
+          </View>
         </View>
       </View>
     );
@@ -3882,7 +4173,10 @@ export default function LessonDetailShellScreen() {
                 void handleToggleSnippet(snippet);
               }}
             />
-            <AppText language={contentLang} variant="body" style={styles.richTableAudioText}>
+            <AppText
+              language={contentLang}
+              variant="body"
+              style={[styles.richTableAudioText, contentLang === 'th' ? styles.richThaiTableTextCompact : null]}>
               {textValue || ' '}
             </AppText>
           </View>
@@ -3898,7 +4192,11 @@ export default function LessonDetailShellScreen() {
           key={`${cellKey}-line-${lineIndex}`}
           language={contentLang}
           variant="body"
-          style={[styles.richTableCellText, options?.isHeaderRow ? styles.richTableHeaderText : null]}>
+          style={[
+            styles.richTableCellText,
+            contentLang === 'th' ? styles.richThaiTableTextCompact : null,
+            options?.isHeaderRow ? styles.richTableHeaderText : null,
+          ]}>
           {textValue}
         </AppText>
       );
@@ -4133,7 +4431,12 @@ export default function LessonDetailShellScreen() {
           key={nodeKey}
           language={contentLang}
           variant="body"
-          style={[styles.richParagraph, styles.richSubheader, options?.isPhraseCard ? styles.phraseHeading : null]}>
+          style={[
+            styles.richParagraph,
+            contentLang === 'th' ? styles.richThaiTextCompact : null,
+            styles.richSubheader,
+            options?.isPhraseCard ? styles.phraseHeading : null,
+          ]}>
           {renderRichInlines(node.inlines, nodeKey, options)}
         </AppText>
       );
@@ -4191,6 +4494,7 @@ export default function LessonDetailShellScreen() {
             variant="body"
             style={[
               styles.richListText,
+              contentLang === 'th' ? styles.richThaiTextCompact : null,
               options?.isPhraseCard ? styles.phraseBodyText : null,
               hasAccent ? styles.applyAccentBlock : null,
             ]}>
@@ -4220,6 +4524,7 @@ export default function LessonDetailShellScreen() {
             variant="body"
             style={[
               styles.richListText,
+              contentLang === 'th' ? styles.richThaiTextCompact : null,
               options?.isPhraseCard ? styles.phraseBodyText : null,
               hasAccent ? styles.applyAccentBlock : null,
             ]}>
@@ -4242,6 +4547,7 @@ export default function LessonDetailShellScreen() {
           variant="body"
           style={[
             styles.richParagraph,
+            contentLang === 'th' ? styles.richThaiTextCompact : null,
             indentStyle,
             phraseContinuationStyle,
             options?.isPhraseCard ? styles.phraseBodyText : null,
@@ -6848,8 +7154,8 @@ const styles = StyleSheet.create({
   },
   phraseBodyText: {
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    fontSize: 15,
+    lineHeight: 22,
   },
   phraseListRow: {
     marginBottom: theme.spacing.xs,
@@ -6857,14 +7163,21 @@ const styles = StyleSheet.create({
   phraseAudioBlock: {
     gap: theme.spacing.sm,
   },
+  phraseAudioBlockCompact: {
+    gap: theme.spacing.xs,
+  },
   phraseAudioRow: {
     alignItems: 'flex-start',
     gap: theme.spacing.xs,
     marginTop: theme.spacing.sm,
   },
+  phraseAudioRowCompact: {
+    marginTop: theme.spacing.xs,
+  },
   phraseAudioText: {
     paddingTop: 0,
-    lineHeight: theme.typography.lineHeights.md,
+    fontSize: 15,
+    lineHeight: 21,
   },
   phraseLeadAudioText: {
     fontWeight: theme.typography.weights.semibold,
@@ -6895,8 +7208,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F9FD',
   },
   richParagraph: {
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 25,
   },
   richSubheader: {
     fontWeight: theme.typography.weights.semibold,
@@ -6904,8 +7217,8 @@ const styles = StyleSheet.create({
   },
   richInlineText: {
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 25,
   },
   richInlineBold: {
     fontWeight: theme.typography.weights.semibold,
@@ -6916,8 +7229,15 @@ const styles = StyleSheet.create({
   richInlineUnderline: {
     textDecorationLine: 'underline',
   },
+  richSpeakerPrefix: {
+    fontWeight: theme.typography.weights.semibold,
+  },
   richInlineThaiMuted: {
     color: '#8C8D93',
+  },
+  richSpeakerPrefixThai: {
+    color: '#8C8D93',
+    fontWeight: theme.typography.weights.semibold,
   },
   richInlineHighlight: {
     borderRadius: theme.radii.sm,
@@ -6959,11 +7279,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: theme.spacing.sm,
   },
-  understandAudioText: {
+  richAudioTextWrap: {
     flex: 1,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+  },
+  understandAudioText: {
+    fontSize: 15,
+    lineHeight: 18,
+    paddingTop: 0,
+  },
+  richAudioLineStack: {
+    gap: 0,
     paddingTop: 1,
+  },
+  richThaiTextCompact: {
+    lineHeight: 22,
+  },
+  richAudioTextCompact: {
+    lineHeight: 18,
+  },
+  richAudioTranslationRow: {
+    marginTop: 5,
   },
   richBullet: {
     width: 8,
@@ -6975,8 +7310,8 @@ const styles = StyleSheet.create({
   },
   richListText: {
     flex: 1,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 25,
   },
   richNumberBadge: {
     minWidth: 26,
@@ -7057,6 +7392,9 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
     color: theme.colors.text,
+  },
+  richThaiTableTextCompact: {
+    lineHeight: 16,
   },
   richTableHeaderText: {
     fontWeight: theme.typography.weights.semibold,
