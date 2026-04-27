@@ -1,6 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+  Alert,
+  Keyboard,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioMetadata } from 'expo-audio';
@@ -108,6 +121,7 @@ const RICH_PAGER_RIGHT_SWIPE_DISTANCE = 28;
 const RICH_PAGER_LEFT_SWIPE_VELOCITY = 500;
 const RICH_PAGER_RIGHT_SWIPE_VELOCITY = 700;
 const RICH_PAGER_DRAG_LIMIT = 28;
+const LESSON_INPUT_FOCUS_TOP_OFFSET = 120;
 const SECTION_SWIPE_ACTIVE_OFFSET_X: [number, number] = [-10, 10];
 const SECTION_SWIPE_FAIL_OFFSET_Y: [number, number] = [-18, 18];
 const SECTION_SWIPE_LEFT_DISTANCE = 28;
@@ -1176,6 +1190,46 @@ const richNodeHasSpeakerPrefix = (node: LessonRichNode, contentLang: UiLanguage)
     .some((line) => SPEAKER_PREFIX_RE.test(line.trimStart()));
 };
 
+const isSpeakerLineText = (text: string) => {
+  if (!text) {
+    return false;
+  }
+  const colonIdx = text.indexOf(':');
+  const bracketIdx = text.indexOf('[');
+  const hasBracketBeforeColon = bracketIdx >= 0 && (colonIdx < 0 || bracketIdx < colonIdx);
+  if (hasBracketBeforeColon) {
+    return false;
+  }
+  return SPEAKER_PREFIX_RE.test(text);
+};
+
+const isEnglishSpeakerLineText = (text: string) => {
+  if (!isSpeakerLineText(text)) {
+    return false;
+  }
+  return /^[A-Za-z]/.test(text.trimStart());
+};
+
+const speakerLineIsThai = (line: string) => {
+  if (!isSpeakerLineText(line)) {
+    return null;
+  }
+  const match = line.match(SPEAKER_PREFIX_RE);
+  if (!match) {
+    return null;
+  }
+  const speaker = match[0].replace(/:\s*$/, '');
+  const content = line.slice(match[0].length);
+  const speakerHasThai = THAI_TEXT_RE.test(speaker);
+  const contentHasThai = THAI_TEXT_RE.test(content);
+  if (!speakerHasThai && !contentHasThai) {
+    return false;
+  }
+  return true;
+};
+
+const PHRASE_SPEAKER_TURN_RE = /(?:[A-Za-z][A-Za-z ]{0,24}|[\u0E00-\u0E7F][\u0E00-\u0E7F ]{0,24}):\s*/g;
+
 const PHRASE_LINK_PLACEHOLDER_RE = /\blink\s*xx\b/i;
 
 const isPhraseLinkPlaceholderNode = (node: LessonRichNode, contentLang: UiLanguage) => {
@@ -1668,6 +1722,7 @@ export default function LessonDetailShellScreen() {
   const [completionModalState, setCompletionModalState] = useState<'success' | 'incomplete' | null>(null);
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
+  const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSubscriptionRef = useRef<{ remove: () => void } | null>(null);
@@ -1677,10 +1732,77 @@ export default function LessonDetailShellScreen() {
   const conversationAudioMetadataRef = useRef<AudioMetadata>({});
   const audioRateRef = useRef(1);
   const applyInputRef = useRef<TextInput | null>(null);
+  const practiceInputRefsMap = useRef<Record<string, TextInput | null>>({});
+  const richPagerScrollOffsetRef = useRef(0);
+  const applyInputOffsetYRef = useRef(0);
   const richPagerScrollRef = useRef<ScrollView | null>(null);
   const contentScrollRef = useRef<ScrollView | null>(null);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
   const audioTrayExpandCounterRef = useRef(0);
+
+  const dismissLessonKeyboard = useCallback(() => {
+    applyInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, []);
+
+  const scrollLessonInputIntoView = useCallback((insidePager = false, targetY?: number) => {
+    requestAnimationFrame(() => {
+      if (insidePager) {
+        richPagerScrollRef.current?.scrollToEnd({ animated: true });
+      }
+      if (typeof targetY === 'number') {
+        contentScrollRef.current?.scrollTo({
+          y: Math.max(0, targetY - LESSON_INPUT_FOCUS_TOP_OFFSET),
+          animated: true,
+        });
+        return;
+      }
+      contentScrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
+
+  const scrollPracticeInputIntoView = useCallback((inputKey: string) => {
+    setTimeout(() => {
+      const inputRef = practiceInputRefsMap.current[inputKey];
+      if (!inputRef || lessonKeyboardHeight <= 0) {
+        return;
+      }
+
+      inputRef.measureInWindow((x, y, width, height) => {
+        const inputBottom = y + height;
+        const keyboardTop = windowHeight - lessonKeyboardHeight;
+        const overlap = inputBottom - keyboardTop + 24;
+
+        if (overlap > 0) {
+          richPagerScrollRef.current?.scrollTo({
+            y: Math.max(0, richPagerScrollOffsetRef.current + overlap),
+            animated: true,
+          });
+        }
+      });
+    }, 350);
+  }, [lessonKeyboardHeight, windowHeight]);
+
+  useEffect(() => {
+    const handleKeyboardFrameChange = (event: { endCoordinates?: { height?: number } }) => {
+      setLessonKeyboardHeight(event.endCoordinates?.height ?? 0);
+    };
+    const handleKeyboardHide = () => {
+      setLessonKeyboardHeight(0);
+    };
+
+    const frameChangeEvent = typeof Keyboard.addListener === 'function'
+      ? Keyboard.addListener('keyboardWillChangeFrame', handleKeyboardFrameChange)
+      : null;
+    const showEvent = Keyboard.addListener('keyboardDidShow', handleKeyboardFrameChange);
+    const hideEvent = Keyboard.addListener('keyboardDidHide', handleKeyboardHide);
+
+    return () => {
+      frameChangeEvent?.remove();
+      showEvent.remove();
+      hideEvent.remove();
+    };
+  }, []);
 
   useEffect(() => {
     lessonRef.current = lesson;
@@ -2185,6 +2307,27 @@ export default function LessonDetailShellScreen() {
       : activePagerGroups.length;
   const hasMultiplePagerCards = isInnerPagerTab && activeInnerCardCount > 1;
   const isLastPagerCard = !isInnerPagerTab || activeInnerCardCount === 0 || activeInnerCardIndex >= activeInnerCardCount - 1;
+  const richPagerCardHeight = useMemo(() => {
+    const baseHeight = windowHeight < 780 ? 380 : 420;
+    const footerHeight = shouldShowAudioTray ? 150 : 88;
+
+    if (isPracticeTab && lessonKeyboardHeight > 0) {
+      const chromeReserve = isFullscreen ? 120 : 190;
+      const availableHeight = windowHeight - insets.top - chromeReserve - footerHeight - lessonKeyboardHeight;
+      return Math.max(140, availableHeight);
+    }
+
+    if (isFullscreen && isInnerPagerTab) {
+      const availableHeight = windowHeight - insets.top - footerHeight - 170;
+      return Math.max(baseHeight, availableHeight);
+    }
+
+    if (!isPracticeTab) {
+      return baseHeight;
+    }
+
+    return baseHeight;
+  }, [windowHeight, isPracticeTab, lessonKeyboardHeight, insets.top, shouldShowAudioTray, isFullscreen, isInnerPagerTab]);
   const isApplyActionLocked = isApplyTab && !showApplyResponse;
   const isPrimaryActionDisabled = (isInnerPagerTab && !isLastPagerCard) || isApplyActionLocked;
   const handleSetActiveInnerCardIndex = useCallback(
@@ -3722,7 +3865,7 @@ export default function LessonDetailShellScreen() {
       });
     });
 
-    const lines: LessonRichInline[][] = [];
+    let lines: LessonRichInline[][] = [];
     let currentLine: LessonRichInline[] = [];
 
     normalizedSpans.forEach((span) => {
@@ -3737,24 +3880,149 @@ export default function LessonDetailShellScreen() {
       lines.push(currentLine);
     }
 
+    const splitLineSpansAtOffsets = (lineSpans: LessonRichInline[], splitOffsets: number[]) => {
+      if (!splitOffsets.length) {
+        return [lineSpans];
+      }
+
+      const sortedOffsets = [...splitOffsets].sort((a, b) => a - b);
+      const partitions: LessonRichInline[][] = [];
+      let currentPartition: LessonRichInline[] = [];
+      let activeBoundaryIndex = 0;
+      let lineCursor = 0;
+      let trimLeadingWhitespaceForNextPartition = false;
+
+      lineSpans.forEach((span) => {
+        const rawText = String(span.text ?? '');
+        if (!rawText) {
+          return;
+        }
+
+        let localCursor = 0;
+        while (localCursor < rawText.length) {
+          const nextBoundary = sortedOffsets[activeBoundaryIndex];
+          const spanAbsoluteStart = lineCursor + localCursor;
+
+          if (typeof nextBoundary === 'number' && spanAbsoluteStart >= nextBoundary) {
+            if (currentPartition.length) {
+              partitions.push(currentPartition);
+              currentPartition = [];
+            }
+            activeBoundaryIndex += 1;
+            continue;
+          }
+
+          const sliceEnd =
+            typeof nextBoundary === 'number'
+              ? Math.min(rawText.length, localCursor + (nextBoundary - spanAbsoluteStart))
+              : rawText.length;
+
+          const sliceText = rawText.slice(localCursor, sliceEnd);
+          const normalizedSliceText = trimLeadingWhitespaceForNextPartition ? sliceText.replace(/^\s+/, '') : sliceText;
+          trimLeadingWhitespaceForNextPartition = false;
+          if (normalizedSliceText) {
+            currentPartition.push({ ...span, text: normalizedSliceText });
+          }
+          localCursor = sliceEnd;
+
+          if (typeof nextBoundary === 'number' && lineCursor + localCursor >= nextBoundary) {
+            if (currentPartition.length) {
+              partitions.push(currentPartition);
+              currentPartition = [];
+            }
+            activeBoundaryIndex += 1;
+            trimLeadingWhitespaceForNextPartition = true;
+          }
+        }
+
+        lineCursor += rawText.length;
+      });
+
+      if (currentPartition.length) {
+        partitions.push(currentPartition);
+      }
+
+      return partitions.length ? partitions : [lineSpans];
+    };
+
+    const getPhraseSpeakerTurnSplitOffsets = (lineText: string) => {
+      if (!options?.isPhraseCard || !isSpeakerLineText(lineText)) {
+        return [];
+      }
+
+      const matches = [...lineText.matchAll(PHRASE_SPEAKER_TURN_RE)];
+      const firstMatchIndex = matches[0]?.index ?? -1;
+      if (!matches.length || firstMatchIndex < 0 || lineText.slice(0, firstMatchIndex).trim().length > 0) {
+        return [];
+      }
+
+      return matches
+        .map((match) => match.index ?? -1)
+        .filter((index) => index > 0 && /\s/.test(lineText[index - 1] ?? ''));
+    };
+
+    if (options?.isPhraseCard) {
+      lines = lines.flatMap((lineSpans) => {
+        const lineText = lineSpans.map((span) => String(span.text ?? '')).join('');
+        const splitOffsets = getPhraseSpeakerTurnSplitOffsets(lineText);
+        return splitLineSpansAtOffsets(lineSpans, splitOffsets);
+      });
+    }
+
+    const lineMetadata = lines.map((lineSpans) => {
+      const lineText = lineSpans.map((span) => String(span.text ?? '')).join('');
+      const speakerPrefixMatch = lineText.match(SPEAKER_PREFIX_RE);
+      const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
+      const isSpeakerLine = isSpeakerLineText(lineText);
+      const thaiSpeakerState = speakerLineIsThai(lineText);
+      const isThaiLineForPhraseCard =
+        thaiSpeakerState === true || (!isSpeakerLine && THAI_TEXT_RE.test(lineText));
+
+      return {
+        lineText,
+        speakerPrefix,
+        speakerPrefixLength: speakerPrefix.length,
+        isSpeakerLine,
+        isEnglishSpeakerLine: isEnglishSpeakerLineText(lineText),
+        isThaiLineForPhraseCard,
+      };
+    });
+
     const shouldShowHighlightFor = (inline: LessonRichInline) => {
       const highlightColor = typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
       return options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
     };
 
     const renderLineContent = (lineSpans: LessonRichInline[], lineIndex: number) => {
-      const lineText = lineSpans.map((span) => String(span.text ?? '')).join('');
-      const isThaiLine = contentLang === 'th' && THAI_TEXT_RE.test(lineText);
-      const speakerPrefixMatch = lineText.match(SPEAKER_PREFIX_RE);
-      const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
-      let remainingPrefix = speakerPrefix.length;
+      const lineMeta = lineMetadata[lineIndex];
+      const lineText = lineMeta?.lineText ?? lineSpans.map((span) => String(span.text ?? '')).join('');
+      const isThaiLine = options?.isPhraseCard
+        ? Boolean(lineMeta?.isThaiLineForPhraseCard)
+        : contentLang === 'th' && THAI_TEXT_RE.test(lineText);
+      const speakerPrefixLength = lineMeta?.speakerPrefixLength ?? 0;
+      let lineOffset = 0;
       const renderedSpans: React.ReactNode[] = [];
+
+      const getNearestVisibleChar = (startIndex: number, direction: -1 | 1) => {
+        let cursor = startIndex;
+        while (cursor >= 0 && cursor < lineText.length) {
+          const char = lineText[cursor];
+          if (char && !/\s/.test(char)) {
+            return char;
+          }
+          cursor += direction;
+        }
+        return '';
+      };
 
       lineSpans.forEach((inline, spanIndex) => {
         const rawText = String(inline.text ?? '');
         if (!rawText) {
           return;
         }
+
+        const spanOffset = lineOffset;
+        lineOffset += rawText.length;
 
         const baseTextStyle = [
           styles.richInlineText,
@@ -3785,16 +4053,27 @@ export default function LessonDetailShellScreen() {
           const pieceEnd = pieceStart + piece.length;
           consumedChars = pieceEnd;
 
+          const globalPieceStart = spanOffset + pieceStart;
+          const globalPieceEnd = spanOffset + pieceEnd;
           const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
           const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
           const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
           const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
           const isWhitespaceOnly = /^\s+$/.test(piece);
+          const prevVisibleChar = getNearestVisibleChar(globalPieceStart - 1, -1);
+          const nextVisibleChar = getNearestVisibleChar(globalPieceEnd, 1);
+          const punctuationAttachedToThai =
+            THAI_TEXT_RE.test(prevVisibleChar) || (!prevVisibleChar && THAI_TEXT_RE.test(nextVisibleChar));
+          const shouldMutePunctuation = options?.isPhraseCard ? punctuationAttachedToThai : (prevHasThai || nextHasThai);
           const shouldMutePiece =
             isThaiLine &&
-            (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && (prevHasThai || nextHasThai)));
-          const pieceWithinSpeakerPrefix = remainingPrefix > 0 && pieceStart < remainingPrefix;
-          const pieceCrossesSpeakerBoundary = remainingPrefix > 0 && pieceEnd > remainingPrefix;
+            (
+              THAI_TEXT_RE.test(piece) ||
+              (isPunctuationOnly && shouldMutePunctuation) ||
+              ((isNumericOnly || isWhitespaceOnly) && (prevHasThai || nextHasThai))
+            );
+          const pieceWithinSpeakerPrefix = speakerPrefixLength > 0 && globalPieceStart < speakerPrefixLength;
+          const pieceCrossesSpeakerBoundary = speakerPrefixLength > 0 && globalPieceEnd > speakerPrefixLength;
 
           const pushPiece = (text: string, extraStyle?: object | null) => {
             const node = (
@@ -3817,8 +4096,9 @@ export default function LessonDetailShellScreen() {
 
           if (pieceWithinSpeakerPrefix) {
             if (pieceCrossesSpeakerBoundary) {
-              const prefixPart = piece.slice(0, remainingPrefix - pieceStart);
-              const restPart = piece.slice(remainingPrefix - pieceStart);
+              const prefixLengthInsidePiece = speakerPrefixLength - globalPieceStart;
+              const prefixPart = piece.slice(0, prefixLengthInsidePiece);
+              const restPart = piece.slice(prefixLengthInsidePiece);
               pushPiece(prefixPart, shouldMutePiece ? styles.richSpeakerPrefixThai : styles.richSpeakerPrefix);
               if (restPart) {
                 pushPiece(restPart);
@@ -3830,8 +4110,6 @@ export default function LessonDetailShellScreen() {
             pushPiece(piece);
           }
         });
-
-        remainingPrefix = Math.max(0, remainingPrefix - rawText.length);
       });
 
       return renderedSpans;
@@ -3849,7 +4127,10 @@ export default function LessonDetailShellScreen() {
               contentLang === 'th' ? styles.richThaiTextCompact : null,
               options?.isPhraseCard ? styles.phraseAudioText : null,
               styles.richAudioTextCompact,
-              lineIndex > 0 ? styles.richAudioTranslationRow : null,
+              options?.isPhraseCard ? styles.phraseAudioTextCompact : null,
+              lineIndex > 0 && !options?.isPhraseCard ? styles.richAudioTranslationRow : null,
+              options?.isPhraseCard && lineMetadata[lineIndex]?.isEnglishSpeakerLine ? styles.phraseDialogueEnglishTurn : null,
+              options?.isPhraseCard && lineMetadata[lineIndex]?.isThaiLineForPhraseCard ? styles.phraseDialogueThaiTurn : null,
               options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
             ]}>
             {renderLineContent(lineSpans, lineIndex)}
@@ -4041,7 +4322,13 @@ export default function LessonDetailShellScreen() {
     const shouldUseCompactAudioSpacing = !hasSpeakerPrefix;
 
     return (
-      <View key={nodeKey} style={[styles.phraseAudioBlock, shouldUseCompactAudioSpacing ? styles.phraseAudioBlockCompact : null]}>
+      <View
+        key={nodeKey}
+        style={[
+          styles.phraseAudioBlock,
+          shouldUseCompactAudioSpacing ? styles.phraseAudioBlockCompact : null,
+          options?.isPhraseCard && !options.phraseIsLeadAudio ? styles.phraseAudioBlockAfterFirst : null,
+        ]}>
         {options?.isPhraseCard && options.phraseShowDivider ? <View style={styles.phraseDivider} /> : null}
         <View
           style={[
@@ -4070,6 +4357,49 @@ export default function LessonDetailShellScreen() {
             {renderRichAudioBulletLines(node.inlines, nodeKey, options)}
           </View>
         </View>
+      </View>
+    );
+  };
+
+  const renderPhraseDialogueParagraph = (
+    node: LessonRichNode,
+    nodeKey: string,
+    indentStyle: object | null,
+    hasAccent: boolean,
+    options?: {
+      enableHighlights?: boolean;
+      phraseId?: string;
+      phraseVariant?: number | null;
+      isPhraseCard?: boolean;
+      phraseIsLeadAudio?: boolean;
+      phraseTextIndented?: boolean;
+    }
+  ) => {
+    const phraseContinuationStyle =
+      options?.isPhraseCard && options.phraseTextIndented ? styles.phraseContinuationIndent : null;
+    const dialogueText = getApplyNodeText(node, contentLang);
+    const firstDialogueLine = dialogueText.split('\n')[0]?.trim() ?? '';
+    const startsEnglishDialogueTurn = isEnglishSpeakerLineText(firstDialogueLine);
+    const isThaiDialogueTurn = speakerLineIsThai(firstDialogueLine) === true;
+
+    return (
+      <View
+        key={nodeKey}
+        style={[
+          styles.richAudioTextWrap,
+          startsEnglishDialogueTurn ? styles.phraseDialogueEnglishTurn : null,
+          isThaiDialogueTurn ? styles.phraseDialogueThaiTurn : null,
+          indentStyle,
+          phraseContinuationStyle,
+          hasAccent ? styles.applyAccentBlock : null,
+        ]}>
+        {renderRichAudioBulletLines(node.inlines, nodeKey, {
+          enableHighlights: options?.enableHighlights,
+          phraseId: options?.phraseId,
+          phraseVariant: options?.phraseVariant,
+          isPhraseCard: true,
+          phraseIsLeadAudio: options?.phraseIsLeadAudio,
+        })}
       </View>
     );
   };
@@ -4537,6 +4867,10 @@ export default function LessonDetailShellScreen() {
     if (node.kind === 'paragraph') {
       if (hasAudio) {
         return renderRichAudioRow(node, nodeKey, indentStyle, hasAccent, options);
+      }
+
+      if (options?.isPhraseCard && richNodeHasSpeakerPrefix(node, contentLang)) {
+        return renderPhraseDialogueParagraph(node, nodeKey, indentStyle, hasAccent, options);
       }
 
       const isSubheader = isBoldParagraphNode(node);
@@ -5429,6 +5763,9 @@ export default function LessonDetailShellScreen() {
                         return (
                           <TextInput
                             key={`${answerKey}-input-${inputIndex}`}
+                            ref={(ref) => {
+                              practiceInputRefsMap.current[`${answerKey}-input-${inputIndex}`] = ref;
+                            }}
                             multiline
                             numberOfLines={3}
                             placeholder={placeholder}
@@ -5440,7 +5777,10 @@ export default function LessonDetailShellScreen() {
                             ]}
                             value={value}
                             onChangeText={(nextValue) => handlePracticeOpenAnswerChange(exercise.id, item.key, nextValue, inputIndex)}
+                            onFocus={() => scrollPracticeInputIntoView(`${answerKey}-input-${inputIndex}`)}
+                            onSubmitEditing={dismissLessonKeyboard}
                             editable={!evaluation?.loading && markState !== true}
+                            blurOnSubmit
                             textAlignVertical="top"
                           />
                         );
@@ -5597,13 +5937,19 @@ export default function LessonDetailShellScreen() {
                               ) : (
                                 <TextInput
                                   key={`${answerKey}-blank-${rowIndex}-${tokenIndex}`}
+                                  ref={(ref) => {
+                                    practiceInputRefsMap.current[`${answerKey}-blank-${rowIndex}-${tokenIndex}`] = ref;
+                                  }}
                                   value={
                                     item.isExample
                                       ? item.answer
                                       : practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, token.blankId)] ?? ''
                                   }
                                   onChangeText={(value) => handlePracticeBlankAnswerChange(exercise.id, item.key, token.blankId, value)}
+                                  onFocus={() => scrollPracticeInputIntoView(`${answerKey}-blank-${rowIndex}-${tokenIndex}`)}
+                                  onSubmitEditing={dismissLessonKeyboard}
                                   editable={!item.isExample && !evaluation?.loading}
+                                  blurOnSubmit
                                   style={[
                                     styles.practiceFillBlankInput,
                                     token.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
@@ -6007,9 +6353,10 @@ export default function LessonDetailShellScreen() {
                     contentContainerStyle={[
                       styles.contentScrollContent,
                       isFullscreen ? { paddingTop: insets.top + 12 } : null,
+                      lessonKeyboardHeight > 0 ? { paddingBottom: lessonKeyboardHeight + 0 } : null,
                     ]}
-                    keyboardDismissMode="none"
-                    keyboardShouldPersistTaps="always"
+                    keyboardDismissMode="interactive"
+                    keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     style={styles.contentScroll}>
                   <View style={styles.sectionHeaderRow}>
@@ -6269,21 +6616,29 @@ export default function LessonDetailShellScreen() {
                         </AppText>
                       ) : null}
 
-                      <TextInput
-                        ref={applyInputRef}
-                        multiline
-                        numberOfLines={3}
-                        caretHidden={false}
-                        contextMenuHidden={false}
-                        placeholder={pageCopy.applyPlaceholder}
-                        placeholderTextColor="#9C9EA4"
-                        style={[styles.applyInput, showApplyResponse ? styles.applyInputDisabled : null]}
-                        value={applyText}
-                        onChangeText={setApplyText}
-                        editable={!showApplyResponse}
-                        scrollEnabled={false}
-                        textAlignVertical="top"
-                      />
+                      <View
+                        onLayout={(event) => {
+                          applyInputOffsetYRef.current = event.nativeEvent.layout.y;
+                        }}>
+                        <TextInput
+                          ref={applyInputRef}
+                          multiline
+                          numberOfLines={3}
+                          caretHidden={false}
+                          contextMenuHidden={false}
+                          placeholder={pageCopy.applyPlaceholder}
+                          placeholderTextColor="#9C9EA4"
+                          style={[styles.applyInput, showApplyResponse ? styles.applyInputDisabled : null]}
+                          value={applyText}
+                          onChangeText={setApplyText}
+                          onFocus={() => scrollLessonInputIntoView(false, applyInputOffsetYRef.current)}
+                          onSubmitEditing={dismissLessonKeyboard}
+                          editable={!showApplyResponse}
+                          blurOnSubmit
+                          scrollEnabled={false}
+                          textAlignVertical="top"
+                        />
+                      </View>
 
                       {!showApplyResponse ? (
                         <Button
@@ -6324,6 +6679,7 @@ export default function LessonDetailShellScreen() {
                             style={[
                               styles.richPagerCard,
                               windowHeight < 780 ? styles.richPagerCardCompact : null,
+                              isInnerPagerTab ? { height: richPagerCardHeight } : null,
                               richPagerAnimatedStyle,
                             ]}>
                             <View style={styles.richPagerMetaRow}>
@@ -6344,9 +6700,20 @@ export default function LessonDetailShellScreen() {
                               <ScrollView
                                 ref={richPagerScrollRef}
                                 nestedScrollEnabled
+                                keyboardDismissMode="interactive"
+                                keyboardShouldPersistTaps="handled"
+                                onScroll={(event) => {
+                                  richPagerScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+                                }}
+                                scrollEventThrottle={16}
                                 showsVerticalScrollIndicator={false}
                                 style={styles.richPagerScrollView}
-                                contentContainerStyle={styles.richPagerScrollContent}>
+                                contentContainerStyle={[
+                                  styles.richPagerScrollContent,
+                                  isPracticeTab && lessonKeyboardHeight > 0
+                                    ? { paddingBottom: lessonKeyboardHeight + 80 }
+                                    : null,
+                                ]}>
                                 {isPracticeTab && activePracticeExercise
                                   ? renderPracticeExerciseBody(activePracticeExercise)
                                   : isPhrasesTab && activePhraseCard
@@ -7138,7 +7505,7 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   phraseContentWrap: {
-    gap: theme.spacing.xs,
+    gap: 0,
   },
   phraseNotesLabel: {
     color: theme.colors.primary,
@@ -7161,10 +7528,13 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   phraseAudioBlock: {
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   phraseAudioBlockCompact: {
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
+  },
+  phraseAudioBlockAfterFirst: {
+    marginTop: theme.spacing.md,
   },
   phraseAudioRow: {
     alignItems: 'flex-start',
@@ -7179,6 +7549,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
+  phraseAudioTextCompact: {
+    lineHeight: 15,
+  },
   phraseLeadAudioText: {
     fontWeight: theme.typography.weights.semibold,
   },
@@ -7191,6 +7564,12 @@ const styles = StyleSheet.create({
   },
   phraseContinuationIndent: {
     paddingLeft: 50,
+  },
+  phraseDialogueEnglishTurn: {
+    marginTop: 4,
+  },
+  phraseDialogueThaiTurn: {
+    marginTop: -3,
   },
   cultureNoteShell: {
     paddingVertical: theme.spacing.xs,
@@ -7299,6 +7678,9 @@ const styles = StyleSheet.create({
   },
   richAudioTranslationRow: {
     marginTop: 5,
+  },
+  phraseAudioTranslationRow: {
+    marginTop: -3,
   },
   richBullet: {
     width: 8,
