@@ -5,7 +5,6 @@ import {
   Keyboard,
   Linking,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -122,6 +121,10 @@ const RICH_PAGER_LEFT_SWIPE_VELOCITY = 500;
 const RICH_PAGER_RIGHT_SWIPE_VELOCITY = 700;
 const RICH_PAGER_DRAG_LIMIT = 28;
 const LESSON_INPUT_FOCUS_TOP_OFFSET = 120;
+const LESSON_INPUT_KEYBOARD_GAP = 16;
+const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
+const PRACTICE_INPUT_RECHECK_DELAY = 120;
+const PRACTICE_INPUT_MAX_VISIBILITY_CHECKS = 4;
 const SECTION_SWIPE_ACTIVE_OFFSET_X: [number, number] = [-10, 10];
 const SECTION_SWIPE_FAIL_OFFSET_Y: [number, number] = [-18, 18];
 const SECTION_SWIPE_LEFT_DISTANCE = 28;
@@ -1723,6 +1726,8 @@ export default function LessonDetailShellScreen() {
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
   const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
+  const [contentScrollViewportHeight, setContentScrollViewportHeight] = useState(0);
+  const [contentScrollMeasuredHeight, setContentScrollMeasuredHeight] = useState(0);
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSubscriptionRef = useRef<{ remove: () => void } | null>(null);
@@ -1733,9 +1738,10 @@ export default function LessonDetailShellScreen() {
   const audioRateRef = useRef(1);
   const applyInputRef = useRef<TextInput | null>(null);
   const practiceInputRefsMap = useRef<Record<string, TextInput | null>>({});
-  const richPagerScrollOffsetRef = useRef(0);
+  const activePracticeInputKeyRef = useRef<string | null>(null);
+  const practiceInputVisibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentScrollOffsetRef = useRef(0);
   const applyInputOffsetYRef = useRef(0);
-  const richPagerScrollRef = useRef<ScrollView | null>(null);
   const contentScrollRef = useRef<ScrollView | null>(null);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
   const audioTrayExpandCounterRef = useRef(0);
@@ -1745,11 +1751,8 @@ export default function LessonDetailShellScreen() {
     Keyboard.dismiss();
   }, []);
 
-  const scrollLessonInputIntoView = useCallback((insidePager = false, targetY?: number) => {
+  const scrollLessonInputIntoView = useCallback((targetY?: number) => {
     requestAnimationFrame(() => {
-      if (insidePager) {
-        richPagerScrollRef.current?.scrollToEnd({ animated: true });
-      }
       if (typeof targetY === 'number') {
         contentScrollRef.current?.scrollTo({
           y: Math.max(0, targetY - LESSON_INPUT_FOCUS_TOP_OFFSET),
@@ -1761,27 +1764,70 @@ export default function LessonDetailShellScreen() {
     });
   }, []);
 
-  const scrollPracticeInputIntoView = useCallback((inputKey: string) => {
-    setTimeout(() => {
+  const clearPracticeInputVisibilityTimeout = useCallback(() => {
+    if (practiceInputVisibilityTimeoutRef.current) {
+      clearTimeout(practiceInputVisibilityTimeoutRef.current);
+      practiceInputVisibilityTimeoutRef.current = null;
+    }
+  }, []);
+
+  const ensurePracticeInputVisible = useCallback((inputKey: string, attempt = 0) => {
+    if (activePracticeInputKeyRef.current !== inputKey) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
       const inputRef = practiceInputRefsMap.current[inputKey];
       if (!inputRef || lessonKeyboardHeight <= 0) {
         return;
       }
 
-      inputRef.measureInWindow((x, y, width, height) => {
-        const inputBottom = y + height;
-        const keyboardTop = windowHeight - lessonKeyboardHeight;
-        const overlap = inputBottom - keyboardTop + 24;
+      inputRef.measureInWindow((_x, y, _width, height) => {
+        if (activePracticeInputKeyRef.current !== inputKey) {
+          return;
+        }
 
-        if (overlap > 0) {
-          richPagerScrollRef.current?.scrollTo({
-            y: Math.max(0, richPagerScrollOffsetRef.current + overlap),
+        const inputBottom = y + height;
+        const desiredInputBottom = windowHeight - lessonKeyboardHeight - LESSON_INPUT_KEYBOARD_GAP;
+        const overlap = inputBottom - desiredInputBottom;
+
+        if (overlap > 1) {
+          contentScrollRef.current?.scrollTo({
+            y: Math.max(0, contentScrollOffsetRef.current + overlap),
             animated: true,
           });
         }
+
+        if (attempt < PRACTICE_INPUT_MAX_VISIBILITY_CHECKS - 1 && activePracticeInputKeyRef.current === inputKey) {
+          practiceInputVisibilityTimeoutRef.current = setTimeout(() => {
+            ensurePracticeInputVisible(inputKey, attempt + 1);
+          }, PRACTICE_INPUT_RECHECK_DELAY);
+        }
       });
-    }, 350);
+    });
   }, [lessonKeyboardHeight, windowHeight]);
+
+  const schedulePracticeInputVisibilityCheck = useCallback((inputKey: string, delay: number) => {
+    clearPracticeInputVisibilityTimeout();
+    practiceInputVisibilityTimeoutRef.current = setTimeout(() => {
+      ensurePracticeInputVisible(inputKey, 0);
+    }, delay);
+  }, [clearPracticeInputVisibilityTimeout, ensurePracticeInputVisible]);
+
+  const handlePracticeInputFocus = useCallback((inputKey: string) => {
+    activePracticeInputKeyRef.current = inputKey;
+    schedulePracticeInputVisibilityCheck(
+      inputKey,
+      lessonKeyboardHeight > 0 ? PRACTICE_INPUT_RECHECK_DELAY : PRACTICE_INPUT_INITIAL_FOCUS_DELAY
+    );
+  }, [lessonKeyboardHeight, schedulePracticeInputVisibilityCheck]);
+
+  const handlePracticeInputBlur = useCallback((inputKey: string) => {
+    if (activePracticeInputKeyRef.current === inputKey) {
+      activePracticeInputKeyRef.current = null;
+      clearPracticeInputVisibilityTimeout();
+    }
+  }, [clearPracticeInputVisibilityTimeout]);
 
   useEffect(() => {
     const handleKeyboardFrameChange = (event: { endCoordinates?: { height?: number } }) => {
@@ -1803,6 +1849,20 @@ export default function LessonDetailShellScreen() {
       hideEvent.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (lessonKeyboardHeight > 0 && activePracticeInputKeyRef.current) {
+      schedulePracticeInputVisibilityCheck(activePracticeInputKeyRef.current, PRACTICE_INPUT_RECHECK_DELAY);
+      return;
+    }
+    if (lessonKeyboardHeight <= 0) {
+      clearPracticeInputVisibilityTimeout();
+    }
+  }, [clearPracticeInputVisibilityTimeout, lessonKeyboardHeight, schedulePracticeInputVisibilityCheck]);
+
+  useEffect(() => () => {
+    clearPracticeInputVisibilityTimeout();
+  }, [clearPracticeInputVisibilityTimeout]);
 
   useEffect(() => {
     lessonRef.current = lesson;
@@ -2307,27 +2367,9 @@ export default function LessonDetailShellScreen() {
       : activePagerGroups.length;
   const hasMultiplePagerCards = isInnerPagerTab && activeInnerCardCount > 1;
   const isLastPagerCard = !isInnerPagerTab || activeInnerCardCount === 0 || activeInnerCardIndex >= activeInnerCardCount - 1;
-  const richPagerCardHeight = useMemo(() => {
-    const baseHeight = windowHeight < 780 ? 380 : 420;
-    const footerHeight = shouldShowAudioTray ? 150 : 88;
-
-    if (isPracticeTab && lessonKeyboardHeight > 0) {
-      const chromeReserve = isFullscreen ? 120 : 190;
-      const availableHeight = windowHeight - insets.top - chromeReserve - footerHeight - lessonKeyboardHeight;
-      return Math.max(140, availableHeight);
-    }
-
-    if (isFullscreen && isInnerPagerTab) {
-      const availableHeight = windowHeight - insets.top - footerHeight - 170;
-      return Math.max(baseHeight, availableHeight);
-    }
-
-    if (!isPracticeTab) {
-      return baseHeight;
-    }
-
-    return baseHeight;
-  }, [windowHeight, isPracticeTab, lessonKeyboardHeight, insets.top, shouldShowAudioTray, isFullscreen, isInnerPagerTab]);
+  const isKeyboardOpen = lessonKeyboardHeight > 0;
+  const contentOverflows = contentScrollMeasuredHeight > contentScrollViewportHeight + 1;
+  const shouldEnableBodyScroll = contentOverflows || isKeyboardOpen;
   const isApplyActionLocked = isApplyTab && !showApplyResponse;
   const isPrimaryActionDisabled = (isInnerPagerTab && !isLastPagerCard) || isApplyActionLocked;
   const handleSetActiveInnerCardIndex = useCallback(
@@ -2792,7 +2834,6 @@ export default function LessonDetailShellScreen() {
       return;
     }
 
-    richPagerScrollRef.current?.scrollTo({ y: 0, animated: false });
     contentScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [activePhraseCardIndex, activePracticeCardIndex, activeTab?.id, activeUnderstandGroupIndex, contentLang, isInnerPagerTab]);
 
@@ -5777,7 +5818,8 @@ export default function LessonDetailShellScreen() {
                             ]}
                             value={value}
                             onChangeText={(nextValue) => handlePracticeOpenAnswerChange(exercise.id, item.key, nextValue, inputIndex)}
-                            onFocus={() => scrollPracticeInputIntoView(`${answerKey}-input-${inputIndex}`)}
+                            onBlur={() => handlePracticeInputBlur(`${answerKey}-input-${inputIndex}`)}
+                            onFocus={() => handlePracticeInputFocus(`${answerKey}-input-${inputIndex}`)}
                             onSubmitEditing={dismissLessonKeyboard}
                             editable={!evaluation?.loading && markState !== true}
                             blurOnSubmit
@@ -5946,7 +5988,8 @@ export default function LessonDetailShellScreen() {
                                       : practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, token.blankId)] ?? ''
                                   }
                                   onChangeText={(value) => handlePracticeBlankAnswerChange(exercise.id, item.key, token.blankId, value)}
-                                  onFocus={() => scrollPracticeInputIntoView(`${answerKey}-blank-${rowIndex}-${tokenIndex}`)}
+                                  onBlur={() => handlePracticeInputBlur(`${answerKey}-blank-${rowIndex}-${tokenIndex}`)}
+                                  onFocus={() => handlePracticeInputFocus(`${answerKey}-blank-${rowIndex}-${tokenIndex}`)}
                                   onSubmitEditing={dismissLessonKeyboard}
                                   editable={!item.isExample && !evaluation?.loading}
                                   blurOnSubmit
@@ -6350,13 +6393,25 @@ export default function LessonDetailShellScreen() {
                 <View style={styles.studyBody}>
                   <ScrollView
                     ref={contentScrollRef}
+                    bounces={shouldEnableBodyScroll}
                     contentContainerStyle={[
                       styles.contentScrollContent,
                       isFullscreen ? { paddingTop: insets.top + 12 } : null,
-                      lessonKeyboardHeight > 0 ? { paddingBottom: lessonKeyboardHeight + 0 } : null,
+                      isKeyboardOpen ? { paddingBottom: lessonKeyboardHeight + 24 } : null,
                     ]}
                     keyboardDismissMode="interactive"
                     keyboardShouldPersistTaps="handled"
+                    onContentSizeChange={(_, height) => {
+                      setContentScrollMeasuredHeight(height);
+                    }}
+                    onLayout={(event) => {
+                      setContentScrollViewportHeight(event.nativeEvent.layout.height);
+                    }}
+                    onScroll={(event) => {
+                      contentScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+                    }}
+                    scrollEnabled={shouldEnableBodyScroll}
+                    scrollEventThrottle={16}
                     showsVerticalScrollIndicator={false}
                     style={styles.contentScroll}>
                   <View style={styles.sectionHeaderRow}>
@@ -6626,18 +6681,18 @@ export default function LessonDetailShellScreen() {
                           numberOfLines={3}
                           caretHidden={false}
                           contextMenuHidden={false}
-                          placeholder={pageCopy.applyPlaceholder}
-                          placeholderTextColor="#9C9EA4"
-                          style={[styles.applyInput, showApplyResponse ? styles.applyInputDisabled : null]}
-                          value={applyText}
-                          onChangeText={setApplyText}
-                          onFocus={() => scrollLessonInputIntoView(false, applyInputOffsetYRef.current)}
-                          onSubmitEditing={dismissLessonKeyboard}
-                          editable={!showApplyResponse}
-                          blurOnSubmit
-                          scrollEnabled={false}
-                          textAlignVertical="top"
-                        />
+                        placeholder={pageCopy.applyPlaceholder}
+                        placeholderTextColor="#9C9EA4"
+                        style={styles.applyInput}
+                        value={applyText}
+                        onChangeText={setApplyText}
+                        onFocus={() => scrollLessonInputIntoView(applyInputOffsetYRef.current)}
+                        onSubmitEditing={dismissLessonKeyboard}
+                        editable
+                        blurOnSubmit
+                        scrollEnabled={false}
+                        textAlignVertical="top"
+                      />
                       </View>
 
                       {!showApplyResponse ? (
@@ -6679,7 +6734,6 @@ export default function LessonDetailShellScreen() {
                             style={[
                               styles.richPagerCard,
                               windowHeight < 780 ? styles.richPagerCardCompact : null,
-                              isInnerPagerTab ? { height: richPagerCardHeight } : null,
                               richPagerAnimatedStyle,
                             ]}>
                             <View style={styles.richPagerMetaRow}>
@@ -6697,23 +6751,7 @@ export default function LessonDetailShellScreen() {
                             </View>
 
                             <View style={styles.richPagerBody}>
-                              <ScrollView
-                                ref={richPagerScrollRef}
-                                nestedScrollEnabled
-                                keyboardDismissMode="interactive"
-                                keyboardShouldPersistTaps="handled"
-                                onScroll={(event) => {
-                                  richPagerScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
-                                }}
-                                scrollEventThrottle={16}
-                                showsVerticalScrollIndicator={false}
-                                style={styles.richPagerScrollView}
-                                contentContainerStyle={[
-                                  styles.richPagerScrollContent,
-                                  isPracticeTab && lessonKeyboardHeight > 0
-                                    ? { paddingBottom: lessonKeyboardHeight + 80 }
-                                    : null,
-                                ]}>
+                              <View style={styles.richPagerScrollContent}>
                                 {isPracticeTab && activePracticeExercise
                                   ? renderPracticeExerciseBody(activePracticeExercise)
                                   : isPhrasesTab && activePhraseCard
@@ -6725,7 +6763,7 @@ export default function LessonDetailShellScreen() {
                                       : activePagerGroup
                                         ? renderCommonMistakeGroupBody(activePagerGroup.body, activePagerGroup.key)
                                         : null}
-                              </ScrollView>
+                              </View>
                             </View>
                           </Animated.View>
                         </GestureDetector>
@@ -6778,15 +6816,6 @@ export default function LessonDetailShellScreen() {
                           </View>
                         ) : null}
 
-                        {!isLastPagerCard ? (
-                          <AppText language={pageLanguage} variant="muted" style={styles.richPagerHelperText}>
-                            {isPhrasesTab
-                              ? pageCopy.phrasesBrowseAll
-                              : pageLanguage === 'th'
-                                ? 'ปัดซ้ายหรือขวาเพื่อเปลี่ยนการ์ด'
-                                : 'Swipe left or right to change cards.'}
-                          </AppText>
-                        ) : null}
                       </View>
                     ) : (
                       isPracticeTab ? (
@@ -7442,9 +7471,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: theme.spacing.sm,
   },
-  richPagerScrollView: {
-    flex: 1,
-  },
   richPagerScrollContent: {
     paddingBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
@@ -7490,9 +7516,6 @@ const styles = StyleSheet.create({
   richPagerDotActive: {
     width: 22,
     backgroundColor: theme.colors.primary,
-  },
-  richPagerHelperText: {
-    color: theme.colors.mutedText,
   },
   phraseMetaRow: {
     flexDirection: 'row',
