@@ -1741,6 +1741,7 @@ export default function LessonDetailShellScreen() {
   const activePracticeInputKeyRef = useRef<string | null>(null);
   const practiceInputVisibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentScrollOffsetRef = useRef(0);
+  const contentScrollTargetOffsetRef = useRef(0);
   const applyInputOffsetYRef = useRef(0);
   const contentScrollRef = useRef<ScrollView | null>(null);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
@@ -1756,11 +1757,11 @@ export default function LessonDetailShellScreen() {
       if (typeof targetY === 'number') {
         contentScrollRef.current?.scrollTo({
           y: Math.max(0, targetY - LESSON_INPUT_FOCUS_TOP_OFFSET),
-          animated: true,
+          animated: false,
         });
         return;
       }
-      contentScrollRef.current?.scrollToEnd({ animated: true });
+      contentScrollRef.current?.scrollToEnd({ animated: false });
     });
   }, []);
 
@@ -1792,9 +1793,12 @@ export default function LessonDetailShellScreen() {
         const overlap = inputBottom - desiredInputBottom;
 
         if (overlap > 1) {
+          const baseScrollY = Math.max(contentScrollOffsetRef.current, contentScrollTargetOffsetRef.current);
+          const nextScrollY = Math.max(0, baseScrollY + overlap);
+          contentScrollTargetOffsetRef.current = nextScrollY;
           contentScrollRef.current?.scrollTo({
-            y: Math.max(0, contentScrollOffsetRef.current + overlap),
-            animated: true,
+            y: nextScrollY,
+            animated: attempt === 0,
           });
         }
 
@@ -6408,7 +6412,9 @@ export default function LessonDetailShellScreen() {
                       setContentScrollViewportHeight(event.nativeEvent.layout.height);
                     }}
                     onScroll={(event) => {
-                      contentScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+                      const nextOffsetY = event.nativeEvent.contentOffset.y;
+                      contentScrollOffsetRef.current = nextOffsetY;
+                      contentScrollTargetOffsetRef.current = nextOffsetY;
                     }}
                     scrollEnabled={shouldEnableBodyScroll}
                     scrollEventThrottle={16}
