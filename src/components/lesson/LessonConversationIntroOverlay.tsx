@@ -105,21 +105,6 @@ export function LessonConversationIntroOverlay({
         </Pressable>
       </View>
 
-      {sectionCount > 0 ? (
-        <View style={styles.sectionDotsRow}>
-          {Array.from({ length: sectionCount }, (_, index) => (
-            <View
-              key={`conversation-intro-dot-${index}`}
-              style={[
-                styles.sectionDot,
-                index < targetSectionIndex ? styles.sectionDotVisited : null,
-                index === targetSectionIndex ? styles.sectionDotActive : null,
-              ]}
-            />
-          ))}
-        </View>
-      ) : null}
-
       <View style={styles.content}>
         <View style={styles.copyBlock}>
           <AppText language={language} variant="caption" style={styles.eyebrow}>
@@ -286,26 +271,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 26,
     fontWeight: theme.typography.weights.medium,
-  },
-  sectionDotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: theme.spacing.md,
-  },
-  sectionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: '#BDD1E6',
-  },
-  sectionDotVisited: {
-    backgroundColor: '#FF4B4B',
-  },
-  sectionDotActive: {
-    width: 26,
-    backgroundColor: '#FF4B4B',
   },
   content: {
     flex: 1,
