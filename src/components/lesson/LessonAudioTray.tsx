@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 
-import adjustVolumeIcon from '@/assets/images/adjust-volume-audio-lesson.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
@@ -161,10 +161,6 @@ export function LessonAudioTray({
           </AppText>
 
           <View style={styles.collapsedActions}>
-            <View style={styles.volumeButton}>
-              <Image source={adjustVolumeIcon} style={styles.volumeIcon} resizeMode="contain" />
-            </View>
-
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={playButtonLabel}
@@ -197,10 +193,6 @@ export function LessonAudioTray({
                 </AppText>
               ) : null}
             </View>
-
-            <View style={styles.volumeButton}>
-              <Image source={adjustVolumeIcon} style={styles.volumeIcon} resizeMode="contain" />
-            </View>
           </View>
 
           <View style={styles.controlsRow}>
@@ -213,9 +205,7 @@ export function LessonAudioTray({
                 onSkip(-10000);
               }}
               style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
-              <AppText language="en" variant="caption" style={styles.skipText}>
-                ← 10
-              </AppText>
+              <MaterialIcons name="replay-10" size={34} color={theme.colors.text} />
             </Pressable>
 
             <Pressable
@@ -246,9 +236,7 @@ export function LessonAudioTray({
                 onSkip(10000);
               }}
               style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
-              <AppText language="en" variant="caption" style={styles.skipText}>
-                10 →
-              </AppText>
+              <MaterialIcons name="forward-10" size={34} color={theme.colors.text} />
             </Pressable>
           </View>
 
@@ -359,20 +347,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
   },
-  volumeButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  volumeIcon: {
-    width: 13,
-    height: 13,
-  },
   collapsedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -420,14 +394,10 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   skipButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-  },
-  skipText: {
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: theme.typography.weights.semibold,
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mainPlayButton: {
     width: 42,

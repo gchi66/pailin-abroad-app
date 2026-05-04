@@ -1690,7 +1690,8 @@ export default function LessonDetailShellScreen() {
   const [isBackstoryExpanded, setIsBackstoryExpanded] = useState(false);
   const [contentLang, setContentLang] = useState<UiLanguage>('en');
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
-  const [hasCheckedAnswers, setHasCheckedAnswers] = useState(false);
+  const [hasSubmittedComprehensionAnswers, setHasSubmittedComprehensionAnswers] = useState(false);
+  const [activeComprehensionQuestionIndex, setActiveComprehensionQuestionIndex] = useState(0);
   const [audioUrls, setAudioUrls] = useState<{ main: string | null; noBg: string | null; bg: string | null }>({
     main: null,
     noBg: null,
@@ -2062,7 +2063,8 @@ export default function LessonDetailShellScreen() {
     setIsBackstoryExpanded(false);
     setContentLang('en');
     setSelectedAnswers({});
-    setHasCheckedAnswers(false);
+    setHasSubmittedComprehensionAnswers(false);
+    setActiveComprehensionQuestionIndex(0);
     setAudioUrls({ main: null, noBg: null, bg: null });
     setIsAudioLoading(false);
     setIsAudioPlaying(false);
@@ -2116,8 +2118,26 @@ export default function LessonDetailShellScreen() {
   }, [lessonCover]);
 
   const resolvedFocus = useMemo(() => {
-    return lesson?.focus_en?.trim() || lesson?.focus?.trim() || coverLesson?.focus?.trim() || lesson?.focus_th?.trim() || coverLesson?.focus_th?.trim() || null;
-  }, [coverLesson, lesson]);
+    if (uiLanguage === 'th') {
+      return (
+        lesson?.focus_th?.trim() ||
+        coverLesson?.focus_th?.trim() ||
+        lesson?.focus?.trim() ||
+        coverLesson?.focus?.trim() ||
+        lesson?.focus_en?.trim() ||
+        null
+      );
+    }
+
+    return (
+      lesson?.focus_en?.trim() ||
+      lesson?.focus?.trim() ||
+      coverLesson?.focus?.trim() ||
+      lesson?.focus_th?.trim() ||
+      coverLesson?.focus_th?.trim() ||
+      null
+    );
+  }, [coverLesson, lesson, uiLanguage]);
 
   const resolvedBackstory = useMemo(() => {
     if (uiLanguage === 'th') {
@@ -2201,26 +2221,6 @@ export default function LessonDetailShellScreen() {
         : [],
     [contentLang, hasStartedLesson, lesson?.practice_exercises]
   );
-  const allAnswersCorrect = useMemo(
-    () =>
-      normalizedQuestions.length > 0 &&
-      normalizedQuestions.every((question) => {
-        const currentSelections = selectedAnswers[question.id] ?? [];
-        if (currentSelections.length !== question.answerKey.length) {
-          return false;
-        }
-
-        const currentSet = new Set(currentSelections.map(normalizeOptionLetter));
-        const answerSet = new Set(question.answerKey.map(normalizeOptionLetter));
-        if (currentSet.size !== answerSet.size) {
-          return false;
-        }
-
-        return Array.from(currentSet).every((value) => answerSet.has(value));
-      }),
-    [normalizedQuestions, selectedAnswers]
-  );
-
   useEffect(() => {
     const validQuestionIds = new Set(normalizedQuestions.map((question) => question.id));
 
@@ -2234,6 +2234,12 @@ export default function LessonDetailShellScreen() {
       return Object.fromEntries(nextEntries);
     });
   }, [normalizedQuestions]);
+
+  useEffect(() => {
+    setActiveComprehensionQuestionIndex((previous) =>
+      Math.max(0, Math.min(previous, Math.max(0, normalizedQuestions.length - 1)))
+    );
+  }, [normalizedQuestions.length]);
   const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
   const pageCopy = useMemo(() => getLessonDetailCopy(pageLanguage), [pageLanguage]);
   const isLockedLesson = useMemo(() => {
@@ -2370,16 +2376,22 @@ export default function LessonDetailShellScreen() {
   const sectionCount = lessonTabs.length;
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab;
+  const isComprehensionPagerTab = isComprehensionTab && normalizedQuestions.length > 0;
   const isInnerPagerTab =
+    isComprehensionPagerTab ||
     isRichPagerTab ||
     (isPracticeTab && normalizedPracticeExercises.length > 0) ||
     (isPhrasesTab && normalizedLessonPhrases.length > 0);
-  const activeInnerCardIndex = isPracticeTab
+  const activeInnerCardIndex = isComprehensionPagerTab
+    ? activeComprehensionQuestionIndex
+    : isPracticeTab
     ? activePracticeCardIndex
     : isPhrasesTab
       ? activePhraseCardIndex
       : activeUnderstandGroupIndex;
-  const activeInnerCardCount = isPracticeTab
+  const activeInnerCardCount = isComprehensionPagerTab
+    ? normalizedQuestions.length
+    : isPracticeTab
     ? normalizedPracticeExercises.length
     : isPhrasesTab
       ? normalizedLessonPhrases.length
@@ -2390,10 +2402,19 @@ export default function LessonDetailShellScreen() {
   const contentOverflows = contentScrollMeasuredHeight > contentScrollViewportHeight + 1;
   const shouldEnableBodyScroll = contentOverflows || isKeyboardOpen;
   const isApplyActionLocked = isApplyTab && !showApplyResponse;
-  const isPrimaryActionDisabled = (isInnerPagerTab && !isLastPagerCard) || isApplyActionLocked;
+  const isComprehensionSectionActionLocked =
+    isComprehensionPagerTab &&
+    (!hasSubmittedComprehensionAnswers || activeComprehensionQuestionIndex < Math.max(0, normalizedQuestions.length - 1));
+  const isPrimaryActionDisabled =
+    (isInnerPagerTab && !isLastPagerCard && !isComprehensionPagerTab) || isApplyActionLocked || isComprehensionSectionActionLocked;
   const handleSetActiveInnerCardIndex = useCallback(
     (nextIndex: number) => {
       const clampedIndex = Math.max(0, Math.min(nextIndex, Math.max(0, activeInnerCardCount - 1)));
+
+      if (isComprehensionPagerTab) {
+        setActiveComprehensionQuestionIndex(clampedIndex);
+        return;
+      }
 
       if (isPracticeTab) {
         setActivePracticeCardIndex(clampedIndex);
@@ -2407,7 +2428,7 @@ export default function LessonDetailShellScreen() {
 
       setActiveUnderstandGroupIndex(clampedIndex);
     },
-    [activeInnerCardCount, isPhrasesTab, isPracticeTab]
+    [activeInnerCardCount, isComprehensionPagerTab, isPhrasesTab, isPracticeTab]
   );
   const richPagerTranslateX = useSharedValue(0);
   const handleRichPagerSwipe = useCallback(
@@ -2617,11 +2638,32 @@ export default function LessonDetailShellScreen() {
       sectionCount,
     ]
   );
-  const comprehensionButtonLabel = hasCheckedAnswers
-    ? allAnswersCorrect
-      ? pageCopy.greatJob
-      : pageCopy.tryAgain
-    : pageCopy.checkAnswers;
+  const activeStudyGesture = isComprehensionPagerTab ? richPagerGesture : sectionSwipeGesture;
+  const activeComprehensionQuestion = normalizedQuestions[activeComprehensionQuestionIndex] ?? null;
+  const activeComprehensionSelections = activeComprehensionQuestion
+    ? selectedAnswers[activeComprehensionQuestion.id] ?? []
+    : [];
+  const isActiveComprehensionAnswerCorrect = (() => {
+    if (!activeComprehensionQuestion) {
+      return false;
+    }
+
+    if (activeComprehensionSelections.length !== activeComprehensionQuestion.answerKey.length) {
+      return false;
+    }
+
+    const currentSet = new Set(activeComprehensionSelections.map(normalizeOptionLetter));
+    const answerSet = new Set(activeComprehensionQuestion.answerKey.map(normalizeOptionLetter));
+    if (currentSet.size !== answerSet.size) {
+      return false;
+    }
+
+    return Array.from(currentSet).every((value) => answerSet.has(value));
+  })();
+  const isLastComprehensionQuestion =
+    normalizedQuestions.length === 0 || activeComprehensionQuestionIndex >= normalizedQuestions.length - 1;
+  const shouldShowComprehensionCheckButton =
+    isComprehensionPagerTab && isLastComprehensionQuestion && !hasSubmittedComprehensionAnswers;
   const coverLessonNumber =
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
@@ -2646,7 +2688,10 @@ export default function LessonDetailShellScreen() {
   const contentToggleText = contentLang === 'th' ? 'EN' : 'TH';
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
-  const audioTraySubtitle = activeSectionTitle || thaiTitle || englishTitle || null;
+  const audioTraySubtitle =
+    isPrepareTab || activeSectionTitle === 'Prepare' || activeSectionTitle === pageCopy.prepare
+      ? null
+      : activeSectionTitle || thaiTitle || englishTitle || null;
   const shouldShowConversationIntroOverlay =
     hasStartedLesson &&
     !isLoading &&
@@ -3033,8 +3078,21 @@ export default function LessonDetailShellScreen() {
         [questionId]: nextSelections,
       };
     });
-    setHasCheckedAnswers(false);
   };
+
+  const handleSubmitComprehensionAnswers = useCallback(() => {
+    const hasAnySelections = normalizedQuestions.some((question) => (selectedAnswers[question.id] ?? []).length > 0);
+    if (!hasAnySelections) {
+      return;
+    }
+
+    setHasSubmittedComprehensionAnswers(true);
+    setActiveComprehensionQuestionIndex(0);
+  }, [normalizedQuestions, selectedAnswers]);
+
+  const handleResetComprehensionReview = useCallback(() => {
+    setHasSubmittedComprehensionAnswers(false);
+  }, []);
 
   const handlePracticeChoice = (exerciseId: string, itemKey: string, optionLabel: string, isMulti: boolean) => {
     const selectionKey = `${exerciseId}:${itemKey}`;
@@ -6206,7 +6264,9 @@ export default function LessonDetailShellScreen() {
     : '';
   const activePracticeHeading = activePracticeExercise?.title || activePracticeExercise?.prompt || '';
   const activePhraseHeading = activePhraseCard?.phrase || '';
-  const pagerDotKeys = isPracticeTab
+  const pagerDotKeys = isComprehensionPagerTab
+    ? normalizedQuestions.map((question) => question.id)
+    : isPracticeTab
     ? normalizedPracticeExercises.map((exercise) => exercise.id)
     : isPhrasesTab
       ? normalizedLessonPhrases.map((phrase) => phrase.id)
@@ -6546,7 +6606,7 @@ export default function LessonDetailShellScreen() {
                 </>
               ) : null}
 
-              <GestureDetector gesture={sectionSwipeGesture}>
+              <GestureDetector gesture={activeStudyGesture}>
                 <View style={styles.studyBody}>
                   <ScrollView
                     ref={contentScrollRef}
@@ -6632,36 +6692,36 @@ export default function LessonDetailShellScreen() {
                       </Stack>
                     </Card>
                   ) : isComprehensionTab ? (
-                    <Stack gap="lg">
-                      {normalizedQuestions.map((question, index) => {
-                        const questionNumber = question.sortOrder || index + 1;
-                        const isMulti = question.answerKey.length > 1;
-                        const currentSelections = selectedAnswers[question.id] ?? [];
-                        const answerSet = new Set(question.answerKey);
-                        const correctOption = question.options.find((option) => answerSet.has(option.label)) ?? null;
+                    activeComprehensionQuestion ? (
+                      <View style={[styles.richPagerShell, styles.richPagerShellBottomControls]}>
+                        <Stack gap="md" style={styles.comprehensionFlow}>
+                          <View style={styles.comprehensionProgressHeader}>
+                            <AppText language={pageLanguage} variant="caption" style={styles.comprehensionProgressLabel}>
+                              {pageCopy.questionCounter(activeComprehensionQuestionIndex, normalizedQuestions.length)}
+                            </AppText>
+                          </View>
 
-                        return (
-                          <View key={question.id} style={styles.questionBlock}>
+                          <View style={styles.questionBlock}>
                             <View style={styles.questionPromptRow}>
                               <AppText language="en" variant="body" style={styles.questionNumberText}>
-                                {`${questionNumber}`}
+                                {`${activeComprehensionQuestion.sortOrder || activeComprehensionQuestionIndex + 1}`}
                               </AppText>
 
                               <View style={styles.questionPromptContent}>
                                 {contentLang === 'th' ? (
                                   <>
-                                    {splitTextLines(question.promptEn).map((line, lineIndex) => (
+                                    {splitTextLines(activeComprehensionQuestion.promptEn).map((line, lineIndex) => (
                                       <AppText
-                                        key={`en-${question.id}-${lineIndex}`}
+                                        key={`en-${activeComprehensionQuestion.id}-${lineIndex}`}
                                         language="en"
                                         variant="body"
                                         style={styles.questionPromptText}>
                                         {line}
                                       </AppText>
                                     ))}
-                                    {splitTextLines(question.promptTh).map((line, lineIndex) => (
+                                    {splitTextLines(activeComprehensionQuestion.promptTh).map((line, lineIndex) => (
                                       <AppText
-                                        key={`th-${question.id}-${lineIndex}`}
+                                        key={`th-${activeComprehensionQuestion.id}-${lineIndex}`}
                                         language="th"
                                         variant="body"
                                         style={styles.questionPromptThaiText}>
@@ -6670,9 +6730,9 @@ export default function LessonDetailShellScreen() {
                                     ))}
                                   </>
                                 ) : (
-                                  splitTextLines(question.prompt).map((line, lineIndex) => (
+                                  splitTextLines(activeComprehensionQuestion.prompt).map((line, lineIndex) => (
                                     <AppText
-                                      key={`prompt-${question.id}-${lineIndex}`}
+                                      key={`prompt-${activeComprehensionQuestion.id}-${lineIndex}`}
                                       language="en"
                                       variant="body"
                                       style={styles.questionPromptText}>
@@ -6683,15 +6743,19 @@ export default function LessonDetailShellScreen() {
                               </View>
                             </View>
 
-                            <Stack gap="sm">
-                              {question.options.map((option, optionIndex) => {
-                                const optionKey = `${question.id}-${option.label}-${optionIndex}`;
-                                const isSelected = currentSelections.includes(option.label);
-                                const isCorrectOption = answerSet.has(option.label);
-                                const optionImageUrl = resolveLessonImageUrl(
-                                  option.imageKey ? lesson?.images?.[option.imageKey] : null,
-                                  option.imageKey
-                                );
+                            <Stack gap="sm" style={styles.comprehensionOptionsList}>
+                              {activeComprehensionQuestion.options.map((option, optionIndex) => {
+                                const optionKey = `${activeComprehensionQuestion.id}-${option.label}-${optionIndex}`;
+                                const isMulti = activeComprehensionQuestion.answerKey.length > 1;
+                                  const answerSet = new Set(activeComprehensionQuestion.answerKey);
+                                  const isSelected = activeComprehensionSelections.includes(option.label);
+                                  const isCorrectOption = answerSet.has(option.label);
+                                  const shouldShowCorrectCheckmark =
+                                    hasSubmittedComprehensionAnswers && isSelected && isCorrectOption;
+                                  const optionImageUrl = resolveLessonImageUrl(
+                                    option.imageKey ? lesson?.images?.[option.imageKey] : null,
+                                    option.imageKey
+                                  );
 
                                 return (
                                   <Pressable
@@ -6699,12 +6763,11 @@ export default function LessonDetailShellScreen() {
                                     accessibilityRole="button"
                                     accessibilityLabel={`${option.label} ${option.text || option.textTh}`}
                                     accessibilityState={{ selected: isSelected }}
-                                    onPress={() => handleToggleAnswer(question.id, option.label, isMulti)}
+                                    onPress={() => handleToggleAnswer(activeComprehensionQuestion.id, option.label, isMulti)}
                                     style={[
                                       styles.quizOptionButton,
                                       isSelected ? styles.quizOptionButtonSelected : null,
-                                      hasCheckedAnswers && isCorrectOption ? styles.quizOptionButtonCorrect : null,
-                                      hasCheckedAnswers && isSelected && !isCorrectOption
+                                      hasSubmittedComprehensionAnswers && isSelected && !isCorrectOption
                                         ? styles.quizOptionButtonWrong
                                         : null,
                                     ]}>
@@ -6712,10 +6775,6 @@ export default function LessonDetailShellScreen() {
                                       style={[
                                         styles.quizOptionLetter,
                                         isSelected ? styles.quizOptionLetterSelected : null,
-                                        hasCheckedAnswers && isCorrectOption ? styles.quizOptionLetterCorrect : null,
-                                        hasCheckedAnswers && isSelected && !isCorrectOption
-                                          ? styles.quizOptionLetterWrong
-                                          : null,
                                       ]}>
                                       <AppText
                                         language="en"
@@ -6723,11 +6782,16 @@ export default function LessonDetailShellScreen() {
                                         style={[
                                           styles.quizOptionLetterText,
                                           isSelected ? styles.quizOptionLetterTextInverse : null,
-                                          hasCheckedAnswers && isCorrectOption ? styles.quizOptionLetterTextCorrect : null,
                                         ]}>
-                                        {option.label}
-                                      </AppText>
-                                    </View>
+                                          {option.label}
+                                        </AppText>
+                                      </View>
+
+                                      {shouldShowCorrectCheckmark ? (
+                                        <View style={styles.quizOptionCheckmarkBadge}>
+                                          <MaterialIcons name="check" size={12} color={theme.colors.surface} />
+                                        </View>
+                                      ) : null}
 
                                     {optionImageUrl ? (
                                       <Image source={{ uri: optionImageUrl }} contentFit="cover" style={styles.optionImage} />
@@ -6751,38 +6815,83 @@ export default function LessonDetailShellScreen() {
                               })}
                             </Stack>
 
-                            {hasCheckedAnswers ? (
-                              <View style={styles.feedbackBlock}>
-                                {correctOption ? (
-                                  <View style={styles.feedbackRow}>
-                                    <View style={[styles.feedbackDot, styles.feedbackDotSuccess]} />
-                                    <AppText language={contentLang === 'th' ? 'th' : 'en'} variant="body" style={styles.feedbackHeadline}>
-                                      {pageLanguage === 'th'
-                                        ? `คำตอบที่ถูก: ${correctOption.textTh || correctOption.text}`
-                                        : `Correct answer: ${correctOption.text || correctOption.textTh}`}
-                                    </AppText>
-                                  </View>
-                                ) : null}
-
-                                {question.explanation ? (
-                                  <AppText language={contentLang === 'th' ? 'th' : 'en'} variant="muted" style={styles.feedbackBody}>
-                                    {question.explanation}
-                                  </AppText>
-                                ) : null}
-                              </View>
-                            ) : null}
                           </View>
-                        );
-                      })}
 
-                      <Button
-                        language={pageLanguage}
-                        title={comprehensionButtonLabel}
-                        onPress={() => setHasCheckedAnswers(true)}
-                        style={styles.comprehensionInlineButton}
-                        textStyle={styles.comprehensionInlineButtonText}
-                      />
-                    </Stack>
+                          {hasSubmittedComprehensionAnswers ? (
+                            isActiveComprehensionAnswerCorrect ? (
+                              <AppText language={pageLanguage} variant="body" style={styles.comprehensionSuccessText}>
+                                {pageCopy.greatJob}
+                              </AppText>
+                            ) : (
+                            <Button
+                              language={pageLanguage}
+                              title={pageCopy.tryAgain}
+                              onPress={handleResetComprehensionReview}
+                              style={styles.comprehensionInlineButton}
+                              textStyle={styles.comprehensionInlineButtonText}
+                            />
+                            )
+                          ) : shouldShowComprehensionCheckButton ? (
+                            <Button
+                              language={pageLanguage}
+                              title={pageCopy.checkAnswers}
+                              disabled={normalizedQuestions.every((question) => (selectedAnswers[question.id] ?? []).length === 0)}
+                              onPress={handleSubmitComprehensionAnswers}
+                              style={styles.comprehensionInlineButton}
+                              textStyle={styles.comprehensionInlineButtonText}
+                            />
+                          ) : null}
+                        </Stack>
+
+                        {hasMultiplePagerCards ? (
+                          <View style={[styles.richPagerControls, styles.richPagerControlsBottom]}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={pageLanguage === 'th' ? 'คำถามก่อนหน้า' : 'Previous question'}
+                              accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
+                              disabled={activeInnerCardIndex === 0}
+                              onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
+                              style={[
+                                styles.richPagerArrowButton,
+                                activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
+                              ]}>
+                              <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+                                ←
+                              </AppText>
+                            </Pressable>
+
+                            <View style={styles.richPagerDots}>
+                              {pagerDotKeys.map((dotKey, index) => (
+                                <View
+                                  key={dotKey}
+                                  style={[
+                                    styles.richPagerDot,
+                                    index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                                  ]}
+                                />
+                              ))}
+                            </View>
+
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={pageLanguage === 'th' ? 'คำถามถัดไป' : 'Next question'}
+                              accessibilityState={{ disabled: activeInnerCardIndex >= activeInnerCardCount - 1 }}
+                              disabled={activeInnerCardIndex >= activeInnerCardCount - 1}
+                              onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
+                              style={[
+                                styles.richPagerArrowButton,
+                                activeInnerCardIndex >= activeInnerCardCount - 1
+                                  ? styles.richPagerArrowButtonDisabled
+                                  : null,
+                              ]}>
+                              <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+                                →
+                              </AppText>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null
                   ) : isTranscriptTab ? (
                     <Stack gap="sm">
                       {normalizedTranscript.map((line) => (
@@ -7085,7 +7194,11 @@ export default function LessonDetailShellScreen() {
                   )}
                   </ScrollView>
 
-                  <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+                  <View
+                    style={[
+                      styles.stickyFooter,
+                      { paddingBottom: Math.max(insets.bottom, 10) },
+                    ]}>
                     {shouldShowAudioTray ? (
                       <LessonAudioTray
                         language={pageLanguage}
@@ -7208,11 +7321,11 @@ export default function LessonDetailShellScreen() {
                       <AppText language={pageLanguage} variant="body" style={styles.menuItemTitle}>
                         {getLessonSectionTitle(pageLanguage, tab.type, index)}
                       </AppText>
-                      <AppText language={pageLanguage} variant="muted" style={styles.menuItemMeta}>
-                        {tab.section && hasSectionAudio(tab.section)
-                          ? pageCopy.audioReady
-                          : getLessonSectionLabel(pageLanguage, tab.type)}
-                      </AppText>
+                      {tab.section && hasSectionAudio(tab.section) ? (
+                        <AppText language={pageLanguage} variant="muted" style={styles.menuItemMeta}>
+                          {pageCopy.audioReady}
+                        </AppText>
+                      ) : null}
                     </View>
                   </Pressable>
                 );
@@ -8071,8 +8184,28 @@ const styles = StyleSheet.create({
   prepareEmptyText: {
     color: theme.colors.mutedText,
   },
+  comprehensionFlow: {
+    gap: theme.spacing.lg,
+  },
+  comprehensionProgressHeader: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 6,
+    ...brutalShadow,
+  },
+  comprehensionProgressLabel: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.semibold,
+  },
   questionBlock: {
     gap: 10,
+    paddingHorizontal: theme.spacing.xs,
   },
   questionPromptRow: {
     flexDirection: 'row',
@@ -8091,14 +8224,17 @@ const styles = StyleSheet.create({
   },
   questionPromptText: {
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: theme.typography.weights.semibold,
   },
   questionPromptThaiText: {
     color: theme.colors.mutedText,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  comprehensionOptionsList: {
+    paddingHorizontal: 2,
   },
   quizOptionButton: {
     flexDirection: 'row',
@@ -8108,8 +8244,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     borderRadius: 14,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     ...brutalShadow,
   },
   quizOptionButtonSelected: {
@@ -8126,6 +8262,7 @@ const styles = StyleSheet.create({
     shadowColor: theme.colors.primary,
   },
   quizOptionLetter: {
+    position: 'relative',
     width: 24,
     height: 24,
     borderRadius: 999,
@@ -8155,6 +8292,19 @@ const styles = StyleSheet.create({
   },
   quizOptionLetterTextInverse: {
     color: theme.colors.surface,
+  },
+  quizOptionCheckmarkBadge: {
+    position: 'absolute',
+    right: -7,
+    top: -7,
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: theme.colors.success,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quizOptionLetterTextCorrect: {
     color: theme.colors.success,
@@ -8208,6 +8358,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: theme.typography.weights.semibold,
+  },
+  feedbackHeadlineSecondary: {
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.medium,
   },
   feedbackBody: {
     color: theme.colors.mutedText,
@@ -8328,6 +8484,13 @@ const styles = StyleSheet.create({
   },
   comprehensionInlineButtonText: {
     color: theme.colors.text,
+  },
+  comprehensionSuccessText: {
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
   },
   applyResponseWrap: {
     gap: theme.spacing.sm,

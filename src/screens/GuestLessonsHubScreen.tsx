@@ -45,7 +45,7 @@ export function GuestLessonsHubScreen() {
           <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/(tabs)/lessons/free-library')}>
             <View style={styles.linkCopy}>
               <AppText language={uiLanguage} variant="body" style={styles.linkTitle}>
-                {uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'}
+                {uiLanguage === 'th' ? 'บทเรียนทดลองฟรี' : 'Free Lesson Library'}
               </AppText>
               <AppText language={uiLanguage} variant="muted" style={styles.linkDescription}>
                 {uiLanguage === 'th'

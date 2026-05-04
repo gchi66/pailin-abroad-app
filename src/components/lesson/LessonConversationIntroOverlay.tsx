@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -143,9 +144,7 @@ export function LessonConversationIntroOverlay({
                 onSkip(-10000);
               }}
               style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
-              <AppText language="en" variant="caption" style={styles.skipText}>
-                ↩ 10
-              </AppText>
+              <MaterialIcons name="replay-10" size={44} color={theme.colors.text} />
             </Pressable>
 
             <Pressable
@@ -176,9 +175,7 @@ export function LessonConversationIntroOverlay({
                 onSkip(10000);
               }}
               style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
-              <AppText language="en" variant="caption" style={styles.skipText}>
-                10 ↪
-              </AppText>
+              <MaterialIcons name="forward-10" size={44} color={theme.colors.text} />
             </Pressable>
           </View>
 
@@ -352,14 +349,10 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   skipButton: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.md,
-  },
-  skipText: {
-    color: theme.colors.mutedText,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: theme.typography.weights.semibold,
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mainPlayButton: {
     width: 86,

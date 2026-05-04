@@ -24,19 +24,34 @@ const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Exper
 
 const toStageLabel = (stage: StageName, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
-    if (stage === 'Beginner') return 'เริ่มต้น';
+    if (stage === 'Beginner') return 'ระดับเริ่มต้น';
     if (stage === 'Intermediate') return 'ระดับกลาง';
     if (stage === 'Advanced') return 'ระดับสูง';
-    return 'ผู้เชี่ยวชาญ';
+    return 'ระดับเชี่ยวชาญ';
   }
   return stage.toUpperCase();
 };
 
 const toLevelLabel = (level: number, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
-    return `เลเวล ${level}`;
+    return `ระดับที่ ${level}`;
   }
   return `LEVEL ${level}`;
+};
+
+const isCheckpointLesson = (lesson: LessonListItem) =>
+  [lesson.title, lesson.title_th].some((value) => String(value ?? '').toLowerCase().includes('checkpoint'));
+
+const getCheckpointTitle = (lesson: LessonListItem, uiLanguage: 'en' | 'th', fallback: string) => {
+  if (typeof lesson.level !== 'number') {
+    return fallback;
+  }
+
+  if (uiLanguage === 'th') {
+    return `ระดับที่ ${lesson.level} จุดตรวจสอบ`;
+  }
+
+  return `Level ${lesson.level} Checkpoint`;
 };
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
@@ -359,10 +374,13 @@ export function GuestLessonLibraryScreen() {
         {!errorMessage ? (
           <Stack gap="sm">
             {lessonsForSelection.map((lesson) => {
-              const titleText =
+              const baseTitleText =
                 uiLanguage === 'th'
                   ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
                   : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
+              const titleText = isCheckpointLesson(lesson)
+                ? getCheckpointTitle(lesson, uiLanguage, baseTitleText)
+                : baseTitleText;
               const focusText =
                 uiLanguage === 'th'
                   ? pickText(lesson.focus_th, lesson.focus, '')

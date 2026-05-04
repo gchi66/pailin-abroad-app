@@ -42,25 +42,25 @@ type Copy = {
 const getCopy = (language: UiLanguage): Copy => {
   if (language === 'th') {
     return {
-      title: 'คลังแบบฝึกหัด',
-      subtitle: 'แบบฝึกหัดเพิ่มเติมสำหรับกฎไวยากรณ์และหัวข้อที่ยากขึ้น',
-      featuredButton: 'แนะนำ',
-      categoriesButton: 'หมวดหมู่',
+      title: 'สื่อการเรียน',
+      subtitle: 'แบบฝึกหัดเพิ่มเติมสำหรับกฎไวยากรณ์ที่เข้าใจยาก',
+      featuredButton: 'แบบฝึกหัดที่แนะนำ',
+      categoriesButton: 'ดูตามหมวดหมู่',
       searchPlaceholder: 'ค้นหาแบบฝึกหัด',
       searchLabel: 'ค้นหาแบบฝึกหัด',
-      featuredBadge: 'แนะนำ',
+      featuredBadge: 'แบบฝึกหัดแนะนำ',
       exercisesSuffixSingle: 'แบบฝึกหัด',
       exercisesSuffixPlural: 'แบบฝึกหัด',
-      freeTitle: 'แพ็กเกจฟรี',
-      freeBody: 'หัวข้อแนะนำยังเปิดอยู่ อัปเกรดเพื่อใช้คลังทั้งหมด',
-      noAccountTitle: 'เปิดคลังแบบฝึกหัดให้ครบ',
-      noAccountBody: 'สร้างบัญชีแล้วอัปเกรดเมื่อพร้อม',
-      membershipCta: 'อัปเกรด',
+      freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
+      freeBody: 'ยังสามารถดูแบบฝึกหัดแนะนำที่ใช้ได้กับแผนของคุณ',
+      noAccountTitle: 'ดูเหมือนว่าคุณยังไม่มีบัญชีผู้ใช้',
+      noAccountBody: 'สมัครสมาชิกฟรีเพื่อเข้าถึงสื่อการเรียนแนะนำของเรา',
+      membershipCta: 'สมัครสมาชิก',
       lockedLabel: 'สมาชิก',
-      openLabel: 'เปิดได้',
+      openLabel: 'ดูหัวข้อนี้ →',
       loadingFallback: 'ไม่สามารถโหลดคลังแบบฝึกหัดได้',
       emptyTitle: 'ไม่พบแบบฝึกหัดที่ตรงกัน',
-      emptyBody: 'ลองเปลี่ยนคำค้นหาหรือเปลี่ยนหมวดหมู่แล้วค้นหาอีกครั้ง',
+      emptyBody: 'ลองเปลี่ยนคำค้นหาหรือหมวดหมู่แล้วค้นหาอีกครั้ง',
     };
   }
 
