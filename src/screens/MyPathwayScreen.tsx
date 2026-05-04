@@ -33,7 +33,7 @@ type PathwayCopy = {
   viewDetails: string;
   lessonsDone: string;
   levelsDone: string;
-  currentLevel: string;
+  dailyStreak: string;
   levelShort: string;
   lessonsCompleteForLevel: (completedCount: number, totalCount: number, level: number | null) => string;
   continueLearning: string;
@@ -63,7 +63,7 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
       viewDetails: 'ดูรายละเอียด →',
       lessonsDone: 'บทเรียนที่จบ',
       levelsDone: 'เลเวลที่จบ',
-      currentLevel: 'เลเวลปัจจุบัน',
+      dailyStreak: 'สตรีคประจำวัน',
       levelShort: 'เลเวล',
       lessonsCompleteForLevel: (completedCount, totalCount, level) =>
         `${completedCount} จาก ${totalCount} บทเรียนที่เรียนจบสำหรับเลเวล ${typeof level === 'number' ? level : '–'}`,
@@ -93,7 +93,7 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     viewDetails: 'View details →',
     lessonsDone: 'Lessons done',
     levelsDone: 'Levels done',
-    currentLevel: 'Current level',
+    dailyStreak: 'Daily streak',
     levelShort: 'Level',
     lessonsCompleteForLevel: (completedCount, totalCount, level) =>
       `${completedCount} of ${totalCount} lessons complete for Level ${typeof level === 'number' ? level : '–'}`,
@@ -264,7 +264,11 @@ export function MyPathwayScreen() {
             <View style={styles.headerCopy}>
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTextGroup}>
-                  <AppText language={uiLanguage} variant="title" style={styles.headerTitle}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="title"
+                    numberOfLines={1}
+                    style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
                     {copy.welcomeBack},
                   </AppText>
                   <AppText language={uiLanguage} variant="title" style={styles.headerName}>
@@ -352,10 +356,10 @@ export function MyPathwayScreen() {
                 </View>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {typeof progressContext.level === 'number' ? progressContext.level : '–'}
+                    -
                   </AppText>
                   <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                    {copy.currentLevel}
+                    {copy.dailyStreak}
                   </AppText>
                 </View>
               </View>
@@ -533,8 +537,6 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     backgroundColor: theme.colors.accent,
   },
   avatarFallback: {
@@ -562,6 +564,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 28,
     fontWeight: theme.typography.weights.bold,
+  },
+  headerTitleThai: {
+    fontSize: 19,
+    lineHeight: 24,
   },
   headerName: {
     marginTop: -2,
@@ -635,8 +641,8 @@ const styles = StyleSheet.create({
   sectionEyebrow: {
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    fontWeight: theme.typography.weights.medium,
+    color: '#7B8797',
   },
   detailsLink: {
     color: theme.colors.accent,

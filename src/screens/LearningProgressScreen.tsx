@@ -158,18 +158,62 @@ const formatCompletedAgo = (value: string | null, uiLanguage: UiLanguage) => {
   return `${days} days ago`;
 };
 
+const startOfLocalDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
+
+const getCurrentDailyStreak = (completedAtValues: (string | null | undefined)[]) => {
+  const distinctDays = Array.from(
+    new Set(
+      completedAtValues
+        .map((value) => {
+          if (!value) {
+            return null;
+          }
+
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) {
+            return null;
+          }
+
+          return startOfLocalDay(parsed).getTime();
+        })
+        .filter((value): value is number => value !== null),
+    ),
+  ).sort((left, right) => right - left);
+
+  if (!distinctDays.length) {
+    return 0;
+  }
+
+  const today = startOfLocalDay(new Date()).getTime();
+  const dayMs = 1000 * 60 * 60 * 24;
+  const firstDay = distinctDays[0];
+
+  if (firstDay !== today && firstDay !== today - dayMs) {
+    return 0;
+  }
+
+  let streak = 1;
+  for (let index = 1; index < distinctDays.length; index += 1) {
+    if (distinctDays[index - 1] - distinctDays[index] !== dayMs) {
+      break;
+    }
+    streak += 1;
+  }
+
+  return streak;
+};
+
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
       backLink: 'เส้นทางของฉัน',
-      titleLineOne: 'ความคืบหน้า',
-      titleLineTwo: 'การเรียน',
+      title: 'ความคืบหน้าการเรียน',
       currentStage: 'สเตจปัจจุบัน',
       learningSince: 'เริ่มเรียนเมื่อ',
       lessonsCompleted: 'บทเรียนที่จบ',
       levelsCompleted: 'เลเวลที่จบ',
-      currentLevel: 'เลเวลปัจจุบัน',
-      totalLessonsAvailable: 'บทเรียนทั้งหมด',
+      lessonsToGo: 'บทเรียนที่เหลือ',
+      dailyStreak: 'สตรีคประจำวัน',
       stageBreakdown: 'ภาพรวมแต่ละสเตจ',
       recentLessons: 'บทเรียนล่าสุด',
       untitledLesson: 'ไม่มีชื่อบทเรียน',
@@ -180,14 +224,13 @@ const getCopy = (uiLanguage: UiLanguage) => {
 
   return {
     backLink: 'My Pathway',
-    titleLineOne: 'Learning',
-    titleLineTwo: 'Progress',
+    title: 'Learning Progress',
     currentStage: 'Current stage',
     learningSince: 'Learning since',
     lessonsCompleted: 'Lessons completed',
     levelsCompleted: 'Levels completed',
-    currentLevel: 'Current level',
-    totalLessonsAvailable: 'Total lessons available',
+    lessonsToGo: 'Lessons to go',
+    dailyStreak: 'Day streak',
     stageBreakdown: 'Stage breakdown',
     recentLessons: 'Recent lessons',
     untitledLesson: 'Untitled lesson',
@@ -222,8 +265,16 @@ export function LearningProgressScreen() {
     () => getProgressContext(pathwayRows, allLessons, completedLessons, resumeRow),
     [allLessons, completedLessons, pathwayRows, resumeRow],
   );
+  const lessonsToGo = useMemo(
+    () => Math.max(0, progressContext.levelTotalCount - progressContext.levelCompletedCount),
+    [progressContext.levelCompletedCount, progressContext.levelTotalCount],
+  );
   const stageBreakdown = useMemo(() => getStageBreakdown(allLessons, completedLessons), [allLessons, completedLessons]);
   const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
+  const dailyStreak = useMemo(
+    () => getCurrentDailyStreak(completedProgress.map((progress) => progress.completed_at)),
+    [completedProgress],
+  );
 
   if (isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -233,18 +284,15 @@ export function LearningProgressScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
         <View style={styles.headerBlock}>
-          <View style={{ height: Math.max(insets.top - 6, theme.spacing.sm) }} />
+          <View style={{ height: Math.max(insets.top - 24, 0) }} />
           <Pressable accessibilityRole="button" style={styles.backLinkWrap} onPress={() => router.push('/(tabs)')}>
             <AppText language={uiLanguage} variant="caption" style={styles.backLink}>
               ‹ {copy.backLink}
             </AppText>
           </Pressable>
 
-          <AppText language={uiLanguage} variant="title" style={styles.headerTitle}>
-            {copy.titleLineOne}
-          </AppText>
-          <AppText language={uiLanguage} variant="title" style={styles.headerTitleAccent}>
-            {copy.titleLineTwo}
+          <AppText language={uiLanguage} variant="title" numberOfLines={1} style={styles.headerTitle}>
+            {copy.title}
           </AppText>
         </View>
 
@@ -298,19 +346,19 @@ export function LearningProgressScreen() {
 
           <Card padding="md" radius="lg" style={styles.metricCard}>
             <AppText language={uiLanguage} variant="body" style={styles.metricValue}>
-              {typeof progressContext.level === 'number' ? progressContext.level : '–'}
+              {lessonsToGo}
             </AppText>
             <AppText language={uiLanguage} variant="caption" style={styles.metricLabel}>
-              {copy.currentLevel}
+              {copy.lessonsToGo}
             </AppText>
           </Card>
 
           <Card padding="md" radius="lg" style={styles.metricCard}>
             <AppText language={uiLanguage} variant="body" style={styles.metricValue}>
-              {allLessons.length}
+              {dailyStreak}
             </AppText>
             <AppText language={uiLanguage} variant="caption" style={styles.metricLabel}>
-              {copy.totalLessonsAvailable}
+              {copy.dailyStreak}
             </AppText>
           </Card>
         </View>
@@ -354,7 +402,11 @@ export function LearningProgressScreen() {
               return (
                 <Card key={progress.id ?? progress.lesson_id} padding="md" radius="lg" style={styles.recentCard}>
                   <View style={styles.recentRow}>
-                    <View style={styles.recentDot} />
+                    <View style={styles.recentCheckBadge}>
+                      <AppText language="en" variant="caption" style={styles.recentCheckText}>
+                        ✓
+                      </AppText>
+                    </View>
                     <AppText language={uiLanguage} variant="caption" style={styles.recentNumber}>
                       {getLessonNumber(lesson)}
                     </AppText>
@@ -404,7 +456,7 @@ const styles = StyleSheet.create({
   },
   backLinkWrap: {
     alignSelf: 'flex-start',
-    marginBottom: theme.spacing.xs,
+    marginBottom: 6,
   },
   backLink: {
     color: theme.colors.accent,
@@ -414,13 +466,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 28,
     fontWeight: theme.typography.weights.bold,
-  },
-  headerTitleAccent: {
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginTop: -2,
   },
   stageCard: {
     backgroundColor: '#DCEEFF',
@@ -432,12 +478,13 @@ const styles = StyleSheet.create({
   },
   stageCardRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
   stagePrimary: {
     flex: 1,
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
   cardEyebrow: {
     textTransform: 'uppercase',
@@ -464,12 +511,15 @@ const styles = StyleSheet.create({
   },
   sinceBlock: {
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingTop: 2,
+    justifyContent: 'flex-start',
+    gap: 2,
+    paddingTop: 4,
   },
   sinceLabel: {
     color: '#8B9AAF',
     fontWeight: theme.typography.weights.medium,
+    fontSize: 12,
+    lineHeight: 16,
   },
   sinceValue: {
     textAlign: 'right',
@@ -542,13 +592,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
-  recentDot: {
-    width: 9,
-    height: 9,
+  recentCheckBadge: {
+    width: 20,
+    height: 20,
     borderRadius: 999,
-    backgroundColor: '#CDEB8B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EAF6D2',
     borderWidth: 1,
     borderColor: '#88A64E',
+  },
+  recentCheckText: {
+    color: '#5F8432',
+    fontWeight: theme.typography.weights.bold,
+    lineHeight: 14,
   },
   recentNumber: {
     minWidth: 34,

@@ -48,13 +48,42 @@ const fontFamilyStyles: Record<Language, TextStyle> = {
   },
 };
 
+const THAI_SCRIPT_PATTERN = /[\u0E00-\u0E7F]/;
+
+function containsThaiGlyphs(node: React.ReactNode): boolean {
+  if (typeof node === 'string') {
+    return THAI_SCRIPT_PATTERN.test(node);
+  }
+
+  if (typeof node === 'number' || typeof node === 'boolean' || node == null) {
+    return false;
+  }
+
+  if (Array.isArray(node)) {
+    return node.some((child) => containsThaiGlyphs(child));
+  }
+
+  if (React.isValidElement(node)) {
+    return containsThaiGlyphs((node.props as { children?: React.ReactNode }).children);
+  }
+
+  return false;
+}
+
 export function AppText({
   variant = 'body',
-  language = 'en',
+  language,
   style,
+  children,
   ...rest
 }: AppTextProps) {
-  return <Text {...rest} style={[styles.base, fontFamilyStyles[language], variantStyles[variant], style]} />;
+  const resolvedLanguage = language ?? (containsThaiGlyphs(children) ? 'th' : 'en');
+
+  return (
+    <Text {...rest} style={[styles.base, fontFamilyStyles[resolvedLanguage], variantStyles[variant], style]}>
+      {children}
+    </Text>
+  );
 }
 
 const styles = StyleSheet.create({

@@ -47,15 +47,25 @@ export default function TabLayout() {
 
   const tabsScreenOptions = useMemo(
     () => ({
-      tabBarActiveTintColor: theme.colors.text,
+      tabBarActiveTintColor: theme.colors.accent,
       tabBarInactiveTintColor: theme.colors.mutedText,
       headerShown: false,
       tabBarButton: HapticTab,
       sceneStyle: !hasAccount ? styles.sceneFullscreen : styles.scene,
       tabBarStyle: !hasAccount ? styles.tabBarHidden : styles.tabBar,
-      tabBarLabelStyle: styles.tabBarLabel,
+      tabBarLabelStyle: [styles.tabBarLabel, uiLanguage === 'th' ? styles.tabBarLabelThai : styles.tabBarLabelEnglish],
     }),
-    [hasAccount, styles.scene, styles.sceneFullscreen, styles.tabBar, styles.tabBarHidden, styles.tabBarLabel]
+    [
+      hasAccount,
+      styles.scene,
+      styles.sceneFullscreen,
+      styles.tabBar,
+      styles.tabBarHidden,
+      styles.tabBarLabel,
+      styles.tabBarLabelEnglish,
+      styles.tabBarLabelThai,
+      uiLanguage,
+    ]
   );
 
   if (!isLoading && hasAccount && !hasCompletedOnboarding) {
@@ -141,6 +151,12 @@ const createStyles = (insetTop: number, insetBottom: number) =>
     tabBarLabel: {
       fontSize: 11,
       fontWeight: theme.typography.weights.semibold,
+    },
+    tabBarLabelEnglish: {
+      fontFamily: theme.typography.fonts.en,
+    },
+    tabBarLabelThai: {
+      fontFamily: theme.typography.fonts.th,
     },
     redirectOverlay: {
       flex: 1,

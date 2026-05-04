@@ -36,6 +36,7 @@ import {
 } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchUserCompletedLessons, upsertLessonCompletion } from '@/src/api/user';
+import { LessonConversationIntroOverlay } from '@/src/components/lesson/LessonConversationIntroOverlay';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
 import { AppText } from '@/src/components/ui/AppText';
@@ -1701,6 +1702,10 @@ export default function LessonDetailShellScreen() {
   const [audioDurationMillis, setAudioDurationMillis] = useState(0);
   const [hasAudioFinished, setHasAudioFinished] = useState(false);
   const [audioRate, setAudioRate] = useState(1);
+  const [hasShownConversationIntro, setHasShownConversationIntro] = useState(false);
+  const [isConversationIntroVisible, setIsConversationIntroVisible] = useState(false);
+  const [isConversationIntroAnimatingOut, setIsConversationIntroAnimatingOut] = useState(false);
+  const [conversationIntroPendingSectionIndex, setConversationIntroPendingSectionIndex] = useState<number | null>(null);
   const [snippetIndex, setSnippetIndex] = useState<LessonAudioSnippetIndex>(EMPTY_SNIPPET_INDEX);
   const [phraseSnippetIndex, setPhraseSnippetIndex] = useState<LessonPhraseAudioSnippetIndex>(EMPTY_PHRASE_SNIPPET_INDEX);
   const [activeSnippetKey, setActiveSnippetKey] = useState<string | null>(null);
@@ -1746,6 +1751,9 @@ export default function LessonDetailShellScreen() {
   const contentScrollRef = useRef<ScrollView | null>(null);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
   const audioTrayExpandCounterRef = useRef(0);
+  const conversationIntroTranslateY = useSharedValue(0);
+  const conversationIntroScale = useSharedValue(1);
+  const conversationIntroOpacity = useSharedValue(1);
 
   const dismissLessonKeyboard = useCallback(() => {
     applyInputRef.current?.blur();
@@ -1944,7 +1952,7 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [lessonId]);
+  }, [conversationIntroOpacity, conversationIntroScale, conversationIntroTranslateY, lessonId]);
 
   useEffect(() => {
     if (hasMembership) {
@@ -2062,6 +2070,10 @@ export default function LessonDetailShellScreen() {
     setAudioDurationMillis(0);
     setHasAudioFinished(false);
     setAudioRate(1);
+    setHasShownConversationIntro(false);
+    setIsConversationIntroVisible(false);
+    setIsConversationIntroAnimatingOut(false);
+    setConversationIntroPendingSectionIndex(null);
     setSnippetIndex(EMPTY_SNIPPET_INDEX);
     setPhraseSnippetIndex(EMPTY_PHRASE_SNIPPET_INDEX);
     setActiveSnippetKey(null);
@@ -2078,7 +2090,10 @@ export default function LessonDetailShellScreen() {
     setPracticeEvaluations({});
     setPracticeErrorByExercise({});
     setPracticeMarkedCorrect({});
-  }, [lessonId]);
+    conversationIntroTranslateY.value = 0;
+    conversationIntroScale.value = 1;
+    conversationIntroOpacity.value = 1;
+  }, [conversationIntroOpacity, conversationIntroScale, conversationIntroTranslateY, lessonId]);
 
   useEffect(() => {
     setAudioModeAsync({
@@ -2453,6 +2468,103 @@ export default function LessonDetailShellScreen() {
       richPagerTranslateX,
     ]
   );
+  const prepareSectionIndex = useMemo(
+    () => lessonTabs.findIndex((tab) => tab.type === 'prepare'),
+    [lessonTabs]
+  );
+  const conversationIntroAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: conversationIntroOpacity.value,
+    transform: [
+      { translateY: conversationIntroTranslateY.value },
+      { scale: conversationIntroScale.value },
+    ],
+  }));
+  const finishConversationIntroTransition = useCallback(
+    (targetIndex: number, shouldExpandTray: boolean) => {
+      const clampedTargetIndex = Math.max(0, Math.min(targetIndex, Math.max(0, sectionCount - 1)));
+      setIsConversationIntroVisible(false);
+      setIsConversationIntroAnimatingOut(false);
+      setConversationIntroPendingSectionIndex(null);
+      setActiveSectionIndex(clampedTargetIndex);
+      conversationIntroTranslateY.value = 0;
+      conversationIntroScale.value = 1;
+      conversationIntroOpacity.value = 1;
+
+      if (shouldExpandTray) {
+        audioTrayExpandCounterRef.current += 1;
+        setAudioTrayAutoExpandSignal(`conversation-intro-${audioTrayExpandCounterRef.current}`);
+      }
+    },
+    [conversationIntroOpacity, conversationIntroScale, conversationIntroTranslateY, sectionCount]
+  );
+  const openConversationIntro = useCallback((targetIndex: number) => {
+    const clampedTargetIndex = Math.max(0, Math.min(targetIndex, Math.max(0, sectionCount - 1)));
+    setHasShownConversationIntro(true);
+    setConversationIntroPendingSectionIndex(clampedTargetIndex);
+    setIsConversationIntroAnimatingOut(false);
+    setIsConversationIntroVisible(true);
+    conversationIntroTranslateY.value = 0;
+    conversationIntroScale.value = 1;
+    conversationIntroOpacity.value = 1;
+  }, [conversationIntroOpacity, conversationIntroScale, conversationIntroTranslateY, sectionCount]);
+  const shouldOpenConversationIntroForIndex = useCallback((targetIndex: number) => {
+    if (hasShownConversationIntro || isConversationIntroVisible || isConversationIntroAnimatingOut) {
+      return false;
+    }
+
+    if (prepareSectionIndex < 0) {
+      return false;
+    }
+
+    return targetIndex > prepareSectionIndex;
+  }, [hasShownConversationIntro, isConversationIntroAnimatingOut, isConversationIntroVisible, prepareSectionIndex]);
+  const navigateToSectionWithConversationGate = useCallback((targetIndex: number) => {
+    if (sectionCount <= 0) {
+      return;
+    }
+
+    const clampedTargetIndex = Math.max(0, Math.min(targetIndex, sectionCount - 1));
+    if (clampedTargetIndex === activeSectionIndex && !shouldOpenConversationIntroForIndex(clampedTargetIndex)) {
+      return;
+    }
+
+    if (shouldOpenConversationIntroForIndex(clampedTargetIndex)) {
+      openConversationIntro(clampedTargetIndex);
+      return;
+    }
+
+    if (activeTab?.type === 'prepare' && clampedTargetIndex > activeSectionIndex) {
+      audioTrayExpandCounterRef.current += 1;
+      setAudioTrayAutoExpandSignal(`prepare-next-${audioTrayExpandCounterRef.current}`);
+    }
+
+    setActiveSectionIndex(clampedTargetIndex);
+  }, [activeSectionIndex, activeTab?.type, openConversationIntro, sectionCount, shouldOpenConversationIntroForIndex]);
+  const handleDismissConversationIntro = useCallback(() => {
+    const targetIndex = conversationIntroPendingSectionIndex ?? activeSectionIndex;
+    finishConversationIntroTransition(targetIndex, false);
+  }, [activeSectionIndex, conversationIntroPendingSectionIndex, finishConversationIntroTransition]);
+  const handlePlayConversationIntro = async () => {
+    const targetIndex = conversationIntroPendingSectionIndex ?? activeSectionIndex;
+    if (!audioUrls.main || isAudioLoading) {
+      return;
+    }
+
+    try {
+      await playConversationAudio();
+    } catch {
+      return;
+    }
+
+    setIsConversationIntroAnimatingOut(true);
+    conversationIntroTranslateY.value = withTiming(windowHeight, { duration: 320 }, (finished) => {
+      if (finished) {
+        runOnJS(finishConversationIntroTransition)(targetIndex, true);
+      }
+    });
+    conversationIntroScale.value = withTiming(0.94, { duration: 320 });
+    conversationIntroOpacity.value = withTiming(0.98, { duration: 180 });
+  };
   const canSwipeToPreviousSection = hasStartedLesson && activeSectionIndex > 0;
   const canSwipeToNextVisitedSection =
     hasStartedLesson && activeSectionIndex < Math.min(maxVisitedSectionIndex, Math.max(0, sectionCount - 1));
@@ -2468,19 +2580,21 @@ export default function LessonDetailShellScreen() {
         translationX >= SECTION_SWIPE_RIGHT_DISTANCE || velocityX >= SECTION_SWIPE_RIGHT_VELOCITY;
 
       if (movingLeft && canSwipeToNextVisitedSection) {
-        setActiveSectionIndex((previous) => Math.min(previous + 1, Math.min(maxVisitedSectionIndex, sectionCount - 1)));
+        navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, Math.min(maxVisitedSectionIndex, sectionCount - 1)));
         return;
       }
 
       if (movingRight && canSwipeToPreviousSection) {
-        setActiveSectionIndex((previous) => Math.max(previous - 1, 0));
+        navigateToSectionWithConversationGate(Math.max(activeSectionIndex - 1, 0));
       }
     },
     [
+      activeSectionIndex,
       canSwipeToNextVisitedSection,
       canSwipeToPreviousSection,
       isInnerPagerTab,
       maxVisitedSectionIndex,
+      navigateToSectionWithConversationGate,
       sectionCount,
     ]
   );
@@ -2533,7 +2647,20 @@ export default function LessonDetailShellScreen() {
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
   const audioTraySubtitle = activeSectionTitle || thaiTitle || englishTitle || null;
-  const shouldShowAudioTray = hasStartedLesson && !isLoading && !errorMessage && Boolean(lesson) && !isFullscreen;
+  const shouldShowConversationIntroOverlay =
+    hasStartedLesson &&
+    !isLoading &&
+    !errorMessage &&
+    Boolean(lesson) &&
+    (isConversationIntroVisible || isConversationIntroAnimatingOut);
+  const conversationIntroTargetSectionIndex = conversationIntroPendingSectionIndex ?? activeSectionIndex;
+  const shouldShowAudioTray =
+    hasStartedLesson &&
+    !isLoading &&
+    !errorMessage &&
+    Boolean(lesson) &&
+    !isFullscreen &&
+    !shouldShowConversationIntroOverlay;
   const audioTrayStatusLabel = isAudioLoading
     ? pageCopy.audioTrayLoading
     : isAudioPlaying
@@ -6336,6 +6463,32 @@ export default function LessonDetailShellScreen() {
             </View>
           ) : (
             <View style={styles.stepperScreen}>
+              {shouldShowConversationIntroOverlay ? (
+                <Animated.View style={[styles.conversationIntroOverlayWrap, conversationIntroAnimatedStyle]}>
+                  <LessonConversationIntroOverlay
+                    language={pageLanguage}
+                    lessonLabel={studyLessonLabel}
+                    eyebrow={pageCopy.conversationIntroEyebrow}
+                    title={audioTrayTitle}
+                    body={pageCopy.conversationIntroBody}
+                    hint={pageCopy.conversationIntroHint}
+                    targetSectionIndex={conversationIntroTargetSectionIndex}
+                    sectionCount={sectionCount}
+                    audioUrl={audioUrls.main}
+                    isPlaying={isAudioPlaying}
+                    isLoading={isAudioLoading}
+                    currentMillis={audioPositionMillis}
+                    durationMillis={audioDurationMillis}
+                    rate={audioRate}
+                    onDismiss={handleDismissConversationIntro}
+                    onPlay={handlePlayConversationIntro}
+                    onSkip={handleSkipAudio}
+                    onSeek={handleSeekAudio}
+                    onSetRate={handleSetAudioRate}
+                  />
+                </Animated.View>
+              ) : null}
+
               {!isFullscreen ? (
                 <>
                   <View style={[styles.studyTopChrome, { paddingTop: insets.top + 8 }]}>
@@ -6734,12 +6887,12 @@ export default function LessonDetailShellScreen() {
                     </Stack>
                   ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isPhrasesTab ? (
                     (isPracticeTab ? activePracticeExercise : isPhrasesTab ? activePhraseCard : activePagerGroup) ? (
-                      <View style={styles.richPagerShell}>
-                        <GestureDetector gesture={richPagerGesture}>
+                      <GestureDetector gesture={richPagerGesture}>
+                        <View style={[styles.richPagerShell, isPhrasesTab ? styles.richPagerShellBottomControls : null]}>
                           <Animated.View
                             style={[
-                              styles.richPagerCard,
-                              windowHeight < 780 ? styles.richPagerCardCompact : null,
+                              isPhrasesTab ? styles.richPagerCardAutoHeight : styles.richPagerCard,
+                              !isPhrasesTab && windowHeight < 780 ? styles.richPagerCardCompact : null,
                               richPagerAnimatedStyle,
                             ]}>
                             <View style={styles.richPagerMetaRow}>
@@ -6772,57 +6925,56 @@ export default function LessonDetailShellScreen() {
                               </View>
                             </View>
                           </Animated.View>
-                        </GestureDetector>
 
-                        {hasMultiplePagerCards ? (
-                          <View style={styles.richPagerControls}>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={pageLanguage === 'th' ? 'การ์ดก่อนหน้า' : 'Previous card'}
-                              accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
-                              disabled={activeInnerCardIndex === 0}
-                              onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
-                              style={[
-                                styles.richPagerArrowButton,
-                                activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
-                              ]}>
-                              <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                ←
-                              </AppText>
-                            </Pressable>
+                          {hasMultiplePagerCards ? (
+                            <View style={[styles.richPagerControls, isPhrasesTab ? styles.richPagerControlsBottom : null]}>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={pageLanguage === 'th' ? 'การ์ดก่อนหน้า' : 'Previous card'}
+                                accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
+                                disabled={activeInnerCardIndex === 0}
+                                onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
+                                style={[
+                                  styles.richPagerArrowButton,
+                                  activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
+                                ]}>
+                                <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+                                  ←
+                                </AppText>
+                              </Pressable>
 
-                            <View style={styles.richPagerDots}>
-                              {pagerDotKeys.map((dotKey, index) => (
-                                <View
-                                  key={dotKey}
-                                  style={[
-                                    styles.richPagerDot,
-                                    index === activeInnerCardIndex ? styles.richPagerDotActive : null,
-                                  ]}
-                                />
-                              ))}
-                            </View>
+                              <View style={styles.richPagerDots}>
+                                {pagerDotKeys.map((dotKey, index) => (
+                                  <View
+                                    key={dotKey}
+                                    style={[
+                                      styles.richPagerDot,
+                                      index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                                    ]}
+                                  />
+                                ))}
+                              </View>
 
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={pageLanguage === 'th' ? 'การ์ดถัดไป' : 'Next card'}
-                              accessibilityState={{ disabled: activeInnerCardIndex >= activeInnerCardCount - 1 }}
-                              disabled={activeInnerCardIndex >= activeInnerCardCount - 1}
-                              onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
-                              style={[
-                                styles.richPagerArrowButton,
-                                activeInnerCardIndex >= activeInnerCardCount - 1
-                                  ? styles.richPagerArrowButtonDisabled
-                                  : null,
-                              ]}>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={pageLanguage === 'th' ? 'การ์ดถัดไป' : 'Next card'}
+                                accessibilityState={{ disabled: activeInnerCardIndex >= activeInnerCardCount - 1 }}
+                                disabled={activeInnerCardIndex >= activeInnerCardCount - 1}
+                                onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
+                                style={[
+                                  styles.richPagerArrowButton,
+                                  activeInnerCardIndex >= activeInnerCardCount - 1
+                                    ? styles.richPagerArrowButtonDisabled
+                                    : null,
+                                ]}>
                                 <AppText language="en" variant="body" style={styles.richPagerArrowText}>
                                   →
-                              </AppText>
-                            </Pressable>
-                          </View>
-                        ) : null}
-
-                      </View>
+                                </AppText>
+                              </Pressable>
+                            </View>
+                          ) : null}
+                        </View>
+                      </GestureDetector>
                     ) : (
                       isPracticeTab ? (
                         <AppText language={pageLanguage} variant="body" style={styles.sectionBody}>
@@ -6985,11 +7137,7 @@ export default function LessonDetailShellScreen() {
                             void completeLesson();
                             return;
                           } else {
-                            if (activeTab?.type === 'prepare') {
-                              audioTrayExpandCounterRef.current += 1;
-                              setAudioTrayAutoExpandSignal(`prepare-next-${audioTrayExpandCounterRef.current}`);
-                            }
-                            setActiveSectionIndex((prev) => Math.min(prev + 1, sectionCount - 1));
+                            navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, sectionCount - 1));
                           }
                         }}
                         style={({ pressed }) => [
@@ -7047,7 +7195,7 @@ export default function LessonDetailShellScreen() {
                     key={tab.id}
                     accessibilityRole="button"
                     onPress={() => {
-                      setActiveSectionIndex(index);
+                      navigateToSectionWithConversationGate(index);
                       setIsMenuOpen(false);
                     }}
                     style={[styles.menuItem, isActive ? styles.menuItemActive : null]}>
@@ -7175,7 +7323,7 @@ const styles = StyleSheet.create({
   },
   coverTopMetaRow: {
     alignItems: 'flex-start',
-    marginTop: theme.spacing.sm,
+    marginTop: theme.spacing.md,
   },
   coverTopBar: {
     flexDirection: 'row',
@@ -7295,6 +7443,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  conversationIntroOverlayWrap: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+  },
   studyTopChrome: {
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 1.5,
@@ -7318,12 +7470,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     paddingVertical: 7,
   },
   studyMenuButton: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -7333,8 +7485,8 @@ const styles = StyleSheet.create({
   },
   studyMenuButtonText: {
     color: theme.colors.text,
-    fontSize: 16,
-    lineHeight: 16,
+    fontSize: 18,
+    lineHeight: 18,
     fontWeight: theme.typography.weights.semibold,
   },
   studyCounterText: {
@@ -7363,13 +7515,13 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   translatePill: {
-    minWidth: 44,
+    minWidth: 48,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -7378,8 +7530,8 @@ const styles = StyleSheet.create({
   },
   translatePillText: {
     color: theme.colors.text,
-    fontSize: 13,
-    lineHeight: 15,
+    fontSize: 14,
+    lineHeight: 16,
     fontWeight: theme.typography.weights.semibold,
   },
   sectionDotsRow: {
@@ -7440,12 +7592,18 @@ const styles = StyleSheet.create({
   richPagerShell: {
     gap: theme.spacing.md,
   },
+  richPagerShellBottomControls: {
+    flex: 1,
+  },
   richPagerCard: {
     minHeight: 420,
     gap: theme.spacing.md,
   },
   richPagerCardCompact: {
     minHeight: 380,
+  },
+  richPagerCardAutoHeight: {
+    gap: theme.spacing.md,
   },
   richPagerMetaRow: {
     flexDirection: 'row',
@@ -7486,6 +7644,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
+  },
+  richPagerControlsBottom: {
+    marginTop: 'auto',
+    paddingBottom: theme.spacing.sm,
   },
   richPagerArrowButton: {
     width: 48,
@@ -8960,15 +9122,17 @@ const styles = StyleSheet.create({
   },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
   menuBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(30, 30, 30, 0.18)',
   },
   menuSheet: {
-    marginTop: theme.spacing.xl,
     marginHorizontal: theme.spacing.md,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 420,
     backgroundColor: theme.colors.surface,
   },
   menuHeader: {

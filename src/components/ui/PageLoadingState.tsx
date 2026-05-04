@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     minHeight: 420,
+    backgroundColor: theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
