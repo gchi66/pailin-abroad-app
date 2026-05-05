@@ -31,6 +31,7 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
       title: 'เกี่ยวกับ Pailin Abroad',
+      back: 'ย้อนกลับ',
       subtitle: 'มาทำความรู้จักเกี่ยวกับเรากัน ไม่ว่าจะเป็นวิธีการเรียน ทีมงาน และเรื่องราวของเรา!',
       sections: {
         method: 'วิธีการเรียนของเรา',
@@ -133,6 +134,7 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
 
   return {
     title: 'About Pailin Abroad',
+    back: 'Back',
     subtitle: 'Learn all you need to know about us - our method, our team, and our story!',
     sections: {
       method: 'The Method',
@@ -252,7 +254,13 @@ export function AboutScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account')} topInsetOffset={52} />
+        <StandardPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          onBackPress={() => router.push('/(tabs)/account')}
+          backLabel={copy.back}
+          topInsetOffset={52}
+        />
 
         <View style={styles.sectionTabs}>
           {sectionOptions.map((option) => {

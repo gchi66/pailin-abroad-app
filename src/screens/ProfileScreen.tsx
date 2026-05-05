@@ -72,6 +72,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
       title: 'โปรไฟล์',
+      back: 'ย้อนกลับ',
       edit: 'แก้ไข',
       cancel: 'ยกเลิก',
       guestTitle: 'ยังไม่ได้เข้าสู่ระบบ',
@@ -98,6 +99,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
 
   return {
     title: 'Profile',
+    back: 'Back',
     edit: 'Edit',
     cancel: 'Cancel',
     guestTitle: 'You are not signed in',
@@ -232,6 +234,7 @@ export function ProfileScreen() {
           language={uiLanguage}
           title={copy.title}
           onBackPress={() => router.push('/(tabs)/account')}
+          backLabel={copy.back}
           rightActionLabel={isEditing ? copy.cancel : copy.edit}
           onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
           topInsetOffset={52}
@@ -298,10 +301,9 @@ export function ProfileScreen() {
                         <Pressable
                           key={avatarPath}
                           accessibilityRole="button"
-                          style={styles.avatarOption}
+                          style={[styles.avatarOption, draftAvatarPath === avatarPath ? styles.avatarOptionSelected : null]}
                           onPress={() => setDraftAvatarPath(avatarPath)}>
                           <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
-                          {draftAvatarPath === avatarPath ? <View style={styles.avatarSelectedRing} /> : null}
                         </Pressable>
                       );
                     })}
@@ -477,20 +479,16 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  avatarOptionSelected: {
+    borderWidth: 2,
+    borderColor: theme.colors.text,
   },
   avatarOptionImage: {
     width: '100%',
     height: '100%',
-  },
-  avatarSelectedRing: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    bottom: -3,
-    left: -3,
-    borderWidth: 2,
-    borderColor: theme.colors.text,
-    borderRadius: 999,
   },
   metaRow: {
     flexDirection: 'row',

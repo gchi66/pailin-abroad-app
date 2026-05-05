@@ -61,6 +61,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
   if (uiLanguage === 'th') {
     return {
       title: 'การตั้งค่า',
+      back: 'ย้อนกลับ',
       membershipTitle: 'สมาชิกและการเรียกเก็บเงิน',
       subscriptionSectionTitle: 'การสมัครสมาชิก',
       planLabel: 'แผนปัจจุบัน',
@@ -104,6 +105,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
 
   return {
     title: 'Settings',
+    back: 'Back',
     membershipTitle: 'Membership & Billing',
     subscriptionSectionTitle: 'Subscription',
     planLabel: 'Current Plan',
@@ -117,7 +119,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     currentPlanFree: 'Free Plan',
     billingPaid: 'N/A',
     billingFree: 'None',
-    pricePaid: '$400/month',
+    pricePaid: '฿400/month',
     priceFree: 'Free',
     changePlan: 'Change Plan',
     appPreferencesTitle: 'App Preferences',
@@ -271,7 +273,13 @@ export function SettingsScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account')} topInsetOffset={52} />
+        <StandardPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          onBackPress={() => router.push('/(tabs)/account')}
+          backLabel={copy.back}
+          topInsetOffset={52}
+        />
 
         <Card padding="lg" radius="lg" style={styles.neoCard}>
           <Stack gap="md">
@@ -296,33 +304,6 @@ export function SettingsScreen() {
             </Stack>
 
             <Button language={uiLanguage} title={copy.changePlan} onPress={handleChangePlan} />
-          </Stack>
-        </Card>
-
-        <Card padding="lg" radius="lg" style={styles.neoCard}>
-          <Stack gap="md">
-            <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-              {copy.appPreferencesTitle}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.helperText}>
-              {copy.legalIntro}
-            </AppText>
-            <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/account/terms')}>
-              <AppText language={uiLanguage} variant="body" style={styles.linkText}>
-                {copy.termsTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
-              </AppText>
-            </Pressable>
-            <Pressable accessibilityRole="button" style={styles.linkRow} onPress={() => router.push('/account/privacy')}>
-              <AppText language={uiLanguage} variant="body" style={styles.linkText}>
-                {copy.privacyTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                ›
-              </AppText>
-            </Pressable>
           </Stack>
         </Card>
 
@@ -387,6 +368,19 @@ export function SettingsScreen() {
             </View>
           ) : null}
         </View>
+
+        <View style={styles.legalFooter}>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/account/terms')}>
+            <AppText language={uiLanguage} variant="caption" style={styles.legalFooterLink}>
+              {copy.termsTitle}
+            </AppText>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/account/privacy')}>
+            <AppText language={uiLanguage} variant="caption" style={styles.legalFooterLink}>
+              {copy.privacyTitle}
+            </AppText>
+          </Pressable>
+        </View>
       </Stack>
     </ScrollView>
   );
@@ -418,9 +412,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
   },
-  helperText: {
-    color: theme.colors.mutedText,
-  },
   infoRow: {
     minHeight: 52,
     flexDirection: 'row',
@@ -442,27 +433,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     color: theme.colors.text,
     fontWeight: theme.typography.weights.bold,
-  },
-  linkRow: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: theme.radii.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  linkText: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  linkChevron: {
-    color: theme.colors.mutedText,
-    fontSize: 24,
-    lineHeight: 24,
   },
   moreSection: {
     borderRadius: theme.radii.md,
@@ -492,6 +462,18 @@ const styles = StyleSheet.create({
   moreBody: {
     borderTopWidth: 1,
     borderTopColor: '#D7D7D7',
+  },
+  legalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
+  },
+  legalFooterLink: {
+    color: theme.colors.mutedText,
+    fontSize: theme.typography.sizes.sm,
+    lineHeight: theme.typography.lineHeights.sm,
   },
   dangerRow: {
     minHeight: 60,

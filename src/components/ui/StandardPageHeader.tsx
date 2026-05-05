@@ -11,12 +11,21 @@ type StandardPageHeaderProps = {
   title: string;
   subtitle?: string;
   onBackPress?: (() => void) | undefined;
+  backLabel?: string;
   rightActionLabel?: string;
   onRightActionPress?: (() => void) | undefined;
   topInsetOffset?: number;
 };
 
-export function StandardPageHeader({ language, title, onBackPress, rightActionLabel, onRightActionPress, topInsetOffset = 42 }: StandardPageHeaderProps) {
+export function StandardPageHeader({
+  language,
+  title,
+  onBackPress,
+  backLabel,
+  rightActionLabel,
+  onRightActionPress,
+  topInsetOffset = 42,
+}: StandardPageHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -25,8 +34,8 @@ export function StandardPageHeader({ language, title, onBackPress, rightActionLa
       <View style={styles.actionRow}>
         {onBackPress ? (
           <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
-            <AppText language={language} variant="caption" style={styles.backButtonText}>
-              ←
+            <AppText language={language} variant="caption" style={styles.actionText}>
+              {backLabel ? `← ${backLabel}` : '←'}
             </AppText>
           </Pressable>
         ) : (
@@ -35,7 +44,7 @@ export function StandardPageHeader({ language, title, onBackPress, rightActionLa
 
         {rightActionLabel && onRightActionPress ? (
           <Pressable accessibilityRole="button" style={styles.rightActionButton} onPress={onRightActionPress}>
-            <AppText language={language} variant="caption" style={styles.rightActionText}>
+            <AppText language={language} variant="caption" style={styles.actionText}>
               {rightActionLabel}
             </AppText>
           </Pressable>
@@ -70,16 +79,9 @@ const styles = StyleSheet.create({
     minHeight: 28,
   },
   backButton: {
-    width: 56,
     minHeight: 28,
     alignItems: 'flex-start',
     justifyContent: 'center',
-  },
-  backButtonText: {
-    color: theme.colors.text,
-    fontSize: 24,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.bold,
   },
   rightActionButton: {
     minWidth: 56,
@@ -87,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  rightActionText: {
+  actionText: {
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.md,

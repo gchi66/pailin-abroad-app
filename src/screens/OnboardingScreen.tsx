@@ -388,10 +388,13 @@ function ProfileStep({
               <Pressable
                 key={avatar.path}
                 accessibilityRole="button"
-                style={[styles.avatarOption, compact ? styles.avatarOptionCompact : null]}
+                style={[
+                  styles.avatarOption,
+                  compact ? styles.avatarOptionCompact : null,
+                  selectedAvatarPath === avatar.path ? styles.avatarOptionSelected : null,
+                ]}
                 onPress={() => onAvatarSelect(avatar.path)}>
                 <Image source={avatar.source} style={styles.avatarOptionImage} contentFit="contain" />
-                {selectedAvatarPath === avatar.path ? <View style={styles.avatarSelectedRing} /> : null}
               </Pressable>
             ))}
           </View>
@@ -1103,19 +1106,15 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   avatarOptionCompact: {
     width: '22.5%',
   },
-  avatarSelectedRing: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    bottom: -3,
-    left: -3,
+  avatarOptionSelected: {
     borderWidth: 2,
     borderColor: theme.colors.text,
-    borderRadius: 999,
   },
   avatarOptionImage: {
     width: '100%',

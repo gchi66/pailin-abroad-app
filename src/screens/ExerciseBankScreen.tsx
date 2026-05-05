@@ -349,7 +349,7 @@ export function ExerciseBankScreen() {
                                 {section.section || ''}
                               </AppText>
 
-                              {section.section_th ? (
+                              {uiLanguage === 'th' && section.section_th ? (
                                 <AppText language="th" variant="body" style={styles.sectionThaiTitle}>
                                   {section.section_th}
                                 </AppText>
@@ -594,6 +594,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: theme.typography.weights.bold,
   },
   sectionCount: {
     color: theme.colors.mutedText,

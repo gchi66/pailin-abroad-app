@@ -724,11 +724,12 @@ const styles = StyleSheet.create({
   },
   paymentLabelWrap: {
     position: 'absolute',
-    top: 0,
+    top: -12,
     right: 0,
     zIndex: 1,
   },
   lifetimeHeaderRow: {
+    paddingTop: theme.spacing.xs,
     paddingRight: 0,
   },
   lifetimeTitle: {
@@ -737,8 +738,12 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   paymentLabel: {
-    color: theme.colors.mutedText,
+    color: theme.colors.text,
     textAlign: 'right',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
   },
   lifetimeTopRow: {
     flexDirection: 'row',

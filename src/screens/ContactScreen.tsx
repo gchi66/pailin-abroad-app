@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -21,7 +21,7 @@ import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { FACEBOOK_URL, INSTAGRAM_URL } from '@/src/config/social';
+import { FACEBOOK_URL, INSTAGRAM_URL, LINE_URL } from '@/src/config/social';
 import { theme } from '@/src/theme/theme';
 
 type ContactFormState = {
@@ -39,44 +39,67 @@ const INITIAL_FORM_STATE: ContactFormState = {
 };
 
 const SOCIAL_LINKS = [
-  { key: 'facebook', label: 'Facebook', url: FACEBOOK_URL, icon: 'facebook-square' },
-  { key: 'instagram', label: 'Instagram', url: INSTAGRAM_URL, icon: 'instagram' },
+  {
+    key: 'instagram',
+    label: 'Instagram',
+    url: INSTAGRAM_URL,
+    icon: require('@/assets/images/instagram_icon.png'),
+  },
+  {
+    key: 'facebook',
+    label: 'Facebook',
+    url: FACEBOOK_URL,
+    icon: require('@/assets/images/facebook_icon.png'),
+  },
+  {
+    key: 'line',
+    label: 'LINE',
+    url: LINE_URL,
+    icon: require('@/assets/images/line_icon.png'),
+  },
 ] as const;
 
 const getCopy = (uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
     return {
       title: 'ติดต่อเรา',
-      intro:
-        'เราพร้อมช่วยเหลือคุณ ลองดูหน้า FAQ ก่อนเผื่อมีคำตอบอยู่แล้ว หรือส่งข้อความหาเราผ่านช่องทางด้านล่างและแบบฟอร์มนี้ได้เลย',
+      back: 'ย้อนกลับ',
+      subtitle: 'พวกเราอยากได้ยินความคิดเห็นจากคุณ! ถามคำถามหรือทิ้งความคิดเห็นของคุณให้เราได้เลย',
+      intro: 'หรือส่งข้อความให้เราที่นี่:',
       nameLabel: 'ชื่อ',
       namePlaceholder: 'ชื่อ',
       emailLabel: 'อีเมล',
       emailPlaceholder: 'อีเมล',
-      messageLabel: 'พิมพ์คำถาม ข้อเสนอแนะ หรือความคิดเห็นของคุณ',
+      messageLabel: 'พิมพ์คำถาม ข้อเสนอแนะ หรือความคิดเห็นของคุณ กรุณาเขียนรายละเอียดให้มากที่สุดเท่าที่จะทำได้',
       messagePlaceholder: 'พิมพ์ข้อความของคุณที่นี่...',
       submit: 'ส่งข้อความ',
       sending: 'กำลังส่ง...',
       emptyFields: 'กรุณากรอกชื่อ อีเมล และข้อความให้ครบถ้วน',
       success: 'ส่งข้อความสำเร็จแล้ว! เราจะติดต่อกลับโดยเร็วที่สุด',
+      failedMessage: 'ส่งข้อความไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      unexpectedMessage: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
       failedSocial: 'ไม่สามารถเปิดลิงก์นี้ได้ในขณะนี้',
     };
   }
 
   return {
     title: 'Contact Us',
+    back: 'Back',
+    subtitle: 'We love to hear from you! Ask us your questions or leave your feedback.',
     intro:
-      'We are here to help. Check the FAQ first if your question may already be answered, or message us through the links below and the form here.',
+      'We’re here to help. Please check out our FAQ page to see if your question has already been answered. To contact us with further questions or feedback, please message us through any of the following platforms, or fill out the form below.',
     nameLabel: 'Name',
     namePlaceholder: 'Name',
     emailLabel: 'Email',
     emailPlaceholder: 'Email',
-    messageLabel: 'Type your question, suggestion, or feedback.',
+    messageLabel: 'Type your question, suggestion, or feedback. Please provide as much detail as possible.',
     messagePlaceholder: 'Your message here...',
     submit: 'Send',
     sending: 'Sending...',
     emptyFields: 'Please fill in your name, email, and message.',
     success: "Message sent successfully! We'll get back to you soon.",
+    failedMessage: 'Error sending message. Please try again.',
+    unexpectedMessage: 'Something went wrong. Please try again.',
     failedSocial: 'Unable to open this link right now.',
   };
 };
@@ -126,7 +149,7 @@ export function ContactScreen() {
       setStatus('success');
       setFeedback(copy.success);
     } catch (error) {
-      const messageText = error instanceof Error ? error.message : 'Failed to send message.';
+      const messageText = error instanceof Error && error.message ? error.message : copy.failedMessage;
       setStatus('error');
       setFeedback(messageText);
     }
@@ -140,13 +163,36 @@ export function ContactScreen() {
       style={styles.keyboardAvoidingView}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <Stack gap="md">
-          <StandardPageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account')} topInsetOffset={52} />
+          <StandardPageHeader
+            language={uiLanguage}
+            title={copy.title}
+            onBackPress={() => router.push('/(tabs)/account')}
+            backLabel={copy.back}
+            topInsetOffset={52}
+          />
+
+          <AppText language={uiLanguage} variant="body" style={styles.subtitleText}>
+            {copy.subtitle}
+          </AppText>
 
           <Card padding="lg" radius="lg" style={styles.neoCard}>
             <AppText language={uiLanguage} variant="body" style={styles.introText}>
               {copy.intro}
             </AppText>
           </Card>
+
+          <View style={styles.socialLinksRow}>
+            {SOCIAL_LINKS.map((link) => (
+              <Pressable
+                key={link.key}
+                accessibilityRole="button"
+                accessibilityLabel={link.label}
+                style={styles.socialIconButton}
+                onPress={() => openSocialLink(link.url)}>
+                <Image source={link.icon} style={styles.socialIconImage} resizeMode="contain" />
+              </Pressable>
+            ))}
+          </View>
 
           {status !== 'idle' ? (
             <View
@@ -231,19 +277,6 @@ export function ContactScreen() {
               style={styles.submitButton}
             />
           </Stack>
-
-          <View style={styles.socialLinksRow}>
-            {SOCIAL_LINKS.map((link) => (
-              <Pressable
-                key={link.key}
-                accessibilityRole="button"
-                accessibilityLabel={link.label}
-                style={styles.socialIconButton}
-                onPress={() => openSocialLink(link.url)}>
-                <FontAwesome name={link.icon} size={24} color={theme.colors.text} />
-              </Pressable>
-            ))}
-          </View>
         </Stack>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -270,28 +303,28 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
   },
+  subtitleText: {
+    color: theme.colors.text,
+    lineHeight: theme.typography.lineHeights.md,
+  },
   introText: {
     color: theme.colors.text,
   },
   socialLinksRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: theme.spacing.md,
+    alignItems: 'center',
+    gap: theme.spacing.lg,
   },
   socialIconButton: {
-    width: 60,
-    height: 60,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.radii.xl,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: '#91CAFF',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+  },
+  socialIconImage: {
+    width: 40,
+    height: 40,
   },
   statusBox: {
     minHeight: 52,
