@@ -89,6 +89,8 @@ const buildTopicImageUrl = (imageKey: string | null | undefined) => {
 
 export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) {
   const router = useRouter();
+  const inlineBaseStyle = contentLang === 'th' ? styles.inlineTextThai : styles.inlineTextEnglish;
+  const inlineBoldStyle = contentLang === 'th' ? styles.inlineBoldThai : styles.inlineBoldEnglish;
 
   const sections = useMemo(() => {
     const nextSections: TopicSection[] = [];
@@ -197,7 +199,8 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
           onPress={typeof inline.link === 'string' && inline.link.trim() ? () => handleOpenLink(String(inline.link)) : undefined}
           style={[
             styles.inlineText,
-            inline.bold ? styles.inlineBold : null,
+            inlineBaseStyle,
+            inline.bold ? inlineBoldStyle : null,
             inline.italic ? styles.inlineItalic : null,
             inline.underline ? styles.inlineUnderline : null,
             typeof inline.link === 'string' && inline.link.trim() ? styles.inlineLink : null,
@@ -208,7 +211,8 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
                   key={`${keyPrefix}-${index}-${partIndex}`}
                   style={[
                     styles.inlineText,
-                    inline.bold ? styles.inlineBold : null,
+                    inlineBaseStyle,
+                    inline.bold ? inlineBoldStyle : null,
                     inline.italic ? styles.inlineItalic : null,
                     inline.underline ? styles.inlineUnderline : null,
                     INLINE_MARKER_COLORS[part] ? styles.inlineMarker : null,
@@ -508,10 +512,18 @@ const styles = StyleSheet.create({
   },
   inlineText: {
     color: theme.colors.text,
-    fontFamily: theme.typography.fonts.en,
   },
-  inlineBold: {
-    fontWeight: theme.typography.weights.bold,
+  inlineTextEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  inlineTextThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
+  },
+  inlineBoldEnglish: {
+    fontFamily: theme.typography.fontFaces.en.bold,
+  },
+  inlineBoldThai: {
+    fontFamily: theme.typography.fontFaces.th.bold,
   },
   inlineItalic: {
     fontStyle: 'italic',

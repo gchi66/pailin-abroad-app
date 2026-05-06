@@ -1,4 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
 import { Stack, useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
@@ -16,6 +18,8 @@ import { theme } from '@/src/theme/theme';
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+void SplashScreen.preventAutoHideAsync();
 
 function AppRouteGate() {
   const router = useRouter();
@@ -56,6 +60,26 @@ function AppRouteGate() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [fontsLoaded] = useFonts({
+    Poppins: require('@/assets/fonts/Poppins-Regular.ttf'),
+    'Poppins-Medium': require('@/assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('@/assets/fonts/Poppins-SemiBold.ttf'),
+    'Poppins-Bold': require('@/assets/fonts/Poppins-Bold.ttf'),
+    Anuphan: require('@/assets/fonts/Anuphan-Regular.ttf'),
+    'Anuphan-Medium': require('@/assets/fonts/Anuphan-Medium.ttf'),
+    'Anuphan-SemiBold': require('@/assets/fonts/Anuphan-SemiBold.ttf'),
+    'Anuphan-Bold': require('@/assets/fonts/Anuphan-Bold.ttf'),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>

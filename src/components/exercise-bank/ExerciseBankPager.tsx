@@ -460,6 +460,9 @@ function FillBlankMeasuredRows(props: {
   const { rowTokens, exerciseId, itemKey, isExample, exampleAnswer, blankAnswers, editable, onBlankAnswerChange } = props;
   const [lineTokens, setLineTokens] = useState<FillBlankMeasureToken[][]>([]);
   const [containerWidth, setContainerWidth] = useState(0);
+  const fillBlankMeasureTextStyle = styles.fillBlankTextEnglish;
+  const fillBlankTextStyle = styles.fillBlankTextEnglish;
+  const fillBlankInputStyle = styles.fillBlankInputEnglish;
 
   const measureTokens = useMemo<FillBlankMeasureToken[]>(() => {
     return rowTokens.reduce<FillBlankMeasureToken[]>((tokens, token, index) => {
@@ -549,7 +552,7 @@ function FillBlankMeasuredRows(props: {
       {containerWidth > 0 ? (
         <Text
           onTextLayout={handleTextLayout}
-          style={styles.fillBlankMeasureText}
+          style={[styles.fillBlankMeasureText, fillBlankMeasureTextStyle]}
           numberOfLines={0}>
           {measurementText}
         </Text>
@@ -560,7 +563,7 @@ function FillBlankMeasuredRows(props: {
           <View key={`${exerciseId}:${itemKey}:line-${lineIndex}`} style={styles.fillBlankRow}>
             {line.map((token) =>
               token.type === 'text' ? (
-                <Text key={token.id} style={styles.fillBlankText}>
+                <Text key={token.id} style={[styles.fillBlankText, fillBlankTextStyle]}>
                   {token.text}
                 </Text>
               ) : (
@@ -571,6 +574,7 @@ function FillBlankMeasuredRows(props: {
                   onChangeText={(value) => onBlankAnswerChange(exerciseId, itemKey, token.blankId, value)}
                   style={[
                     styles.fillBlankInput,
+                    fillBlankInputStyle,
                     token.minLen <= 4 ? styles.fillBlankInputShort : styles.fillBlankInputLong,
                   ]}
                 />
@@ -1035,6 +1039,7 @@ function renderExerciseBody(params: {
 
   const isChecked = Boolean(checkedExercises[exercise.id]);
   const exerciseError = exerciseErrors[exercise.id] ?? '';
+  const openInputStyle = contentLang === 'th' ? styles.openInputThai : styles.openInputEnglish;
 
   if (exercise.kind === 'multiple_choice') {
     return (
@@ -1221,7 +1226,7 @@ function renderExerciseBody(params: {
                     : item.placeholder || (contentLang === 'th' ? item.placeholderTh : item.placeholder) || copy.openPlaceholder
                 }
                 placeholderTextColor="#9C9EA4"
-                style={[styles.openInput, item.isExample ? styles.exampleInput : null, markState === true ? styles.openInputDisabled : null]}
+                style={[styles.openInput, openInputStyle, item.isExample ? styles.exampleInput : null, markState === true ? styles.openInputDisabled : null]}
                 textAlignVertical="top"
                 value={item.isExample ? item.answer || item.text : answerValue}
                 onChangeText={(value) => onOpenAnswerChange(exercise.id, item.key, value)}
@@ -1610,7 +1615,12 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.md,
-    fontFamily: theme.typography.fonts.en,
+  },
+  openInputEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  openInputThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   openInputDisabled: {
     backgroundColor: '#F0F0F0',
@@ -1664,13 +1674,17 @@ const styles = StyleSheet.create({
     right: 0,
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.md,
-    fontFamily: theme.typography.fonts.en,
+  },
+  fillBlankTextEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  fillBlankTextThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   fillBlankText: {
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.md,
-    fontFamily: theme.typography.fonts.en,
   },
   fillBlankInput: {
     minHeight: 38,
@@ -1679,7 +1693,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xs,
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
-    fontFamily: theme.typography.fonts.en,
+  },
+  fillBlankInputEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  fillBlankInputThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   fillBlankInputShort: {
     width: FILL_BLANK_SHORT_WIDTH,

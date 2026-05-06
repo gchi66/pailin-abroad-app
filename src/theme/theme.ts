@@ -35,6 +35,20 @@ export const theme = {
       en: 'Poppins',
       th: 'Anuphan',
     },
+    fontFaces: {
+      en: {
+        regular: 'Poppins',
+        medium: 'Poppins-Medium',
+        semibold: 'Poppins-SemiBold',
+        bold: 'Poppins-Bold',
+      },
+      th: {
+        regular: 'Anuphan',
+        medium: 'Anuphan-Medium',
+        semibold: 'Anuphan-SemiBold',
+        bold: 'Anuphan-Bold',
+      },
+    },
 
     sizes: {
       xs: 12,

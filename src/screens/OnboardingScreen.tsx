@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: theme.spacing.sm,
     color: theme.colors.text,
-    fontFamily: theme.typography.fonts.en,
+    fontFamily: theme.typography.fontFaces.en.regular,
     fontSize: theme.typography.sizes.md,
   },
   inputAction: {
@@ -1089,7 +1089,7 @@ const styles = StyleSheet.create({
   simpleTextInput: {
     minHeight: 56,
     color: theme.colors.text,
-    fontFamily: theme.typography.fonts.en,
+    fontFamily: theme.typography.fontFaces.en.regular,
     fontSize: theme.typography.sizes.md,
   },
   avatarGrid: {

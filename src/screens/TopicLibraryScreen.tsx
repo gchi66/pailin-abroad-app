@@ -486,10 +486,10 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.sizes.md,
   },
   searchInputEnglish: {
-    fontFamily: theme.typography.fonts.en,
+    fontFamily: theme.typography.fontFaces.en.regular,
   },
   searchInputThai: {
-    fontFamily: theme.typography.fonts.th,
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   searchIconWrap: {
     width: 32,

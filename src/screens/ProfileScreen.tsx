@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   textInput: {
     minHeight: 56,
     color: theme.colors.text,
-    fontFamily: theme.typography.fonts.en,
+    fontFamily: theme.typography.fontFaces.en.regular,
     fontSize: theme.typography.sizes.md,
   },
   avatarGrid: {

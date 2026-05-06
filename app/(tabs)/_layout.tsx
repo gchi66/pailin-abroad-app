@@ -153,10 +153,10 @@ const createStyles = (insetTop: number, insetBottom: number) =>
       fontWeight: theme.typography.weights.semibold,
     },
     tabBarLabelEnglish: {
-      fontFamily: theme.typography.fonts.en,
+      fontFamily: theme.typography.fontFaces.en.semibold,
     },
     tabBarLabelThai: {
-      fontFamily: theme.typography.fonts.th,
+      fontFamily: theme.typography.fontFaces.th.semibold,
     },
     redirectOverlay: {
       flex: 1,

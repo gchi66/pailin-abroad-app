@@ -656,10 +656,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   inputEnglish: {
-    fontFamily: theme.typography.fonts.en,
+    fontFamily: theme.typography.fontFaces.en.regular,
   },
   inputThai: {
-    fontFamily: theme.typography.fonts.th,
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   inputAccessory: {
     marginLeft: 8,

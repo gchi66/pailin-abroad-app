@@ -1741,7 +1741,6 @@ export default function LessonDetailShellScreen() {
   const [maxVisitedSectionIndex, setMaxVisitedSectionIndex] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasStartedLesson, setHasStartedLesson] = useState(false);
-  const [isBackstoryExpanded, setIsBackstoryExpanded] = useState(false);
   const [contentLang, setContentLang] = useState<UiLanguage>('en');
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
   const [hasSubmittedComprehensionAnswers, setHasSubmittedComprehensionAnswers] = useState(false);
@@ -2114,7 +2113,6 @@ export default function LessonDetailShellScreen() {
     setMaxVisitedSectionIndex(0);
     setIsMenuOpen(false);
     setHasStartedLesson(false);
-    setIsBackstoryExpanded(false);
     setContentLang('en');
     setSelectedAnswers({});
     setHasSubmittedComprehensionAnswers(false);
@@ -2296,6 +2294,12 @@ export default function LessonDetailShellScreen() {
     );
   }, [normalizedQuestions.length]);
   const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
+  const richInlineBaseStyle = contentLang === 'th' ? styles.richInlineTextThai : styles.richInlineTextEnglish;
+  const richInlineBoldStyle = contentLang === 'th' ? styles.richInlineBoldThai : styles.richInlineBoldEnglish;
+  const applyInlineBaseStyle = contentLang === 'th' ? styles.applyInlineTextThai : styles.applyInlineTextEnglish;
+  const applyInlineBoldStyle = contentLang === 'th' ? styles.applyInlineBoldThai : styles.applyInlineBoldEnglish;
+  const practiceOpenInputStyle = contentLang === 'th' ? styles.practiceOpenInputThai : styles.practiceOpenInputEnglish;
+  const applyInputStyle = contentLang === 'th' ? styles.applyInputThai : styles.applyInputEnglish;
   const pageCopy = useMemo(() => getLessonDetailCopy(pageLanguage), [pageLanguage]);
   const isLockedLesson = useMemo(() => {
     if (hasMembership) {
@@ -2745,9 +2749,6 @@ export default function LessonDetailShellScreen() {
   const backToLibraryLabel = uiCopy.backToLibrary;
   const translateToThaiLabel = pageCopy.translateToThaiLabel;
   const translateToEnglishLabel = pageCopy.translateToEnglishLabel;
-  const backstoryToggleLabel = isBackstoryExpanded
-    ? uiCopy.hideBackstory
-    : uiCopy.showBackstory;
   const richContentBlockCount = activeSection
     ? Math.max(
         Array.isArray(activeSection.content_jsonb) ? activeSection.content_jsonb.length : 0,
@@ -3888,7 +3889,8 @@ export default function LessonDetailShellScreen() {
 
       const baseApplyTextStyle = [
         styles.applyInlineText,
-        inline.bold ? styles.applyInlineBold : null,
+        applyInlineBaseStyle,
+        inline.bold ? applyInlineBoldStyle : null,
         inline.italic ? styles.applyInlineItalic : null,
         inline.underline ? styles.applyInlineUnderline : null,
       ];
@@ -4318,7 +4320,8 @@ export default function LessonDetailShellScreen() {
 
         const baseTextStyle = [
           styles.richInlineText,
-          inline.bold ? styles.richInlineBold : null,
+          richInlineBaseStyle,
+          inline.bold ? richInlineBoldStyle : null,
           inline.italic ? styles.richInlineItalic : null,
           inline.underline ? styles.richInlineUnderline : null,
           shouldShowHighlightFor(inline) ? styles.richInlineHighlight : null,
@@ -4478,8 +4481,9 @@ export default function LessonDetailShellScreen() {
       const shouldShowHighlight = options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
       const baseTextStyle = [
         styles.richInlineText,
+        richInlineBaseStyle,
         options?.isSubheader ? styles.richInlineSubheaderText : null,
-        inline.bold ? styles.richInlineBold : null,
+        inline.bold ? richInlineBoldStyle : null,
         inline.italic ? styles.richInlineItalic : null,
         inline.underline ? styles.richInlineUnderline : null,
         shouldShowHighlight ? styles.richInlineHighlight : null,
@@ -6088,7 +6092,7 @@ export default function LessonDetailShellScreen() {
                       <TextInput
                         multiline
                         numberOfLines={3}
-                        style={[styles.practiceOpenInput, styles.practiceExampleInput]}
+                        style={[styles.practiceOpenInput, practiceOpenInputStyle, styles.practiceExampleInput]}
                         value={answerValue}
                         editable={false}
                         textAlignVertical="top"
@@ -6189,6 +6193,7 @@ export default function LessonDetailShellScreen() {
                             placeholderTextColor="#9C9EA4"
                             style={[
                               styles.practiceOpenInput,
+                              practiceOpenInputStyle,
                               isSentenceTransformExercise ? styles.practiceSentenceTransformInput : null,
                               inputIndex > 0 ? styles.practiceOpenInputStacked : null,
                               markState === true ? styles.practiceOpenInputDisabled : null,
@@ -6640,26 +6645,6 @@ export default function LessonDetailShellScreen() {
                           {thaiTitle}
                         </AppText>
                       ) : null}
-
-                      {resolvedBackstory ? (
-                        <View style={styles.coverBackstoryBlock}>
-                          <AppText
-                            language={uiLanguage}
-                            variant="muted"
-                            style={styles.coverBackstory}
-                            numberOfLines={isBackstoryExpanded ? undefined : 2}>
-                            {resolvedBackstory}
-                          </AppText>
-                          <Pressable
-                            accessibilityRole="button"
-                            onPress={() => setIsBackstoryExpanded((prev) => !prev)}
-                            style={styles.backstoryToggle}>
-                            <AppText language={uiLanguage} variant="caption" style={styles.backstoryToggleText}>
-                              {`${backstoryToggleLabel} ${isBackstoryExpanded ? '▴' : '▾'}`}
-                            </AppText>
-                          </Pressable>
-                        </View>
-                      ) : null}
                     </Stack>
 
                     {resolvedFocus ? (
@@ -6725,7 +6710,7 @@ export default function LessonDetailShellScreen() {
                     lessonLabel={studyLessonLabel}
                     eyebrow={pageCopy.conversationIntroEyebrow}
                     title={audioTrayTitle}
-                    body={pageCopy.conversationIntroBody}
+                    body={resolvedBackstory || pageCopy.conversationIntroBody}
                     hint={pageCopy.conversationIntroHint}
                     targetSectionIndex={conversationIntroTargetSectionIndex}
                     sectionCount={sectionCount}
@@ -7146,7 +7131,7 @@ export default function LessonDetailShellScreen() {
                           contextMenuHidden={false}
                         placeholder={pageCopy.applyPlaceholder}
                         placeholderTextColor="#9C9EA4"
-                        style={styles.applyInput}
+                        style={[styles.applyInput, applyInputStyle]}
                         value={applyText}
                         onChangeText={setApplyText}
                         onFocus={() => scrollLessonInputIntoView(applyInputOffsetYRef.current)}
@@ -7575,10 +7560,10 @@ const styles = StyleSheet.create({
   },
   coverRemoteImage: {
     position: 'absolute',
-    top: -24,
+    top: 34,
     left: 18,
     right: 18,
-    bottom: 360,
+    bottom: 320,
   },
   coverFallbackArt: {
     ...StyleSheet.absoluteFillObject,
@@ -7697,21 +7682,6 @@ const styles = StyleSheet.create({
     color: '#54565C',
     fontSize: theme.typography.sizes.lg,
     lineHeight: theme.typography.lineHeights.md,
-  },
-  coverBackstoryBlock: {
-    gap: theme.spacing.xs,
-  },
-  coverBackstory: {
-    color: theme.colors.mutedText,
-  },
-  backstoryToggle: {
-    alignSelf: 'flex-end',
-    paddingTop: 2,
-  },
-  backstoryToggleText: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.medium,
-    textDecorationLine: 'underline',
   },
   coverFocusBlock: {
     borderRadius: theme.radii.lg,
@@ -8149,12 +8119,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 25,
   },
+  richInlineTextEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  richInlineTextThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
+  },
   richInlineSubheaderText: {
     fontSize: 19,
     lineHeight: 27,
   },
-  richInlineBold: {
-    fontWeight: theme.typography.weights.semibold,
+  richInlineBoldEnglish: {
+    fontFamily: theme.typography.fontFaces.en.semibold,
+  },
+  richInlineBoldThai: {
+    fontFamily: theme.typography.fontFaces.th.semibold,
   },
   richInlineItalic: {
     fontStyle: 'italic',
@@ -8163,14 +8142,14 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   richSpeakerPrefix: {
-    fontWeight: theme.typography.weights.semibold,
+    fontFamily: theme.typography.fontFaces.en.semibold,
   },
   richInlineThaiMuted: {
     color: '#8C8D93',
   },
   richSpeakerPrefixThai: {
     color: '#8C8D93',
-    fontWeight: theme.typography.weights.semibold,
+    fontFamily: theme.typography.fontFaces.th.semibold,
   },
   richInlineHighlight: {
     borderRadius: theme.radii.sm,
@@ -8670,8 +8649,17 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.lg,
     color: theme.colors.text,
   },
-  applyInlineBold: {
-    fontWeight: theme.typography.weights.semibold,
+  applyInlineTextEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  applyInlineTextThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
+  },
+  applyInlineBoldEnglish: {
+    fontFamily: theme.typography.fontFaces.en.semibold,
+  },
+  applyInlineBoldThai: {
+    fontFamily: theme.typography.fontFaces.th.semibold,
   },
   applyInlineItalic: {
     fontStyle: 'italic',
@@ -8699,6 +8687,12 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.md,
     color: theme.colors.text,
     backgroundColor: theme.colors.surface,
+  },
+  applyInputEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  applyInputThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   applyInputDisabled: {
     opacity: 0.7,
@@ -9268,6 +9262,12 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.md,
     color: theme.colors.text,
     backgroundColor: theme.colors.surface,
+  },
+  practiceOpenInputEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  practiceOpenInputThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   practiceSentenceTransformInput: {
     minHeight: 56,

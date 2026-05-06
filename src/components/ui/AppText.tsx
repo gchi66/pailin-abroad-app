@@ -16,36 +16,30 @@ const variantStyles: Record<TextVariant, TextStyle> = {
   title: {
     fontSize: theme.typography.sizes.xl,
     lineHeight: theme.typography.lineHeights.xl,
-    fontWeight: theme.typography.weights.semibold,
     color: theme.colors.text,
   },
   body: {
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.md,
-    fontWeight: theme.typography.weights.regular,
     color: theme.colors.text,
   },
   caption: {
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
-    fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
   },
   muted: {
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
-    fontWeight: theme.typography.weights.regular,
     color: theme.colors.mutedText,
   },
 };
 
-const fontFamilyStyles: Record<Language, TextStyle> = {
-  en: {
-    fontFamily: theme.typography.fonts.en,
-  },
-  th: {
-    fontFamily: theme.typography.fonts.th,
-  },
+const variantWeights: Record<TextVariant, keyof typeof theme.typography.fontFaces.en> = {
+  title: 'semibold',
+  body: 'regular',
+  caption: 'medium',
+  muted: 'regular',
 };
 
 const THAI_SCRIPT_PATTERN = /[\u0E00-\u0E7F]/;
@@ -78,9 +72,10 @@ export function AppText({
   ...rest
 }: AppTextProps) {
   const resolvedLanguage = language ?? (containsThaiGlyphs(children) ? 'th' : 'en');
+  const resolvedFontFamily = theme.typography.fontFaces[resolvedLanguage][variantWeights[variant]];
 
   return (
-    <Text {...rest} style={[styles.base, fontFamilyStyles[resolvedLanguage], variantStyles[variant], style]}>
+    <Text {...rest} style={[styles.base, { fontFamily: resolvedFontFamily }, variantStyles[variant], style]}>
       {children}
     </Text>
   );
