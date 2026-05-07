@@ -784,8 +784,8 @@
 - This work is already implemented on the website and backend and should be ported, not redesigned.
 - Sequencing for native work:
   - first implement shared lesson progress tracking + answer-state persistence/resume
-  - then refactor native lesson-complete behavior to align with the newer shared web/backend contract
-  - only after that, wire lesson-library completion/checkmark UI against the new shared progress reads
+  - then refactor native lesson-complete / finish-lesson behavior to align with the newer shared web/backend contract
+  - only after that, continue any remaining lesson-library completion/checkmark polish against the shared progress reads
 - Shared Supabase storage already exists and is intended to be reused by both clients:
   - `user_lesson_progress`
   - `user_lesson_unit_progress`
@@ -807,14 +807,44 @@
   - `backend/app/routes.py` computes `percent_complete`, `has_started`, completion state, and lesson summary payloads
   - `/api/user/lesson-progress-summaries` returns per-lesson progress summary data for library cards
   - lesson resume logic is already implemented on the web side and should be mirrored by reusing the same persisted fields/contracts rather than re-deriving progress in native
-- Native next to-do:
-  - port lesson answer persistence/restoration to the app using the existing shared Supabase tables and the same unit-key model (`section:*`, `exercise:*`, `exercise:comprehension_quiz`)
-  - port section-visit and exercise-completion tracking to the app using the shared progress tables/fields already in use on web
-  - use backend-owned progress summary/read endpoints for library/pathway progress displays instead of implementing native-only percent-complete calculations
-  - do not refactor the final native lesson-complete flow in the first pass beyond what is strictly needed for progress tracking; the dedicated lesson-complete refactor is the next step after progress is in place
+- Current native status:
+  - app-side lesson progress writes are implemented against the current backend contract
+  - app lesson library now reads backend progress summaries and shows in-progress circles / completed states
+  - library selection is preserved when entering and leaving a lesson
+  - app resume now restores the saved lesson position, including returning directly to the saved exercise area instead of restarting the lesson flow
+  - shared answer-state persistence/restoration is wired for:
+    - comprehension
+    - multiple choice
+    - open ended
+    - fill blank
+    - sentence transform
+  - answer-state now uses the shared `user_lesson_answer_state` table with web-compatible unit keys so saved exercise answers can restore across app and website
+- Next native to-do:
+  - refactor the native finish-lesson / lesson-complete flow so app completion behavior matches the newer shared web/backend contract instead of relying on the older completion-only path
+  - native finish-lesson acceptance criteria:
+    - the `Finish lesson` button is never greyed out on the final lesson section
+    - when the user taps `Finish lesson`, save their current lesson progress first
+    - if the user has checked all required practice answers, show the normal completion popup
+    - if the user confirms that normal completion popup, mark the lesson as completed
+    - only fully completed lessons show the completed checkmark in the lesson library
+    - when a lesson is truly completed, native should use the exact same completed-state asset currently used by the main web lesson library: `frontend/public/images/check_circle_blue.webp` as referenced from `frontend/src/Pages/LessonsIndex.jsx`
+    - if the user has not clicked all required `Check answer(s)` buttons, show a warning popup first
+    - the warning popup should reuse the same image and overall modal layout/style as the normal completion popup; only the text and buttons should change
+    - warning copy should explain that they are finishing without completing the practices and should explicitly say that, in order to mark the lesson complete, they need to finish the practice exercises
+    - if the user continues from that warning popup, show the normal completion popup in a modified version that tells them they can come back anytime to finish the practices
+    - in that skipped-practice flow, do not mark the lesson as completed
+    - in the lesson library, do not show a completed checkmark for that lesson
+    - leave the lesson at its organic progress percentage based on what the user has actually completed so far
+    - skipped-practice lessons must remain below `100%` because the unchecked practice completion units are part of the shared progress math
+    - on return, resume the user where they left off; in the skipped-practice case this should be the last practice exercise they were on
+    - the modified completion popup CTA should say `Go to next lesson`
+    - `Go to next lesson` should navigate immediately into the next lesson, not back to the lesson library
+    - assume lessons in this flow have practice exercises; do not add special handling for no-practice lessons unless product requirements change later
+  - keep the lesson-library completed/checkmark behavior aligned with the shared progress/completion reads after the finish-lesson refactor lands
 - Deferred follow-up after the progress foundation lands:
   - refactor current native completion-only write paths such as `src/api/user.ts` and the lesson-detail completion flow so app completion behavior matches the newer shared web contract instead of only toggling `user_lesson_progress.is_completed`
   - add lesson-library completed checkmark/pill treatment based on the shared progress/completion reads
+  - after the finish flow is working correctly in native, verify cross-platform completion/progress parity so website-completed lessons and website progress also appear correctly in the app, and app-written completion/progress continues to read back correctly from the same shared backend contract
   - if the website progress circle is later desired in native, build it against the same shared summary endpoint rather than native-local math
 - Guardrail:
   - do not create app-only progress tables, app-only unit-key formats, or duplicate native percentage/resume calculation logic if the backend already provides it

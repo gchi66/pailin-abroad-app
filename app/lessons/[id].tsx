@@ -36,6 +36,7 @@ import {
 } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import {
+  AppLessonProgressDetail,
   fetchAppLessonProgressDetail,
   writeAppLessonProgress,
 } from '@/src/api/app-lesson-progress';
@@ -63,9 +64,6 @@ import {
 } from '@/src/copy/lesson-detail';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import {
-  AppLessonProgressDetail,
-} from '@/src/api/app-lesson-progress';
 import {
   buildAppCardUnitsForSection,
   buildAppComprehensionExerciseKey,
@@ -95,6 +93,8 @@ import {
 import pailinBlueThumbsUpImage from '@/assets/images/pailin-blue-circle-thumbs-up.webp';
 
 type UiLanguage = 'en' | 'th';
+const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
+
 type LessonTab = {
   id: string;
   type: string;
@@ -1805,7 +1805,9 @@ export default function LessonDetailShellScreen() {
   const [isLessonCompleted, setIsLessonCompleted] = useState(false);
   const [isSavingLessonCompletion, setIsSavingLessonCompletion] = useState(false);
   const [lessonCompletionError, setLessonCompletionError] = useState<string | null>(null);
-  const [completionModalState, setCompletionModalState] = useState<'success' | 'incomplete' | null>(null);
+  const [completionModalState, setCompletionModalState] = useState<
+    'success' | 'skip_warning' | 'skip_success' | null
+  >(null);
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
   const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
@@ -3058,26 +3060,18 @@ export default function LessonDetailShellScreen() {
     sectionCount === 0
       ? pageCopy.backToLessonCover
       : isLastSection
-        ? isLessonCompleted
-          ? pageCopy.backToLibrary
-          : pageCopy.finishLesson
+        ? pageCopy.finishLesson
         : pageLanguage === 'th'
             ? 'ส่วนถัดไป →'
             : 'Next section →';
-  const shouldShowPracticeFinishAlert = activeTab?.type === 'practice' && !isLessonCompleted && !allPracticeExercisesChecked;
-  const isFinishLessonButtonDisabled =
-    isLastSection && !isLessonCompleted && !allPracticeExercisesChecked && activeTab?.type !== 'practice';
   const isPrimaryActionVisuallyDisabled =
     (!activeTab && sectionCount === 0) ||
     isPrimaryActionDisabled ||
-    isSavingLessonCompletion ||
-    isFinishLessonButtonDisabled ||
-    shouldShowPracticeFinishAlert;
+    isSavingLessonCompletion;
   const isPrimaryActionActuallyDisabled =
     (!activeTab && sectionCount === 0) ||
     isPrimaryActionDisabled ||
-    isSavingLessonCompletion ||
-    isFinishLessonButtonDisabled;
+    isSavingLessonCompletion;
 
   useEffect(() => {
     conversationAudioMetadataRef.current = conversationAudioMetadata;
@@ -3441,6 +3435,63 @@ export default function LessonDetailShellScreen() {
     router.push('/(tabs)/lessons');
   }, [flushPendingLessonPersistence, router]);
 
+  const navigateToNextLesson = useCallback(async () => {
+    await flushPendingLessonPersistence();
+    bumpLessonLibraryProgressRefreshToken();
+
+    if (!lessonCover?.id) {
+      Alert.alert(pageCopy.finishLesson, pageCopy.completionNoNextLesson);
+      return;
+    }
+
+    try {
+      const lessons = await getLessonsIndex();
+      const orderedLessons = [...lessons].sort((a, b) => {
+        const stageIndexA = LESSON_STAGE_ORDER.indexOf((a.stage ?? '') as (typeof LESSON_STAGE_ORDER)[number]);
+        const stageIndexB = LESSON_STAGE_ORDER.indexOf((b.stage ?? '') as (typeof LESSON_STAGE_ORDER)[number]);
+        const normalizedStageIndexA = stageIndexA >= 0 ? stageIndexA : Number.MAX_SAFE_INTEGER;
+        const normalizedStageIndexB = stageIndexB >= 0 ? stageIndexB : Number.MAX_SAFE_INTEGER;
+
+        if (normalizedStageIndexA !== normalizedStageIndexB) {
+          return normalizedStageIndexA - normalizedStageIndexB;
+        }
+
+        const levelDelta = (a.level ?? Number.MAX_SAFE_INTEGER) - (b.level ?? Number.MAX_SAFE_INTEGER);
+        if (levelDelta !== 0) {
+          return levelDelta;
+        }
+
+        const lessonOrderDelta =
+          (a.lesson_order ?? Number.MAX_SAFE_INTEGER) - (b.lesson_order ?? Number.MAX_SAFE_INTEGER);
+        if (lessonOrderDelta !== 0) {
+          return lessonOrderDelta;
+        }
+
+        return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+      });
+
+      const lessonIndex = orderedLessons.findIndex((item) => item.id === lessonCover.id);
+      const nextLessonId = lessonIndex >= 0 ? orderedLessons[lessonIndex + 1]?.id ?? null : null;
+
+      if (!nextLessonId) {
+        Alert.alert(pageCopy.finishLesson, pageCopy.completionNoNextLesson);
+        return;
+      }
+
+      prefetchResolvedLesson(nextLessonId, contentLang === 'th' ? 'th' : 'en');
+      router.push(`/lessons/${nextLessonId}`);
+    } catch {
+      Alert.alert(pageCopy.finishLesson, pageCopy.completionNoNextLesson);
+    }
+  }, [
+    contentLang,
+    flushPendingLessonPersistence,
+    lessonCover?.id,
+    pageCopy.completionNoNextLesson,
+    pageCopy.finishLesson,
+    router,
+  ]);
+
   const markLessonAnswerStateInteracted = useCallback(() => {
     hasInteractedWithLessonAnswerStateRef.current = true;
   }, []);
@@ -3528,7 +3579,9 @@ export default function LessonDetailShellScreen() {
     setLessonCompletionError(null);
 
     try {
+      await flushPendingLessonPersistence();
       await upsertLessonCompletion({ lessonId: lessonCover.id, completed: true });
+      bumpLessonLibraryProgressRefreshToken();
       setIsLessonCompleted(true);
       setCompletionModalState('success');
     } catch (error) {
@@ -3536,26 +3589,29 @@ export default function LessonDetailShellScreen() {
     } finally {
       setIsSavingLessonCompletion(false);
     }
-  }, [isLessonCompleted, lessonCover?.id, pageCopy.completionSavedError]);
+  }, [flushPendingLessonPersistence, isLessonCompleted, lessonCover?.id, pageCopy.completionSavedError]);
 
-  const maybeCompleteLesson = useCallback(
-    async (nextCheckedExercises: Record<string, boolean>) => {
-      if (!isLastSection || isLessonCompleted || normalizedPracticeExercises.length === 0) {
-        return;
-      }
+  const handleFinishLessonPress = useCallback(async () => {
+    await flushPendingLessonPersistence();
 
-      const hasFinishedAllPractices = normalizedPracticeExercises.every(
-        (exercise) => nextCheckedExercises[exercise.id] === true
-      );
+    if (isLessonCompleted) {
+      setLessonCompletionError(null);
+      setCompletionModalState('success');
+      return;
+    }
 
-      if (!hasFinishedAllPractices) {
-        return;
-      }
-
+    if (allPracticeExercisesChecked) {
       await completeLesson();
-    },
-    [completeLesson, isLastSection, isLessonCompleted, normalizedPracticeExercises]
-  );
+      return;
+    }
+
+    setCompletionModalState('skip_warning');
+  }, [
+    allPracticeExercisesChecked,
+    completeLesson,
+    flushPendingLessonPersistence,
+    isLessonCompleted,
+  ]);
 
   const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
     markLessonAnswerStateInteracted();
@@ -3829,6 +3885,7 @@ export default function LessonDetailShellScreen() {
     allAnswerStatePracticeExercises,
     hasStartedLesson,
     lesson,
+    lessonId,
     savedAnswerStateByUnit,
   ]);
 
@@ -3866,7 +3923,6 @@ export default function LessonDetailShellScreen() {
     const nextCheckedExercises = { ...checkedPracticeExercises, [exercise.id]: true };
     setCheckedPracticeExercises(nextCheckedExercises);
     void writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
-    void maybeCompleteLesson(nextCheckedExercises);
   };
 
   const handleResetMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
@@ -4137,7 +4193,6 @@ export default function LessonDetailShellScreen() {
                 }),
               };
       await saveAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id), answerPayload);
-      await maybeCompleteLesson(nextCheckedExercises);
     } catch {
       return;
     }
@@ -7225,17 +7280,100 @@ export default function LessonDetailShellScreen() {
                 <View style={styles.completionModalActionsRow}>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={closeCompletionModal}
+                    onPress={() => {
+                      closeCompletionModal();
+                      void navigateToLessonLibrary();
+                    }}
                     style={({ pressed }) => [
                       styles.completionModalButton,
                       styles.completionModalSecondaryButton,
                       pressed ? styles.completionModalButtonPressed : null,
                     ]}>
                     <AppText language={pageLanguage} variant="caption" style={styles.completionModalSecondaryButtonText}>
-                      {pageCopy.completionReview}
+                      {pageCopy.completionOpenLibrary}
                     </AppText>
                   </Pressable>
 
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      closeCompletionModal();
+                      void navigateToNextLesson();
+                    }}
+                    style={({ pressed }) => [
+                      styles.completionModalButton,
+                      styles.completionModalPrimaryButton,
+                      pressed ? styles.completionModalButtonPressed : null,
+                    ]}>
+                    <AppText language={pageLanguage} variant="caption" style={styles.completionModalPrimaryButtonText}>
+                      {pageCopy.completionNextLesson}
+                    </AppText>
+                  </Pressable>
+                </View>
+              </>
+            ) : completionModalState === 'skip_warning' ? (
+              <>
+                <View style={styles.completionModalCheckWrap}>
+                  <Image source={pailinBlueThumbsUpImage} style={styles.completionModalSuccessImage} contentFit="contain" />
+                </View>
+
+                <Stack gap="md" style={styles.completionModalIncompleteContent}>
+                  <Stack gap="xs">
+                    <AppText language={pageLanguage} variant="title" style={styles.completionModalTitle}>
+                      {pageCopy.completionSkipWarningTitle}
+                    </AppText>
+                    <AppText language={pageLanguage} variant="body" style={styles.completionModalBody}>
+                      {pageCopy.completionSkipWarningBody}
+                    </AppText>
+                  </Stack>
+
+                  <View style={styles.completionModalActionsRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={closeCompletionModal}
+                      style={({ pressed }) => [
+                        styles.completionModalButton,
+                        styles.completionModalSecondaryButton,
+                        pressed ? styles.completionModalButtonPressed : null,
+                      ]}>
+                      <AppText language={pageLanguage} variant="caption" style={styles.completionModalSecondaryButtonText}>
+                        {pageCopy.completionSkipWarningStay}
+                      </AppText>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setCompletionModalState('skip_success');
+                      }}
+                      style={({ pressed }) => [
+                        styles.completionModalButton,
+                        styles.completionModalPrimaryButton,
+                        pressed ? styles.completionModalButtonPressed : null,
+                      ]}>
+                      <AppText language={pageLanguage} variant="caption" style={styles.completionModalPrimaryButtonText}>
+                        {pageCopy.completionSkipWarningConfirm}
+                      </AppText>
+                    </Pressable>
+                  </View>
+                </Stack>
+              </>
+            ) : completionModalState === 'skip_success' ? (
+              <>
+                <View style={styles.completionModalCheckWrap}>
+                  <Image source={pailinBlueThumbsUpImage} style={styles.completionModalSuccessImage} contentFit="contain" />
+                </View>
+
+                <Stack gap="xs">
+                  <AppText language={pageLanguage} variant="title" style={styles.completionModalTitle}>
+                    {pageCopy.completionSkipSuccessTitle}
+                  </AppText>
+                  <AppText language={pageLanguage} variant="body" style={styles.completionModalBody}>
+                    {pageCopy.completionSkipSuccessBody}
+                  </AppText>
+                </Stack>
+
+                <View style={styles.completionModalActionsRow}>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => {
@@ -7244,11 +7382,27 @@ export default function LessonDetailShellScreen() {
                     }}
                     style={({ pressed }) => [
                       styles.completionModalButton,
+                      styles.completionModalSecondaryButton,
+                      pressed ? styles.completionModalButtonPressed : null,
+                    ]}>
+                    <AppText language={pageLanguage} variant="caption" style={styles.completionModalSecondaryButtonText}>
+                      {pageCopy.completionOpenLibrary}
+                    </AppText>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      closeCompletionModal();
+                      void navigateToNextLesson();
+                    }}
+                    style={({ pressed }) => [
+                      styles.completionModalButton,
                       styles.completionModalPrimaryButton,
                       pressed ? styles.completionModalButtonPressed : null,
                     ]}>
                     <AppText language={pageLanguage} variant="caption" style={styles.completionModalPrimaryButtonText}>
-                      {pageCopy.completionOpenLibrary}
+                      {pageCopy.completionNextLesson}
                     </AppText>
                   </Pressable>
                 </View>
@@ -8142,18 +8296,8 @@ export default function LessonDetailShellScreen() {
                             return;
                           }
 
-                          if (shouldShowPracticeFinishAlert) {
-                            Alert.alert(pageCopy.completionIncompleteTitle, pageCopy.finishPracticesBeforeComplete);
-                            return;
-                          }
-
                           if (isLastSection) {
-                            if (isLessonCompleted) {
-                              void navigateToLessonLibrary();
-                              return;
-                            }
-
-                            void completeLesson();
+                            void handleFinishLessonPress();
                             return;
                           } else {
                             navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, sectionCount - 1));

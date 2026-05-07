@@ -120,6 +120,16 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       completionIncompleteTitle: 'Almost there!',
       completionIncompleteBody: 'ทำแบบฝึกหัดให้ครบทุกข้อและกดตรวจคำตอบของแต่ละข้อก่อน จึงจะจบบทเรียนนี้ได้',
       finishPracticesBeforeComplete: 'ทำแบบฝึกหัดให้เสร็จก่อนจึงค่อยทำเครื่องหมายว่าบทเรียนนี้เสร็จแล้ว!',
+      completionSkipWarningTitle: 'แน่ใจไหม?',
+      completionSkipWarningBody:
+        'คุณกำลังจะจบบทเรียนโดยยังทำแบบฝึกหัดไม่ครบ หากต้องการทำเครื่องหมายว่าบทเรียนนี้เสร็จสมบูรณ์ คุณต้องทำแบบฝึกหัดให้เสร็จก่อน',
+      completionSkipWarningStay: 'เรียนต่อ',
+      completionSkipWarningConfirm: 'ใช่ ฉันแน่ใจ',
+      completionSkipSuccessTitle: 'เข้าใจแล้ว!',
+      completionSkipSuccessBody:
+        'กลับมาทำแบบฝึกหัดให้เสร็จเมื่อไรก็ได้ หากต้องการทำเครื่องหมายว่าบทเรียนนี้เสร็จสมบูรณ์ คุณต้องทำแบบฝึกหัดให้ครบก่อน',
+      completionNextLesson: 'ไปบทเรียนถัดไป',
+      completionNoNextLesson: 'ยังไม่มีบทเรียนถัดไปตอนนี้',
       completionReview: 'ทบทวน',
       completionKeepGoing: 'เรียนต่อ',
       completionClose: 'ปิด',
@@ -218,6 +228,16 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     completionIncompleteTitle: 'So close!',
     completionIncompleteBody: 'Finish every practice and tap Check Answers for each one to mark this lesson complete.',
     finishPracticesBeforeComplete: 'Finish the practices before marking the lesson complete!',
+    completionSkipWarningTitle: 'Are you sure?',
+    completionSkipWarningBody:
+      'You are about to finish this lesson without completing the practice exercises. In order to mark the lesson complete, finish the practice exercises first.',
+    completionSkipWarningStay: 'Keep going',
+    completionSkipWarningConfirm: "Yes, I'm sure",
+    completionSkipSuccessTitle: 'Sounds good!',
+    completionSkipSuccessBody:
+      'Come back anytime to finish the practice exercises. In order to mark the lesson complete, you still need to finish the practice exercises.',
+    completionNextLesson: 'Go to next lesson',
+    completionNoNextLesson: 'There is no next lesson right now.',
     completionReview: 'Review',
     completionKeepGoing: 'Keep going',
     completionClose: 'Close',
