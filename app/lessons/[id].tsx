@@ -35,6 +35,17 @@ import {
   prefetchResolvedLesson,
 } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
+import {
+  fetchAppLessonProgressDetail,
+  writeAppLessonProgress,
+} from '@/src/api/app-lesson-progress';
+import {
+  buildComprehensionAnswerStateUnitKey,
+  buildExerciseAnswerStateUnitKey,
+  clearLessonAnswerState,
+  fetchLessonAnswerStates,
+  saveLessonAnswerState,
+} from '@/src/api/lesson-answer-state';
 import { fetchUserCompletedLessons, upsertLessonCompletion } from '@/src/api/user';
 import { LessonConversationIntroOverlay } from '@/src/components/lesson/LessonConversationIntroOverlay';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
@@ -52,6 +63,18 @@ import {
 } from '@/src/copy/lesson-detail';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import {
+  AppLessonProgressDetail,
+} from '@/src/api/app-lesson-progress';
+import {
+  buildAppCardUnitsForSection,
+  buildAppComprehensionExerciseKey,
+  buildAppExampleRevealKey,
+  buildAppExerciseKey,
+  buildAppPageKey,
+  parseAppCardKey,
+} from '@/src/lib/app-lesson-progress';
+import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import {
   LessonApplyContent,
@@ -123,6 +146,7 @@ const RICH_PAGER_RIGHT_SWIPE_VELOCITY = 700;
 const RICH_PAGER_DRAG_LIMIT = 28;
 const LESSON_INPUT_FOCUS_TOP_OFFSET = 120;
 const LESSON_INPUT_KEYBOARD_GAP = 16;
+
 const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
 const PRACTICE_INPUT_RECHECK_DELAY = 120;
 const PRACTICE_INPUT_MAX_VISIBILITY_CHECKS = 4;
@@ -1787,6 +1811,8 @@ export default function LessonDetailShellScreen() {
   const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
   const [contentScrollViewportHeight, setContentScrollViewportHeight] = useState(0);
   const [contentScrollMeasuredHeight, setContentScrollMeasuredHeight] = useState(0);
+  const [appLessonProgressDetail, setAppLessonProgressDetail] = useState<AppLessonProgressDetail | null>(null);
+  const [savedAnswerStateByUnit, setSavedAnswerStateByUnit] = useState<Record<string, Record<string, unknown>>>({});
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSubscriptionRef = useRef<{ remove: () => void } | null>(null);
@@ -1805,6 +1831,11 @@ export default function LessonDetailShellScreen() {
   const contentScrollRef = useRef<ScrollView | null>(null);
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
   const audioTrayExpandCounterRef = useRef(0);
+  const pendingAppResumeRef = useRef<AppLessonProgressDetail['resume']>(null);
+  const writtenAppProgressUnitKeysRef = useRef<Set<string>>(new Set());
+  const pendingLessonPersistenceRef = useRef<Set<Promise<unknown>>>(new Set());
+  const hasHydratedLessonAnswerStateRef = useRef(false);
+  const hasInteractedWithLessonAnswerStateRef = useRef(false);
   const conversationIntroTranslateY = useSharedValue(0);
   const conversationIntroScale = useSharedValue(1);
   const conversationIntroOpacity = useSharedValue(1);
@@ -1965,6 +1996,82 @@ export default function LessonDetailShellScreen() {
       isMounted = false;
     };
   }, [lessonId, user]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      if (!user?.id || !lessonId) {
+        if (isMounted) {
+          setSavedAnswerStateByUnit({});
+        }
+        return;
+      }
+
+      try {
+        const answerStates = await fetchLessonAnswerStates(lessonId);
+        if (!isMounted) {
+          return;
+        }
+
+        console.info('[answer-state] hydrate fetched', {
+          lessonId,
+          unitKeys: Object.keys(answerStates),
+        });
+        setSavedAnswerStateByUnit(answerStates);
+      } catch {
+        if (isMounted) {
+          setSavedAnswerStateByUnit({});
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lessonId, user?.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      if (!user?.id || !lessonId) {
+        if (isMounted) {
+          setAppLessonProgressDetail(null);
+          pendingAppResumeRef.current = null;
+          writtenAppProgressUnitKeysRef.current = new Set();
+        }
+        return;
+      }
+
+      try {
+        const detail = await fetchAppLessonProgressDetail(lessonId);
+        if (!isMounted) {
+          return;
+        }
+
+        setAppLessonProgressDetail(detail);
+        pendingAppResumeRef.current = detail.resume;
+        writtenAppProgressUnitKeysRef.current = new Set(detail.completed_unit_keys ?? []);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setAppLessonProgressDetail(null);
+        pendingAppResumeRef.current = null;
+        writtenAppProgressUnitKeysRef.current = new Set();
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lessonId, user?.id]);
 
   useEffect(() => {
     audioRateRef.current = audioRate;
@@ -2144,6 +2251,12 @@ export default function LessonDetailShellScreen() {
     setPracticeEvaluations({});
     setPracticeErrorByExercise({});
     setPracticeMarkedCorrect({});
+    setAppLessonProgressDetail(null);
+    setSavedAnswerStateByUnit({});
+    pendingAppResumeRef.current = null;
+    writtenAppProgressUnitKeysRef.current = new Set();
+    hasHydratedLessonAnswerStateRef.current = false;
+    hasInteractedWithLessonAnswerStateRef.current = false;
     conversationIntroTranslateY.value = 0;
     conversationIntroScale.value = 1;
     conversationIntroOpacity.value = 1;
@@ -2274,6 +2387,10 @@ export default function LessonDetailShellScreen() {
         : [],
     [contentLang, hasStartedLesson, lesson?.practice_exercises]
   );
+  const allAnswerStatePracticeExercises = useMemo(
+    () => [...normalizedPracticeExercises, ...normalizedQuickPracticeExercises],
+    [normalizedPracticeExercises, normalizedQuickPracticeExercises]
+  );
   useEffect(() => {
     const validQuestionIds = new Set(normalizedQuestions.map((question) => question.id));
 
@@ -2347,6 +2464,10 @@ export default function LessonDetailShellScreen() {
   const isCultureNoteTab = activeTab?.type === 'culture_note';
   const isPracticeTab = activeTab?.type === 'practice';
   const isPhrasesTab = activeTab?.type === 'phrases_verbs';
+  const activePageKey = useMemo(
+    () => (activeTab?.type ? buildAppPageKey(activeTab.type) : null),
+    [activeTab?.type]
+  );
   const isCompactLayout = windowWidth < 768;
   const prepareSectionForPreload = useMemo(
     () => lessonTabs.find((tab) => tab.type === 'prepare')?.section ?? null,
@@ -2430,6 +2551,22 @@ export default function LessonDetailShellScreen() {
     () => (isUnderstandTab ? understandGroups : isExtraTipTab ? extraTipGroups : isCommonMistakeTab ? commonMistakeGroups : []),
     [commonMistakeGroups, extraTipGroups, isCommonMistakeTab, isExtraTipTab, isUnderstandTab, understandGroups]
   );
+  const activeExpectedCardUnits = useMemo(
+    () =>
+      activePageKey
+        ? (appLessonProgressDetail?.expected_units ?? []).filter(
+            (unit) => unit.unit_type === 'card' && unit.parent_unit_key === activePageKey
+          )
+        : [],
+    [activePageKey, appLessonProgressDetail?.expected_units]
+  );
+  const localCardUnitsForActiveSection = useMemo(
+    () =>
+      activeTab?.type && activeSection
+        ? buildAppCardUnitsForSection(activeTab.type, activeSection)
+        : [],
+    [activeSection, activeTab?.type]
+  );
   const activePracticeExercise = isPracticeTab ? normalizedPracticeExercises[activePracticeCardIndex] ?? null : null;
   const sectionCount = lessonTabs.length;
   const isLastSection = activeSectionIndex >= sectionCount - 1;
@@ -2479,6 +2616,122 @@ export default function LessonDetailShellScreen() {
     (!hasSubmittedComprehensionAnswers || activeComprehensionQuestionIndex < Math.max(0, normalizedQuestions.length - 1));
   const isPrimaryActionDisabled =
     (isInnerPagerTab && !isLastPagerCard && !isComprehensionPagerTab) || isApplyActionLocked || isComprehensionSectionActionLocked;
+  const getCurrentCardUnitKey = useCallback(() => {
+    if (!activeTab?.type || !activePageKey) {
+      return null;
+    }
+
+    const activeIndex = activeUnderstandGroupIndex;
+    const expectedCardUnit = activeExpectedCardUnits[activeIndex];
+    if (expectedCardUnit?.unit_key) {
+      return expectedCardUnit.unit_key;
+    }
+
+    const localCardUnit = localCardUnitsForActiveSection[activeIndex];
+    return localCardUnit?.unit_key ?? null;
+  }, [
+    activeExpectedCardUnits,
+    activePageKey,
+    activeTab?.type,
+    activeUnderstandGroupIndex,
+    localCardUnitsForActiveSection,
+  ]);
+  const currentCardUnitKey = useMemo(
+    () => (isRichPagerTab ? getCurrentCardUnitKey() : null),
+    [getCurrentCardUnitKey, isRichPagerTab]
+  );
+  const getCurrentProgressParentKey = useCallback(
+    () => (currentCardUnitKey ?? activePageKey ?? null),
+    [activePageKey, currentCardUnitKey]
+  );
+  const writeProgressUnit = useCallback(
+    async (unitType: 'page' | 'card' | 'exercise' | 'example_reveal', unitKey: string, sectionKey?: string | null) => {
+      if (!user?.id || !lessonId || !unitKey || writtenAppProgressUnitKeysRef.current.has(unitKey)) {
+        return;
+      }
+
+      writtenAppProgressUnitKeysRef.current.add(unitKey);
+
+      try {
+        await trackLessonPersistence(
+          writeAppLessonProgress({
+            lessonId,
+            unitType,
+            unitKey,
+            sectionKey,
+          })
+        );
+        console.info('[app-progress] write ok', {
+          lessonId,
+          unitType,
+          unitKey,
+          sectionKey: sectionKey ?? null,
+        });
+      } catch {
+        console.warn('[app-progress] write failed', {
+          lessonId,
+          unitType,
+          unitKey,
+          sectionKey: sectionKey ?? null,
+        });
+        writtenAppProgressUnitKeysRef.current.delete(unitKey);
+      }
+    },
+    [lessonId, trackLessonPersistence, user?.id]
+  );
+  const resolveResumeSectionIndex = useCallback(
+    (resume: AppLessonProgressDetail['resume']) => {
+      if (!resume?.unit_key) {
+        return null;
+      }
+
+      if (resume.unit_type === 'page') {
+        return lessonTabs.findIndex((tab) => buildAppPageKey(tab.type) === resume.unit_key);
+      }
+
+      const parsedCard = parseAppCardKey(resume.unit_key);
+      if (!parsedCard?.sectionType) {
+        return null;
+      }
+
+      return lessonTabs.findIndex((tab) => tab.type === parsedCard.sectionType);
+    },
+    [lessonTabs]
+  );
+  const applyPendingResumeSection = useCallback(() => {
+    const resume = pendingAppResumeRef.current;
+    if (!resume) {
+      return false;
+    }
+
+    const resumeIndex = resolveResumeSectionIndex(resume);
+    if (resumeIndex === null || resumeIndex < 0) {
+      pendingAppResumeRef.current = null;
+      return false;
+    }
+
+    if (activeSectionIndex !== resumeIndex) {
+      setActiveSectionIndex(resumeIndex);
+    }
+    setMaxVisitedSectionIndex((previous) => Math.max(previous, resumeIndex));
+    if (prepareSectionIndex >= 0 && resumeIndex > prepareSectionIndex) {
+      setHasShownConversationIntro(true);
+    }
+
+    if (resume.unit_type === 'page') {
+      pendingAppResumeRef.current = null;
+    }
+
+    return true;
+  }, [activeSectionIndex, prepareSectionIndex, resolveResumeSectionIndex]);
+  const openLessonAtResume = useCallback(() => {
+    if (!applyPendingResumeSection()) {
+      setActiveSectionIndex(0);
+      setMaxVisitedSectionIndex(0);
+    }
+
+    setHasStartedLesson(true);
+  }, [applyPendingResumeSection]);
   const handleSetActiveInnerCardIndex = useCallback(
     (nextIndex: number) => {
       const clampedIndex = Math.max(0, Math.min(nextIndex, Math.max(0, activeInnerCardCount - 1)));
@@ -3005,7 +3258,7 @@ export default function LessonDetailShellScreen() {
     const validBlankAnswerKeys = new Set<string>();
     const validExerciseIds = new Set<string>();
 
-    normalizedPracticeExercises.forEach((exercise) => {
+    allAnswerStatePracticeExercises.forEach((exercise) => {
       validExerciseIds.add(exercise.id);
       exercise.items.forEach((item) => {
         validSelectionKeys.add(`${exercise.id}:${item.key}`);
@@ -3043,7 +3296,7 @@ export default function LessonDetailShellScreen() {
       const nextEntries = Object.entries(previous).filter(([key]) => validSelectionKeys.has(key));
       return nextEntries.length === Object.keys(previous).length ? previous : Object.fromEntries(nextEntries);
     });
-  }, [normalizedPracticeExercises]);
+  }, [allAnswerStatePracticeExercises]);
 
   useEffect(() => {
     setActiveUnderstandGroupIndex(0);
@@ -3065,6 +3318,67 @@ export default function LessonDetailShellScreen() {
   }, [normalizedPracticeExercises.length]);
 
   useEffect(() => {
+    if (!hasStartedLesson) {
+      return;
+    }
+
+    const resume = pendingAppResumeRef.current;
+    if (!resume) {
+      return;
+    }
+
+    void applyPendingResumeSection();
+  }, [
+    activeSectionIndex,
+    appLessonProgressDetail?.resume?.unit_key,
+    applyPendingResumeSection,
+    hasStartedLesson,
+    lessonTabs.length,
+  ]);
+
+  useEffect(() => {
+    if (!hasStartedLesson) {
+      return;
+    }
+
+    const resume = pendingAppResumeRef.current;
+    if (!resume) {
+      return;
+    }
+
+    if (resume.unit_type !== 'card') {
+      pendingAppResumeRef.current = null;
+      return;
+    }
+
+    const parsedCard = parseAppCardKey(resume.unit_key);
+    if (!parsedCard?.sectionType || parsedCard.sectionType !== activeTab?.type) {
+      return;
+    }
+
+    if (!isRichPagerTab) {
+      pendingAppResumeRef.current = null;
+      return;
+    }
+
+    const combinedCardUnits = activeExpectedCardUnits.length ? activeExpectedCardUnits : localCardUnitsForActiveSection;
+    const cardIndex = combinedCardUnits.findIndex((unit) => unit.unit_key === resume.unit_key);
+    if (cardIndex < 0) {
+      pendingAppResumeRef.current = null;
+      return;
+    }
+
+    setActiveUnderstandGroupIndex(cardIndex);
+    pendingAppResumeRef.current = null;
+  }, [
+    activeExpectedCardUnits,
+    activeTab?.type,
+    hasStartedLesson,
+    isRichPagerTab,
+    localCardUnitsForActiveSection,
+  ]);
+
+  useEffect(() => {
     setExpandedPhraseIds(normalizedLessonPhrases[0] ? { [normalizedLessonPhrases[0].id]: true } : {});
   }, [lessonId, contentLang, normalizedLessonPhrases]);
 
@@ -3077,12 +3391,127 @@ export default function LessonDetailShellScreen() {
   }, [activePracticeCardIndex, activeTab?.id, activeUnderstandGroupIndex, contentLang, isInnerPagerTab]);
 
   useEffect(() => {
+    if (!hasStartedLesson || isLockedLesson || !activePageKey) {
+      return;
+    }
+
+    void writeProgressUnit('page', activePageKey, null);
+  }, [activePageKey, hasStartedLesson, isLockedLesson, writeProgressUnit]);
+
+  useEffect(() => {
+    if (!hasStartedLesson || isLockedLesson || !currentCardUnitKey || !activePageKey) {
+      return;
+    }
+
+    void writeProgressUnit('card', currentCardUnitKey, activePageKey);
+  }, [activePageKey, currentCardUnitKey, hasStartedLesson, isLockedLesson, writeProgressUnit]);
+
+  useEffect(() => {
     richPagerTranslateX.value = 0;
   }, [activeInnerCardIndex, richPagerTranslateX]);
 
   const closeCompletionModal = useCallback(() => {
     setCompletionModalState(null);
   }, []);
+
+  const trackLessonPersistence = useCallback(<T,>(promise: Promise<T>) => {
+    const trackedPromise = promise.finally(() => {
+      pendingLessonPersistenceRef.current.delete(trackedPromise);
+    });
+    pendingLessonPersistenceRef.current.add(trackedPromise);
+    return trackedPromise;
+  }, []);
+
+  const flushPendingLessonPersistence = useCallback(async () => {
+    const pendingPromises = Array.from(pendingLessonPersistenceRef.current);
+    if (!pendingPromises.length) {
+      return;
+    }
+
+    console.info('[lesson-persistence] waiting for pending writes', {
+      count: pendingPromises.length,
+      lessonId,
+    });
+    await Promise.allSettled(pendingPromises);
+  }, [lessonId]);
+
+  const navigateToLessonLibrary = useCallback(async () => {
+    await flushPendingLessonPersistence();
+    bumpLessonLibraryProgressRefreshToken();
+    router.push('/(tabs)/lessons');
+  }, [flushPendingLessonPersistence, router]);
+
+  const markLessonAnswerStateInteracted = useCallback(() => {
+    hasInteractedWithLessonAnswerStateRef.current = true;
+  }, []);
+
+  const saveAnswerStateForUnit = useCallback(
+    async (unitKey: string, answerPayload: Record<string, unknown>) => {
+      if (!lessonId || !user?.id || !unitKey) {
+        return;
+      }
+
+      try {
+        await trackLessonPersistence(
+          saveLessonAnswerState({
+            lessonId,
+            unitKey,
+            answerPayload,
+          })
+        );
+        console.info('[answer-state] save ok', {
+          lessonId,
+          unitKey,
+        });
+        setSavedAnswerStateByUnit((prev) => ({
+          ...prev,
+          [unitKey]: answerPayload,
+        }));
+      } catch (error) {
+        console.warn('[answer-state] save failed', {
+          lessonId,
+          unitKey,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        return;
+      }
+    },
+    [lessonId, trackLessonPersistence, user?.id]
+  );
+
+  const clearAnswerStateForUnit = useCallback(
+    async (unitKey: string) => {
+      if (!lessonId || !user?.id || !unitKey) {
+        return;
+      }
+
+      try {
+        await trackLessonPersistence(
+          clearLessonAnswerState({
+            lessonId,
+            unitKey,
+          })
+        );
+        console.info('[answer-state] clear ok', {
+          lessonId,
+          unitKey,
+        });
+        setSavedAnswerStateByUnit((prev) => {
+          const next = { ...prev };
+          delete next[unitKey];
+          return next;
+        });
+      } catch (error) {
+        console.warn('[answer-state] clear failed', {
+          lessonId,
+          unitKey,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        return;
+      }
+    },
+    [lessonId, trackLessonPersistence, user?.id]
+  );
 
   const completeLesson = useCallback(async () => {
     if (isLessonCompleted) {
@@ -3129,6 +3558,7 @@ export default function LessonDetailShellScreen() {
   );
 
   const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
+    markLessonAnswerStateInteracted();
     setSelectedAnswers((previous) => {
       const priorSelections = previous[questionId] ?? [];
       const nextSelections = isMulti
@@ -3143,21 +3573,30 @@ export default function LessonDetailShellScreen() {
     });
   };
 
-  const handleSubmitComprehensionAnswers = useCallback(() => {
+  const handleSubmitComprehensionAnswers = useCallback(async () => {
     const hasAnySelections = normalizedQuestions.some((question) => (selectedAnswers[question.id] ?? []).length > 0);
     if (!hasAnySelections) {
       return;
     }
 
+    await saveAnswerStateForUnit(buildComprehensionAnswerStateUnitKey(), {
+      selected: selectedAnswers,
+    });
     setHasSubmittedComprehensionAnswers(true);
     setActiveComprehensionQuestionIndex(0);
-  }, [normalizedQuestions, selectedAnswers]);
+    if (lessonId) {
+      void writeProgressUnit('exercise', buildAppComprehensionExerciseKey(), buildAppPageKey('comprehension'));
+    }
+  }, [lessonId, normalizedQuestions, saveAnswerStateForUnit, selectedAnswers, writeProgressUnit]);
 
   const handleResetComprehensionReview = useCallback(() => {
+    markLessonAnswerStateInteracted();
     setHasSubmittedComprehensionAnswers(false);
-  }, []);
+    void clearAnswerStateForUnit(buildComprehensionAnswerStateUnitKey());
+  }, [clearAnswerStateForUnit, markLessonAnswerStateInteracted]);
 
   const handlePracticeChoice = (exerciseId: string, itemKey: string, optionLabel: string, isMulti: boolean) => {
+    markLessonAnswerStateInteracted();
     const selectionKey = `${exerciseId}:${itemKey}`;
     const normalizedLabel = normalizeOptionLetter(optionLabel);
 
@@ -3227,7 +3666,174 @@ export default function LessonDetailShellScreen() {
     return practiceOpenAnswers[itemKey] ?? '';
   };
 
+  const getSavedPracticeEvaluation = (exerciseId: string, itemKey: string) => {
+    return practiceEvaluations[getPracticeItemStateKey(exerciseId, itemKey)] ?? null;
+  };
+
+  const buildMultipleChoiceAnswerStatePayload = (exercise: NormalizedPracticeExercise) => ({
+    choices: exercise.items.map((item) => practiceSelections[`${exercise.id}:${item.key}`] ?? []),
+  });
+
+  useEffect(() => {
+    if (hasHydratedLessonAnswerStateRef.current || hasInteractedWithLessonAnswerStateRef.current) {
+      return;
+    }
+
+    if (!hasStartedLesson) {
+      return;
+    }
+
+    if (!lesson) {
+      return;
+    }
+
+    if (!Object.keys(savedAnswerStateByUnit).length) {
+      return;
+    }
+
+    console.info('[answer-state] hydrate applying', {
+      lessonId,
+      unitKeys: Object.keys(savedAnswerStateByUnit),
+    });
+
+    const comprehensionState = savedAnswerStateByUnit[buildComprehensionAnswerStateUnitKey()];
+    if (comprehensionState && typeof comprehensionState === 'object') {
+      const nextSelected =
+        comprehensionState.selected && typeof comprehensionState.selected === 'object'
+          ? (comprehensionState.selected as Record<string, string[]>)
+          : {};
+      setSelectedAnswers(nextSelected);
+      setHasSubmittedComprehensionAnswers(Object.keys(nextSelected).length > 0);
+      setActiveComprehensionQuestionIndex(0);
+    }
+
+    const nextPracticeSelections: Record<string, string[]> = {};
+    const nextCheckedPracticeExercises: Record<string, boolean> = {};
+    const nextPracticeOpenAnswers: Record<string, string> = {};
+    const nextPracticeBlankAnswers: Record<string, string> = {};
+    const nextPracticeEvaluations: Record<string, PracticeEvaluationState> = {};
+    const nextPracticeMarkedCorrect: Record<string, boolean | null> = {};
+
+    allAnswerStatePracticeExercises.forEach((exercise) => {
+      const savedState = savedAnswerStateByUnit[buildExerciseAnswerStateUnitKey(exercise.id)];
+      if (!savedState || typeof savedState !== 'object') {
+        return;
+      }
+
+      if (exercise.kind === 'multiple_choice') {
+        const rawChoices = Array.isArray(savedState.choices) ? savedState.choices : [];
+        exercise.items.forEach((item, itemIndex) => {
+          const choice = rawChoices[itemIndex];
+          nextPracticeSelections[`${exercise.id}:${item.key}`] = Array.isArray(choice)
+            ? choice.map((entry) => normalizeOptionLetter(String(entry)))
+            : [];
+        });
+        nextCheckedPracticeExercises[exercise.id] = true;
+        return;
+      }
+
+      const savedQuestions = Array.isArray(savedState.questions) ? savedState.questions : [];
+      let hasCheckedState = false;
+
+      exercise.items.forEach((item, itemIndex) => {
+        const savedQuestion =
+          savedQuestions[itemIndex] && typeof savedQuestions[itemIndex] === 'object'
+            ? (savedQuestions[itemIndex] as Record<string, unknown>)
+            : null;
+        if (!savedQuestion) {
+          return;
+        }
+
+        const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
+        const correct = typeof savedQuestion.correct === 'boolean' ? savedQuestion.correct : null;
+        const score = typeof savedQuestion.score === 'number' ? savedQuestion.score : null;
+        if (correct !== null) {
+          hasCheckedState = true;
+        }
+
+        nextPracticeEvaluations[itemStateKey] = {
+          loading: false,
+          correct,
+          score,
+          feedbackEn: '',
+          feedbackTh: '',
+          error: '',
+        };
+
+        if (exercise.kind === 'fill_blank') {
+          const answersByBlank =
+            savedQuestion.answersByBlank && typeof savedQuestion.answersByBlank === 'object'
+              ? (savedQuestion.answersByBlank as Record<string, string>)
+              : {};
+          Object.entries(answersByBlank).forEach(([blankId, value]) => {
+            nextPracticeBlankAnswers[getPracticeBlankKey(exercise.id, item.key, blankId)] = String(value ?? '');
+          });
+          if (!item.blanks.length && typeof savedQuestion.answer === 'string') {
+            nextPracticeOpenAnswers[itemStateKey] = savedQuestion.answer;
+          }
+          return;
+        }
+
+        if (exercise.kind === 'sentence_transform') {
+          nextPracticeOpenAnswers[itemStateKey] =
+            typeof savedQuestion.answer === 'string' ? savedQuestion.answer : '';
+          nextPracticeMarkedCorrect[itemStateKey] =
+            typeof savedQuestion.markedAsCorrect === 'boolean' ? savedQuestion.markedAsCorrect : null;
+          return;
+        }
+
+        const answerParts = Array.isArray(savedQuestion.answerParts)
+          ? savedQuestion.answerParts
+          : typeof savedQuestion.answer === 'string'
+            ? [savedQuestion.answer]
+            : [];
+        answerParts.forEach((part, inputIndex) => {
+          nextPracticeOpenAnswers[getPracticeOpenAnswerKey(exercise.id, item.key, inputIndex)] = String(part ?? '');
+        });
+      });
+
+      if (hasCheckedState) {
+        nextCheckedPracticeExercises[exercise.id] = true;
+      }
+    });
+
+    if (Object.keys(nextPracticeSelections).length) {
+      setPracticeSelections(nextPracticeSelections);
+    }
+    if (Object.keys(nextCheckedPracticeExercises).length) {
+      setCheckedPracticeExercises(nextCheckedPracticeExercises);
+    }
+    if (Object.keys(nextPracticeOpenAnswers).length) {
+      setPracticeOpenAnswers(nextPracticeOpenAnswers);
+    }
+    if (Object.keys(nextPracticeBlankAnswers).length) {
+      setPracticeBlankAnswers(nextPracticeBlankAnswers);
+    }
+    if (Object.keys(nextPracticeEvaluations).length) {
+      setPracticeEvaluations(nextPracticeEvaluations);
+    }
+    if (Object.keys(nextPracticeMarkedCorrect).length) {
+      setPracticeMarkedCorrect(nextPracticeMarkedCorrect);
+    }
+
+    hasHydratedLessonAnswerStateRef.current = true;
+    console.info('[answer-state] hydrate applied', {
+      lessonId,
+      restoredPracticeExercises: Object.keys(nextCheckedPracticeExercises),
+      restoredComprehension: Boolean(comprehensionState),
+    });
+  }, [
+    getPracticeBlankKey,
+    getPracticeItemStateKey,
+    getPracticeOpenAnswerKey,
+    allAnswerStatePracticeExercises,
+    hasStartedLesson,
+    lesson,
+    savedAnswerStateByUnit,
+  ]);
+
   const handlePracticeBlankAnswerChange = (exerciseId: string, itemKey: string, blankId: string, value: string) => {
+    markLessonAnswerStateInteracted();
     const answerKey = getPracticeBlankKey(exerciseId, itemKey, blankId);
 
     setPracticeBlankAnswers((previous) => ({ ...previous, [answerKey]: value }));
@@ -3244,7 +3850,7 @@ export default function LessonDetailShellScreen() {
     setPracticeErrorByExercise((previous) => ({ ...previous, [exerciseId]: '' }));
   };
 
-  const handleCheckMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
+  const handleCheckMultipleChoiceExercise = async (exercise: NormalizedPracticeExercise) => {
     const hasUnanswered = exercise.items.some((item) => (practiceSelections[`${exercise.id}:${item.key}`] ?? []).length === 0);
 
     if (hasUnanswered) {
@@ -3253,12 +3859,18 @@ export default function LessonDetailShellScreen() {
     }
 
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+    await saveAnswerStateForUnit(
+      buildExerciseAnswerStateUnitKey(exercise.id),
+      buildMultipleChoiceAnswerStatePayload(exercise)
+    );
     const nextCheckedExercises = { ...checkedPracticeExercises, [exercise.id]: true };
     setCheckedPracticeExercises(nextCheckedExercises);
+    void writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
     void maybeCompleteLesson(nextCheckedExercises);
   };
 
   const handleResetMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
+    markLessonAnswerStateInteracted();
     const nextSelections = { ...practiceSelections };
     exercise.items.forEach((item) => {
       delete nextSelections[`${exercise.id}:${item.key}`];
@@ -3266,9 +3878,11 @@ export default function LessonDetailShellScreen() {
     setPracticeSelections(nextSelections);
     setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+    void clearAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id));
   };
 
   const handlePracticeOpenAnswerChange = (exerciseId: string, itemKey: string, value: string, inputIndex = 0) => {
+    markLessonAnswerStateInteracted();
     const answerKey = getPracticeOpenAnswerKey(exerciseId, itemKey, inputIndex);
     const itemStateKey = getPracticeItemStateKey(exerciseId, itemKey);
 
@@ -3297,6 +3911,7 @@ export default function LessonDetailShellScreen() {
     isCorrect: boolean,
     stemText: string
   ) => {
+    markLessonAnswerStateInteracted();
     const answerKey = getPracticeItemStateKey(exerciseId, itemKey);
     setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setPracticeMarkedCorrect((previous) => ({ ...previous, [answerKey]: isCorrect }));
@@ -3352,8 +3967,51 @@ export default function LessonDetailShellScreen() {
     }
 
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+    const draftAnswerPayload =
+      exercise.kind === 'fill_blank'
+        ? {
+            questions: exercise.items.map((item) => ({
+              answer: getSingleFillBlankAnswer(exercise.id, item),
+              answersByBlank: item.blanks.reduce<Record<string, string>>((acc, blank) => {
+                acc[blank.id] = practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, blank.id)] ?? '';
+                return acc;
+              }, {}),
+              correct: null,
+              score: null,
+            })),
+          }
+        : exercise.kind === 'sentence_transform'
+          ? {
+              questions: exercise.items.map((item) => {
+                const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
+                const markedAsCorrect = practiceMarkedCorrect[itemStateKey];
+                return {
+                  answer: getSentenceTransformAnswer(exercise.id, item),
+                  markedAsCorrect: typeof markedAsCorrect === 'boolean' ? markedAsCorrect : null,
+                  correct: null,
+                  score: null,
+                };
+              }),
+            }
+          : {
+              questions: exercise.items.map((item) => {
+                const inputCount = getPracticeOpenInputCount(exercise, item);
+                const answerParts = Array.from({ length: inputCount }, (_, index) =>
+                  practiceOpenAnswers[getPracticeOpenAnswerKey(exercise.id, item.key, index)] ?? ''
+                );
+                return {
+                  answer: getPracticeOpenAnswer(exercise, item),
+                  answerParts,
+                  correct: null,
+                  score: null,
+                };
+              }),
+            };
+    await saveAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id), draftAnswerPayload);
+
     const nextCheckedExercises = { ...checkedPracticeExercises, [exercise.id]: true };
     setCheckedPracticeExercises(nextCheckedExercises);
+    await writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
     setPracticeEvaluations((previous) => {
       const next = { ...previous };
       pendingItems.forEach((item) => {
@@ -3370,6 +4028,8 @@ export default function LessonDetailShellScreen() {
     });
 
     try {
+      const nextEvaluationByItemKey: Record<string, PracticeEvaluationState> = {};
+
       await Promise.all(
         pendingItems.map(async (item, index) => {
           const answerKey = getPracticeItemStateKey(exercise.id, item.key);
@@ -3395,34 +4055,88 @@ export default function LessonDetailShellScreen() {
                 (exercise.kind === 'sentence_transform' ? 'Transform the sentence to the correct form.' : 'Fill in the missing text.'),
             });
 
+            nextEvaluationByItemKey[answerKey] = {
+              loading: false,
+              correct: typeof result.correct === 'boolean' ? result.correct : null,
+              score: typeof result.score === 'number' ? result.score : null,
+              feedbackEn: String(result.feedback_en ?? '').trim(),
+              feedbackTh: String(result.feedback_th ?? '').trim(),
+              error: '',
+            };
             setPracticeEvaluations((previous) => ({
               ...previous,
-              [answerKey]: {
-                loading: false,
-                correct: typeof result.correct === 'boolean' ? result.correct : null,
-                score: typeof result.score === 'number' ? result.score : null,
-                feedbackEn: String(result.feedback_en ?? '').trim(),
-                feedbackTh: String(result.feedback_th ?? '').trim(),
-                error: '',
-              },
+              [answerKey]: nextEvaluationByItemKey[answerKey],
             }));
           } catch (error) {
             const message = error instanceof Error ? error.message : pageCopy.practiceLoginRequired;
+            nextEvaluationByItemKey[answerKey] = {
+              loading: false,
+              correct: false,
+              score: null,
+              feedbackEn: message,
+              feedbackTh: '',
+              error: message,
+            };
             setPracticeEvaluations((previous) => ({
               ...previous,
-              [answerKey]: {
-                loading: false,
-                correct: false,
-                score: null,
-                feedbackEn: message,
-                feedbackTh: '',
-                error: message,
-              },
+              [answerKey]: nextEvaluationByItemKey[answerKey],
             }));
             setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: message }));
           }
         })
       );
+      const answerPayload =
+        exercise.kind === 'fill_blank'
+          ? {
+              questions: exercise.items.map((item) => {
+                const evaluation =
+                  nextEvaluationByItemKey[getPracticeItemStateKey(exercise.id, item.key)] ??
+                  getSavedPracticeEvaluation(exercise.id, item.key);
+                return {
+                  answer: getSingleFillBlankAnswer(exercise.id, item),
+                  answersByBlank: item.blanks.reduce<Record<string, string>>((acc, blank) => {
+                    acc[blank.id] = practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, blank.id)] ?? '';
+                    return acc;
+                  }, {}),
+                  correct: evaluation?.correct ?? null,
+                  score: evaluation?.score ?? null,
+                };
+              }),
+            }
+          : exercise.kind === 'sentence_transform'
+            ? {
+                questions: exercise.items.map((item) => {
+                  const evaluation =
+                    nextEvaluationByItemKey[getPracticeItemStateKey(exercise.id, item.key)] ??
+                    getSavedPracticeEvaluation(exercise.id, item.key);
+                  const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
+                  const markedAsCorrect = practiceMarkedCorrect[itemStateKey];
+                  return {
+                    answer: getSentenceTransformAnswer(exercise.id, item),
+                    markedAsCorrect: typeof markedAsCorrect === 'boolean' ? markedAsCorrect : null,
+                    correct: evaluation?.correct ?? null,
+                    score: evaluation?.score ?? null,
+                  };
+                }),
+              }
+            : {
+                questions: exercise.items.map((item) => {
+                  const evaluation =
+                    nextEvaluationByItemKey[getPracticeItemStateKey(exercise.id, item.key)] ??
+                    getSavedPracticeEvaluation(exercise.id, item.key);
+                  const inputCount = getPracticeOpenInputCount(exercise, item);
+                  const answerParts = Array.from({ length: inputCount }, (_, index) =>
+                    practiceOpenAnswers[getPracticeOpenAnswerKey(exercise.id, item.key, index)] ?? ''
+                  );
+                  return {
+                    answer: getPracticeOpenAnswer(exercise, item),
+                    answerParts,
+                    correct: evaluation?.correct ?? null,
+                    score: evaluation?.score ?? null,
+                  };
+                }),
+              };
+      await saveAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id), answerPayload);
       await maybeCompleteLesson(nextCheckedExercises);
     } catch {
       return;
@@ -6526,7 +7240,7 @@ export default function LessonDetailShellScreen() {
                     accessibilityRole="button"
                     onPress={() => {
                       closeCompletionModal();
-                      router.push('/(tabs)/lessons');
+                      void navigateToLessonLibrary();
                     }}
                     style={({ pressed }) => [
                       styles.completionModalButton,
@@ -6614,7 +7328,9 @@ export default function LessonDetailShellScreen() {
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={backToLibraryLabel}
-                          onPress={() => router.push('/(tabs)/lessons')}
+                          onPress={() => {
+                            void navigateToLessonLibrary();
+                          }}
                           style={styles.backButton}>
                           <MaterialIcons name="arrow-back" size={24} color={theme.colors.surface} />
                         </Pressable>
@@ -6687,7 +7403,7 @@ export default function LessonDetailShellScreen() {
                           language={uiLanguage}
                           title={startLessonLabel}
                           disabled={!isLessonReady}
-                          onPress={() => setHasStartedLesson(true)}
+                          onPress={openLessonAtResume}
                           style={styles.coverStartButton}
                         />
                         {errorMessage && !isLessonReady ? (
@@ -7147,7 +7863,14 @@ export default function LessonDetailShellScreen() {
                         <Button
                           language={pageLanguage}
                           title={pageCopy.applySubmit}
-                          onPress={() => setShowApplyResponse(true)}
+                          onPress={() => {
+                            setShowApplyResponse(true);
+                            void writeProgressUnit(
+                              'example_reveal',
+                              buildAppExampleRevealKey('apply'),
+                              buildAppPageKey('apply')
+                            );
+                          }}
                           style={styles.applySubmitButton}
                           textStyle={styles.applySubmitButtonText}
                         />
@@ -7426,7 +8149,7 @@ export default function LessonDetailShellScreen() {
 
                           if (isLastSection) {
                             if (isLessonCompleted) {
-                              router.push('/(tabs)/lessons');
+                              void navigateToLessonLibrary();
                               return;
                             }
 
@@ -7469,7 +8192,7 @@ export default function LessonDetailShellScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     setIsMenuOpen(false);
-                    router.push('/(tabs)/lessons');
+                    void navigateToLessonLibrary();
                   }}
                   style={styles.menuHeaderButton}>
                   <IconSymbol name="book.fill" size={20} color={theme.colors.text} />

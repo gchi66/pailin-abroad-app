@@ -1,9 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
+import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
+import lockImage from '@/assets/images/lock.webp';
+import {
+  AppLessonProgressSummary,
+  fetchAppLessonProgressSummaries,
+} from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
+import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -11,12 +19,18 @@ import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import {
+  getLessonLibraryProgressRefreshToken,
+  getLessonLibrarySelection,
+  setLessonLibrarySelection,
+} from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+const PRIORITY_PROGRESS_LESSON_COUNT = 6;
 
 const toStageLabel = (stage: StageName, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
@@ -66,12 +80,16 @@ export function LessonsLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasMembership } = useAppSession();
+  const initialSelection = getLessonLibrarySelection();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [progressByLesson, setProgressByLesson] = useState<Record<string, AppLessonProgressSummary>>({});
+  const [progressRefreshToken, setProgressRefreshToken] = useState(() => getLessonLibraryProgressRefreshToken());
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
-  const [selectedStage, setSelectedStage] = useState<StageName>('Beginner');
-  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const [selectedStage, setSelectedStage] = useState<StageName>(initialSelection.stage);
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(initialSelection.level);
+  const progressRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -157,6 +175,13 @@ export function LessonsLibraryScreen() {
     setSelectedLevel(levelsForSelectedStage[0]);
   }, [levelsForSelectedStage, selectedLevel]);
 
+  useEffect(() => {
+    setLessonLibrarySelection({
+      stage: selectedStage,
+      level: selectedLevel,
+    });
+  }, [selectedLevel, selectedStage]);
+
   const lessonsForSelection = useMemo(() => {
     if (selectedLevel === null) {
       return [];
@@ -170,6 +195,81 @@ export function LessonsLibraryScreen() {
         return aOrder - bOrder;
       });
   }, [items, selectedLevel, selectedStage]);
+
+  const visibleLessonIds = useMemo(
+    () => lessonsForSelection.map((lesson) => lesson.id).filter(Boolean),
+    [lessonsForSelection]
+  );
+  const priorityLessonIds = useMemo(
+    () => visibleLessonIds.slice(0, PRIORITY_PROGRESS_LESSON_COUNT),
+    [visibleLessonIds]
+  );
+  const remainingLessonIds = useMemo(
+    () => visibleLessonIds.slice(PRIORITY_PROGRESS_LESSON_COUNT),
+    [visibleLessonIds]
+  );
+
+  const refreshProgressSummaries = React.useCallback(async () => {
+    if (!hasMembership || !visibleLessonIds.length) {
+      setProgressByLesson({});
+      return;
+    }
+
+    const requestId = progressRequestIdRef.current + 1;
+    progressRequestIdRef.current = requestId;
+
+    try {
+      const prioritySummaries = await fetchAppLessonProgressSummaries(priorityLessonIds);
+      if (progressRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      console.info('[app-progress] lesson library priority summaries ok', {
+        lessonCount: Object.keys(prioritySummaries).length,
+        requestedLessonCount: priorityLessonIds.length,
+      });
+      setProgressByLesson((prev) => ({
+        ...prev,
+        ...prioritySummaries,
+      }));
+
+      if (!remainingLessonIds.length) {
+        return;
+      }
+
+      const remainingSummaries = await fetchAppLessonProgressSummaries(remainingLessonIds);
+      if (progressRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      console.info('[app-progress] lesson library remaining summaries ok', {
+        lessonCount: Object.keys(remainingSummaries).length,
+        requestedLessonCount: remainingLessonIds.length,
+      });
+      setProgressByLesson((prev) => ({
+        ...prev,
+        ...remainingSummaries,
+      }));
+    } catch (error) {
+      console.warn('[app-progress] lesson library summaries fetch failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        requestedLessonCount: visibleLessonIds.length,
+      });
+      if (progressRequestIdRef.current === requestId) {
+        setProgressByLesson({});
+      }
+    }
+  }, [hasMembership, priorityLessonIds, remainingLessonIds, visibleLessonIds.length]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
+    }, [])
+  );
+
+  useEffect(() => {
+    void refreshProgressSummaries();
+  }, [progressRefreshToken, refreshProgressSummaries]);
 
   if (isLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -302,6 +402,7 @@ export function LessonsLibraryScreen() {
                 typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
                   ? `${lesson.level}.${lesson.lesson_order}`
                   : '-';
+              const progress = progressByLesson[lesson.id];
 
               return (
                 <Pressable
@@ -309,7 +410,13 @@ export function LessonsLibraryScreen() {
                   accessibilityRole="button"
                   style={styles.itemPressable}
                   onPressIn={() => prefetchLesson(lesson.id)}
-                  onPress={() => router.push(`/lessons/${lesson.id}`)}>
+                  onPress={() => {
+                    setLessonLibrarySelection({
+                      stage: selectedStage,
+                      level: selectedLevel,
+                    });
+                    router.push(`/lessons/${lesson.id}`);
+                  }}>
                   <Card padding="md" radius="md" style={styles.lessonCard}>
                     <View style={styles.lessonRow}>
                       <View style={styles.lessonLeft}>
@@ -327,9 +434,17 @@ export function LessonsLibraryScreen() {
                           ) : null}
                         </View>
                       </View>
-                      <AppText language={uiLanguage} variant="body" style={styles.lessonChevron}>
-                        ›
-                      </AppText>
+                      <View style={styles.lessonRight}>
+                        {progress?.is_completed ? (
+                          <Image
+                            source={blueCompletedCheckImage}
+                            style={styles.completedStatusIcon}
+                            resizeMode="contain"
+                          />
+                        ) : progress?.has_started && (progress.percent_complete ?? 0) > 0 ? (
+                          <LessonProgressCircle percent={progress.percent_complete} />
+                        ) : null}
+                      </View>
                     </View>
                   </Card>
                 </Pressable>
@@ -526,10 +641,15 @@ const styles = StyleSheet.create({
   lessonSubtitle: {
     color: theme.colors.mutedText,
   },
-  lessonChevron: {
-    fontSize: 20,
-    lineHeight: 24,
-    color: theme.colors.mutedText,
+  lessonRight: {
+    minWidth: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  completedStatusIcon: {
+    width: 20,
+    height: 20,
   },
   emptyStateText: {
     textAlign: 'center',

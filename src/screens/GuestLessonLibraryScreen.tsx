@@ -1,13 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
-import checkCircleImage from '@/assets/images/CheckCircle.png';
 import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
 import lockImage from '@/assets/images/lock.webp';
+import {
+  AppLessonProgressSummary,
+  fetchAppLessonProgressSummaries,
+} from '@/src/api/app-lesson-progress';
 import { getLessonsIndex } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
-import { fetchUserCompletedLessons } from '@/src/api/user';
+import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
@@ -15,12 +19,18 @@ import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import {
+  getLessonLibraryProgressRefreshToken,
+  getLessonLibrarySelection,
+  setLessonLibrarySelection,
+} from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+const PRIORITY_PROGRESS_LESSON_COUNT = 6;
 
 const toStageLabel = (stage: StageName, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
@@ -70,13 +80,16 @@ export function GuestLessonLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount } = useAppSession();
+  const initialSelection = getLessonLibrarySelection();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
+  const [progressByLesson, setProgressByLesson] = useState<Record<string, AppLessonProgressSummary>>({});
+  const [progressRefreshToken, setProgressRefreshToken] = useState(() => getLessonLibraryProgressRefreshToken());
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
-  const [selectedStage, setSelectedStage] = useState<StageName>('Beginner');
-  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const [selectedStage, setSelectedStage] = useState<StageName>(initialSelection.stage);
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(initialSelection.level);
+  const progressRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -107,43 +120,6 @@ export function GuestLessonLibraryScreen() {
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!hasAccount) {
-      setCompletedLessonIds(new Set());
-      return;
-    }
-
-    let isMounted = true;
-
-    const run = async () => {
-      try {
-        const completedLessons = await fetchUserCompletedLessons();
-        if (!isMounted) {
-          return;
-        }
-
-        setCompletedLessonIds(
-          new Set(
-            completedLessons
-              .filter((entry) => entry.is_completed !== false)
-              .map((entry) => entry.lesson_id)
-              .filter((lessonId): lessonId is string => Boolean(lessonId))
-          )
-        );
-      } catch {
-        if (isMounted) {
-          setCompletedLessonIds(new Set());
-        }
-      }
-    };
-
-    void run();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [hasAccount]);
 
   const freeLessonIds = useMemo(() => {
     const firstByLevel = new Map<string, string>();
@@ -229,6 +205,13 @@ export function GuestLessonLibraryScreen() {
     setSelectedLevel(levelsForSelectedStage[0]);
   }, [levelsForSelectedStage, selectedLevel]);
 
+  useEffect(() => {
+    setLessonLibrarySelection({
+      stage: selectedStage,
+      level: selectedLevel,
+    });
+  }, [selectedLevel, selectedStage]);
+
   const lessonsForSelection = useMemo(() => {
     if (selectedLevel === null) {
       return [];
@@ -242,6 +225,81 @@ export function GuestLessonLibraryScreen() {
         return aOrder - bOrder;
       });
   }, [items, selectedLevel, selectedStage]);
+
+  const visibleLessonIds = useMemo(
+    () => lessonsForSelection.map((lesson) => lesson.id).filter(Boolean),
+    [lessonsForSelection]
+  );
+  const priorityLessonIds = useMemo(
+    () => visibleLessonIds.slice(0, PRIORITY_PROGRESS_LESSON_COUNT),
+    [visibleLessonIds]
+  );
+  const remainingLessonIds = useMemo(
+    () => visibleLessonIds.slice(PRIORITY_PROGRESS_LESSON_COUNT),
+    [visibleLessonIds]
+  );
+
+  const refreshProgressSummaries = React.useCallback(async () => {
+    if (!hasAccount || !visibleLessonIds.length) {
+      setProgressByLesson({});
+      return;
+    }
+
+    const requestId = progressRequestIdRef.current + 1;
+    progressRequestIdRef.current = requestId;
+
+    try {
+      const prioritySummaries = await fetchAppLessonProgressSummaries(priorityLessonIds);
+      if (progressRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      console.info('[app-progress] guest lesson library priority summaries ok', {
+        lessonCount: Object.keys(prioritySummaries).length,
+        requestedLessonCount: priorityLessonIds.length,
+      });
+      setProgressByLesson((prev) => ({
+        ...prev,
+        ...prioritySummaries,
+      }));
+
+      if (!remainingLessonIds.length) {
+        return;
+      }
+
+      const remainingSummaries = await fetchAppLessonProgressSummaries(remainingLessonIds);
+      if (progressRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      console.info('[app-progress] guest lesson library remaining summaries ok', {
+        lessonCount: Object.keys(remainingSummaries).length,
+        requestedLessonCount: remainingLessonIds.length,
+      });
+      setProgressByLesson((prev) => ({
+        ...prev,
+        ...remainingSummaries,
+      }));
+    } catch (error) {
+      console.warn('[app-progress] guest lesson library summaries fetch failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        requestedLessonCount: visibleLessonIds.length,
+      });
+      if (progressRequestIdRef.current === requestId) {
+        setProgressByLesson({});
+      }
+    }
+  }, [hasAccount, priorityLessonIds, remainingLessonIds, visibleLessonIds.length]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
+    }, [])
+  );
+
+  useEffect(() => {
+    void refreshProgressSummaries();
+  }, [progressRefreshToken, refreshProgressSummaries]);
 
   if (isLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -262,6 +320,10 @@ export function GuestLessonLibraryScreen() {
 
   const handleLessonPress = (lesson: LessonListItem) => {
     const isLocked = !freeLessonIds.has(lesson.id);
+    setLessonLibrarySelection({
+      stage: selectedStage,
+      level: selectedLevel,
+    });
     router.push({
       pathname: '/lessons/[id]',
       params: {
@@ -417,20 +479,33 @@ export function GuestLessonLibraryScreen() {
                       <View style={styles.lessonRight}>
                         {(() => {
                           const isFreeLesson = freeLessonIds.has(lesson.id);
-                          const isCompleted = completedLessonIds.has(lesson.id);
-                          const statusImage = !isFreeLesson
-                            ? lockImage
-                            : isCompleted
-                              ? blueCompletedCheckImage
-                              : checkCircleImage;
+                          const progress = progressByLesson[lesson.id];
 
-                          return (
-                        <Image
-                          source={statusImage}
-                          style={styles.statusIcon}
-                          resizeMode="contain"
-                        />
-                          );
+                          if (!isFreeLesson) {
+                            return (
+                              <Image
+                                source={lockImage}
+                                style={styles.statusIcon}
+                                resizeMode="contain"
+                              />
+                            );
+                          }
+
+                          if (progress?.is_completed) {
+                            return (
+                              <Image
+                                source={blueCompletedCheckImage}
+                                style={styles.completedStatusIcon}
+                                resizeMode="contain"
+                              />
+                            );
+                          }
+
+                          if (progress?.has_started && (progress.percent_complete ?? 0) > 0) {
+                            return <LessonProgressCircle percent={progress.percent_complete} />;
+                          }
+
+                          return null;
                         })()}
                       </View>
                     </View>
@@ -639,7 +714,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   lessonRight: {
-    width: 24,
+    minWidth: 48,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -647,6 +722,10 @@ const styles = StyleSheet.create({
   statusIcon: {
     width: 22,
     height: 22,
+  },
+  completedStatusIcon: {
+    width: 20,
+    height: 20,
   },
   emptyStateText: {
     textAlign: 'center',

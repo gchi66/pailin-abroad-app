@@ -779,6 +779,47 @@
   - `src/components/ui/StandardPageHeader.tsx` now also supports an optional right-side action used by Profile inline editing
   - title positioning has been adjusted upward slightly to reduce extra whitespace above the heading
 
+## Next App-Side Port: Web Lesson Progress + Answer State
+- Before implementing more native lesson-progress work, treat the current web implementation in `pailin-abroad` as the source of truth.
+- This work is already implemented on the website and backend and should be ported, not redesigned.
+- Sequencing for native work:
+  - first implement shared lesson progress tracking + answer-state persistence/resume
+  - then refactor native lesson-complete behavior to align with the newer shared web/backend contract
+  - only after that, wire lesson-library completion/checkmark UI against the new shared progress reads
+- Shared Supabase storage already exists and is intended to be reused by both clients:
+  - `user_lesson_progress`
+  - `user_lesson_unit_progress`
+  - `user_lesson_answer_state`
+- Website helper modules now exist for the shared flow:
+  - `frontend/src/lib/lessonAnswerState.js`
+  - `frontend/src/lib/lessonProgressState.js`
+- Website behavior now implemented:
+  - answer-state read/write/delete against `user_lesson_answer_state`
+  - answer restore on lesson open
+  - answer save on submit/check only, not on every keystroke
+  - coverage across comprehension, multiple choice, open ended, fill blank, and sentence transform
+  - section visits tracked into unit progress
+  - exercise completions tracked into unit progress
+  - lesson resume uses `user_lesson_progress.last_unit_type` + `last_unit_key`
+  - lesson cards show percent complete via progress summaries
+  - lesson sidebar / in-lesson UI reflects completion state
+- Backend/server logic now owns the shared progress summary math and should remain the source of truth for app reads:
+  - `backend/app/routes.py` computes `percent_complete`, `has_started`, completion state, and lesson summary payloads
+  - `/api/user/lesson-progress-summaries` returns per-lesson progress summary data for library cards
+  - lesson resume logic is already implemented on the web side and should be mirrored by reusing the same persisted fields/contracts rather than re-deriving progress in native
+- Native next to-do:
+  - port lesson answer persistence/restoration to the app using the existing shared Supabase tables and the same unit-key model (`section:*`, `exercise:*`, `exercise:comprehension_quiz`)
+  - port section-visit and exercise-completion tracking to the app using the shared progress tables/fields already in use on web
+  - use backend-owned progress summary/read endpoints for library/pathway progress displays instead of implementing native-only percent-complete calculations
+  - do not refactor the final native lesson-complete flow in the first pass beyond what is strictly needed for progress tracking; the dedicated lesson-complete refactor is the next step after progress is in place
+- Deferred follow-up after the progress foundation lands:
+  - refactor current native completion-only write paths such as `src/api/user.ts` and the lesson-detail completion flow so app completion behavior matches the newer shared web contract instead of only toggling `user_lesson_progress.is_completed`
+  - add lesson-library completed checkmark/pill treatment based on the shared progress/completion reads
+  - if the website progress circle is later desired in native, build it against the same shared summary endpoint rather than native-local math
+- Guardrail:
+  - do not create app-only progress tables, app-only unit-key formats, or duplicate native percentage/resume calculation logic if the backend already provides it
+  - prefer matching the web/backend contract exactly so progress, resume state, and answer restoration stay consistent across web and app
+
 ## Source of Truth for Future Chats
 - This file should be used as the first context document in new chats.
 - If implementation direction changes, update this file before switching chats.
