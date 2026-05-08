@@ -2517,6 +2517,14 @@ export default function LessonDetailShellScreen() {
         return left.originalIndex - right.originalIndex;
       });
   }, [contentLang, isPrepareTab, prepareNodes, snippetIndex]);
+  const prepareItemsLeftColumn = useMemo(
+    () => prepareItems.filter((_, index) => index % 2 === 0),
+    [prepareItems]
+  );
+  const prepareItemsRightColumn = useMemo(
+    () => prepareItems.filter((_, index) => index % 2 === 1),
+    [prepareItems]
+  );
   const understandNodes = useMemo(
     () =>
       hasStartedLesson
@@ -3350,7 +3358,7 @@ export default function LessonDetailShellScreen() {
   ]);
 
   useEffect(() => {
-    setExpandedPhraseIds(normalizedLessonPhrases[0] ? { [normalizedLessonPhrases[0].id]: true } : {});
+    setExpandedPhraseIds({});
   }, [lessonId, contentLang, normalizedLessonPhrases]);
 
   useEffect(() => {
@@ -6330,7 +6338,7 @@ export default function LessonDetailShellScreen() {
     <View style={styles.phraseSectionShell}>
       <Stack gap="sm">
         {normalizedLessonPhrases.map((phrase, index) => {
-          const isExpanded = expandedPhraseIds[phrase.id] ?? index === 0;
+          const isExpanded = expandedPhraseIds[phrase.id] ?? false;
           const phraseLabel = phrase.phrase.trim() || phrase.phraseTh.trim() || `Phrase ${index + 1}`;
 
           return (
@@ -7768,9 +7776,20 @@ export default function LessonDetailShellScreen() {
                         </View>
 
                         {prepareItems.length ? (
-                          <View style={[styles.prepareList, useTwoColumnPrepareLayout ? styles.prepareListTwoColumn : null]}>
-                            {prepareItems.map((item) => renderPrepareItem(item))}
-                          </View>
+                          useTwoColumnPrepareLayout ? (
+                            <View style={[styles.prepareList, styles.prepareListTwoColumn]}>
+                              <View style={styles.prepareColumn}>
+                                {prepareItemsLeftColumn.map((item) => renderPrepareItem(item))}
+                              </View>
+                              <View style={styles.prepareColumn}>
+                                {prepareItemsRightColumn.map((item) => renderPrepareItem(item))}
+                              </View>
+                            </View>
+                          ) : (
+                            <View style={styles.prepareList}>
+                              {prepareItems.map((item) => renderPrepareItem(item))}
+                            </View>
+                          )
                         ) : (
                           <AppText language={pageLanguage} variant="muted" style={styles.prepareEmptyText}>
                             {pageCopy.prepareEmpty}
@@ -9307,9 +9326,13 @@ const styles = StyleSheet.create({
   },
   prepareListTwoColumn: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    rowGap: theme.spacing.sm,
+    gap: theme.spacing.md,
+  },
+  prepareColumn: {
+    flex: 1,
+    gap: theme.spacing.sm,
   },
   prepareItemRow: {
     flexDirection: 'row',
@@ -9318,7 +9341,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   prepareItemRowTwoColumn: {
-    width: '48%',
+    width: '100%',
   },
   prepareAudioSlot: {
     width: 28,
