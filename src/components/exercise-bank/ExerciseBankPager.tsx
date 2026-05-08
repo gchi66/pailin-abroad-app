@@ -122,7 +122,7 @@ const getCopy = (language: UiLanguage): PagerCopy => {
       correctAnswerPrefix: 'คำตอบที่ถูก',
       previousCard: 'ก่อนหน้า',
       nextCard: 'ถัดไป',
-      contentToggle: 'TH/EN',
+      contentToggle: 'ไทย/EN',
       emptyTitle: 'ยังไม่มีแบบฝึกหัดในส่วนนี้',
       emptyBody: 'กลับไปหน้าก่อนหน้าแล้วเลือกหัวข้ออื่นได้เลย',
     };
@@ -146,7 +146,7 @@ const getCopy = (language: UiLanguage): PagerCopy => {
     correctAnswerPrefix: 'Correct answer',
     previousCard: 'Previous',
     nextCard: 'Next',
-    contentToggle: 'TH/EN',
+    contentToggle: 'ไทย/EN',
     emptyTitle: 'There are no exercises in this section yet.',
     emptyBody: 'Go back and try another section from the exercise bank.',
   };
@@ -880,10 +880,10 @@ export function ExerciseBankPager({
             style={[styles.languageButton, contentLang === 'th' ? styles.languageButtonActive : null]}
             onPress={() => onSetContentLang('th')}>
             <AppText
-              language="en"
+              language="th"
               variant="caption"
               style={[styles.languageButtonText, contentLang === 'th' ? styles.languageButtonTextActive : null]}>
-              TH
+              ไทย
             </AppText>
           </Pressable>
           <Pressable

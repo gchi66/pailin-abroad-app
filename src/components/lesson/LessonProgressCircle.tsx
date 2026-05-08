@@ -17,8 +17,8 @@ const STROKE_COLOR = '#1E1E1E';
 
 export function LessonProgressCircle({
   percent,
-  size = 18,
-  strokeWidth = 3.4,
+  size = 20,
+  strokeWidth = 3.8,
   showLabel = true,
 }: LessonProgressCircleProps) {
   const clampedPercent = Math.max(0, Math.min(100, Math.round(percent)));

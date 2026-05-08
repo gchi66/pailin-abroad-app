@@ -19,8 +19,8 @@ export function LanguageToggle({ style }: LanguageToggleProps) {
         accessibilityRole="button"
         style={[styles.option, uiLanguage === 'th' ? styles.optionActive : null]}
         onPress={() => setUiLanguage('th')}>
-        <AppText variant="caption" style={uiLanguage === 'th' ? styles.optionTextActive : styles.optionText}>
-          TH
+        <AppText language="th" variant="caption" style={uiLanguage === 'th' ? styles.optionTextActive : styles.optionText}>
+          ไทย
         </AppText>
       </Pressable>
       <Pressable
@@ -42,12 +42,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   option: {
-    minWidth: 56,
+    minWidth: 64,
     minHeight: 36,
     borderRadius: theme.radii.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm + 2,
   },
   optionActive: {
     backgroundColor: '#91CAFF',

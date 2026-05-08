@@ -72,7 +72,7 @@ import {
   buildAppPageKey,
   parseAppCardKey,
 } from '@/src/lib/app-lesson-progress';
-import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
+import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import {
   LessonApplyContent,
@@ -94,6 +94,22 @@ import pailinBlueThumbsUpImage from '@/assets/images/pailin-blue-circle-thumbs-u
 
 type UiLanguage = 'en' | 'th';
 const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
+const TAB_BAR_LABELS: Record<UiLanguage, { home: string; pathway: string; lessons: string; resources: string; more: string }> = {
+  en: {
+    home: 'Home',
+    pathway: 'Pathway',
+    lessons: 'Lessons',
+    resources: 'Resources',
+    more: 'More',
+  },
+  th: {
+    home: 'หน้าหลัก',
+    pathway: 'เส้นทาง',
+    lessons: 'บทเรียน',
+    resources: 'คลังเสริม',
+    more: 'เพิ่มเติม',
+  },
+};
 
 type LessonTab = {
   id: string;
@@ -138,6 +154,7 @@ type NormalizedApplyContent = {
 };
 
 const RICH_PAGER_ACTIVE_OFFSET_X: [number, number] = [-6, 10];
+const APP_TAB_BAR_HEIGHT = 74;
 const RICH_PAGER_FAIL_OFFSET_Y: [number, number] = [-22, 22];
 const RICH_PAGER_LEFT_SWIPE_DISTANCE = 18;
 const RICH_PAGER_RIGHT_SWIPE_DISTANCE = 28;
@@ -1752,9 +1769,10 @@ export default function LessonDetailShellScreen() {
   const lockedParam = typeof params.locked === 'string' ? params.locked : null;
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership, user } = useAppSession();
+  const { hasAccount, hasMembership, user } = useAppSession();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const menuOverlayBottomInset = APP_TAB_BAR_HEIGHT + insets.bottom;
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
@@ -1768,7 +1786,7 @@ export default function LessonDetailShellScreen() {
   const [contentLang, setContentLang] = useState<UiLanguage>('en');
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
   const [hasSubmittedComprehensionAnswers, setHasSubmittedComprehensionAnswers] = useState(false);
-  const [activeComprehensionQuestionIndex, setActiveComprehensionQuestionIndex] = useState(0);
+  const [comprehensionError, setComprehensionError] = useState('');
   const [audioUrls, setAudioUrls] = useState<{ main: string | null; noBg: string | null; bg: string | null }>({
     main: null,
     noBg: null,
@@ -2225,7 +2243,7 @@ export default function LessonDetailShellScreen() {
     setContentLang('en');
     setSelectedAnswers({});
     setHasSubmittedComprehensionAnswers(false);
-    setActiveComprehensionQuestionIndex(0);
+    setComprehensionError('');
     setAudioUrls({ main: null, noBg: null, bg: null });
     setIsAudioLoading(false);
     setIsAudioPlaying(false);
@@ -2407,12 +2425,8 @@ export default function LessonDetailShellScreen() {
     });
   }, [normalizedQuestions]);
 
-  useEffect(() => {
-    setActiveComprehensionQuestionIndex((previous) =>
-      Math.max(0, Math.min(previous, Math.max(0, normalizedQuestions.length - 1)))
-    );
-  }, [normalizedQuestions.length]);
   const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
+  const tabBarText = TAB_BAR_LABELS[uiLanguage];
   const richInlineBaseStyle = contentLang === 'th' ? styles.richInlineTextThai : styles.richInlineTextEnglish;
   const richInlineBoldStyle = contentLang === 'th' ? styles.richInlineBoldThai : styles.richInlineBoldEnglish;
   const applyInlineBaseStyle = contentLang === 'th' ? styles.applyInlineTextThai : styles.applyInlineTextEnglish;
@@ -2573,19 +2587,12 @@ export default function LessonDetailShellScreen() {
   const sectionCount = lessonTabs.length;
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab;
-  const isComprehensionPagerTab = isComprehensionTab && normalizedQuestions.length > 0;
-  const isInnerPagerTab =
-    isComprehensionPagerTab ||
-    isRichPagerTab ||
-    (isPracticeTab && normalizedPracticeExercises.length > 0);
-  const activeInnerCardIndex = isComprehensionPagerTab
-    ? activeComprehensionQuestionIndex
-    : isPracticeTab
+  const hasPracticePagerCards = isPracticeTab && normalizedPracticeExercises.length > 0;
+  const isInnerPagerTab = isRichPagerTab || hasPracticePagerCards;
+  const activeInnerCardIndex = isPracticeTab
     ? activePracticeCardIndex
     : activeUnderstandGroupIndex;
-  const activeInnerCardCount = isComprehensionPagerTab
-    ? normalizedQuestions.length
-    : isPracticeTab
+  const activeInnerCardCount = isPracticeTab
     ? normalizedPracticeExercises.length
     : activePagerGroups.length;
   const hasMultiplePagerCards = isInnerPagerTab && activeInnerCardCount > 1;
@@ -2613,11 +2620,9 @@ export default function LessonDetailShellScreen() {
   const contentOverflows = contentScrollMeasuredHeight > contentScrollViewportHeight + 1;
   const shouldEnableBodyScroll = contentOverflows || isKeyboardOpen || activeQuickPracticeHasEditableInputs;
   const isApplyActionLocked = isApplyTab && !showApplyResponse;
-  const isComprehensionSectionActionLocked =
-    isComprehensionPagerTab &&
-    (!hasSubmittedComprehensionAnswers || activeComprehensionQuestionIndex < Math.max(0, normalizedQuestions.length - 1));
+  const isComprehensionSectionActionLocked = isComprehensionTab && !hasSubmittedComprehensionAnswers;
   const isPrimaryActionDisabled =
-    (isInnerPagerTab && !isLastPagerCard && !isComprehensionPagerTab) || isApplyActionLocked || isComprehensionSectionActionLocked;
+    (isInnerPagerTab && !isLastPagerCard) || isApplyActionLocked || isComprehensionSectionActionLocked;
   const getCurrentCardUnitKey = useCallback(() => {
     if (!activeTab?.type || !activePageKey) {
       return null;
@@ -2738,11 +2743,6 @@ export default function LessonDetailShellScreen() {
     (nextIndex: number) => {
       const clampedIndex = Math.max(0, Math.min(nextIndex, Math.max(0, activeInnerCardCount - 1)));
 
-      if (isComprehensionPagerTab) {
-        setActiveComprehensionQuestionIndex(clampedIndex);
-        return;
-      }
-
       if (isPracticeTab) {
         setActivePracticeCardIndex(clampedIndex);
         return;
@@ -2750,7 +2750,7 @@ export default function LessonDetailShellScreen() {
 
       setActiveUnderstandGroupIndex(clampedIndex);
     },
-    [activeInnerCardCount, isComprehensionPagerTab, isPracticeTab]
+    [activeInnerCardCount, isPracticeTab]
   );
   const richPagerTranslateX = useSharedValue(0);
   const handleRichPagerSwipe = useCallback(
@@ -2960,7 +2960,7 @@ export default function LessonDetailShellScreen() {
       sectionCount,
     ]
   );
-  const activeStudyGesture = isComprehensionPagerTab ? richPagerGesture : sectionSwipeGesture;
+  const activeStudyGesture = sectionSwipeGesture;
   const quickPracticeNativeGesture = useMemo(
     () =>
       Gesture.Native()
@@ -2968,31 +2968,9 @@ export default function LessonDetailShellScreen() {
         .disallowInterruption(true),
     []
   );
-  const activeComprehensionQuestion = normalizedQuestions[activeComprehensionQuestionIndex] ?? null;
-  const activeComprehensionSelections = activeComprehensionQuestion
-    ? selectedAnswers[activeComprehensionQuestion.id] ?? []
-    : [];
-  const isActiveComprehensionAnswerCorrect = (() => {
-    if (!activeComprehensionQuestion) {
-      return false;
-    }
-
-    if (activeComprehensionSelections.length !== activeComprehensionQuestion.answerKey.length) {
-      return false;
-    }
-
-    const currentSet = new Set(activeComprehensionSelections.map(normalizeOptionLetter));
-    const answerSet = new Set(activeComprehensionQuestion.answerKey.map(normalizeOptionLetter));
-    if (currentSet.size !== answerSet.size) {
-      return false;
-    }
-
-    return Array.from(currentSet).every((value) => answerSet.has(value));
-  })();
-  const isLastComprehensionQuestion =
-    normalizedQuestions.length === 0 || activeComprehensionQuestionIndex >= normalizedQuestions.length - 1;
-  const shouldShowComprehensionCheckButton =
-    isComprehensionPagerTab && isLastComprehensionQuestion && !hasSubmittedComprehensionAnswers;
+  const allComprehensionQuestionsAnswered =
+    normalizedQuestions.length > 0 &&
+    normalizedQuestions.every((question) => (selectedAnswers[question.id] ?? []).length > 0);
   const coverLessonNumber =
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
@@ -3011,7 +2989,7 @@ export default function LessonDetailShellScreen() {
       )
     : 0;
   const contentToggleLabel = contentLang === 'th' ? translateToEnglishLabel : translateToThaiLabel;
-  const contentToggleText = contentLang === 'th' ? 'EN' : 'TH';
+  const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
   const audioTraySubtitle =
@@ -3030,7 +3008,6 @@ export default function LessonDetailShellScreen() {
     !isLoading &&
     !errorMessage &&
     Boolean(lesson) &&
-    !isFullscreen &&
     !shouldShowConversationIntroOverlay;
   const audioTrayStatusLabel = isAudioLoading
     ? pageCopy.audioTrayLoading
@@ -3431,9 +3408,66 @@ export default function LessonDetailShellScreen() {
 
   const navigateToLessonLibrary = useCallback(async () => {
     await flushPendingLessonPersistence();
+    const stage = lessonCover?.stage;
+    const level = typeof lessonCover?.level === 'number' ? lessonCover.level : null;
+    if (
+      (stage === 'Beginner' || stage === 'Intermediate' || stage === 'Advanced' || stage === 'Expert') &&
+      level !== null
+    ) {
+      setLessonLibrarySelection({ stage, level });
+    }
     bumpLessonLibraryProgressRefreshToken();
     router.push('/(tabs)/lessons');
+  }, [flushPendingLessonPersistence, lessonCover?.level, lessonCover?.stage, router]);
+
+  const navigateToPrimaryTab = useCallback(async () => {
+    await flushPendingLessonPersistence();
+    router.push('/(tabs)');
   }, [flushPendingLessonPersistence, router]);
+
+  const navigateToResourcesTab = useCallback(async () => {
+    await flushPendingLessonPersistence();
+    router.push('/(tabs)/resources');
+  }, [flushPendingLessonPersistence, router]);
+
+  const navigateToAccountTab = useCallback(async () => {
+    await flushPendingLessonPersistence();
+    router.push('/(tabs)/account');
+  }, [flushPendingLessonPersistence, router]);
+
+  const overlayTabItems = useMemo(
+    () => [
+      {
+        key: 'primary',
+        label: hasAccount ? tabBarText.pathway : tabBarText.home,
+        icon: hasAccount ? ('flag.fill' as const) : ('house.fill' as const),
+        isActive: false,
+        onPress: navigateToPrimaryTab,
+      },
+      {
+        key: 'lessons',
+        label: tabBarText.lessons,
+        icon: 'book.fill' as const,
+        isActive: false,
+        onPress: navigateToLessonLibrary,
+      },
+      {
+        key: 'resources',
+        label: tabBarText.resources,
+        icon: 'square.grid.2x2.fill' as const,
+        isActive: false,
+        onPress: navigateToResourcesTab,
+      },
+      {
+        key: 'account',
+        label: tabBarText.more,
+        icon: 'ellipsis.circle.fill' as const,
+        isActive: false,
+        onPress: navigateToAccountTab,
+      },
+    ],
+    [hasAccount, navigateToAccountTab, navigateToLessonLibrary, navigateToPrimaryTab, navigateToResourcesTab, tabBarText]
+  );
 
   const navigateToNextLesson = useCallback(async () => {
     await flushPendingLessonPersistence();
@@ -3627,27 +3661,31 @@ export default function LessonDetailShellScreen() {
         [questionId]: nextSelections,
       };
     });
+    setHasSubmittedComprehensionAnswers(false);
+    setComprehensionError('');
   };
 
   const handleSubmitComprehensionAnswers = useCallback(async () => {
-    const hasAnySelections = normalizedQuestions.some((question) => (selectedAnswers[question.id] ?? []).length > 0);
-    if (!hasAnySelections) {
+    if (!allComprehensionQuestionsAnswered) {
+      setComprehensionError(pageCopy.practiceAnswerAll);
       return;
     }
 
+    setComprehensionError('');
     await saveAnswerStateForUnit(buildComprehensionAnswerStateUnitKey(), {
       selected: selectedAnswers,
     });
     setHasSubmittedComprehensionAnswers(true);
-    setActiveComprehensionQuestionIndex(0);
     if (lessonId) {
       void writeProgressUnit('exercise', buildAppComprehensionExerciseKey(), buildAppPageKey('comprehension'));
     }
-  }, [lessonId, normalizedQuestions, saveAnswerStateForUnit, selectedAnswers, writeProgressUnit]);
+  }, [allComprehensionQuestionsAnswered, lessonId, pageCopy.practiceAnswerAll, saveAnswerStateForUnit, selectedAnswers, writeProgressUnit]);
 
   const handleResetComprehensionReview = useCallback(() => {
     markLessonAnswerStateInteracted();
+    setSelectedAnswers({});
     setHasSubmittedComprehensionAnswers(false);
+    setComprehensionError('');
     void clearAnswerStateForUnit(buildComprehensionAnswerStateUnitKey());
   }, [clearAnswerStateForUnit, markLessonAnswerStateInteracted]);
 
@@ -3760,7 +3798,6 @@ export default function LessonDetailShellScreen() {
           : {};
       setSelectedAnswers(nextSelected);
       setHasSubmittedComprehensionAnswers(Object.keys(nextSelected).length > 0);
-      setActiveComprehensionQuestionIndex(0);
     }
 
     const nextPracticeSelections: Record<string, string[]> = {};
@@ -7235,9 +7272,7 @@ export default function LessonDetailShellScreen() {
     ? getNodeHeadingText(activePagerGroup.heading, contentLang)
     : '';
   const activePracticeHeading = activePracticeExercise?.title || activePracticeExercise?.prompt || '';
-  const pagerDotKeys = isComprehensionPagerTab
-    ? normalizedQuestions.map((question) => question.id)
-    : isPracticeTab
+  const pagerDotKeys = isPracticeTab
     ? normalizedPracticeExercises.map((exercise) => exercise.id)
     : activePagerGroups.map((group) => group.key);
 
@@ -7257,9 +7292,7 @@ export default function LessonDetailShellScreen() {
               accessibilityRole="button"
               onPress={closeCompletionModal}
               style={styles.completionModalCloseButton}>
-              <AppText language="en" variant="caption" style={styles.completionModalCloseText}>
-                ×
-              </AppText>
+              <MaterialIcons name="close" size={16} color={theme.colors.text} />
             </Pressable>
 
             {completionModalState === 'success' ? (
@@ -7646,9 +7679,11 @@ export default function LessonDetailShellScreen() {
                           disabled={isTranslatingContent}
                           onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
                           style={[styles.translatePill, isTranslatingContent ? styles.translatePillDisabled : null]}>
-                          <AppText language="en" variant="caption" style={styles.translatePillText}>
-                            {contentToggleText}
-                          </AppText>
+                          <View style={styles.translatePillLabel}>
+                            <AppText language="en" variant="caption" style={styles.translatePillText}>
+                              {contentToggleText}
+                            </AppText>
+                          </View>
                         </Pressable>
                       </View>
                     </View>
@@ -7696,9 +7731,11 @@ export default function LessonDetailShellScreen() {
                           disabled={isTranslatingContent}
                           onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
                           style={[styles.translatePill, isTranslatingContent ? styles.translatePillDisabled : null]}>
-                          <AppText language="en" variant="caption" style={styles.translatePillText}>
-                            {contentToggleText}
-                          </AppText>
+                          <View style={styles.translatePillLabel}>
+                            <AppText language="en" variant="caption" style={styles.translatePillText}>
+                              {contentToggleText}
+                            </AppText>
+                          </View>
                         </Pressable>
                       ) : null}
 
@@ -7742,205 +7779,193 @@ export default function LessonDetailShellScreen() {
                       </Stack>
                     </Card>
                   ) : isComprehensionTab ? (
-                    activeComprehensionQuestion ? (
-                      <View style={[styles.richPagerShell, styles.richPagerShellBottomControls]}>
-                        <Stack gap="md" style={styles.comprehensionFlow}>
-                          <View style={styles.comprehensionProgressHeader}>
-                            <AppText language={pageLanguage} variant="caption" style={styles.comprehensionProgressLabel}>
-                              {pageCopy.questionCounter(activeComprehensionQuestionIndex, normalizedQuestions.length)}
-                            </AppText>
-                          </View>
+                    normalizedQuestions.length ? (
+                      <Stack gap="md">
+                        {normalizedQuestions.map((question, questionIndex) => {
+                          const selectionKey = question.id;
+                          const selectedLabels = selectedAnswers[selectionKey] ?? [];
+                          const selectedSet = new Set(selectedLabels.map(normalizeOptionLetter));
+                          const answerSet = new Set(question.answerKey.map(normalizeOptionLetter));
+                          const isMulti = question.answerKey.length > 1;
+                          const isQuestionCorrect =
+                            selectedSet.size === answerSet.size &&
+                            Array.from(answerSet).every((label) => selectedSet.has(label));
 
-                          <View style={styles.questionBlock}>
-                            <View style={styles.questionPromptRow}>
-                              <AppText language="en" variant="body" style={styles.questionNumberText}>
-                                {`${activeComprehensionQuestion.sortOrder || activeComprehensionQuestionIndex + 1}`}
-                              </AppText>
+                          return (
+                            <View key={selectionKey} style={styles.practiceQuestionCard}>
+                              <View style={styles.comprehensionQuestionHeader}>
+                                <AppText language="en" variant="caption" style={styles.comprehensionQuestionNumber}>
+                                  {`${question.sortOrder || questionIndex + 1}`}
+                                </AppText>
 
-                              <View style={styles.questionPromptContent}>
-                                {contentLang === 'th' ? (
-                                  <>
-                                    {splitTextLines(activeComprehensionQuestion.promptEn).map((line, lineIndex) => (
+                                <View style={styles.comprehensionQuestionTextWrap}>
+                                  {contentLang === 'th' ? (
+                                    <>
+                                      {splitTextLines(question.promptEn).map((line, lineIndex) => (
+                                        <AppText
+                                          key={`comprehension-en-${selectionKey}-${lineIndex}`}
+                                          language="en"
+                                          variant="body"
+                                          style={styles.comprehensionQuestionText}>
+                                          {line}
+                                        </AppText>
+                                      ))}
+                                      {splitTextLines(question.promptTh).map((line, lineIndex) => (
+                                        <AppText
+                                          key={`comprehension-th-${selectionKey}-${lineIndex}`}
+                                          language="th"
+                                          variant="body"
+                                          style={styles.comprehensionQuestionThaiText}>
+                                          {line}
+                                        </AppText>
+                                      ))}
+                                    </>
+                                  ) : (
+                                    splitTextLines(question.prompt).map((line, lineIndex) => (
                                       <AppText
-                                        key={`en-${activeComprehensionQuestion.id}-${lineIndex}`}
+                                        key={`comprehension-prompt-${selectionKey}-${lineIndex}`}
                                         language="en"
                                         variant="body"
-                                        style={styles.questionPromptText}>
+                                        style={styles.comprehensionQuestionText}>
                                         {line}
                                       </AppText>
-                                    ))}
-                                    {splitTextLines(activeComprehensionQuestion.promptTh).map((line, lineIndex) => (
-                                      <AppText
-                                        key={`th-${activeComprehensionQuestion.id}-${lineIndex}`}
-                                        language="th"
-                                        variant="body"
-                                        style={styles.questionPromptThaiText}>
-                                        {line}
-                                      </AppText>
-                                    ))}
-                                  </>
-                                ) : (
-                                  splitTextLines(activeComprehensionQuestion.prompt).map((line, lineIndex) => (
-                                    <AppText
-                                      key={`prompt-${activeComprehensionQuestion.id}-${lineIndex}`}
-                                      language="en"
-                                      variant="body"
-                                      style={styles.questionPromptText}>
-                                      {line}
-                                    </AppText>
-                                  ))
-                                )}
+                                    ))
+                                  )}
+                                </View>
                               </View>
-                            </View>
 
-                            <Stack gap="sm" style={styles.comprehensionOptionsList}>
-                              {activeComprehensionQuestion.options.map((option, optionIndex) => {
-                                const optionKey = `${activeComprehensionQuestion.id}-${option.label}-${optionIndex}`;
-                                const isMulti = activeComprehensionQuestion.answerKey.length > 1;
-                                  const answerSet = new Set(activeComprehensionQuestion.answerKey);
-                                  const isSelected = activeComprehensionSelections.includes(option.label);
-                                  const isCorrectOption = answerSet.has(option.label);
-                                  const shouldShowCorrectCheckmark =
-                                    hasSubmittedComprehensionAnswers && isSelected && isCorrectOption;
+                              <Stack gap="sm">
+                                {question.options.map((option, optionIndex) => {
+                                  const normalizedOptionLabel = normalizeOptionLetter(option.label);
+                                  const isSelected = selectedSet.has(normalizedOptionLabel);
+                                  const isCorrectOption = answerSet.has(normalizedOptionLabel);
+                                  const isWrongSelection = hasSubmittedComprehensionAnswers && isSelected && !isCorrectOption;
                                   const optionImageUrl = resolveLessonImageUrl(
                                     option.imageKey ? lesson?.images?.[option.imageKey] : null,
                                     option.imageKey
                                   );
+                                  const optionAltText =
+                                    contentLang === 'th'
+                                      ? option.altTextTh || option.altText || option.textTh || option.text || `Option ${option.label}`
+                                      : option.altText || option.altTextTh || option.text || option.textTh || `Option ${option.label}`;
 
-                                return (
-                                  <Pressable
-                                    key={optionKey}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`${option.label} ${option.text || option.textTh}`}
-                                    accessibilityState={{ selected: isSelected }}
-                                    onPress={() => handleToggleAnswer(activeComprehensionQuestion.id, option.label, isMulti)}
-                                    style={[
-                                      styles.quizOptionButton,
-                                      isSelected ? styles.quizOptionButtonSelected : null,
-                                      hasSubmittedComprehensionAnswers && isSelected && !isCorrectOption
-                                        ? styles.quizOptionButtonWrong
-                                        : null,
-                                    ]}>
-                                    <View
+                                  return (
+                                    <Pressable
+                                      key={`${selectionKey}-${option.label}-${optionIndex}`}
+                                      accessibilityRole="button"
+                                      accessibilityLabel={`${option.label} ${optionAltText}`}
+                                      accessibilityState={{ selected: isSelected }}
+                                      onPress={() => handleToggleAnswer(selectionKey, option.label, isMulti)}
                                       style={[
-                                        styles.quizOptionLetter,
-                                        isSelected ? styles.quizOptionLetterSelected : null,
+                                        styles.comprehensionOptionButton,
+                                        isSelected ? styles.practiceOptionButtonSelected : null,
+                                        hasSubmittedComprehensionAnswers && isSelected && isCorrectOption
+                                          ? styles.practiceOptionButtonCorrect
+                                          : null,
+                                        isWrongSelection ? styles.practiceOptionButtonWrong : null,
                                       ]}>
-                                      <AppText
-                                        language="en"
-                                        variant="caption"
+                                      <View
                                         style={[
-                                          styles.quizOptionLetterText,
-                                          isSelected ? styles.quizOptionLetterTextInverse : null,
+                                          styles.comprehensionOptionLetter,
+                                          isSelected ? styles.practiceOptionLetterSelected : null,
+                                          hasSubmittedComprehensionAnswers && isSelected && isCorrectOption
+                                            ? styles.practiceOptionLetterCorrect
+                                            : null,
+                                          isWrongSelection ? styles.practiceOptionLetterWrong : null,
                                         ]}>
+                                        <AppText
+                                          language="en"
+                                          variant="caption"
+                                          style={[
+                                            styles.comprehensionOptionLetterText,
+                                            isSelected ? styles.practiceOptionLetterTextInverse : null,
+                                            hasSubmittedComprehensionAnswers && isSelected && isCorrectOption
+                                              ? styles.practiceOptionLetterTextCorrect
+                                              : null,
+                                          ]}>
                                           {option.label}
                                         </AppText>
                                       </View>
 
-                                      {shouldShowCorrectCheckmark ? (
-                                        <View style={styles.quizOptionCheckmarkBadge}>
-                                          <MaterialIcons name="check" size={12} color={theme.colors.surface} />
-                                        </View>
-                                      ) : null}
+                                      <View style={styles.comprehensionOptionTextWrap}>
+                                        {optionImageUrl ? (
+                                          <View style={styles.practiceOptionImageShell}>
+                                            <Image
+                                              source={{ uri: optionImageUrl }}
+                                              accessibilityLabel={optionAltText}
+                                              contentFit="contain"
+                                              style={styles.practiceOptionImage}
+                                            />
+                                          </View>
+                                        ) : null}
 
-                                    {optionImageUrl ? (
-                                      <Image source={{ uri: optionImageUrl }} contentFit="cover" style={styles.optionImage} />
-                                    ) : null}
+                                        {option.text ? (
+                                          <AppText language="en" variant="body" style={styles.comprehensionOptionText}>
+                                            {option.text}
+                                          </AppText>
+                                        ) : null}
 
-                                    <View style={styles.quizOptionTextWrap}>
-                                      {option.text ? (
-                                        <AppText language="en" variant="body" style={styles.quizOptionText}>
-                                          {option.text}
-                                        </AppText>
-                                      ) : null}
+                                        {contentLang === 'th' && option.textTh ? (
+                                          <AppText language="th" variant="body" style={styles.comprehensionOptionThaiText}>
+                                            {option.textTh}
+                                          </AppText>
+                                        ) : null}
+                                      </View>
+                                    </Pressable>
+                                  );
+                                })}
+                              </Stack>
 
-                                      {contentLang === 'th' && option.textTh ? (
-                                        <AppText language="th" variant="body" style={styles.quizOptionTextThai}>
-                                          {option.textTh}
-                                        </AppText>
-                                      ) : null}
-                                    </View>
-                                  </Pressable>
-                                );
-                              })}
-                            </Stack>
-
-                          </View>
-
-                          {hasSubmittedComprehensionAnswers ? (
-                            isActiveComprehensionAnswerCorrect ? (
-                              <AppText language={pageLanguage} variant="body" style={styles.comprehensionSuccessText}>
-                                {pageLanguage === 'th' ? 'เก่งมาก!' : 'Good job!'}
-                              </AppText>
-                            ) : (
-                            <Button
-                              language={pageLanguage}
-                              title={pageCopy.tryAgain}
-                              onPress={handleResetComprehensionReview}
-                              style={styles.comprehensionInlineButton}
-                              textStyle={styles.comprehensionInlineButtonText}
-                            />
-                            )
-                          ) : shouldShowComprehensionCheckButton ? (
-                            <Button
-                              language={pageLanguage}
-                              title={pageCopy.checkAnswers}
-                              disabled={normalizedQuestions.every((question) => (selectedAnswers[question.id] ?? []).length === 0)}
-                              onPress={handleSubmitComprehensionAnswers}
-                              style={styles.comprehensionInlineButton}
-                              textStyle={styles.comprehensionInlineButtonText}
-                            />
-                          ) : null}
-                        </Stack>
-
-                        {hasMultiplePagerCards ? (
-                          <View style={[styles.richPagerControls, styles.richPagerControlsBottom]}>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={pageLanguage === 'th' ? 'คำถามก่อนหน้า' : 'Previous question'}
-                              accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
-                              disabled={activeInnerCardIndex === 0}
-                              onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
-                              style={[
-                                styles.richPagerArrowButton,
-                                activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
-                              ]}>
-                              <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                ←
-                              </AppText>
-                            </Pressable>
-
-                            <View style={styles.richPagerDots}>
-                              {pagerDotKeys.map((dotKey, index) => (
-                                <View
-                                  key={dotKey}
-                                  style={[
-                                    styles.richPagerDot,
-                                    index === activeInnerCardIndex ? styles.richPagerDotActive : null,
-                                  ]}
-                                />
-                              ))}
+                              {hasSubmittedComprehensionAnswers ? (
+                                <View style={styles.practiceFeedbackBox}>
+                                  <View style={styles.practiceFeedbackRow}>
+                                    <View
+                                      style={[
+                                        styles.feedbackDot,
+                                        isQuestionCorrect ? styles.feedbackDotSuccess : styles.practiceFeedbackDotWarning,
+                                      ]}
+                                    />
+                                    <AppText language={pageLanguage} variant="body" style={styles.practiceFeedbackHeadline}>
+                                      {pageLanguage === 'th'
+                                        ? `คำตอบที่ถูก: ${question.answerKey.map(normalizeOptionLetter).join(', ')}`
+                                        : `Correct answer: ${question.answerKey.map(normalizeOptionLetter).join(', ')}`}
+                                    </AppText>
+                                  </View>
+                                </View>
+                              ) : null}
                             </View>
+                          );
+                        })}
 
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={pageLanguage === 'th' ? 'คำถามถัดไป' : 'Next question'}
-                              accessibilityState={{ disabled: activeInnerCardIndex >= activeInnerCardCount - 1 }}
-                              disabled={activeInnerCardIndex >= activeInnerCardCount - 1}
-                              onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
-                              style={[
-                                styles.richPagerArrowButton,
-                                activeInnerCardIndex >= activeInnerCardCount - 1
-                                  ? styles.richPagerArrowButtonDisabled
-                                  : null,
-                              ]}>
-                              <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                →
-                              </AppText>
-                            </Pressable>
-                          </View>
+                        {comprehensionError ? (
+                          <AppText language={pageLanguage} variant="muted" style={styles.practiceInlineError}>
+                            {comprehensionError}
+                          </AppText>
                         ) : null}
-                      </View>
+
+                        <View style={styles.practiceActionsRow}>
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => {
+                              if (hasSubmittedComprehensionAnswers) {
+                                handleResetComprehensionReview();
+                                return;
+                              }
+                              void handleSubmitComprehensionAnswers();
+                            }}
+                            style={({ pressed }) => [
+                              styles.practiceActionButton,
+                              styles.practiceCheckButton,
+                              pressed ? styles.ctaButtonPressed : null,
+                            ]}>
+                            <AppText language={pageLanguage} variant="caption" style={styles.practiceActionButtonText}>
+                              {hasSubmittedComprehensionAnswers
+                                ? (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
+                                : pageCopy.checkAnswers}
+                            </AppText>
+                          </Pressable>
+                        </View>
+                      </Stack>
                     ) : null
                   ) : isTranscriptTab ? (
                     <Stack gap="sm">
@@ -8326,7 +8351,7 @@ export default function LessonDetailShellScreen() {
       ) : null}
 
       {!isLoading && !errorMessage && lesson && hasStartedLesson && isMenuOpen ? (
-        <View style={styles.menuOverlay}>
+        <View style={[styles.menuOverlay, { paddingBottom: menuOverlayBottomInset }]}>
           <Pressable style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)} />
           <Card padding="md" radius="lg" style={styles.menuSheet}>
             <Stack gap="sm">
@@ -8382,6 +8407,41 @@ export default function LessonDetailShellScreen() {
               })}
             </Stack>
           </Card>
+
+          <View
+            style={[
+              styles.menuBottomNav,
+              {
+                height: APP_TAB_BAR_HEIGHT + insets.bottom,
+                paddingBottom: Math.max(insets.bottom, theme.spacing.sm),
+              },
+            ]}>
+            {overlayTabItems.map((item) => {
+              const tintColor = item.isActive ? theme.colors.accent : theme.colors.mutedText;
+              return (
+                <Pressable
+                  key={item.key}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setIsMenuOpen(false);
+                    void item.onPress();
+                  }}
+                  style={styles.menuBottomNavItem}>
+                  <IconSymbol color={tintColor} name={item.icon} size={24} />
+                  <AppText
+                    language={uiLanguage}
+                    variant="caption"
+                    style={[
+                      styles.menuBottomNavLabel,
+                      item.isActive ? styles.menuBottomNavLabelActive : null,
+                      uiLanguage === 'th' ? styles.menuBottomNavLabelThai : styles.menuBottomNavLabelEnglish,
+                    ]}>
+                    {item.label}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       ) : null}
     </View>
@@ -8663,24 +8723,35 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   translatePill: {
-    minWidth: 48,
+    minWidth: 58,
+    minHeight: 38,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   translatePillDisabled: {
     opacity: 0.7,
   },
+  translatePillLabel: {
+    minWidth: 24,
+    minHeight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: 1 }],
+  },
   translatePillText: {
     color: theme.colors.text,
     fontSize: 14,
-    lineHeight: 16,
+    lineHeight: 14,
     fontWeight: theme.typography.weights.semibold,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
   },
   sectionDotsRow: {
     flexDirection: 'row',
@@ -8876,7 +8947,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '180deg' }],
   },
   phraseAccordionBody: {
-    paddingTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm + 4,
   },
   phraseMetaRow: {
     flexDirection: 'row',
@@ -9212,6 +9283,7 @@ const styles = StyleSheet.create({
     paddingLeft: theme.spacing.xl + theme.spacing.lg,
   },
   prepareCard: {
+    marginTop: theme.spacing.sm,
     backgroundColor: theme.colors.surface,
     gap: theme.spacing.md,
     ...brutalShadow,
@@ -9750,11 +9822,23 @@ const styles = StyleSheet.create({
   },
   practiceMultipleChoiceQuestionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'baseline',
     gap: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+  },
+  comprehensionQuestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
   },
   practiceMultipleChoiceQuestionTextWrap: {
     gap: theme.spacing.sm,
+  },
+  comprehensionQuestionTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   practiceFillBlankQuestionHeader: {
     flexDirection: 'row',
@@ -9810,6 +9894,15 @@ const styles = StyleSheet.create({
   practiceQuestionNumber: {
     minWidth: 10,
     color: theme.colors.text,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.md,
+    fontWeight: theme.typography.weights.bold,
+  },
+  comprehensionQuestionNumber: {
+    minWidth: 16,
+    color: theme.colors.text,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.md,
     fontWeight: theme.typography.weights.bold,
   },
   practiceFillBlankExampleNumber: {
@@ -9837,12 +9930,21 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
   },
+  comprehensionQuestionText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.medium,
+    flexShrink: 1,
+  },
   practiceQuestionTextCompact: {
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
   },
   practiceQuestionThaiText: {
     color: theme.colors.mutedText,
+  },
+  comprehensionQuestionThaiText: {
+    color: theme.colors.mutedText,
+    flexShrink: 1,
   },
   practiceQuestionThaiTextCompact: {
     fontSize: theme.typography.sizes.sm,
@@ -9983,7 +10085,14 @@ const styles = StyleSheet.create({
   },
   practiceOptionButton: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: 2,
+    paddingVertical: theme.spacing.xs,
+  },
+  comprehensionOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.sm,
     paddingHorizontal: 2,
     paddingVertical: theme.spacing.xs,
@@ -9992,6 +10101,17 @@ const styles = StyleSheet.create({
   practiceOptionButtonCorrect: {},
   practiceOptionButtonWrong: {},
   practiceOptionLetter: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  comprehensionOptionLetter: {
     width: 24,
     height: 24,
     borderRadius: 999,
@@ -10019,6 +10139,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 11,
     fontWeight: theme.typography.weights.semibold,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: 0.5 }],
+  },
+  comprehensionOptionLetterText: {
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 11,
+    fontWeight: theme.typography.weights.semibold,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: 0.5 }],
   },
   practiceOptionLetterTextInverse: {
     color: theme.colors.surface,
@@ -10028,6 +10162,14 @@ const styles = StyleSheet.create({
   },
   practiceOptionTextWrap: {
     flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  comprehensionOptionTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
     gap: 2,
   },
   practiceOptionImageShell: {
@@ -10048,6 +10190,13 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
+    flexShrink: 1,
+  },
+  comprehensionOptionText: {
+    color: theme.colors.text,
+    fontSize: theme.typography.sizes.sm,
+    lineHeight: theme.typography.lineHeights.sm,
+    flexShrink: 1,
   },
   practiceOptionTextCompact: {
     fontSize: 13,
@@ -10057,6 +10206,13 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
+    flexShrink: 1,
+  },
+  comprehensionOptionThaiText: {
+    color: theme.colors.mutedText,
+    fontSize: theme.typography.sizes.sm,
+    lineHeight: theme.typography.lineHeights.sm,
+    flexShrink: 1,
   },
   practiceOptionThaiTextCompact: {
     fontSize: 13,
@@ -10253,21 +10409,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
-  },
-  completionModalCloseText: {
-    color: theme.colors.text,
-    fontSize: 18,
-    lineHeight: 18,
-    fontWeight: theme.typography.weights.semibold,
   },
   completionModalCheckWrap: {
     width: 105,
@@ -10383,6 +10533,7 @@ const styles = StyleSheet.create({
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
+    paddingTop: theme.spacing.lg,
   },
   menuBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -10395,6 +10546,38 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     backgroundColor: theme.colors.surface,
   },
+  menuBottomNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingTop: theme.spacing.sm,
+  },
+  menuBottomNavItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 2,
+  },
+  menuBottomNavLabel: {
+    fontSize: 11,
+    color: theme.colors.mutedText,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  menuBottomNavLabelActive: {
+    color: theme.colors.accent,
+  },
+  menuBottomNavLabelEnglish: {
+    fontFamily: theme.typography.fontFaces.en.semibold,
+  },
+  menuBottomNavLabelThai: {
+    fontFamily: theme.typography.fontFaces.th.semibold,
+  },
   menuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -10403,6 +10586,8 @@ const styles = StyleSheet.create({
   menuTitle: {
     flex: 1,
     textAlign: 'center',
+    fontSize: theme.typography.sizes.lg,
+    lineHeight: theme.typography.lineHeights.lg,
     fontWeight: theme.typography.weights.semibold,
   },
   menuHeaderButton: {
@@ -10418,28 +10603,26 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm + 2,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.md,
     padding: theme.spacing.sm,
+    paddingLeft: theme.spacing.md,
     backgroundColor: theme.colors.surface,
   },
   menuItemActive: {
-    backgroundColor: theme.colors.accentSurface,
+    backgroundColor: theme.colors.accentMuted,
   },
   menuItemIndex: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.radii.xl,
-    alignItems: 'center',
+    minWidth: 22,
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
   },
   menuItemIndexText: {
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: theme.typography.sizes.lg,
+    lineHeight: theme.typography.lineHeights.lg,
+    fontWeight: theme.typography.weights.bold,
   },
   menuItemContent: {
     flex: 1,

@@ -263,6 +263,9 @@ export function LessonsLibraryScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      const selection = getLessonLibrarySelection();
+      setSelectedStage(selection.stage);
+      setSelectedLevel(selection.level);
       setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
     }, [])
   );

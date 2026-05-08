@@ -68,6 +68,7 @@ export function LessonConversationIntroOverlay({
   const [trackWidth, setTrackWidth] = useState(0);
   const [showRates, setShowRates] = useState(false);
   const isDisabled = !audioUrl || isLoading;
+  const shouldUseCompactTitle = title.trim().length > 30;
   const progressRatio = useMemo(() => {
     if (!durationMillis || durationMillis <= 0) {
       return 0;
@@ -99,9 +100,7 @@ export function LessonConversationIntroOverlay({
         </View>
 
         <Pressable accessibilityRole="button" accessibilityLabel="Close conversation intro" onPress={onDismiss} style={styles.closeButton}>
-          <AppText language="en" variant="caption" style={styles.closeButtonText}>
-            ×
-          </AppText>
+          <MaterialIcons name="close" size={20} color={theme.colors.text} />
         </Pressable>
       </View>
 
@@ -110,7 +109,10 @@ export function LessonConversationIntroOverlay({
           <AppText language={language} variant="caption" style={styles.eyebrow}>
             {eyebrow}
           </AppText>
-          <AppText language={language} variant="title" style={styles.title}>
+          <AppText
+            language={language}
+            variant="title"
+            style={[styles.title, shouldUseCompactTitle ? styles.titleCompact : null]}>
             {title}
           </AppText>
           <AppText language={language} variant="muted" style={styles.body}>
@@ -257,20 +259,14 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: theme.colors.text,
-    fontSize: 26,
-    lineHeight: 26,
-    fontWeight: theme.typography.weights.medium,
   },
   content: {
     flex: 1,
@@ -296,6 +292,10 @@ const styles = StyleSheet.create({
     fontSize: 38,
     lineHeight: 42,
     fontWeight: theme.typography.weights.bold,
+  },
+  titleCompact: {
+    fontSize: 32,
+    lineHeight: 36,
   },
   body: {
     maxWidth: 320,

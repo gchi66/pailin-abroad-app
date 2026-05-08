@@ -8,13 +8,13 @@ import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
 import { resolveAvatarSource } from '@/src/lib/avatar';
+import { setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
@@ -188,9 +188,10 @@ const getProgressContext = (
 
 export function MyPathwayScreen() {
   const router = useRouter();
-  const { uiLanguage } = useUiLanguage();
+  const { uiLanguage, setUiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile, user } = useAppSession();
   const copy = getCopy(uiLanguage);
+  const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
   const {
     allLessons,
     completedLessons,
@@ -235,9 +236,19 @@ export function MyPathwayScreen() {
     return <PageLoadingState language={uiLanguage} />;
   }
 
-  const handleOpenLesson = (lessonId: string | null) => {
+  const handleOpenLesson = (lesson: LessonListItem | null) => {
+    const lessonId = lesson?.id ?? null;
     if (!lessonId) {
       return;
+    }
+
+    const stage = lesson?.stage;
+    const level = typeof lesson?.level === 'number' ? lesson.level : null;
+    if (
+      (stage === 'Beginner' || stage === 'Intermediate' || stage === 'Advanced' || stage === 'Expert') &&
+      level !== null
+    ) {
+      setLessonLibrarySelection({ stage, level });
     }
 
     prefetchResolvedLesson(lessonId, 'en');
@@ -277,7 +288,18 @@ export function MyPathwayScreen() {
                 </View>
 
                 <View style={styles.planMeta}>
-                  <LanguageToggle />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
+                    onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
+                    style={styles.languagePill}>
+                    <AppText
+                      language={uiLanguage === 'th' ? 'en' : 'th'}
+                      variant="caption"
+                      style={styles.languagePillText}>
+                      {pathwayToggleLabel}
+                    </AppText>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -428,7 +450,7 @@ export function MyPathwayScreen() {
                       return;
                     }
 
-                    handleOpenLesson(resumeRow.lesson.id ?? null);
+                    handleOpenLesson(resumeRow.lesson);
                   }}
                   style={styles.resumeButton}
                 />
@@ -463,7 +485,7 @@ export function MyPathwayScreen() {
                         return;
                       }
 
-                      handleOpenLesson(row.lesson.id);
+                      handleOpenLesson(row.lesson);
                     }}>
                     <View style={styles.upNextMain}>
                       <AppText language={uiLanguage} variant="caption" style={styles.upNextNumber}>
@@ -566,8 +588,8 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
   },
   headerTitleThai: {
-    fontSize: 19,
-    lineHeight: 24,
+    fontSize: 21,
+    lineHeight: 26,
   },
   headerName: {
     marginTop: -2,
@@ -579,6 +601,32 @@ const styles = StyleSheet.create({
   planMeta: {
     alignItems: 'flex-start',
     gap: 4,
+  },
+  languagePill: {
+    minWidth: 86,
+    minHeight: 46,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#91CAFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  languagePillText: {
+    color: theme.colors.text,
+    fontSize: 16,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: 1 }],
   },
   upgradeBanner: {
     minHeight: 72,

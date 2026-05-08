@@ -144,10 +144,10 @@ export function TopicDetailScreen() {
                   style={[styles.languageButton, contentLang === 'th' ? styles.languageButtonActive : null]}
                   onPress={() => setContentLang('th')}>
                   <AppText
-                    language="en"
+                    language="th"
                     variant="caption"
                     style={[styles.languageButtonText, contentLang === 'th' ? styles.languageButtonTextActive : null]}>
-                    TH
+                    ไทย
                   </AppText>
                 </Pressable>
                 <Pressable
