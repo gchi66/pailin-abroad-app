@@ -25,6 +25,17 @@ type UserProfileResponse = {
 export type UserStats = {
   lessons_completed: number;
   levels_completed: number;
+  daily_streak?: number;
+  daily_streak_checked_in_today?: boolean;
+  daily_streak_opened_on?: string | null;
+  daily_streak_timezone?: string | null;
+};
+
+export type DailyStreakResponse = {
+  daily_streak: number;
+  checked_in_today?: boolean;
+  opened_on?: string | null;
+  timezone?: string | null;
 };
 
 export type CompletedLessonProgress = {
@@ -66,14 +77,33 @@ async function getAccessToken() {
   return accessToken;
 }
 
-async function fetchAuthedJson<T>(path: string, options?: { method?: 'GET' | 'POST'; body?: Record<string, unknown> }): Promise<T> {
+const getDeviceTimezone = () => {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof timezone === 'string' && timezone.trim() ? timezone.trim() : null;
+  } catch {
+    return null;
+  }
+};
+
+async function fetchAuthedJson<T>(
+  path: string,
+  options?: {
+    method?: 'GET' | 'POST';
+    body?: Record<string, unknown>;
+    headers?: Record<string, string>;
+  }
+): Promise<T> {
   const baseUrl = assertApiBaseUrl();
   const accessToken = await getAccessToken();
+  const timezone = getDeviceTimezone();
   const response = await fetch(`${baseUrl}${path}`, {
     method: options?.method ?? 'GET',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      ...(timezone ? { 'X-Timezone': timezone } : {}),
+      ...(options?.headers ?? {}),
     },
     body: options?.body ? JSON.stringify(options.body) : undefined,
   });
@@ -97,6 +127,16 @@ export async function fetchUserProfile() {
 
 export async function fetchUserStats() {
   return fetchAuthedJson<UserStats>('/api/user/stats');
+}
+
+export async function checkInDailyStreak() {
+  return fetchAuthedJson<DailyStreakResponse>('/api/app/user/daily-streak/check-in', {
+    method: 'POST',
+  });
+}
+
+export async function fetchDailyStreak() {
+  return fetchAuthedJson<DailyStreakResponse>('/api/app/user/daily-streak');
 }
 
 export async function fetchUserCompletedLessons() {

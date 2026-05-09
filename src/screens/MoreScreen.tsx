@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AuthScreen } from '@/src/screens/AuthScreen';
 import { AppText } from '@/src/components/ui/AppText';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -25,8 +24,9 @@ type MoreAction = {
 
 export function MoreScreen() {
   const router = useRouter();
-  const { uiLanguage } = useUiLanguage();
+  const { uiLanguage, setUiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership } = useAppSession();
+  const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
 
   const copy =
     uiLanguage === 'th'
@@ -62,7 +62,18 @@ export function MoreScreen() {
           <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
             <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
           </Pressable>
-          <LanguageToggle style={styles.languageToggle} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
+            onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
+            style={styles.languagePill}>
+            <AppText
+              language={uiLanguage === 'th' ? 'en' : 'th'}
+              variant="caption"
+              style={styles.languagePillText}>
+              {pathwayToggleLabel}
+            </AppText>
+          </Pressable>
         </View>
 
         <View style={styles.divider} />
@@ -136,8 +147,32 @@ const styles = StyleSheet.create({
   logoButton: {
     alignSelf: 'center',
   },
-  languageToggle: {
+  languagePill: {
     alignSelf: 'center',
+    minWidth: 78,
+    minHeight: 42,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#91CAFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md + 2,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  languagePillText: {
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 15,
+    fontWeight: theme.typography.weights.bold,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: 1 }],
   },
   divider: {
     height: 2,

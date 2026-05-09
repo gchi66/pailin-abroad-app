@@ -678,6 +678,7 @@
   - free users now see a dedicated full-width upgrade strip under the header rather than a tiny inline header link
 - Current related progress/navigation implementation notes:
   - `My Pathway` header is now a custom compact/mobile-native treatment rather than the older large hero header
+  - `Daily streak` UI bones exist on the native pathway/progress surfaces, but the streak is still display-only for now
   - `Learning Progress` now has its own native screen with:
     - current stage
     - learning since
@@ -709,6 +710,7 @@
 - Current Pathway limitations:
   - lesson completion writes are wired in native and pathway/progress has been regression-checked for the current handoff round
   - the end-of-lesson completion popup is polished enough for cofounder testing; any future asset swap is minor visual follow-up
+  - backend-backed daily streak tracking is not implemented yet; if/when added, it should be done from the backend machine and treated as an account-level feature rather than device-local app storage
   - `Continue learning` depends on the current backend pathway endpoint behavior
   - `liked lessons` remain intentionally excluded from the app MVP for now
   - comment history is not in the native app and is intentionally out of scope while lesson discussion remains web-only for v1
@@ -771,10 +773,22 @@
 - Lesson detail / guided study polish:
   - lesson cover now renders quickly from lightweight lesson metadata while the full resolved lesson continues loading in the background
   - lesson entry CTA stays on the cover until the full lesson payload is ready instead of blocking the entire route behind the resolved fetch
+  - lesson sections overlay has received a native polish pass:
+    - section numbers no longer use bordered circular badges
+    - spacing/weight/title sizing in the lesson sections sheet has been tightened toward the current design direction
+    - the lesson sections sheet is vertically centered in the usable area above the temporary lesson-only bottom-nav overlay, not against the full screen height
+    - when the lesson sections sheet is open, a lesson-local bottom-nav replica appears and hides again when the sheet closes; this remains app-only because lesson detail intentionally sits outside the real tab navigator
   - `Prepare` section now uses reduced internal card padding and a responsive two-column audio-bullet layout on normal-width screens
+  - `Prepare` two-column layout now uses two true independent columns instead of wrapped paired rows, so taller items in one column no longer force awkward extra whitespace in the other column
   - snippet pause/resume behavior has been corrected so tapping pause no longer restarts the snippet from the beginning on the next tap
   - `Prepare` audio bullets now preload correctly on the native lesson screen, including before lesson start, so first-play latency is reduced and behavior is closer to the webapp
+  - `Phrases & Verbs` now defaults to all phrase cards closed instead of auto-expanding the first item on entry
   - lesson cover top meta row (back button + lesson pills) has been nudged slightly lower on the banner for better visual balance
+- Practice / payload follow-up notes:
+  - lesson `1.14` exposed an open-ended `A:` / `B:` formatting issue where the backend/open-exercise payload reaching the app is flattened into a single line instead of preserving the original multiline prompt structure
+  - backend source data for this lesson is correctly split into separate `A:` and `B:` lines, so the known follow-up is on the backend/parser side rather than in native UI polish
+  - backend follow-up to make from the web/backend machine:
+    - preserve multiline `A:` / `B:` structure for this open-ended subtype (or otherwise preserve equivalent structured payload data) so native/mobile can render the prompt correctly without brittle app-only string reconstruction
 - Shared header cleanup:
   - `src/components/ui/StandardPageHeader.tsx` now also supports an optional right-side action used by Profile inline editing
   - title positioning has been adjusted upward slightly to reduce extra whitespace above the heading
@@ -819,32 +833,17 @@
     - fill blank
     - sentence transform
   - answer-state now uses the shared `user_lesson_answer_state` table with web-compatible unit keys so saved exercise answers can restore across app and website
-- Next native to-do:
-  - refactor the native finish-lesson / lesson-complete flow so app completion behavior matches the newer shared web/backend contract instead of relying on the older completion-only path
-  - native finish-lesson acceptance criteria:
-    - the `Finish lesson` button is never greyed out on the final lesson section
-    - when the user taps `Finish lesson`, save their current lesson progress first
-    - if the user has checked all required practice answers, show the normal completion popup
-    - if the user confirms that normal completion popup, mark the lesson as completed
-    - only fully completed lessons show the completed checkmark in the lesson library
-    - when a lesson is truly completed, native should use the exact same completed-state asset currently used by the main web lesson library: `frontend/public/images/check_circle_blue.webp` as referenced from `frontend/src/Pages/LessonsIndex.jsx`
-    - if the user has not clicked all required `Check answer(s)` buttons, show a warning popup first
-    - the warning popup should reuse the same image and overall modal layout/style as the normal completion popup; only the text and buttons should change
-    - warning copy should explain that they are finishing without completing the practices and should explicitly say that, in order to mark the lesson complete, they need to finish the practice exercises
-    - if the user continues from that warning popup, show the normal completion popup in a modified version that tells them they can come back anytime to finish the practices
-    - in that skipped-practice flow, do not mark the lesson as completed
-    - in the lesson library, do not show a completed checkmark for that lesson
-    - leave the lesson at its organic progress percentage based on what the user has actually completed so far
-    - skipped-practice lessons must remain below `100%` because the unchecked practice completion units are part of the shared progress math
-    - on return, resume the user where they left off; in the skipped-practice case this should be the last practice exercise they were on
-    - the modified completion popup CTA should say `Go to next lesson`
-    - `Go to next lesson` should navigate immediately into the next lesson, not back to the lesson library
-    - assume lessons in this flow have practice exercises; do not add special handling for no-practice lessons unless product requirements change later
-  - keep the lesson-library completed/checkmark behavior aligned with the shared progress/completion reads after the finish-lesson refactor lands
+  - native finish-lesson / lesson-complete flow is now implemented against the current shared progress model:
+    - `Finish lesson` is available on the final section
+    - tapping `Finish lesson` saves current progress first
+    - completed-practice lessons go through the normal completion popup and can be marked complete
+    - skipped-practice lessons go through the warning / modified completion flow and remain incomplete
+    - incomplete lessons retain their organic progress percentage instead of being forced to `100%`
+    - return/resume behavior preserves the user’s place, including skipped-practice cases
+    - next-lesson progression now routes directly forward from the completion flow
+    - lesson-library completed-state visuals/checkmarks are aligned with shared progress/completion reads
 - Deferred follow-up after the progress foundation lands:
-  - refactor current native completion-only write paths such as `src/api/user.ts` and the lesson-detail completion flow so app completion behavior matches the newer shared web contract instead of only toggling `user_lesson_progress.is_completed`
-  - add lesson-library completed checkmark/pill treatment based on the shared progress/completion reads
-  - after the finish flow is working correctly in native, verify cross-platform completion/progress parity so website-completed lessons and website progress also appear correctly in the app, and app-written completion/progress continues to read back correctly from the same shared backend contract
+  - verify cross-platform completion/progress parity so website-completed lessons and website progress also appear correctly in the app, and app-written completion/progress continues to read back correctly from the same shared backend contract
   - if the website progress circle is later desired in native, build it against the same shared summary endpoint rather than native-local math
 - Guardrail:
   - do not create app-only progress tables, app-only unit-key formats, or duplicate native percentage/resume calculation logic if the backend already provides it

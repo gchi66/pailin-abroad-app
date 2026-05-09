@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { getLessonsIndex } from '@/src/api/lessons';
 import {
+  checkInDailyStreak,
   CompletedLessonProgress,
   UserStats,
   fetchUserCompletedLessons,
@@ -77,6 +78,15 @@ const compareLessons = (left: LessonListItem, right: LessonListItem) => {
   return (left.lesson_order ?? Number.MAX_SAFE_INTEGER) - (right.lesson_order ?? Number.MAX_SAFE_INTEGER);
 };
 
+const isLessonListItem = (value: unknown): value is LessonListItem => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<LessonListItem>;
+  return typeof candidate.id === 'string' && candidate.id.trim().length > 0;
+};
+
 const sortCompletedProgress = (left: CompletedLessonProgress, right: CompletedLessonProgress) => {
   const leftTimestamp = left.completed_at ? Date.parse(left.completed_at) : 0;
   const rightTimestamp = right.completed_at ? Date.parse(right.completed_at) : 0;
@@ -128,7 +138,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
           return;
         }
 
-        setPathwayLessons([...pathwayResult].sort(compareLessons));
+        setPathwayLessons(pathwayResult.filter(isLessonListItem).sort(compareLessons));
         console.info(PATHWAY_TIMING_LABEL, 'critical data loaded', {
           elapsedMs: getElapsedMs(startedAt),
           pathwayCount: pathwayResult.length,
@@ -152,6 +162,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       setIsStatsLoading(true);
 
       try {
+        await withRequestTiming('daily streak check-in', checkInDailyStreak);
         const statsResult = await withRequestTiming('stats', fetchUserStats);
 
         if (!isMounted) {
@@ -201,7 +212,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
           return;
         }
 
-        setAllLessons([...lessonsIndex].sort(compareLessons));
+        setAllLessons(lessonsIndex.filter(isLessonListItem).sort(compareLessons));
         logRequestTiming('lesson index', startedAt, {
           lessonCount: lessonsIndex.length,
         });
@@ -244,27 +255,34 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
   const completedLessons = useMemo(() => {
     return completedProgress
       .map((entry) => entry.lessons)
-      .filter((lesson): lesson is LessonListItem => Boolean(lesson))
+      .filter(isLessonListItem)
       .sort(compareLessons);
   }, [completedProgress]);
 
   const completedIds = useMemo(() => new Set(completedLessons.map((lesson) => lesson.id)), [completedLessons]);
 
   const pathwayRows = useMemo(() => {
-    return pathwayLessons.map((lesson) => {
+    return pathwayLessons.reduce<PathwayLessonRow[]>((rows, lesson) => {
+      if (!isLessonListItem(lesson)) {
+        return rows;
+      }
+
       if (completedIds.has(lesson.id)) {
-        return { lesson, state: 'completed' } satisfies PathwayLessonRow;
+        rows.push({ lesson, state: 'completed' });
+        return rows;
       }
 
       const isFirstFreeLesson =
         firstLessonIds.size > 0 ? firstLessonIds.has(lesson.id) : lesson.lesson_order === 1;
 
       if (!hasMembership && !isFirstFreeLesson) {
-        return { lesson, state: 'locked' } satisfies PathwayLessonRow;
+        rows.push({ lesson, state: 'locked' });
+        return rows;
       }
 
-      return { lesson, state: 'available' } satisfies PathwayLessonRow;
-    });
+      rows.push({ lesson, state: 'available' });
+      return rows;
+    }, []);
   }, [completedIds, firstLessonIds, hasMembership, pathwayLessons]);
 
   const resumeRow = useMemo(() => {

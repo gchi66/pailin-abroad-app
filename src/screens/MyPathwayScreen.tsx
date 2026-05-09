@@ -155,7 +155,20 @@ const getStageLabel = (stage: string | null, uiLanguage: UiLanguage) => {
     return uiLanguage === 'th' ? 'เส้นทางหลัก' : 'Main pathway';
   }
 
-  return stage.trim();
+  const normalizedStage = stage.trim();
+
+  if (uiLanguage === 'th') {
+    const stageMap: Record<string, string> = {
+      Beginner: 'ระดับเริ่มต้น',
+      Intermediate: 'ระดับกลาง',
+      Advanced: 'ระดับสูง',
+      Expert: 'ระดับเชี่ยวชาญ',
+    };
+
+    return stageMap[normalizedStage] || normalizedStage;
+  }
+
+  return normalizedStage;
 };
 
 const getProgressContext = (
@@ -378,7 +391,7 @@ export function MyPathwayScreen() {
                 </View>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    -
+                    {stats?.daily_streak ?? 0}
                   </AppText>
                   <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
                     {copy.dailyStreak}
@@ -583,8 +596,8 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   headerTitle: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: theme.typography.weights.bold,
   },
   headerTitleThai: {
@@ -603,15 +616,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   languagePill: {
-    minWidth: 86,
-    minHeight: 46,
+    minWidth: 78,
+    minHeight: 42,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: '#91CAFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md + 2,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 1.5, height: 1.5 },
     shadowOpacity: 1,
@@ -620,8 +633,8 @@ const styles = StyleSheet.create({
   },
   languagePillText: {
     color: theme.colors.text,
-    fontSize: 16,
-    lineHeight: 16,
+    fontSize: 15,
+    lineHeight: 15,
     fontWeight: theme.typography.weights.bold,
     includeFontPadding: false,
     textAlign: 'center',

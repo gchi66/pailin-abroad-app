@@ -1,10 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
+import { checkInDailyStreak } from '@/src/api/user';
 import { UserProfile, fetchUserProfile } from '@/src/api/user';
 import { supabase } from '@/src/lib/supabase';
 
@@ -46,6 +48,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
 
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',
@@ -236,6 +239,26 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       linkingSubscription.remove();
     };
   }, [createSessionFromUrl, fetchProfile]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      setAppState(nextState);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user || appState !== 'active') {
+      return;
+    }
+
+    void checkInDailyStreak().catch((error) => {
+      logAuth('dailyStreakCheckIn:error', error instanceof Error ? error.message : 'Unknown error');
+    });
+  }, [appState, session?.user]);
 
   const signIn = async ({ email, password }: { email: string; password: string }) => {
     const { error } = await supabase.auth.signInWithPassword({
