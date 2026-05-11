@@ -307,19 +307,20 @@ export function LessonAudioTray({
 const styles = StyleSheet.create({
   shell: {
     backgroundColor: theme.colors.surface,
-    paddingTop: 4,
+    paddingTop: 8,
     paddingHorizontal: 10,
     paddingBottom: 6,
   },
   handleHitArea: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 1,
-    paddingBottom: 2,
+    paddingTop: 2,
+    paddingBottom: 8,
+    minHeight: 22,
   },
   handle: {
-    width: 28,
-    height: 4,
+    width: 42,
+    height: 5,
     borderRadius: 999,
     backgroundColor: '#D0D0D0',
   },

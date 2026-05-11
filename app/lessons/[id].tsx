@@ -1316,10 +1316,14 @@ const getRichNodesForLanguage = (
   });
 };
 
+const INLINE_LINK_ARTIFACT_RE = /\(\s*link\s*\)/gi;
+const LINK_PROMPT_SENTENCE_RE = /^click here\b/i;
+
 const cleanAudioTags = (text: string) =>
   text
     .replace(/\[audio:[^\]]+\]/g, ' ')
     .replace(/\[img:[^\]]+\]/g, ' ')
+    .replace(INLINE_LINK_ARTIFACT_RE, ' ')
     .replace(/[^\S\r\n]+/g, ' ')
     .replace(/\s*\n\s*/g, '\n');
 
@@ -1417,7 +1421,7 @@ const isLinkPlaceholderNode = (node: LessonRichNode, contentLang: UiLanguage) =>
   const directText = resolveNodeText(node, contentLang);
   const combinedText = `${inlineText} ${directText}`.replace(/\s+/g, ' ').trim();
 
-  return LINK_PLACEHOLDER_RE.test(combinedText);
+  return LINK_PLACEHOLDER_RE.test(combinedText) || LINK_PROMPT_SENTENCE_RE.test(combinedText);
 };
 
 const isBoldParagraphNode = (node: LessonRichNode) => {
@@ -1907,6 +1911,7 @@ export default function LessonDetailShellScreen() {
   const [completionModalState, setCompletionModalState] = useState<
     'success' | 'skip_warning' | 'skip_success' | null
   >(null);
+  const [nextSectionHintMessage, setNextSectionHintMessage] = useState<string | null>(null);
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
   const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
@@ -1921,6 +1926,7 @@ export default function LessonDetailShellScreen() {
   const inflightSnippetPreloadsRef = useRef<Partial<Record<string, Promise<void>>>>({});
   const isConversationLockScreenActiveRef = useRef(false);
   const conversationAudioMetadataRef = useRef<AudioMetadata>({});
+  const nextSectionHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRateRef = useRef(1);
   const applyInputRef = useRef<TextInput | null>(null);
   const practiceInputRefsMap = useRef<Record<string, TextInput | null>>({});
@@ -2709,9 +2715,17 @@ export default function LessonDetailShellScreen() {
   const contentOverflows = contentScrollMeasuredHeight > contentScrollViewportHeight + 1;
   const shouldEnableBodyScroll = contentOverflows || isKeyboardOpen || activeQuickPracticeHasEditableInputs;
   const isApplyActionLocked = isApplyTab && !showApplyResponse;
+  const isUnderstandActionLocked = isUnderstandTab && !isLastPagerCard;
+  const isOtherPagerActionLocked = isInnerPagerTab && !isLastPagerCard && !isUnderstandTab;
   const isComprehensionSectionActionLocked = isComprehensionTab && !hasSubmittedComprehensionAnswers;
   const isPrimaryActionDisabled =
-    (isInnerPagerTab && !isLastPagerCard) || isApplyActionLocked || isComprehensionSectionActionLocked;
+    isOtherPagerActionLocked || isUnderstandActionLocked || isApplyActionLocked || isComprehensionSectionActionLocked;
+  const explainablePrimaryActionHint =
+    isApplyActionLocked
+      ? pageCopy.applyNextSectionHint
+      : isUnderstandActionLocked
+        ? pageCopy.understandNextSectionHint
+        : null;
   const getCurrentCardUnitKey = useCallback(() => {
     if (!activeTab?.type || !activePageKey) {
       return null;
@@ -3136,7 +3150,7 @@ export default function LessonDetailShellScreen() {
     isSavingLessonCompletion;
   const isPrimaryActionActuallyDisabled =
     (!activeTab && sectionCount === 0) ||
-    isPrimaryActionDisabled ||
+    (isPrimaryActionDisabled && !explainablePrimaryActionHint) ||
     isSavingLessonCompletion;
 
   useEffect(() => {
@@ -3164,6 +3178,38 @@ export default function LessonDetailShellScreen() {
     voiceSound.clearLockScreenControls();
     isConversationLockScreenActiveRef.current = false;
   };
+
+  const dismissNextSectionHint = useCallback(() => {
+    if (nextSectionHintTimeoutRef.current) {
+      clearTimeout(nextSectionHintTimeoutRef.current);
+      nextSectionHintTimeoutRef.current = null;
+    }
+    setNextSectionHintMessage(null);
+  }, []);
+
+  const showNextSectionHint = useCallback((message: string) => {
+    if (nextSectionHintTimeoutRef.current) {
+      clearTimeout(nextSectionHintTimeoutRef.current);
+    }
+    setNextSectionHintMessage(message);
+    nextSectionHintTimeoutRef.current = setTimeout(() => {
+      nextSectionHintTimeoutRef.current = null;
+      setNextSectionHintMessage(null);
+    }, 2200);
+  }, []);
+
+  useEffect(() => {
+    dismissNextSectionHint();
+  }, [activeSectionIndex, dismissNextSectionHint]);
+
+  useEffect(
+    () => () => {
+      if (nextSectionHintTimeoutRef.current) {
+        clearTimeout(nextSectionHintTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   const activateConversationLockScreenControls = () => {
     const voiceSound = voiceSoundRef.current;
@@ -8609,6 +8655,27 @@ export default function LessonDetailShellScreen() {
                       />
                     ) : null}
 
+                    {nextSectionHintMessage ? (
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.nextSectionHintOverlay,
+                          { bottom: Math.max(insets.bottom, 10) + 52 },
+                        ]}>
+                        <View style={styles.nextSectionHintToast}>
+                          <View style={styles.nextSectionHintIconWrap}>
+                            <AppText language="en" variant="caption" style={styles.nextSectionHintIconText}>
+                              !
+                            </AppText>
+                          </View>
+                          <AppText language={pageLanguage} variant="caption" style={styles.nextSectionHintText}>
+                            {nextSectionHintMessage}
+                          </AppText>
+                        </View>
+                        <View style={styles.nextSectionHintCaret} />
+                      </View>
+                    ) : null}
+
                     <View style={styles.ctaRow}>
                       {lessonCompletionError ? (
                         <AppText language={pageLanguage} variant="muted" style={styles.lessonCompletionErrorText}>
@@ -8618,8 +8685,14 @@ export default function LessonDetailShellScreen() {
 
                       <Pressable
                         accessibilityRole="button"
+                        accessibilityState={{ disabled: isPrimaryActionVisuallyDisabled }}
                         disabled={isPrimaryActionActuallyDisabled}
                         onPress={() => {
+                          if (explainablePrimaryActionHint) {
+                            showNextSectionHint(explainablePrimaryActionHint);
+                            return;
+                          }
+
                           if (sectionCount === 0) {
                             setHasStartedLesson(false);
                             return;
@@ -10732,6 +10805,7 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   stickyFooter: {
+    position: 'relative',
     borderTopWidth: 1.5,
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.background,
@@ -10837,6 +10911,61 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     paddingBottom: 16,
     backgroundColor: theme.colors.background,
+  },
+  nextSectionHintOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  nextSectionHintToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    maxWidth: 344,
+    paddingHorizontal: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#212121',
+    ...brutalShadow,
+  },
+  nextSectionHintCaret: {
+    width: 0,
+    height: 0,
+    marginTop: -1,
+    borderLeftWidth: 9,
+    borderRightWidth: 9,
+    borderTopWidth: 11,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#212121',
+  },
+  nextSectionHintIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4B183',
+    flexShrink: 0,
+  },
+  nextSectionHintIconText: {
+    color: theme.colors.surface,
+    fontSize: 12,
+    lineHeight: 12,
+    fontWeight: theme.typography.weights.bold,
+    includeFontPadding: false,
+  },
+  nextSectionHintText: {
+    flex: 1,
+    color: theme.colors.surface,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
   },
   lessonCompletionErrorText: {
     textAlign: 'center',
