@@ -146,7 +146,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     guaranteeBody:
       "within 30 days of your purchase if you're not completely satisfied with your membership. But, we're confident you'll love Pailin Abroad!",
     lifetimeFollowupLineOne: 'Not ready for lifetime access?',
-    lifetimeFollowupLineTwo: 'choose a monthly plan below',
+    lifetimeFollowupLineTwo: 'Choose a monthly plan below!',
     lifetime: {
       title: 'LIFETIME MEMBERSHIP',
       paymentLabel: 'One-time payment',
@@ -332,14 +332,13 @@ function MembershipPlanCard({
               </AppText>
             </View>
 
-            <View style={styles.planHeaderRow}>
-              <AppText language={uiLanguage} variant="body" style={styles.planDuration}>
-                {card.duration}
-              </AppText>
-            </View>
-
             <View style={styles.planBodyRow}>
-              <View style={styles.planLeftColumn}>
+              <View style={[styles.planLeftColumn, card.id === 'monthly' ? styles.planLeftColumnMonthly : null]}>
+                <View style={[styles.planHeaderRow, card.id === 'monthly' ? styles.planHeaderRowMonthly : null]}>
+                  <AppText language={uiLanguage} variant="body" style={styles.planDuration}>
+                    {card.duration}
+                  </AppText>
+                </View>
                 <View style={styles.bestForBlock}>
                   <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
                     {bestForLabel}
@@ -885,7 +884,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#3CA0FE',
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.xs,
-    marginTop: 'auto',
+    marginTop: theme.spacing.sm,
   },
   bestValueText: {
     color: theme.colors.surface,
@@ -935,9 +934,13 @@ const styles = StyleSheet.create({
   planHeaderRow: {
     paddingTop: theme.spacing.sm,
   },
+  planHeaderRowMonthly: {
+    paddingTop: 0,
+    marginTop: 0,
+  },
   planBodyRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
     marginTop: theme.spacing.sm,
@@ -945,6 +948,10 @@ const styles = StyleSheet.create({
   planLeftColumn: {
     flex: 1,
     gap: theme.spacing.sm,
+  },
+  planLeftColumnMonthly: {
+    position: 'relative',
+    top: -12,
   },
   planDuration: {
     fontWeight: theme.typography.weights.bold,
