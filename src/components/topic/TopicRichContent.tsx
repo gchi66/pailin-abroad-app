@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { supabase } from '@/src/lib/supabase';
 import { theme } from '@/src/theme/theme';
 import { LessonRichInline, LessonRichNode } from '@/src/types/lesson';
@@ -89,8 +90,13 @@ const buildTopicImageUrl = (imageKey: string | null | undefined) => {
 
 export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) {
   const router = useRouter();
-  const inlineBaseStyle = contentLang === 'th' ? styles.inlineTextThai : styles.inlineTextEnglish;
-  const inlineBoldStyle = contentLang === 'th' ? styles.inlineBoldThai : styles.inlineBoldEnglish;
+  const getInlineFontStyle = (language: ScriptLanguage, isBold: boolean) => {
+    if (language === 'th') {
+      return isBold ? styles.inlineBoldThai : styles.inlineTextThai;
+    }
+
+    return isBold ? styles.inlineBoldEnglish : styles.inlineTextEnglish;
+  };
 
   const sections = useMemo(() => {
     const nextSections: TopicSection[] = [];
@@ -192,6 +198,18 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
       }
 
       const parts = textValue.split(INLINE_MARKER_RE).filter(Boolean);
+      const renderSegments = (text: string, segmentKey: string, colorOverride?: string) =>
+        splitTextByScript(text).map((segment, segmentIndex) => (
+          <Text
+            key={`${segmentKey}-${segmentIndex}`}
+            style={[
+              styles.inlineText,
+              getInlineFontStyle(segment.language, inline.bold === true),
+              colorOverride ? { color: colorOverride } : null,
+            ]}>
+            {segment.text}
+          </Text>
+        ));
 
       return (
         <Text
@@ -199,8 +217,6 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
           onPress={typeof inline.link === 'string' && inline.link.trim() ? () => handleOpenLink(String(inline.link)) : undefined}
           style={[
             styles.inlineText,
-            inlineBaseStyle,
-            inline.bold ? inlineBoldStyle : null,
             inline.italic ? styles.inlineItalic : null,
             inline.underline ? styles.inlineUnderline : null,
             typeof inline.link === 'string' && inline.link.trim() ? styles.inlineLink : null,
@@ -211,17 +227,15 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
                   key={`${keyPrefix}-${index}-${partIndex}`}
                   style={[
                     styles.inlineText,
-                    inlineBaseStyle,
-                    inline.bold ? inlineBoldStyle : null,
                     inline.italic ? styles.inlineItalic : null,
                     inline.underline ? styles.inlineUnderline : null,
                     INLINE_MARKER_COLORS[part] ? styles.inlineMarker : null,
                     INLINE_MARKER_COLORS[part] ? { color: INLINE_MARKER_COLORS[part] } : null,
                   ]}>
-                  {part}
+                  {renderSegments(part, `${keyPrefix}-${index}-${partIndex}`, INLINE_MARKER_COLORS[part])}
                 </Text>
               ))
-            : textValue}
+            : renderSegments(textValue, `${keyPrefix}-${index}`)}
         </Text>
       );
     });

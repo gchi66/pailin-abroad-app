@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 
+import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '../../theme/theme';
 
 type TextVariant = 'title' | 'body' | 'caption' | 'muted';
@@ -42,28 +43,6 @@ const variantWeights: Record<TextVariant, keyof typeof theme.typography.fontFace
   muted: 'regular',
 };
 
-const THAI_SCRIPT_PATTERN = /[\u0E00-\u0E7F]/;
-
-function containsThaiGlyphs(node: React.ReactNode): boolean {
-  if (typeof node === 'string') {
-    return THAI_SCRIPT_PATTERN.test(node);
-  }
-
-  if (typeof node === 'number' || typeof node === 'boolean' || node == null) {
-    return false;
-  }
-
-  if (Array.isArray(node)) {
-    return node.some((child) => containsThaiGlyphs(child));
-  }
-
-  if (React.isValidElement(node)) {
-    return containsThaiGlyphs((node.props as { children?: React.ReactNode }).children);
-  }
-
-  return false;
-}
-
 export function AppText({
   variant = 'body',
   language,
@@ -73,10 +52,39 @@ export function AppText({
 }: AppTextProps) {
   const resolvedLanguage = language ?? (containsThaiGlyphs(children) ? 'th' : 'en');
   const resolvedFontFamily = theme.typography.fontFaces[resolvedLanguage][variantWeights[variant]];
+  const getSegmentFontFamily = (segmentLanguage: ScriptLanguage) => theme.typography.fontFaces[segmentLanguage][variantWeights[variant]];
+
+  const renderChildren = (node: React.ReactNode, keyPrefix: string): React.ReactNode => {
+    if (typeof node === 'string' || typeof node === 'number') {
+      return splitTextByScript(String(node)).map((segment, index) => (
+        <Text key={`${keyPrefix}-${index}`} style={{ fontFamily: getSegmentFontFamily(segment.language) }}>
+          {segment.text}
+        </Text>
+      ));
+    }
+
+    if (typeof node === 'boolean' || node == null) {
+      return node;
+    }
+
+    if (Array.isArray(node)) {
+      return node.map((child, index) => (
+        <React.Fragment key={`${keyPrefix}-${index}`}>{renderChildren(child, `${keyPrefix}-${index}`)}</React.Fragment>
+      ));
+    }
+
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{ children?: React.ReactNode }>;
+
+      return React.cloneElement(element, undefined, renderChildren(element.props.children, `${keyPrefix}-child`));
+    }
+
+    return node;
+  };
 
   return (
     <Text {...rest} style={[styles.base, { fontFamily: resolvedFontFamily }, variantStyles[variant], style]}>
-      {children}
+      {renderChildren(children, 'app-text')}
     </Text>
   );
 }

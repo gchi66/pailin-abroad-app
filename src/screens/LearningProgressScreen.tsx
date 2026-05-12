@@ -158,51 +158,6 @@ const formatCompletedAgo = (value: string | null, uiLanguage: UiLanguage) => {
   return `${days} days ago`;
 };
 
-const startOfLocalDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
-
-const getCurrentDailyStreak = (completedAtValues: (string | null | undefined)[]) => {
-  const distinctDays = Array.from(
-    new Set(
-      completedAtValues
-        .map((value) => {
-          if (!value) {
-            return null;
-          }
-
-          const parsed = new Date(value);
-          if (Number.isNaN(parsed.getTime())) {
-            return null;
-          }
-
-          return startOfLocalDay(parsed).getTime();
-        })
-        .filter((value): value is number => value !== null),
-    ),
-  ).sort((left, right) => right - left);
-
-  if (!distinctDays.length) {
-    return 0;
-  }
-
-  const today = startOfLocalDay(new Date()).getTime();
-  const dayMs = 1000 * 60 * 60 * 24;
-  const firstDay = distinctDays[0];
-
-  if (firstDay !== today && firstDay !== today - dayMs) {
-    return 0;
-  }
-
-  let streak = 1;
-  for (let index = 1; index < distinctDays.length; index += 1) {
-    if (distinctDays[index - 1] - distinctDays[index] !== dayMs) {
-      break;
-    }
-    streak += 1;
-  }
-
-  return streak;
-};
-
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
@@ -271,10 +226,7 @@ export function LearningProgressScreen() {
   );
   const stageBreakdown = useMemo(() => getStageBreakdown(allLessons, completedLessons), [allLessons, completedLessons]);
   const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
-  const dailyStreak = useMemo(
-    () => getCurrentDailyStreak(completedProgress.map((progress) => progress.completed_at)),
-    [completedProgress],
-  );
+  const dailyStreak = stats?.daily_streak ?? 0;
 
   if (isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -284,7 +236,7 @@ export function LearningProgressScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
         <View style={styles.headerBlock}>
-          <View style={{ height: Math.max(insets.top - 24, 0) }} />
+          <View style={{ height: Math.max(insets.top - 38, 0) }} />
           <Pressable accessibilityRole="button" style={styles.backLinkWrap} onPress={() => router.push('/(tabs)')}>
             <AppText language={uiLanguage} variant="caption" style={styles.backLink}>
               ‹ {copy.backLink}
@@ -456,7 +408,7 @@ const styles = StyleSheet.create({
   },
   backLinkWrap: {
     alignSelf: 'flex-start',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   backLink: {
     color: theme.colors.accent,
@@ -494,7 +446,8 @@ const styles = StyleSheet.create({
   },
   stageValue: {
     fontSize: 40,
-    lineHeight: 44,
+    lineHeight: 48,
+    paddingTop: 2,
     fontWeight: theme.typography.weights.bold,
   },
   levelPill: {
@@ -534,6 +487,7 @@ const styles = StyleSheet.create({
     width: '48%',
     minHeight: 94,
     justifyContent: 'space-between',
+    paddingTop: theme.spacing.sm + 2,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 1,
@@ -542,7 +496,7 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontSize: 42,
-    lineHeight: 44,
+    lineHeight: 50,
     fontWeight: theme.typography.weights.bold,
   },
   metricLabel: {

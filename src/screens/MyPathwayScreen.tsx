@@ -91,9 +91,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     progressTitle: 'My Progress',
     progressLoading: 'Loading progress details...',
     viewDetails: 'View details →',
-    lessonsDone: 'Lessons done',
-    levelsDone: 'Levels done',
-    dailyStreak: 'Daily streak',
+    lessonsDone: 'Lessons\ndone',
+    levelsDone: 'Levels\ndone',
+    dailyStreak: 'Daily\nstreak',
     levelShort: 'Level',
     lessonsCompleteForLevel: (completedCount, totalCount, level) =>
       `${completedCount} of ${totalCount} lessons complete for Level ${typeof level === 'number' ? level : '–'}`,
@@ -169,6 +169,16 @@ const getStageLabel = (stage: string | null, uiLanguage: UiLanguage) => {
   }
 
   return normalizedStage;
+};
+
+const renderStatLabel = (label: string, uiLanguage: UiLanguage) => {
+  const labelLines = label.split('\n');
+
+  return labelLines.map((line, index) => (
+    <AppText key={`${label}-${index}`} language={uiLanguage} variant="caption" style={styles.statLabel}>
+      {line}
+    </AppText>
+  ));
 };
 
 const getProgressContext = (
@@ -376,26 +386,20 @@ export function MyPathwayScreen() {
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
                     {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
                   </AppText>
-                  <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                    {copy.lessonsDone}
-                  </AppText>
+                  <View style={styles.statLabelGroup}>{renderStatLabel(copy.lessonsDone, uiLanguage)}</View>
                 </View>
 
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
                     {stats?.levels_completed ?? 0}
                   </AppText>
-                  <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                    {copy.levelsDone}
-                  </AppText>
+                  <View style={styles.statLabelGroup}>{renderStatLabel(copy.levelsDone, uiLanguage)}</View>
                 </View>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
                     {stats?.daily_streak ?? 0}
                   </AppText>
-                  <AppText language={uiLanguage} variant="caption" style={styles.statLabel}>
-                    {copy.dailyStreak}
-                  </AppText>
+                  <View style={styles.statLabelGroup}>{renderStatLabel(copy.dailyStreak, uiLanguage)}</View>
                 </View>
               </View>
 
@@ -754,9 +758,13 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: theme.typography.weights.bold,
   },
+  statLabelGroup: {
+    gap: 0,
+  },
   statLabel: {
     color: '#66758A',
     fontWeight: theme.typography.weights.medium,
+    lineHeight: 16,
   },
   progressTrack: {
     height: 10,

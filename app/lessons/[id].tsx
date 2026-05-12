@@ -167,6 +167,8 @@ const LESSON_INPUT_KEYBOARD_GAP = 16;
 const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
 const PRACTICE_INPUT_RECHECK_DELAY = 120;
 const PRACTICE_INPUT_MAX_VISIBILITY_CHECKS = 4;
+const PRACTICE_FILL_BLANK_SHORT_MEASURE = ' MMMMMMMM ';
+const PRACTICE_FILL_BLANK_LONG_MEASURE = ' MMMMMMMMMMMMMM ';
 const SECTION_SWIPE_ACTIVE_OFFSET_X: [number, number] = [-10, 10];
 const SECTION_SWIPE_FAIL_OFFSET_Y: [number, number] = [-18, 18];
 const SECTION_SWIPE_LEFT_DISTANCE = 28;
@@ -298,6 +300,222 @@ type PracticeAbPromptLayout = {
   bLine: string;
   thaiLine: string | null;
 };
+
+type PracticeFillBlankMeasureToken =
+  | { id: string; type: 'text'; text: string; measureText: string; style?: LessonRichInline | null }
+  | { id: string; type: 'blank'; blankId: string; minLen: number; measureText: string };
+
+const getPracticeInlineTextStyle = (inline: LessonRichInline | null | undefined, compact = false) => [
+  styles.practiceInlineText,
+  compact ? styles.practiceInlineTextCompact : null,
+  inline?.bold ? styles.practiceInlineBold : null,
+  inline?.italic ? styles.practiceInlineItalic : null,
+  inline?.underline ? styles.practiceInlineUnderline : null,
+];
+
+const renderPracticeInlineTextToken = (
+  token: { type: 'text'; text: string; style?: LessonRichInline | null },
+  key: string,
+  compact = false
+) => {
+  return (
+    <Text key={key} style={getPracticeInlineTextStyle(token.style, compact)}>
+      {token.text}
+    </Text>
+  );
+};
+
+const splitPracticeMeasureTextTokens = (text: string) => {
+  const matches = text.match(/(\[[^\]]+\]|\s+|[^\s\[]+)/g);
+  return matches ?? [text];
+};
+
+const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
+
+function PracticeFillBlankMeasuredRows(props: {
+  rowTokens: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; blankId: string; minLen: number })[];
+  answerKey: string;
+  exerciseId: string;
+  itemKey: string;
+  isExample: boolean;
+  exampleAnswer: string;
+  editable: boolean;
+  compact: boolean;
+  practiceBlankAnswers: Record<string, string>;
+  practiceInputRefsMap: React.MutableRefObject<Record<string, TextInput | null>>;
+  onBlankAnswerChange: (exerciseId: string, itemKey: string, blankId: string, value: string) => void;
+  onInputBlur: (inputKey: string) => void;
+  onInputFocus: (inputKey: string) => void;
+  onDismissKeyboard: () => void;
+}) {
+  const {
+    rowTokens,
+    answerKey,
+    exerciseId,
+    itemKey,
+    isExample,
+    exampleAnswer,
+    editable,
+    compact,
+    practiceBlankAnswers,
+    practiceInputRefsMap,
+    onBlankAnswerChange,
+    onInputBlur,
+    onInputFocus,
+    onDismissKeyboard,
+  } = props;
+  const [lineTokens, setLineTokens] = useState<PracticeFillBlankMeasureToken[][]>([]);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const lastMeasuredLayoutRef = useRef('');
+
+  const measureTokens = useMemo<PracticeFillBlankMeasureToken[]>(() => {
+    return rowTokens.reduce<PracticeFillBlankMeasureToken[]>((tokens, token, index) => {
+      if (token.type === 'text') {
+        tokens.push(
+          ...splitPracticeMeasureTextTokens(token.text).map((part, partIndex) => ({
+            id: `text-${index}-${partIndex}`,
+            type: 'text' as const,
+            text: part,
+            measureText: part,
+            style: token.style,
+          }))
+        );
+        return tokens;
+      }
+
+      const placeholderLength = Math.max(token.minLen, 4);
+      const isShort = placeholderLength <= 4;
+      tokens.push({
+        id: `blank-${index}`,
+        type: 'blank' as const,
+        blankId: token.blankId,
+        minLen: token.minLen,
+        measureText: isShort ? PRACTICE_FILL_BLANK_SHORT_MEASURE : PRACTICE_FILL_BLANK_LONG_MEASURE,
+      });
+      return tokens;
+    }, []);
+  }, [rowTokens]);
+
+  const measurementText = useMemo(() => measureTokens.map((token) => token.measureText).join(''), [measureTokens]);
+
+  const handleTextLayout = (event: { nativeEvent: { lines: { text: string }[] } }) => {
+    const measuredLines = event.nativeEvent.lines ?? [];
+    if (!measuredLines.length) {
+      const fallbackLines = measureTokens.length ? [measureTokens] : [];
+      const fallbackSignature = fallbackLines.map((line) => line.map((token) => token.id).join('|')).join('||');
+      if (lastMeasuredLayoutRef.current !== fallbackSignature) {
+        lastMeasuredLayoutRef.current = fallbackSignature;
+        setLineTokens(fallbackLines);
+      }
+      return;
+    }
+
+    const nextLines: PracticeFillBlankMeasureToken[][] = [];
+    let tokenIndex = 0;
+
+    measuredLines.forEach((line) => {
+      const targetComparable = line.text.replace(/\s+/g, '');
+      const bucket: PracticeFillBlankMeasureToken[] = [];
+      let bucketComparable = '';
+
+      while (tokenIndex < measureTokens.length) {
+        const candidate = measureTokens[tokenIndex];
+        if (!candidate) {
+          break;
+        }
+
+        bucket.push(candidate);
+        bucketComparable += candidate.measureText.replace(/\s+/g, '');
+        tokenIndex += 1;
+
+        if (bucketComparable === targetComparable) {
+          break;
+        }
+      }
+
+      const trimmedBucket = bucket.filter((token, index) => {
+        if (token.type !== 'text' || token.text.replace(/\s+/g, '').length > 0) {
+          return true;
+        }
+        const isLeading = index === 0;
+        const isTrailing = index === bucket.length - 1;
+        return !isLeading && !isTrailing;
+      });
+
+      nextLines.push(trimmedBucket);
+    });
+
+    if (tokenIndex < measureTokens.length) {
+      nextLines.push(measureTokens.slice(tokenIndex));
+    }
+
+    const resolvedLines = nextLines.length ? nextLines : [measureTokens];
+    const nextSignature = resolvedLines.map((line) => line.map((token) => token.id).join('|')).join('||');
+
+    if (lastMeasuredLayoutRef.current !== nextSignature) {
+      lastMeasuredLayoutRef.current = nextSignature;
+      setLineTokens(resolvedLines);
+    }
+  };
+
+  return (
+    <View
+      style={styles.practiceFillBlankMeasuredShell}
+      onLayout={(event) => {
+        const width = Math.round(event.nativeEvent.layout.width);
+        if (width && width !== containerWidth) {
+          setContainerWidth(width);
+        }
+      }}>
+      {containerWidth > 0 ? (
+        <Text
+          onTextLayout={handleTextLayout}
+          style={[
+            styles.practiceFillBlankMeasureText,
+            compact ? styles.practiceInlineTextCompact : null,
+            { width: containerWidth },
+          ]}
+          numberOfLines={0}>
+          {measurementText}
+        </Text>
+      ) : null}
+
+      <Stack gap="xs">
+        {(lineTokens.length ? lineTokens : [measureTokens]).map((line, lineIndex) => (
+          <View key={`${answerKey}:line-${lineIndex}`} style={styles.practiceFillBlankMeasuredRow}>
+            {line.map((token) =>
+              token.type === 'text' ? (
+                renderPracticeInlineTextToken(token, `${answerKey}:${token.id}`, compact)
+              ) : (
+                <TextInput
+                  key={token.id}
+                  ref={(ref) => {
+                    practiceInputRefsMap.current[`${answerKey}:${token.id}`] = ref;
+                  }}
+                  value={
+                    isExample
+                      ? exampleAnswer
+                      : practiceBlankAnswers[getPracticeBlankKey(exerciseId, itemKey, token.blankId)] ?? ''
+                  }
+                  onChangeText={(value) => onBlankAnswerChange(exerciseId, itemKey, token.blankId, value)}
+                  onBlur={() => onInputBlur(`${answerKey}:${token.id}`)}
+                  onFocus={() => onInputFocus(`${answerKey}:${token.id}`)}
+                  onSubmitEditing={onDismissKeyboard}
+                  editable={!isExample && editable}
+                  blurOnSubmit
+                  style={[
+                    styles.practiceFillBlankInput,
+                    token.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
+                  ]}
+                />
+              )
+            )}
+          </View>
+        ))}
+      </Stack>
+    </View>
+  );
+}
 
 const MASTER_ORDER = [
   'prepare',
@@ -3074,6 +3292,9 @@ export default function LessonDetailShellScreen() {
   const allComprehensionQuestionsAnswered =
     normalizedQuestions.length > 0 &&
     normalizedQuestions.every((question) => (selectedAnswers[question.id] ?? []).length > 0);
+  const hasPerfectComprehensionScore =
+    normalizedQuestions.length > 0 &&
+    normalizedQuestions.every((question) => Boolean(lockedComprehensionQuestions[question.id]));
   const coverLessonNumber =
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
@@ -3837,6 +4058,15 @@ export default function LessonDetailShellScreen() {
 
   const handleResetComprehensionReview = useCallback(() => {
     markLessonAnswerStateInteracted();
+    if (hasPerfectComprehensionScore) {
+      setSelectedAnswers({});
+      setLockedComprehensionQuestions({});
+      setHasSubmittedComprehensionAnswers(false);
+      setComprehensionError('');
+      void clearAnswerStateForUnit(buildComprehensionAnswerStateUnitKey());
+      return;
+    }
+
     const nextSelectedAnswers = Object.fromEntries(
       Object.entries(selectedAnswers).filter(([questionId]) => lockedComprehensionQuestions[questionId])
     );
@@ -3852,6 +4082,7 @@ export default function LessonDetailShellScreen() {
     void clearAnswerStateForUnit(buildComprehensionAnswerStateUnitKey());
   }, [
     clearAnswerStateForUnit,
+    hasPerfectComprehensionScore,
     lockedComprehensionQuestions,
     markLessonAnswerStateInteracted,
     saveAnswerStateForUnit,
@@ -3888,8 +4119,6 @@ export default function LessonDetailShellScreen() {
   const getPracticeItemStateKey = (exerciseId: string, itemKey: string) => `${exerciseId}:${itemKey}`;
   const getPracticeOpenAnswerKey = (exerciseId: string, itemKey: string, inputIndex = 0) =>
     inputIndex === 0 ? getPracticeItemStateKey(exerciseId, itemKey) : `${getPracticeItemStateKey(exerciseId, itemKey)}:${inputIndex}`;
-  const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
-
   const isPracticePromptOnlyImageItem = (
     exercise: NormalizedPracticeExercise,
     item: NormalizedPracticeItem
@@ -6584,26 +6813,6 @@ export default function LessonDetailShellScreen() {
     </View>
   );
 
-  const getPracticeInlineTextStyle = (inline: LessonRichInline | null | undefined, compact = false) => [
-    styles.practiceInlineText,
-    compact ? styles.practiceInlineTextCompact : null,
-    inline?.bold ? styles.practiceInlineBold : null,
-    inline?.italic ? styles.practiceInlineItalic : null,
-    inline?.underline ? styles.practiceInlineUnderline : null,
-  ];
-
-  const renderPracticeInlineTextToken = (
-    token: { type: 'text'; text: string; style?: LessonRichInline | null },
-    key: string,
-    compact = false
-  ) => {
-    return (
-      <Text key={key} style={getPracticeInlineTextStyle(token.style, compact)}>
-        {token.text}
-      </Text>
-    );
-  };
-
   const segmentPracticeTextWithBlanks = (text: string) => {
     const tokens: (
       | { type: 'text'; text: string; style?: LessonRichInline | null }
@@ -6925,15 +7134,13 @@ export default function LessonDetailShellScreen() {
                               styles.practiceOptionLetter,
                               isSelected ? styles.practiceOptionLetterSelected : null,
                             ]}>
-                            <AppText
-                              language="en"
-                              variant="caption"
+                            <Text
                               style={[
                                 styles.practiceOptionLetterText,
                                 isSelected ? styles.practiceOptionLetterTextInverse : null,
                               ]}>
                               {option.label}
-                            </AppText>
+                            </Text>
                           </View>
                           <View style={styles.practiceOptionTextWrap}>
                             {optionImageUrl ? (
@@ -7366,7 +7573,9 @@ export default function LessonDetailShellScreen() {
                     : practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, abBlank.id)] ?? ''
                   : '';
               const thaiOnlyText = splitThaiText(item.textTh).th || item.textTh;
+              const thaiOnlyInlineText = splitThaiText(textJsonbToString(item.textJsonbTh)).th;
               const thaiInlineHasVisibleThai = item.textJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''));
+              const thaiCompanionText = thaiOnlyInlineText.trim() || thaiOnlyText.trim();
               const englishSourceTokens = item.textJsonb.length
                 ? segmentPracticeInlinesWithBlanks(item.textJsonb)
                 : segmentPracticeTextWithBlanks(item.text);
@@ -7374,7 +7583,7 @@ export default function LessonDetailShellScreen() {
               const shouldShowThaiCompanion =
                 contentLang === 'th' &&
                 !abPromptLayout &&
-                (thaiInlineHasVisibleThai || Boolean(thaiOnlyText.trim())) &&
+                (thaiInlineHasVisibleThai || Boolean(thaiCompanionText)) &&
                 normalizePracticeAnswerText(thaiOnlyText) !== normalizePracticeAnswerText(item.text);
               const rows: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; length: number; blankId: string; minLen: number })[][] = [[]];
               let blankCursor = 0;
@@ -7512,39 +7721,47 @@ export default function LessonDetailShellScreen() {
                           </View>
                         ) : (
                           rows.map((row, rowIndex) => (
-                            <View key={`${answerKey}-row-${rowIndex}`} style={styles.practiceFillBlankRow}>
-                              {row.map((token, tokenIndex) =>
-                                token.type === 'text' ? (
-                                  renderPracticeInlineTextToken(
-                                    token,
-                                    `${answerKey}-text-${rowIndex}-${tokenIndex}`,
-                                    isInlineQuickPractice
+                            item.isExample ? (
+                              <View key={`${answerKey}-row-${rowIndex}`} style={styles.practiceFillBlankRow}>
+                                {row.map((token, tokenIndex) =>
+                                  token.type === 'text' ? (
+                                    renderPracticeInlineTextToken(
+                                      token,
+                                      `${answerKey}-text-${rowIndex}-${tokenIndex}`,
+                                      isInlineQuickPractice
+                                    )
+                                  ) : (
+                                    <TextInput
+                                      key={`${answerKey}-blank-${rowIndex}-${tokenIndex}`}
+                                      value={item.answer}
+                                      editable={false}
+                                      style={[
+                                        styles.practiceFillBlankInput,
+                                        token.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
+                                      ]}
+                                    />
                                   )
-                                ) : (
-                                  <TextInput
-                                    key={`${answerKey}-blank-${rowIndex}-${tokenIndex}`}
-                                    ref={(ref) => {
-                                      practiceInputRefsMap.current[`${answerKey}-blank-${rowIndex}-${tokenIndex}`] = ref;
-                                    }}
-                                    value={
-                                      item.isExample
-                                        ? item.answer
-                                        : practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, token.blankId)] ?? ''
-                                    }
-                                    onChangeText={(value) => handlePracticeBlankAnswerChange(exercise.id, item.key, token.blankId, value)}
-                                    onBlur={() => handlePracticeInputBlur(`${answerKey}-blank-${rowIndex}-${tokenIndex}`)}
-                                    onFocus={() => handlePracticeInputFocus(`${answerKey}-blank-${rowIndex}-${tokenIndex}`)}
-                                    onSubmitEditing={dismissLessonKeyboard}
-                                    editable={!item.isExample && !evaluation?.loading}
-                                    blurOnSubmit
-                                    style={[
-                                      styles.practiceFillBlankInput,
-                                      token.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
-                                    ]}
-                                  />
-                                )
-                              )}
-                            </View>
+                                )}
+                              </View>
+                            ) : (
+                              <PracticeFillBlankMeasuredRows
+                                key={`${answerKey}-row-${rowIndex}`}
+                                rowTokens={row}
+                                answerKey={`${answerKey}-row-${rowIndex}`}
+                                exerciseId={exercise.id}
+                                itemKey={item.key}
+                                isExample={item.isExample}
+                                exampleAnswer={item.answer}
+                                editable={!evaluation?.loading}
+                                compact={isInlineQuickPractice}
+                                practiceBlankAnswers={practiceBlankAnswers}
+                                practiceInputRefsMap={practiceInputRefsMap}
+                                onBlankAnswerChange={handlePracticeBlankAnswerChange}
+                                onInputBlur={handlePracticeInputBlur}
+                                onInputFocus={handlePracticeInputFocus}
+                                onDismissKeyboard={dismissLessonKeyboard}
+                              />
+                            )
                           ))
                         )}
                         {shouldShowThaiCompanion ? (
@@ -7552,9 +7769,11 @@ export default function LessonDetailShellScreen() {
                             language="th"
                             variant="body"
                             style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
-                            {thaiInlineHasVisibleThai
-                              ? renderRichInlines(item.textJsonbTh, `${answerKey}-fill-blank-th`)
-                              : thaiOnlyText}
+                            {thaiCompanionText
+                              ? thaiCompanionText
+                              : thaiInlineHasVisibleThai
+                                ? renderRichInlines(item.textJsonbTh, `${answerKey}-fill-blank-th`)
+                                : thaiOnlyText}
                           </AppText>
                         ) : null}
 
@@ -7700,13 +7919,15 @@ export default function LessonDetailShellScreen() {
                   <Image source={pailinBlueThumbsUpImage} style={styles.completionModalSuccessImage} contentFit="contain" />
                 </View>
 
-                <Stack gap="md" style={styles.completionModalIncompleteContent}>
-                  <Stack gap="xs">
+                <Stack gap="sm" style={styles.completionModalWarningContent}>
+                  <Stack gap="xs" style={styles.completionModalWarningTitleBlock}>
                     <AppText language={pageLanguage} variant="title" style={styles.completionModalTitle}>
-                      {pageCopy.completionSkipWarningTitle}
+                      {pageLanguage === 'th' ? 'ใกล้เสร็จแล้ว!' : 'Almost there!'}
                     </AppText>
                     <AppText language={pageLanguage} variant="body" style={styles.completionModalBody}>
-                      {pageCopy.completionSkipWarningBody}
+                      {pageLanguage === 'th'
+                        ? 'คุณยังทำแบบฝึกหัดไม่เสร็จ หากออกตอนนี้ บทเรียนนี้จะแสดงว่าเรียนยังไม่จบ ทำแบบฝึกหัดให้เสร็จเพื่อทำเครื่องหมายว่าเรียนจบสมบูรณ์!'
+                        : 'You have unfinished exercises. Leaving now means this lesson will show as incomplete. Finish the exercises to mark it as fully complete!'}
                     </AppText>
                   </Stack>
 
@@ -7716,11 +7937,11 @@ export default function LessonDetailShellScreen() {
                       onPress={closeCompletionModal}
                       style={({ pressed }) => [
                         styles.completionModalButton,
-                        styles.completionModalSecondaryButton,
+                        styles.completionModalPrimaryButton,
                         pressed ? styles.completionModalButtonPressed : null,
                       ]}>
-                      <AppText language={pageLanguage} variant="caption" style={styles.completionModalSecondaryButtonText}>
-                        {pageCopy.completionSkipWarningStay}
+                      <AppText language={pageLanguage} variant="caption" style={styles.completionModalPrimaryButtonText}>
+                        {pageLanguage === 'th' ? 'ทำแบบฝึกหัดต่อ' : 'Finish exercises'}
                       </AppText>
                     </Pressable>
 
@@ -7731,11 +7952,11 @@ export default function LessonDetailShellScreen() {
                       }}
                       style={({ pressed }) => [
                         styles.completionModalButton,
-                        styles.completionModalPrimaryButton,
+                        styles.completionModalSecondaryButton,
                         pressed ? styles.completionModalButtonPressed : null,
                       ]}>
-                      <AppText language={pageLanguage} variant="caption" style={styles.completionModalPrimaryButtonText}>
-                        {pageCopy.completionSkipWarningConfirm}
+                      <AppText language={pageLanguage} variant="caption" style={styles.completionModalSecondaryButtonText}>
+                        {pageLanguage === 'th' ? 'ออกตอนนี้' : 'Exit anyway'}
                       </AppText>
                     </Pressable>
                   </View>
@@ -8202,6 +8423,8 @@ export default function LessonDetailShellScreen() {
                                   const isSelected = selectedSet.has(normalizedOptionLabel);
                                   const isCorrectOption = answerSet.has(normalizedOptionLabel);
                                   const isWrongSelection = hasSubmittedComprehensionAnswers && isSelected && !isCorrectOption;
+                                  const showSelectedOptionOutcome =
+                                    isSelected && (isLockedCorrect || (hasSubmittedComprehensionAnswers && (isCorrectOption || isWrongSelection)));
                                   const optionImageUrl = resolveLessonImageUrl(
                                     option.imageKey ? lesson?.images?.[option.imageKey] : null,
                                     option.imageKey
@@ -8228,15 +8451,13 @@ export default function LessonDetailShellScreen() {
                                           styles.comprehensionOptionLetter,
                                           isSelected ? styles.practiceOptionLetterSelected : null,
                                         ]}>
-                                        <AppText
-                                          language="en"
-                                          variant="caption"
+                                        <Text
                                           style={[
                                             styles.comprehensionOptionLetterText,
                                             isSelected ? styles.practiceOptionLetterTextInverse : null,
                                           ]}>
                                           {option.label}
-                                        </AppText>
+                                        </Text>
                                       </View>
 
                                       <View style={styles.comprehensionOptionTextWrap}>
@@ -8263,20 +8484,17 @@ export default function LessonDetailShellScreen() {
                                           </AppText>
                                         ) : null}
                                       </View>
-                                      {isSelected &&
-                                      (isLockedCorrect ||
-                                        (hasSubmittedComprehensionAnswers &&
-                                          (isQuestionCorrect || isWrongSelection || (!isMulti && !isCorrectOption)))) ? (
+                                      {showSelectedOptionOutcome ? (
                                         <AppText
                                           language="en"
                                           variant="caption"
                                           style={[
                                             styles.practiceOptionOutcomeMark,
-                                            isLockedCorrect || isQuestionCorrect
+                                            isLockedCorrect || isCorrectOption
                                               ? styles.comprehensionOutcomeMarkCorrect
                                               : styles.comprehensionOutcomeMarkWrong,
                                           ]}>
-                                          {isLockedCorrect || isQuestionCorrect ? '✓' : '✗'}
+                                          {isLockedCorrect || isCorrectOption ? '✓' : '✗'}
                                         </AppText>
                                       ) : null}
                                     </Pressable>
@@ -8310,7 +8528,9 @@ export default function LessonDetailShellScreen() {
                             ]}>
                             <AppText language={pageLanguage} variant="caption" style={styles.practiceActionButtonText}>
                               {hasSubmittedComprehensionAnswers
-                                ? (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
+                                ? hasPerfectComprehensionScore
+                                  ? (pageLanguage === 'th' ? 'เก่งมาก!' : 'GREAT WORK!')
+                                  : (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
                                 : pageCopy.checkAnswers}
                             </AppText>
                           </Pressable>
@@ -9165,7 +9385,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: theme.colors.text,
     fontSize: 29,
-    lineHeight: 32,
+    lineHeight: 36,
+    paddingTop: 2,
     fontWeight: theme.typography.weights.bold,
   },
   fullscreenButton: {
@@ -10365,6 +10586,24 @@ const styles = StyleSheet.create({
     columnGap: 0,
     rowGap: 1,
   },
+  practiceFillBlankMeasuredRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    columnGap: 0,
+  },
+  practiceFillBlankMeasuredShell: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  practiceFillBlankMeasureText: {
+    position: 'absolute',
+    opacity: 0,
+    left: 0,
+    right: 0,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: 24,
+  },
   practiceInlineText: {
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
@@ -10542,24 +10781,26 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   practiceOptionLetterText: {
+    fontFamily: theme.typography.fontFaces.en.medium,
     color: theme.colors.text,
     fontSize: 11,
-    lineHeight: 11,
+    lineHeight: 12,
     fontWeight: theme.typography.weights.semibold,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
-    transform: [{ translateY: 0.5 }],
+    transform: [{ translateY: 1 }],
   },
   comprehensionOptionLetterText: {
+    fontFamily: theme.typography.fontFaces.en.medium,
     color: theme.colors.text,
     fontSize: 11,
-    lineHeight: 11,
+    lineHeight: 12,
     fontWeight: theme.typography.weights.semibold,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
-    transform: [{ translateY: 0.5 }],
+    transform: [{ translateY: 1 }],
   },
   practiceOptionLetterTextInverse: {
     color: theme.colors.surface,
@@ -10868,10 +11109,18 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingTop: theme.spacing.lg,
   },
+  completionModalWarningContent: {
+    width: '100%',
+    paddingTop: theme.spacing.sm,
+  },
+  completionModalWarningTitleBlock: {
+    marginTop: -theme.spacing.sm,
+  },
   completionModalActionsRow: {
     width: '100%',
     flexDirection: 'row',
     gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
   },
   completionModalButton: {
     minHeight: 44,
@@ -10895,11 +11144,15 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semibold,
     textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 14,
   },
   completionModalSecondaryButtonText: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semibold,
     textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 14,
   },
   completionModalButtonPressed: {
     opacity: 0.9,

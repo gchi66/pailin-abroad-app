@@ -33,6 +33,7 @@ type MembershipCard = {
   savings?: string | null;
   period?: string;
   paymentLabel?: string;
+  savingsLabel?: string;
   includesLabel?: string;
   includes?: string[];
   bestValue?: string;
@@ -72,6 +73,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       titleRest: 'สำหรับสมาชิก 200 คนแรก!',
       subtitle: 'เราเพิ่งเปิดตัว และอยากเชิญคุณมาลองใช้ Pailin Abroad!',
       bestForLabel: 'เหมาะสำหรับ:',
+      payMonthlyLabel: 'จ่ายรายเดือน',
       period: 'เดือน',
       joinCta: 'สมัครเลย!',
       planWarning: 'กรุณาเลือกแผนการชำระเงิน',
@@ -82,10 +84,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
       guaranteeStrong: 'รับประกันคืนเงิน 100%',
       guaranteeBody:
         'ภายใน 30 วันหลังจากวันชำระเงิน หากคุณไม่พึงพอใจในการเป็นสมาชิกกับเรา แต่เรามั่นใจว่าคุณจะหลงรัก Pailin Abroad อย่างแน่นอนเลย!',
-      lifetimeFollowup: 'หากยังไม่พร้อมสำหรับสมาชิกตลอดชีพ คุณสามารถเลือกแพ็กเกจรายเดือนด้านล่างได้',
+      lifetimeFollowupLineOne: 'หากยังไม่พร้อมสำหรับสมาชิกตลอดชีพ',
+      lifetimeFollowupLineTwo: 'เลือกแพ็กเกจรายเดือนด้านล่างได้',
       lifetime: {
         title: 'สมาชิกตลอดชีพ',
         paymentLabel: 'ชำระครั้งเดียว',
+        savingsLabel: 'ลด 50%',
         bestFor: 'ผู้เรียนที่ต้องการเข้าถึงแบบเต็มรูปแบบตลอดไป!',
         includesLabel: 'รวม:',
         includes: [
@@ -130,6 +134,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     titleRest: 'for our first 200 users!',
     subtitle: 'We just launched. We want to invite you to try Pailin Abroad!',
     bestForLabel: 'BEST FOR:',
+    payMonthlyLabel: 'PAY MONTHLY',
     period: 'month',
     joinCta: 'JOIN NOW!',
     planWarning: 'Please select a payment plan',
@@ -140,10 +145,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
     guaranteeStrong: '100% money-back guarantee',
     guaranteeBody:
       "within 30 days of your purchase if you're not completely satisfied with your membership. But, we're confident you'll love Pailin Abroad!",
-    lifetimeFollowup: 'Not ready for lifetime access? Choose a monthly plan below',
+    lifetimeFollowupLineOne: 'Not ready for lifetime access?',
+    lifetimeFollowupLineTwo: 'choose a monthly plan below',
     lifetime: {
       title: 'LIFETIME MEMBERSHIP',
       paymentLabel: 'One-time payment',
+      savingsLabel: 'Save 50%',
       bestFor: 'Learners who want full access, forever!',
       includesLabel: 'INCLUDES:',
       includes: [
@@ -187,7 +194,7 @@ const formatAmount = (value: number) =>
   Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 const buildPriceWithSymbol = (currency: string | null, value: number) => {
-  const symbol = currency === 'USD' ? '$' : '฿';
+  const symbol = currency === 'USD' ? '$' : 'B';
   return `${symbol}${formatAmount(value)}`;
 };
 
@@ -212,17 +219,28 @@ function MembershipPlanCard({
   joinLabel,
   showInlineJoinButton = true,
 }: MembershipPlanCardProps) {
+  const payMonthlyLabel = uiLanguage === 'th' ? 'จ่ายรายเดือน' : 'PAY MONTHLY';
+
   if (card.isLifetime) {
     return (
       <View style={styles.cardPressable}>
         <Pressable onPress={onPress} style={isSelected ? styles.selectedCardPressable : null}>
-          <Card padding="lg" radius="lg" style={[styles.lifetimeCard, isSelected ? styles.selectedCard : null]}>
+          <Card padding="md" radius="lg" style={[styles.lifetimeCard, isSelected ? styles.selectedCard : null]}>
             <Stack gap="md">
               <View style={styles.lifetimeCardShell}>
-                <View style={styles.paymentLabelWrap}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.paymentLabel}>
-                    {card.paymentLabel}
-                  </AppText>
+                <View style={styles.lifetimeMetaRow}>
+                  {card.savingsLabel ? (
+                    <View style={styles.lifetimeSavingsBadge}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.lifetimeSavingsText}>
+                        {card.savingsLabel}
+                      </AppText>
+                    </View>
+                  ) : null}
+                  <View style={styles.paymentLabelWrap}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.paymentLabel}>
+                      {card.paymentLabel}
+                    </AppText>
+                  </View>
                 </View>
 
                 <View style={styles.lifetimeHeaderRow}>
@@ -297,46 +315,59 @@ function MembershipPlanCard({
   return (
     <View style={styles.cardPressable}>
       <Pressable onPress={onPress} style={isSelected ? styles.selectedCardPressable : null}>
-        <Card padding="lg" radius="lg" style={[styles.planCard, isSelected ? styles.selectedCard : null]}>
-          {card.savings ? (
-            <View style={styles.savingsBadge}>
-              <AppText language={uiLanguage} variant="caption" style={styles.savingsText}>
-                {card.savings}
+        <Card padding="md" radius="lg" style={[styles.planCard, isSelected ? styles.selectedCard : null]}>
+          <View style={styles.planCardShell}>
+            <View style={styles.planMetaRow}>
+              {card.savings ? (
+                <View style={styles.planSavingsBadge}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.planSavingsText}>
+                    {card.savings}
+                  </AppText>
+                </View>
+              ) : (
+                <View />
+              )}
+              <AppText language={uiLanguage} variant="caption" style={styles.planPaymentLabel}>
+                {payMonthlyLabel}
               </AppText>
             </View>
-          ) : null}
-          <View style={styles.planContentRow}>
-            <View style={styles.planLeftColumn}>
+
+            <View style={styles.planHeaderRow}>
               <AppText language={uiLanguage} variant="body" style={styles.planDuration}>
                 {card.duration}
               </AppText>
-              <View style={styles.bestForBlock}>
-                <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
-                  {bestForLabel}
-                </AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
-                  {card.bestFor}
-                </AppText>
-              </View>
             </View>
 
-            <View
-              style={[
-                styles.planRightColumn,
-                !card.savings ? styles.planRightColumnWithoutBadge : null,
-              ]}>
-              {card.originalDisplayPrice ? (
-                <AppText language={uiLanguage} variant="muted" style={styles.crossedOutMonthlyPrice}>
-                  {buildPriceWithSymbol(card.billingPeriod, card.originalDisplayPrice)}
-                </AppText>
-              ) : null}
-              <View style={styles.planPriceRow}>
-                <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
-                  {card.price}
-                </AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.periodText}>
-                  / {card.period}
-                </AppText>
+            <View style={styles.planBodyRow}>
+              <View style={styles.planLeftColumn}>
+                <View style={styles.bestForBlock}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.bestForLabel}>
+                    {bestForLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.bestForText}>
+                    {card.bestFor}
+                  </AppText>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.planRightColumn,
+                  !card.savings ? styles.planRightColumnWithoutBadge : null,
+                ]}>
+                {card.originalDisplayPrice ? (
+                  <AppText language={uiLanguage} variant="muted" style={styles.crossedOutMonthlyPrice}>
+                    {buildPriceWithSymbol(card.billingPeriod, card.originalDisplayPrice)}
+                  </AppText>
+                ) : null}
+                <View style={styles.planPriceStack}>
+                  <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
+                    {card.price}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.periodText}>
+                    / {card.period}
+                  </AppText>
+                </View>
               </View>
             </View>
           </View>
@@ -418,6 +449,7 @@ export function MembershipScreen() {
       originalPrice: lifetimeOriginalPrice,
       billingPeriod: pricingState.currency ?? '',
       paymentLabel: copy.lifetime.paymentLabel,
+      savingsLabel: copy.lifetime.savingsLabel,
       includesLabel: copy.lifetime.includesLabel,
       includes: copy.lifetime.includes,
       bestValue: copy.lifetime.bestValue,
@@ -521,9 +553,14 @@ export function MembershipScreen() {
                 uiLanguage={uiLanguage}
               />
               {index === 0 ? (
-                <AppText language={uiLanguage} variant="muted" style={styles.followupText}>
-                  {copy.lifetimeFollowup}
-                </AppText>
+                <View style={styles.followupTextBlock}>
+                  <AppText language={uiLanguage} variant="muted" style={styles.followupText}>
+                    {copy.lifetimeFollowupLineOne}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="muted" style={styles.followupText}>
+                    {copy.lifetimeFollowupLineTwo}
+                  </AppText>
+                </View>
               ) : null}
             </React.Fragment>
           ))}
@@ -693,43 +730,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3DC',
     borderWidth: 2,
     borderColor: '#9D9D9D',
+    paddingHorizontal: theme.spacing.lg,
     shadowColor: '#9D9D9D',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.35,
     shadowRadius: 0,
-    elevation: 4,
+    elevation: 1,
   },
   planCard: {
     backgroundColor: theme.colors.surface,
     borderWidth: 2,
     borderColor: '#9D9D9D',
+    paddingHorizontal: theme.spacing.lg,
     shadowColor: '#9D9D9D',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 0.55,
     shadowRadius: 0,
-    elevation: 4,
+    elevation: 2,
   },
   selectedCard: {
     borderWidth: 2,
     borderColor: '#3CA0FE',
     backgroundColor: '#F8FCFF',
     shadowColor: '#3CA0FE',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 0.55,
     shadowRadius: 0,
-    elevation: 4,
+    elevation: 2,
   },
   lifetimeCardShell: {
-    position: 'relative',
+    gap: theme.spacing.sm,
+  },
+  lifetimeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  lifetimeSavingsBadge: {
+    minWidth: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: '#A4DE35',
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: 6,
+  },
+  lifetimeSavingsText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
   },
   paymentLabelWrap: {
-    position: 'absolute',
-    top: -12,
-    right: 0,
-    zIndex: 1,
+    flexShrink: 1,
   },
   lifetimeHeaderRow: {
-    paddingTop: theme.spacing.xs,
+    paddingTop: theme.spacing.sm,
     paddingRight: 0,
   },
   lifetimeTitle: {
@@ -738,7 +794,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   paymentLabel: {
-    color: theme.colors.text,
+    color: '#676C74',
     textAlign: 'right',
     fontSize: 13,
     lineHeight: 16,
@@ -750,7 +806,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: theme.spacing.md,
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
   },
   bestForBlock: {
     flex: 1,
@@ -758,11 +814,15 @@ const styles = StyleSheet.create({
   },
   bestForLabel: {
     color: theme.colors.mutedText,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
   },
   bestForText: {
     color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   lifetimePriceBlock: {
     alignItems: 'flex-end',
@@ -770,12 +830,19 @@ const styles = StyleSheet.create({
   },
   crossedOutPrice: {
     textDecorationLine: 'line-through',
-    color: '#C87979',
+    color: '#A94444',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.medium,
   },
   lifetimePrice: {
+    fontFamily: theme.typography.fontFaces.en.bold,
     color: theme.colors.text,
-    fontSize: 36,
-    lineHeight: 40,
+    fontSize: 28,
+    lineHeight: 32,
+    textShadowColor: theme.colors.text,
+    textShadowOffset: { width: 0.6, height: 0 },
+    textShadowRadius: 0,
   },
   divider: {
     height: 1,
@@ -783,11 +850,14 @@ const styles = StyleSheet.create({
   },
   lifetimeBody: {
     gap: theme.spacing.md,
+    minHeight: 164,
   },
   includesBlock: {
     gap: theme.spacing.sm,
   },
   includesLabel: {
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
   },
@@ -798,6 +868,8 @@ const styles = StyleSheet.create({
   },
   includeText: {
     flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
   checkIconDot: {
     width: 10,
@@ -808,40 +880,71 @@ const styles = StyleSheet.create({
   },
   bestValueBadge: {
     alignSelf: 'flex-start',
+    minWidth: 112,
     borderRadius: theme.radii.xl,
     backgroundColor: '#3CA0FE',
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.xs,
+    marginTop: 'auto',
   },
   bestValueText: {
     color: theme.colors.surface,
     fontWeight: theme.typography.weights.bold,
   },
+  followupTextBlock: {
+    gap: 2,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
   followupText: {
     textAlign: 'center',
-    marginBottom: theme.spacing.xs,
+    color: '#1E1E1E',
+    fontWeight: theme.typography.weights.semibold,
   },
-  savingsBadge: {
-    alignSelf: 'flex-start',
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.radii.xl,
-    backgroundColor: '#3CA0FE',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+  planCardShell: {
+    gap: theme.spacing.sm,
   },
-  savingsText: {
-    color: theme.colors.surface,
-    fontWeight: theme.typography.weights.bold,
-  },
-  planContentRow: {
+  planMetaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  planSavingsBadge: {
+    minWidth: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: '#A4DE35',
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: 6,
+  },
+  planSavingsText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+  },
+  planPaymentLabel: {
+    color: '#676C74',
+    textAlign: 'right',
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
+  },
+  planHeaderRow: {
+    paddingTop: theme.spacing.sm,
+  },
+  planBodyRow: {
+    flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: theme.spacing.md,
+    marginTop: theme.spacing.sm,
   },
   planLeftColumn: {
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   planDuration: {
     fontWeight: theme.typography.weights.bold,
@@ -849,28 +952,35 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   planRightColumn: {
+    width: 104,
     alignItems: 'flex-end',
-    gap: theme.spacing.xs,
+    justifyContent: 'flex-start',
+    flexShrink: 0,
+    marginTop: -36,
   },
   planRightColumnWithoutBadge: {
-    paddingTop: theme.spacing.xl,
+    paddingTop: 0,
   },
   crossedOutMonthlyPrice: {
     textDecorationLine: 'line-through',
-    color: '#C87979',
+    color: '#A94444',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.medium,
+    marginBottom: 2,
   },
-  planPriceRow: {
-    flexDirection: 'row',
+  planPriceStack: {
     alignItems: 'flex-end',
-    gap: theme.spacing.xs,
+    justifyContent: 'flex-start',
   },
   planPrice: {
-    fontSize: 30,
-    lineHeight: 34,
+    fontFamily: theme.typography.fontFaces.en.bold,
+    fontSize: 28,
+    lineHeight: 32,
   },
   periodText: {
     color: theme.colors.mutedText,
-    marginBottom: 2,
+    marginTop: -4,
   },
   pricingSummary: {
     alignItems: 'center',
@@ -955,7 +1065,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     backgroundColor: '#FFFDF9',
-    padding: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    paddingRight: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+    paddingLeft: theme.spacing.md,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 3, height: 3 },
     shadowOpacity: 1,

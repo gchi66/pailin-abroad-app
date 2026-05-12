@@ -171,10 +171,6 @@ export function ContactScreen() {
             topInsetOffset={52}
           />
 
-          <AppText language={uiLanguage} variant="body" style={styles.subtitleText}>
-            {copy.subtitle}
-          </AppText>
-
           <Card padding="lg" radius="lg" style={styles.neoCard}>
             <AppText language={uiLanguage} variant="body" style={styles.introText}>
               {copy.intro}
@@ -209,7 +205,7 @@ export function ContactScreen() {
             </View>
           ) : null}
 
-          <Stack gap="sm">
+          <Stack gap="md">
             <View style={styles.fieldGroup}>
               <AppText language={uiLanguage} variant="caption" style={styles.label}>
                 {copy.nameLabel}
@@ -303,10 +299,6 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
   },
-  subtitleText: {
-    color: theme.colors.text,
-    lineHeight: theme.typography.lineHeights.md,
-  },
   introText: {
     color: theme.colors.text,
   },
@@ -348,7 +340,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   fieldGroup: {
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
   label: {
     fontWeight: theme.typography.weights.semibold,

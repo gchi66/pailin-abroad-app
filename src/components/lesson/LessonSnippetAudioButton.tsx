@@ -1,7 +1,5 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
-
-import { theme } from '@/src/theme/theme';
+import { Image, Pressable, StyleSheet } from 'react-native';
 
 const playIcon = require('../../../assets/images/snippet_play_button.png');
 const pauseIcon = require('../../../assets/images/blue-pause-button.webp');
@@ -34,7 +32,6 @@ export function LessonSnippetAudioButton({
         pressed && !disabled ? styles.buttonPressed : null,
       ]}>
       <Image source={isPlaying ? pauseIcon : playIcon} resizeMode="contain" style={styles.icon} />
-      {isLoading ? <View style={styles.loadingDot} /> : null}
     </Pressable>
   );
 }
@@ -55,16 +52,5 @@ const styles = StyleSheet.create({
   icon: {
     width: 24,
     height: 24,
-  },
-  loadingDot: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: theme.colors.primary,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
 });

@@ -1095,9 +1095,7 @@ function renderExerciseBody(params: {
                           isChecked && isCorrect ? styles.optionLetterCorrect : null,
                           isWrongSelection ? styles.optionLetterWrong : null,
                         ]}>
-                        <AppText language="en" variant="caption" style={styles.optionLetterText}>
-                          {option.label}
-                        </AppText>
+                        <Text style={styles.optionLetterText}>{option.label}</Text>
                       </View>
 
                       <View style={styles.optionTextWrap}>
@@ -1564,7 +1562,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8C9C9',
   },
   optionLetterText: {
+    fontFamily: theme.typography.fontFaces.en.medium,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.text,
+    lineHeight: 13,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    marginTop: 1,
   },
   optionTextWrap: {
     flex: 1,
