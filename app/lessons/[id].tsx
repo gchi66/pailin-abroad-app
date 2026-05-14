@@ -1516,6 +1516,71 @@ const resolveRichInlineText = (inline: LessonRichInline, contentLang: UiLanguage
   return '';
 };
 
+const inlineFormattingKey = (inline: LessonRichInline) =>
+  JSON.stringify({
+    bold: inline.bold === true,
+    italic: inline.italic === true,
+    underline: inline.underline === true,
+    link: typeof inline.link === 'string' ? inline.link.trim() : '',
+    highlight: typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '',
+  });
+
+const mergeAdjacentRichInlines = (inlines: LessonRichInline[] | null | undefined, contentLang: UiLanguage) => {
+  if (!Array.isArray(inlines) || !inlines.length) {
+    return [];
+  }
+
+  const merged: LessonRichInline[] = [];
+
+  inlines.forEach((inline) => {
+    const textValue = cleanAudioTags(resolveRichInlineText(inline, contentLang));
+    if (!textValue) {
+      return;
+    }
+
+    const previous = merged[merged.length - 1];
+    const canMerge =
+      previous &&
+      inlineFormattingKey(previous) === inlineFormattingKey(inline) &&
+      !String(resolveRichInlineText(previous, contentLang) ?? '').includes('\n') &&
+      !textValue.includes('\n');
+
+    if (canMerge) {
+      const previousText = String(previous.text ?? '');
+      merged[merged.length - 1] = {
+        ...previous,
+        text: `${previousText}${textValue}`,
+      };
+      return;
+    }
+
+    merged.push({
+      ...inline,
+      text: textValue,
+    });
+  });
+
+  return merged;
+};
+
+const renderTextWithBlankRuns = (text: string, keyPrefix: string, blankStyle: object) => {
+  const segments = String(text).split(/(_{2,})/g);
+  return segments.map((segment, index) => {
+    if (!segment) {
+      return null;
+    }
+    if (/^_{2,}$/.test(segment)) {
+      const blankLength = Math.min(segment.length, 4);
+      return (
+        <Text key={`${keyPrefix}-blank-${index}`} style={blankStyle}>
+          {'\u00A0'.repeat(Math.max(3, blankLength))}
+        </Text>
+      );
+    }
+    return <React.Fragment key={`${keyPrefix}-text-${index}`}>{segment}</React.Fragment>;
+  });
+};
+
 const applyNodeHasAccent = (node: LessonRichNode) =>
   Boolean(node.is_response) ||
   Boolean(
@@ -5763,12 +5828,13 @@ export default function LessonDetailShellScreen() {
     keyPrefix: string,
     options?: { enableHighlights?: boolean; muteThaiInAudioRow?: boolean; isSubheader?: boolean }
   ) => {
-    if (!Array.isArray(inlines) || !inlines.length) {
+    const mergedInlines = mergeAdjacentRichInlines(inlines, contentLang);
+    if (!mergedInlines.length) {
       return null;
     }
 
-    return inlines.map((inline, index) => {
-      const textValue = cleanAudioTags(resolveRichInlineText(inline, contentLang));
+    return mergedInlines.map((inline, index) => {
+      const textValue = String(inline.text ?? '');
       if (!textValue) {
         return null;
       }
@@ -5852,7 +5918,7 @@ export default function LessonDetailShellScreen() {
                         baseTextStyle,
                         shouldMutePiece ? styles.richInlineThaiMuted : null,
                       ]}>
-                      {piece}
+                      {renderTextWithBlankRuns(piece, `${bodyKey}-${partIndex}-${pieceIndex}`, styles.richInlineBlank)}
                     </Text>
                   );
                 });
@@ -5881,7 +5947,7 @@ export default function LessonDetailShellScreen() {
                     baseTextStyle,
                     shouldMutePiece ? styles.richInlineThaiMuted : null,
                   ]}>
-                  {piece}
+                  {renderTextWithBlankRuns(piece, `${bodyKey}-${pieceIndex}`, styles.richInlineBlank)}
                 </Text>
               );
             });
@@ -7142,13 +7208,13 @@ export default function LessonDetailShellScreen() {
                             language="en"
                             variant="body"
                             style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                            {abPromptLayout.aLine}
+                            {renderTextWithBlankRuns(abPromptLayout.aLine, `${selectionKey}-ab-a`, styles.practiceInlineBlank)}
                           </AppText>
                           <AppText
                             language="en"
                             variant="body"
                             style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                            {abPromptLayout.bLine}
+                            {renderTextWithBlankRuns(abPromptLayout.bLine, `${selectionKey}-ab-b`, styles.practiceInlineBlank)}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
                             <AppText
@@ -7166,7 +7232,9 @@ export default function LessonDetailShellScreen() {
                               language="en"
                               variant="body"
                               style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                              {item.textJsonb.length ? renderRichInlines(item.textJsonb, `${selectionKey}-question`) : item.text}
+                              {item.textJsonb.length
+                                ? renderRichInlines(item.textJsonb, `${selectionKey}-question`)
+                                : renderTextWithBlankRuns(item.text, `${selectionKey}-question`, styles.practiceInlineBlank)}
                             </AppText>
                           ) : null}
                           {contentLang === 'th' && (item.textTh || item.textJsonbTh.length) ? (
@@ -9814,6 +9882,11 @@ const styles = StyleSheet.create({
   richInlineUnderline: {
     textDecorationLine: 'underline',
   },
+  richInlineBlank: {
+    color: 'transparent',
+    textDecorationLine: 'underline',
+    textDecorationColor: theme.colors.text,
+  },
   richSpeakerPrefix: {
     fontFamily: theme.typography.fontFaces.en.semibold,
   },
@@ -10759,6 +10832,11 @@ const styles = StyleSheet.create({
   },
   practiceInlineUnderline: {
     textDecorationLine: 'underline',
+  },
+  practiceInlineBlank: {
+    color: 'transparent',
+    textDecorationLine: 'underline',
+    textDecorationColor: theme.colors.text,
   },
   practiceFillBlankInput: {
     height: 30,

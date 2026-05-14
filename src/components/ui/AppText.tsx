@@ -54,13 +54,29 @@ export function AppText({
   const resolvedFontFamily = theme.typography.fontFaces[resolvedLanguage][variantWeights[variant]];
   const getSegmentFontFamily = (segmentLanguage: ScriptLanguage) => theme.typography.fontFaces[segmentLanguage][variantWeights[variant]];
 
-  const renderChildren = (node: React.ReactNode, keyPrefix: string): React.ReactNode => {
-    if (typeof node === 'string' || typeof node === 'number') {
-      return splitTextByScript(String(node)).map((segment, index) => (
-        <Text key={`${keyPrefix}-${index}`} style={{ fontFamily: getSegmentFontFamily(segment.language) }}>
+  const renderStringWithBlankRuns = (value: string, keyPrefix: string) => {
+    const parts = value.split(/(_{2,})/g).filter((part) => part.length > 0);
+
+    return parts.map((part, index) => {
+      if (/^_{2,}$/.test(part)) {
+        return (
+          <Text key={`${keyPrefix}-blank-${index}`} style={styles.inlineBlank}>
+            {'\u00A0'.repeat(12)}
+          </Text>
+        );
+      }
+
+      return splitTextByScript(part).map((segment, segmentIndex) => (
+        <Text key={`${keyPrefix}-${index}-${segmentIndex}`} style={{ fontFamily: getSegmentFontFamily(segment.language) }}>
           {segment.text}
         </Text>
       ));
+    });
+  };
+
+  const renderChildren = (node: React.ReactNode, keyPrefix: string): React.ReactNode => {
+    if (typeof node === 'string' || typeof node === 'number') {
+      return renderStringWithBlankRuns(String(node), keyPrefix);
     }
 
     if (typeof node === 'boolean' || node == null) {
@@ -92,5 +108,10 @@ export function AppText({
 const styles = StyleSheet.create({
   base: {
     color: theme.colors.text,
+  },
+  inlineBlank: {
+    color: 'transparent',
+    textDecorationLine: 'underline',
+    textDecorationColor: theme.colors.text,
   },
 });

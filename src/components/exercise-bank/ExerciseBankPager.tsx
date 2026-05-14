@@ -204,6 +204,23 @@ const getDisplayPromptPair = (primaryValue: string, secondaryValue: string) => {
   };
 };
 
+const renderTextWithBlankRuns = (text: string, keyPrefix: string) => {
+  const segments = String(text ?? '').split(/(_{2,})/g);
+  return segments.map((segment, index) => {
+    if (!segment) {
+      return null;
+    }
+    if (/^_{2,}$/.test(segment)) {
+      return (
+        <Text key={`${keyPrefix}-blank-${index}`} style={styles.inlineBlank}>
+          {'\u00A0'.repeat(Math.max(3, Math.min(segment.length, 4)))}
+        </Text>
+      );
+    }
+    return <React.Fragment key={`${keyPrefix}-text-${index}`}>{segment}</React.Fragment>;
+  });
+};
+
 const safeParseArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) {
     return value as T[];
@@ -1060,7 +1077,7 @@ function renderExerciseBody(params: {
                 <View style={styles.questionTextWrap}>
                   {item.text ? (
                     <AppText language="en" variant="body" style={styles.questionText}>
-                      {item.text}
+                      {renderTextWithBlankRuns(item.text, `${selectionKey}-question`)}
                     </AppText>
                   ) : null}
                   {contentLang === 'th' && item.textTh ? (
@@ -1169,7 +1186,7 @@ function renderExerciseBody(params: {
                 <View style={styles.questionTextWrap}>
                   {promptPair.english ? (
                     <AppText language="en" variant="body" style={styles.questionText}>
-                      {promptPair.english}
+                      {renderTextWithBlankRuns(promptPair.english, `${answerKey}-prompt`)}
                     </AppText>
                   ) : null}
                   {contentLang === 'th' && promptPair.thai ? (
@@ -1519,6 +1536,11 @@ const styles = StyleSheet.create({
   },
   questionText: {
     color: theme.colors.text,
+  },
+  inlineBlank: {
+    color: 'transparent',
+    textDecorationLine: 'underline',
+    textDecorationColor: theme.colors.text,
   },
   questionThaiText: {
     color: theme.colors.mutedText,
