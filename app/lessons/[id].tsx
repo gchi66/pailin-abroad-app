@@ -169,6 +169,8 @@ const PRACTICE_INPUT_RECHECK_DELAY = 120;
 const PRACTICE_INPUT_MAX_VISIBILITY_CHECKS = 4;
 const PRACTICE_FILL_BLANK_SHORT_MEASURE = ' MMMMMMMM ';
 const PRACTICE_FILL_BLANK_LONG_MEASURE = ' MMMMMMMMMMMMMM ';
+const PRACTICE_FILL_BLANK_SHORT_MEASURE_COMPACT = ' MMMMMM ';
+const PRACTICE_FILL_BLANK_LONG_MEASURE_COMPACT = ' MMMMMMMMMM ';
 const SECTION_SWIPE_ACTIVE_OFFSET_X: [number, number] = [-10, 10];
 const SECTION_SWIPE_FAIL_OFFSET_Y: [number, number] = [-18, 18];
 const SECTION_SWIPE_LEFT_DISTANCE = 28;
@@ -390,11 +392,17 @@ function PracticeFillBlankMeasuredRows(props: {
         type: 'blank' as const,
         blankId: token.blankId,
         minLen: token.minLen,
-        measureText: isShort ? PRACTICE_FILL_BLANK_SHORT_MEASURE : PRACTICE_FILL_BLANK_LONG_MEASURE,
+        measureText: compact
+          ? isShort
+            ? PRACTICE_FILL_BLANK_SHORT_MEASURE_COMPACT
+            : PRACTICE_FILL_BLANK_LONG_MEASURE_COMPACT
+          : isShort
+            ? PRACTICE_FILL_BLANK_SHORT_MEASURE
+            : PRACTICE_FILL_BLANK_LONG_MEASURE,
       });
       return tokens;
     }, []);
-  }, [rowTokens]);
+  }, [compact, rowTokens]);
 
   const measurementText = useMemo(() => measureTokens.map((token) => token.measureText).join(''), [measureTokens]);
 
@@ -505,7 +513,14 @@ function PracticeFillBlankMeasuredRows(props: {
                   blurOnSubmit
                   style={[
                     styles.practiceFillBlankInput,
-                    token.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
+                    compact ? styles.practiceFillBlankInputCompact : null,
+                    compact
+                      ? token.minLen <= 4
+                        ? styles.practiceFillBlankInputShortCompact
+                        : styles.practiceFillBlankInputLongCompact
+                      : token.minLen <= 4
+                        ? styles.practiceFillBlankInputShort
+                        : styles.practiceFillBlankInputLong,
                   ]}
                 />
               )
@@ -566,7 +581,11 @@ const hasLessonPhrases = (phrases: ResolvedLessonPayload['phrases']) =>
     return Boolean(content || contentMd);
   });
 
-const parsePracticeAbPromptLayout = (item: NormalizedPracticeItem): PracticeAbPromptLayout | null => {
+const parsePracticeAbPromptLayout = (
+  item: NormalizedPracticeItem,
+  options?: { stripBlankPlaceholders?: boolean }
+): PracticeAbPromptLayout | null => {
+  const hasAbPromptMarkers = (value: string) => /^\s*A:/m.test(value) && /(?:^|\s)B:\s*/m.test(value);
   const englishCandidates = [
     item.prompt,
     item.text,
@@ -576,10 +595,10 @@ const parsePracticeAbPromptLayout = (item: NormalizedPracticeItem): PracticeAbPr
     .map((value) => String(value ?? '').replace(/\r\n/g, '\n').trim())
     .filter(Boolean);
   const englishSource =
-    englishCandidates.find((value) => /^\s*A:/m.test(value) && /^\s*B:/m.test(value)) ??
+    englishCandidates.find((value) => hasAbPromptMarkers(value)) ??
     englishCandidates[0] ??
     '';
-  if (!englishSource || !/^\s*A:/m.test(englishSource) || !/^\s*B:/m.test(englishSource)) {
+  if (!englishSource || !hasAbPromptMarkers(englishSource)) {
     return null;
   }
 
@@ -606,7 +625,10 @@ const parsePracticeAbPromptLayout = (item: NormalizedPracticeItem): PracticeAbPr
     return null;
   }
 
-  const bSuffix = bMatch[1].replace(/_{2,}/g, '').trim();
+  const shouldStripBlankPlaceholders = options?.stripBlankPlaceholders === true;
+  const bSuffix = shouldStripBlankPlaceholders
+    ? bMatch[1].replace(/_{2,}/g, '').trim()
+    : bMatch[1].trim();
   const thaiCandidates = [
     item.promptTh,
     item.textTh,
@@ -899,7 +921,18 @@ const safeParseStringMatrix = (value: unknown): string[][] => {
   );
 };
 
-const textJsonbToString = (inlines: LessonRichInline[]) => inlines.map((inline) => String(inline?.text ?? '')).join('');
+const inlineTextToPlainString = (value: LessonRichInline['text']) => {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    const localized = value as { en?: string | null; th?: string | null };
+    return String(localized.en ?? localized.th ?? '');
+  }
+  return '';
+};
+
+const textJsonbToString = (inlines: LessonRichInline[]) => inlines.map((inline) => inlineTextToPlainString(inline?.text)).join('');
 
 const INLINE_AUDIO_TAG_RE = /\[audio:([^\]]+)\]/i;
 const INLINE_IMAGE_TAG_RE = /\[img:([^\]]+)\]/i;
@@ -2678,6 +2711,23 @@ export default function LessonDetailShellScreen() {
         : [],
     [contentLang, hasStartedLesson, lesson?.phrases]
   );
+  const phraseVariantVisibilityById = useMemo(() => {
+    const counts = new Map<string, number>();
+    normalizedLessonPhrases.forEach((phrase) => {
+      const key = (phrase.phrase || phrase.phraseTh).trim().toLocaleLowerCase();
+      if (!key) {
+        return;
+      }
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+
+    const visibility = new Map<string, boolean>();
+    normalizedLessonPhrases.forEach((phrase) => {
+      const key = (phrase.phrase || phrase.phraseTh).trim().toLocaleLowerCase();
+      visibility.set(phrase.id, phrase.variant > 0 && (counts.get(key) ?? 0) > 1);
+    });
+    return visibility;
+  }, [normalizedLessonPhrases]);
   const normalizedPracticeExercises = useMemo(
     () =>
       hasStartedLesson
@@ -6700,6 +6750,7 @@ export default function LessonDetailShellScreen() {
   );
 
   const renderPhraseBody = (phrase: NormalizedLessonPhrase) => {
+    const shouldShowVariantLabel = phraseVariantVisibilityById.get(phrase.id) ?? false;
     let audioSeen = 0;
     let indentFollowingLine = false;
     let skippedDuplicateHeading = false;
@@ -6739,7 +6790,7 @@ export default function LessonDetailShellScreen() {
 
     return (
       <Stack gap="sm">
-        {phrase.variant > 0 ? (
+        {shouldShowVariantLabel ? (
           <View style={styles.phraseMetaRow}>
             <AppText language={pageLanguage} variant="caption" style={styles.phraseVariantText}>
               {pageCopy.phrasesVariantLabel(phrase.variant)}
@@ -6773,6 +6824,7 @@ export default function LessonDetailShellScreen() {
         {normalizedLessonPhrases.map((phrase, index) => {
           const isExpanded = expandedPhraseIds[phrase.id] ?? false;
           const phraseLabel = phrase.phrase.trim() || phrase.phraseTh.trim() || `Phrase ${index + 1}`;
+          const shouldShowVariantLabel = phraseVariantVisibilityById.get(phrase.id) ?? false;
 
           return (
             <View
@@ -6796,7 +6848,7 @@ export default function LessonDetailShellScreen() {
                   <AppText language="en" variant="body" style={styles.phraseAccordionTitle}>
                     {phraseLabel}
                   </AppText>
-                  {phrase.variant > 0 ? (
+                  {shouldShowVariantLabel ? (
                     <AppText language={pageLanguage} variant="caption" style={styles.phraseAccordionMeta}>
                       {pageCopy.phrasesVariantLabel(phrase.variant)}
                     </AppText>
@@ -7061,6 +7113,7 @@ export default function LessonDetailShellScreen() {
               const isItemCorrect =
                 selectedSet.size === answerSet.size &&
                 Array.from(answerSet).every((label) => selectedSet.has(label));
+              const abPromptLayout = parsePracticeAbPromptLayout(item);
               const itemImageUrl = resolveLessonImageUrl(item.imageKey ? lesson?.images?.[item.imageKey] : null, item.imageKey);
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
@@ -7083,22 +7136,49 @@ export default function LessonDetailShellScreen() {
                         </View>
                       ) : null}
                       {renderPracticeItemAudioButton(item.audioKey, selectionKey)}
-                      {item.text || item.textJsonb.length ? (
-                        <AppText
-                          language="en"
-                          variant="body"
-                          style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                          {item.textJsonb.length ? renderRichInlines(item.textJsonb, `${selectionKey}-question`) : item.text}
-                        </AppText>
-                      ) : null}
-                      {contentLang === 'th' && (item.textTh || item.textJsonbTh.length) ? (
-                        <AppText
-                          language="th"
-                          variant="body"
-                          style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
-                          {item.textJsonbTh.length ? renderRichInlines(item.textJsonbTh, `${selectionKey}-question-th`) : item.textTh}
-                        </AppText>
-                      ) : null}
+                      {abPromptLayout ? (
+                        <View style={styles.practiceAbPromptStack}>
+                          <AppText
+                            language="en"
+                            variant="body"
+                            style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
+                            {abPromptLayout.aLine}
+                          </AppText>
+                          <AppText
+                            language="en"
+                            variant="body"
+                            style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
+                            {abPromptLayout.bLine}
+                          </AppText>
+                          {contentLang === 'th' && abPromptLayout.thaiLine ? (
+                            <AppText
+                              language="th"
+                              variant="body"
+                              style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
+                              {abPromptLayout.thaiLine}
+                            </AppText>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <>
+                          {item.text || item.textJsonb.length ? (
+                            <AppText
+                              language="en"
+                              variant="body"
+                              style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
+                              {item.textJsonb.length ? renderRichInlines(item.textJsonb, `${selectionKey}-question`) : item.text}
+                            </AppText>
+                          ) : null}
+                          {contentLang === 'th' && (item.textTh || item.textJsonbTh.length) ? (
+                            <AppText
+                              language="th"
+                              variant="body"
+                              style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
+                              {item.textJsonbTh.length ? renderRichInlines(item.textJsonbTh, `${selectionKey}-question-th`) : item.textTh}
+                            </AppText>
+                          ) : null}
+                        </>
+                      )}
                     </View>
                   </View>
 
@@ -7247,7 +7327,9 @@ export default function LessonDetailShellScreen() {
               const openAnswerKeys = Array.from({ length: inputCount }, (_, inputIndex) =>
                 getPracticeOpenAnswerKey(exercise.id, item.key, inputIndex)
               );
-              const abPromptLayout = isOpenExercise && inputCount === 1 ? parsePracticeAbPromptLayout(item) : null;
+              const abPromptLayout = isOpenExercise && inputCount === 1
+                ? parsePracticeAbPromptLayout(item, { stripBlankPlaceholders: true })
+                : null;
               const isPromptOnlyImage = isPracticePromptOnlyImageItem(exercise, item);
               const shouldUseLargePromptImage = item.imageKey === '2.9_practice' || isPromptOnlyImage;
 
@@ -7564,7 +7646,9 @@ export default function LessonDetailShellScreen() {
               const itemImageUrl = resolveLessonImageUrl(item.imageKey ? lesson?.images?.[item.imageKey] : null, item.imageKey);
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
-              const abPromptLayout = item.blanks.length === 1 ? parsePracticeAbPromptLayout(item) : null;
+              const abPromptLayout = item.blanks.length === 1
+                ? parsePracticeAbPromptLayout(item, { stripBlankPlaceholders: true })
+                : null;
               const abBlank = abPromptLayout ? item.blanks[0] ?? null : null;
               const abBlankValue =
                 abPromptLayout && abBlank
@@ -7713,7 +7797,14 @@ export default function LessonDetailShellScreen() {
                                 blurOnSubmit
                                 style={[
                                   styles.practiceOpenInlineInput,
-                                  abBlank.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
+                                  isInlineQuickPractice ? styles.practiceFillBlankInputCompact : null,
+                                  isInlineQuickPractice
+                                    ? abBlank.minLen <= 4
+                                      ? styles.practiceFillBlankInputShortCompact
+                                      : styles.practiceFillBlankInputLongCompact
+                                    : abBlank.minLen <= 4
+                                      ? styles.practiceFillBlankInputShort
+                                      : styles.practiceFillBlankInputLong,
                                   item.isExample ? styles.practiceExampleInput : null,
                                 ]}
                               />
@@ -7737,7 +7828,14 @@ export default function LessonDetailShellScreen() {
                                       editable={false}
                                       style={[
                                         styles.practiceFillBlankInput,
-                                        token.minLen <= 4 ? styles.practiceFillBlankInputShort : styles.practiceFillBlankInputLong,
+                                        isInlineQuickPractice ? styles.practiceFillBlankInputCompact : null,
+                                        isInlineQuickPractice
+                                          ? token.minLen <= 4
+                                            ? styles.practiceFillBlankInputShortCompact
+                                            : styles.practiceFillBlankInputLongCompact
+                                          : token.minLen <= 4
+                                            ? styles.practiceFillBlankInputShort
+                                            : styles.practiceFillBlankInputLong,
                                       ]}
                                     />
                                   )
@@ -7844,6 +7942,7 @@ export default function LessonDetailShellScreen() {
   const pagerDotKeys = isPracticeTab
     ? normalizedPracticeExercises.map((exercise) => exercise.id)
     : activePagerGroups.map((group) => group.key);
+  const shouldStackPagerDots = pagerDotKeys.length > 10;
 
   return (
     <View style={styles.screen}>
@@ -8694,47 +8793,67 @@ export default function LessonDetailShellScreen() {
                           </Animated.View>
 
                           {hasMultiplePagerCards ? (
-                            <View style={styles.richPagerControls}>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={pageLanguage === 'th' ? 'การ์ดก่อนหน้า' : 'Previous card'}
-                                accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
-                                disabled={activeInnerCardIndex === 0}
-                                onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
-                                style={[
-                                  styles.richPagerArrowButton,
-                                  activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
-                                ]}>
-                                <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                  ←
-                                </AppText>
-                              </Pressable>
-
-                              <View style={styles.richPagerDots}>
-                                {pagerDotKeys.map((dotKey, index) => (
-                                  <View
-                                    key={dotKey}
-                                    style={[
-                                      styles.richPagerDot,
-                                      index === activeInnerCardIndex ? styles.richPagerDotActive : null,
-                                    ]}
-                                  />
-                                ))}
-                              </View>
-
-                              {isLastPagerCard ? (
-                                <View style={styles.richPagerArrowSpacer} />
-                              ) : (
+                            <View style={[styles.richPagerControls, shouldStackPagerDots ? styles.richPagerControlsStacked : null]}>
+                              <View style={styles.richPagerArrowRow}>
                                 <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={pageLanguage === 'th' ? 'การ์ดก่อนหน้า' : 'Previous card'}
+                                  accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
+                                  disabled={activeInnerCardIndex === 0}
+                                  onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
+                                  style={[
+                                    styles.richPagerArrowButton,
+                                    activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
+                                  ]}>
+                                  <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+                                    ←
+                                  </AppText>
+                                </Pressable>
+
+                                {!shouldStackPagerDots ? (
+                                  <View style={styles.richPagerDots}>
+                                    {pagerDotKeys.map((dotKey, index) => (
+                                      <View
+                                        key={dotKey}
+                                        style={[
+                                          styles.richPagerDot,
+                                          index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                                        ]}
+                                      />
+                                    ))}
+                                  </View>
+                                ) : (
+                                  <View style={styles.richPagerArrowSpacer} />
+                                )}
+
+                                {isLastPagerCard ? (
+                                  <View style={styles.richPagerArrowSpacer} />
+                                ) : (
+                                  <Pressable
                                   accessibilityRole="button"
                                   accessibilityLabel={pageLanguage === 'th' ? 'การ์ดถัดไป' : 'Next card'}
                                   onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
                                   style={styles.richPagerArrowButton}>
-                                  <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                    →
-                                  </AppText>
-                                </Pressable>
-                              )}
+                                    <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+                                      →
+                                    </AppText>
+                                  </Pressable>
+                                )}
+                              </View>
+
+                              {shouldStackPagerDots ? (
+                                <View style={[styles.richPagerDots, styles.richPagerDotsStacked]}>
+                                  {pagerDotKeys.map((dotKey, index) => (
+                                    <View
+                                      key={dotKey}
+                                      style={[
+                                        styles.richPagerDot,
+                                        index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                                      ]}
+                                    />
+                                  ))}
+                                </View>
+                              ) : null}
                             </View>
                           ) : null}
                         </View>
@@ -9088,6 +9207,7 @@ const styles = StyleSheet.create({
     left: 18,
     right: 18,
     bottom: 320,
+    transform: [{ translateY: -12 }],
   },
   coverFallbackArt: {
     ...StyleSheet.absoluteFillObject,
@@ -9459,9 +9579,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
+  richPagerControlsStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: theme.spacing.sm,
+  },
   richPagerControlsBottom: {
     marginTop: 'auto',
     paddingBottom: theme.spacing.sm,
+  },
+  richPagerArrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
   },
   richPagerArrowButton: {
     width: 48,
@@ -9492,6 +9623,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     flex: 1,
+  },
+  richPagerDotsStacked: {
+    flex: 0,
+    flexWrap: 'wrap',
+    rowGap: 8,
+    paddingHorizontal: theme.spacing.sm,
   },
   richPagerDot: {
     width: 9,
@@ -10462,6 +10599,7 @@ const styles = StyleSheet.create({
   },
   practiceFillBlankContentWrap: {
     gap: theme.spacing.md,
+    paddingRight: theme.spacing.sm + 4,
   },
   practiceFillBlankExampleContentWrap: {
     width: '100%',
@@ -10638,11 +10776,25 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     textAlignVertical: 'center',
   },
+  practiceFillBlankInputCompact: {
+    height: 26,
+    minHeight: 26,
+    borderRadius: 10,
+    paddingHorizontal: theme.spacing.xs,
+    fontSize: theme.typography.sizes.sm,
+    lineHeight: 18,
+  },
   practiceFillBlankInputShort: {
     minWidth: 150,
   },
   practiceFillBlankInputLong: {
     minWidth: 140,
+  },
+  practiceFillBlankInputShortCompact: {
+    minWidth: 96,
+  },
+  practiceFillBlankInputLongCompact: {
+    minWidth: 112,
   },
   practiceExampleAnswer: {
     color: theme.colors.mutedText,
