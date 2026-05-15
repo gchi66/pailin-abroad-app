@@ -13,9 +13,9 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
-type StageName = 'Beginner' | 'Intermediate' | 'Advanced';
+type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
-const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced'];
+const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
   const preferredText = preferred?.trim();
@@ -33,7 +33,8 @@ const getStageTitle = (stage: StageName, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
     if (stage === 'Beginner') return 'ระดับเริ่มต้น';
     if (stage === 'Intermediate') return 'ระดับกลาง';
-    return 'ระดับสูง';
+    if (stage === 'Advanced') return 'ระดับสูง';
+    return 'ระดับเชี่ยวชาญ';
   }
   return stage.toUpperCase();
 };
@@ -205,25 +206,6 @@ export function FreeLessonLibraryScreen() {
                 );
               })}
 
-              <View style={styles.stageSection}>
-                <View style={styles.stageDivider}>
-                  <View style={styles.stageDividerLine} />
-                  <View style={styles.stageHeaderChip}>
-                    <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
-                      {uiLanguage === 'th' ? 'ระดับเชี่ยวชาญ' : 'EXPERT'}
-                    </AppText>
-                  </View>
-                </View>
-                <Card padding="xs" radius="lg" style={[styles.stageCard, styles.comingSoonStage]}>
-                  <View style={styles.comingSoonBody}>
-                    <View style={styles.comingSoonBadge}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.comingSoonBadgeText}>
-                        {uiLanguage === 'th' ? 'เร็วๆ นี้' : 'Coming Soon'}
-                      </AppText>
-                    </View>
-                  </View>
-                </Card>
-              </View>
             </Stack>
           </View>
         ) : null}
@@ -298,9 +280,6 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 3,
   },
-  comingSoonStage: {
-    opacity: 0.8,
-  },
   stageTitle: {
     fontWeight: theme.typography.weights.semibold,
     letterSpacing: 0.8,
@@ -354,23 +333,5 @@ const styles = StyleSheet.create({
   checkIcon: {
     width: 22,
     height: 22,
-  },
-  comingSoonBody: {
-    minHeight: 72,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  comingSoonBadge: {
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    backgroundColor: theme.colors.warningSurface,
-  },
-  comingSoonBadgeText: {
-    fontWeight: theme.typography.weights.semibold,
   },
 });

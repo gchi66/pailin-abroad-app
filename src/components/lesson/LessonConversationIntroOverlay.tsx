@@ -4,7 +4,6 @@ import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/src/components/ui/AppText';
-import { Card } from '@/src/components/ui/Card';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
@@ -67,8 +66,21 @@ export function LessonConversationIntroOverlay({
   const insets = useSafeAreaInsets();
   const [trackWidth, setTrackWidth] = useState(0);
   const [showRates, setShowRates] = useState(false);
+  const [isBodyExpanded, setIsBodyExpanded] = useState(false);
+  const [bodyCanExpand, setBodyCanExpand] = useState(false);
   const isDisabled = !audioUrl || isLoading;
   const shouldUseCompactTitle = title.trim().length > 30;
+  const splitTitle = useMemo(() => {
+    const match = title.trim().match(/^(.*?)(\s*\([^()]+\))$/);
+    if (!match?.[1]?.trim() || !match[2]?.trim()) {
+      return null;
+    }
+
+    return {
+      main: match[1].trim(),
+      suffix: match[2].trim(),
+    };
+  }, [title]);
   const progressRatio = useMemo(() => {
     if (!durationMillis || durationMillis <= 0) {
       return 0;
@@ -104,23 +116,64 @@ export function LessonConversationIntroOverlay({
         </Pressable>
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, isBodyExpanded ? styles.contentExpanded : null]}>
         <View style={styles.copyBlock}>
           <AppText language={language} variant="caption" style={styles.eyebrow}>
             {eyebrow}
           </AppText>
-          <AppText
-            language={language}
-            variant="title"
-            style={[styles.title, shouldUseCompactTitle ? styles.titleCompact : null]}>
-            {title}
-          </AppText>
-          <AppText language={language} variant="muted" style={styles.body}>
-            {body}
-          </AppText>
+          <View style={styles.titleBlock}>
+            <AppText
+              language={language}
+              variant="title"
+              style={[styles.title, shouldUseCompactTitle ? styles.titleCompact : null]}>
+              {splitTitle ? splitTitle.main : title}
+            </AppText>
+            {splitTitle ? (
+              <AppText
+                language={language}
+                variant="title"
+                style={[styles.title, styles.titleSuffix, shouldUseCompactTitle ? styles.titleSuffixCompact : null]}>
+                {splitTitle.suffix}
+              </AppText>
+            ) : null}
+          </View>
+          <View style={styles.bodyWrap}>
+            <AppText
+              language={language}
+              variant="muted"
+              numberOfLines={isBodyExpanded ? undefined : 4}
+              style={styles.body}>
+              {body}
+            </AppText>
+            <AppText
+              language={language}
+              variant="muted"
+              onTextLayout={(event) => {
+                setBodyCanExpand((event.nativeEvent.lines?.length ?? 0) > 4);
+              }}
+              style={[styles.body, styles.bodyMeasure]}>
+              {body}
+            </AppText>
+            {bodyCanExpand ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isBodyExpanded ? 'Collapse backstory' : 'See more backstory'}
+                onPress={() => setIsBodyExpanded((previous) => !previous)}
+                style={styles.bodyToggle}>
+                <AppText language={language} variant="caption" style={styles.bodyToggleText}>
+                  {isBodyExpanded ? (language === 'th' ? 'ซ่อน' : 'See less') : (language === 'th' ? 'ดูเพิ่ม' : 'See more')}
+                </AppText>
+                <MaterialIcons
+                  name={isBodyExpanded ? 'expand-less' : 'expand-more'}
+                  size={18}
+                  color={theme.colors.mutedText}
+                />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
-        <View style={styles.controlsBlock}>
+        <View style={[styles.controlsBlock, isBodyExpanded ? styles.controlsBlockExpanded : null]}>
           <View style={styles.controlsRow}>
             <Pressable
               accessibilityRole="button"
@@ -226,11 +279,6 @@ export function LessonConversationIntroOverlay({
           </View>
         </View>
 
-        <Card padding="md" radius="lg" style={styles.hintCard}>
-          <AppText language={language} variant="body" style={styles.hintText}>
-            {hint}
-          </AppText>
-        </Card>
       </View>
     </View>
   );
@@ -274,8 +322,17 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xl,
     paddingBottom: theme.spacing.xl,
   },
+  contentExpanded: {
+    justifyContent: 'flex-start',
+    paddingTop: theme.spacing.xl,
+  },
   copyBlock: {
     gap: theme.spacing.md,
+    alignItems: 'center',
+  },
+  titleBlock: {
+    width: '100%',
+    paddingHorizontal: theme.spacing.sm,
     alignItems: 'center',
   },
   eyebrow: {
@@ -292,10 +349,20 @@ const styles = StyleSheet.create({
     fontSize: 38,
     lineHeight: 42,
     fontWeight: theme.typography.weights.bold,
+    width: '100%',
   },
   titleCompact: {
     fontSize: 32,
     lineHeight: 36,
+  },
+  titleSuffix: {
+    marginTop: theme.spacing.md,
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  titleSuffixCompact: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   body: {
     maxWidth: 320,
@@ -304,8 +371,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
+  bodyWrap: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  bodyMeasure: {
+    position: 'absolute',
+    opacity: 0,
+    zIndex: -1,
+  },
+  bodyToggle: {
+    marginTop: theme.spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 2,
+  },
+  bodyToggleText: {
+    color: theme.colors.mutedText,
+    fontWeight: theme.typography.weights.semibold,
+  },
   controlsBlock: {
     gap: theme.spacing.md,
+  },
+  controlsBlockExpanded: {
+    marginTop: 'auto',
   },
   controlsRow: {
     flexDirection: 'row',
@@ -422,16 +512,6 @@ const styles = StyleSheet.create({
   },
   rateOptionText: {
     color: theme.colors.text,
-    fontWeight: theme.typography.weights.medium,
-  },
-  hintCard: {
-    backgroundColor: '#F3F8FD',
-  },
-  hintText: {
-    color: theme.colors.text,
-    textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 20,
     fontWeight: theme.typography.weights.medium,
   },
   disabledControl: {

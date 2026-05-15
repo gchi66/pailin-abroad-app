@@ -91,8 +91,6 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
     fontWeight: theme.typography.weights.semibold,
   },
   title: {

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import lockImage from '@/assets/images/lock.webp';
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/exercise-bank';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
@@ -32,8 +33,6 @@ type Copy = {
   noAccountTitle: string;
   noAccountBody: string;
   membershipCta: string;
-  lockedLabel: string;
-  openLabel: string;
   loadingFallback: string;
   emptyTitle: string;
   emptyBody: string;
@@ -56,8 +55,6 @@ const getCopy = (language: UiLanguage): Copy => {
       noAccountTitle: 'ดูเหมือนว่าคุณยังไม่มีบัญชีผู้ใช้',
       noAccountBody: 'สมัครสมาชิกฟรีเพื่อเข้าถึงสื่อการเรียนแนะนำของเรา',
       membershipCta: 'สมัครสมาชิก',
-      lockedLabel: 'สมาชิก',
-      openLabel: 'ดูหัวข้อนี้ →',
       loadingFallback: 'ไม่สามารถโหลดคลังแบบฝึกหัดได้',
       emptyTitle: 'ไม่พบแบบฝึกหัดที่ตรงกัน',
       emptyBody: 'ลองเปลี่ยนคำค้นหาหรือหมวดหมู่แล้วค้นหาอีกครั้ง',
@@ -75,12 +72,10 @@ const getCopy = (language: UiLanguage): Copy => {
     exercisesSuffixSingle: 'exercise',
     exercisesSuffixPlural: 'exercises',
     freeTitle: 'Free plan',
-    freeBody: 'Featured sections stay open. Upgrade for the full bank.',
+    freeBody: 'You can access all of our featured exercises. Upgrade to access the full bank.',
     noAccountTitle: 'Unlock the exercise bank',
     noAccountBody: 'Create an account, then upgrade for full access.',
     membershipCta: 'Upgrade',
-    lockedLabel: 'Members',
-    openLabel: 'Open',
     loadingFallback: 'Failed to load the exercise bank.',
     emptyTitle: 'No exercise sections found',
     emptyBody: 'Try changing your search or active category.',
@@ -138,17 +133,6 @@ export function ExerciseBankScreen() {
     };
   }, [copy.loadingFallback]);
 
-  useEffect(() => {
-    if (selectedCategory !== 'all') {
-      return;
-    }
-
-    const firstCategory = categories[0]?.category_slug?.trim();
-    if (firstCategory && filterMode === 'categories') {
-      setSelectedCategory(firstCategory);
-    }
-  }, [categories, filterMode, selectedCategory]);
-
   const visibleCategoryOptions = useMemo(() => {
     const normalized = categories
       .filter((category) => typeof category.category_slug === 'string' && category.category_slug.trim())
@@ -177,11 +161,43 @@ export function ExerciseBankScreen() {
     });
   }, [featured, filterMode, normalizedSearch, sections, selectedCategory]);
 
+  const featuredSectionKeys = useMemo(() => {
+    return new Set(
+      featured
+        .map((section) => {
+          const categorySlug = section.category_slug?.trim();
+          const sectionSlug = section.section_slug?.trim();
+          return categorySlug && sectionSlug ? `${categorySlug}:${sectionSlug}` : null;
+        })
+        .filter((value): value is string => Boolean(value))
+    );
+  }, [featured]);
+
+  const canAccessSection = (section: ExerciseBankSectionSummary) => {
+    if (hasMembership) {
+      return true;
+    }
+
+    if (!hasAccount) {
+      return false;
+    }
+
+    const categorySlug = section.category_slug?.trim();
+    const sectionSlug = section.section_slug?.trim();
+    if (!categorySlug || !sectionSlug) {
+      return false;
+    }
+
+    return featuredSectionKeys.has(`${categorySlug}:${sectionSlug}`);
+  };
+
   const handleSectionPress = (section: ExerciseBankSectionSummary) => {
-    const isLocked = !hasMembership && (filterMode !== 'featured' || !hasAccount);
-    if (isLocked) {
+    if (!canAccessSection(section)) {
       prefetchPricing();
-      router.push('/(tabs)/account/membership');
+      router.push({
+        pathname: '/(tabs)/account/membership',
+        params: { returnTo: '/(tabs)/resources/exercise-bank' },
+      });
       return;
     }
 
@@ -201,7 +217,12 @@ export function ExerciseBankScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} />
+        <StandardPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          onBackPress={() => router.push('/(tabs)/resources')}
+          backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
+        />
 
         <View style={styles.contentWrap}>
           <Stack gap="md">
@@ -221,7 +242,10 @@ export function ExerciseBankScreen() {
                     style={styles.noticeButton}
                     onPress={() => {
                       prefetchPricing();
-                      router.push('/(tabs)/account/membership');
+                      router.push({
+                        pathname: '/(tabs)/account/membership',
+                        params: { returnTo: '/(tabs)/resources/exercise-bank' },
+                      });
                     }}>
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.membershipCta}
@@ -319,7 +343,7 @@ export function ExerciseBankScreen() {
             {!errorMessage ? (
               <Stack gap="md">
                 {visibleSections.map((section) => {
-                  const isLocked = !hasMembership && (filterMode !== 'featured' || !hasAccount);
+                  const isLocked = !canAccessSection(section);
                   const exerciseCount = Number(section.exercise_count ?? 0);
                   return (
                     <Pressable
@@ -356,11 +380,9 @@ export function ExerciseBankScreen() {
                               ) : null}
                             </View>
 
-                            <View style={styles.sectionStatusPill}>
-                              <AppText language={uiLanguage} variant="caption" style={styles.sectionStatusText}>
-                                {isLocked ? copy.lockedLabel : copy.openLabel}
-                              </AppText>
-                            </View>
+                            {isLocked ? (
+                              <Image source={lockImage} style={styles.sectionLockIcon} resizeMode="contain" />
+                            ) : null}
                           </View>
 
                           <AppText language={uiLanguage} variant="muted" style={styles.sectionCount}>
@@ -481,14 +503,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     alignSelf: 'center',
-    height: 22,
+    height: 24,
     paddingLeft: 0,
     paddingRight: theme.spacing.sm,
     paddingVertical: 0,
-    marginTop: 1,
+    marginTop: 0,
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.sizes.md,
+    lineHeight: 20,
+    textAlignVertical: 'center',
   },
   searchInputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,
@@ -563,6 +586,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   sectionChip: {
     borderWidth: 1,
@@ -579,15 +603,13 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   sectionStatusPill: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    minWidth: 24,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
   },
-  sectionStatusText: {
-    color: theme.colors.text,
+  sectionLockIcon: {
+    width: 18,
+    height: 18,
   },
   sectionThaiTitle: {
     color: theme.colors.mutedText,

@@ -436,9 +436,14 @@ export function MyPathwayScreen() {
             {resumeRow ? (
               <Stack gap="md">
                 <View style={styles.resumeMeta}>
-                  <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
-                    {getLessonNumber(resumeRow.lesson)}
-                  </AppText>
+                  <View style={styles.resumeNumberGroup}>
+                    <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
+                      {getLessonNumber(resumeRow.lesson)}
+                    </AppText>
+                    {!hasMembership && resumeRow.state === 'locked' ? (
+                      <Image source={lockImage} style={styles.resumeLockIcon} resizeMode="contain" />
+                    ) : null}
+                  </View>
 
                   <View style={styles.resumeTextGroup}>
                     <AppText language={uiLanguage} variant="body" style={styles.resumeTitle}>
@@ -536,7 +541,7 @@ export function MyPathwayScreen() {
             <Pressable
               accessibilityRole="button"
               style={styles.libraryButton}
-              onPress={() => router.push('/(tabs)/lessons')}>
+              onPress={() => router.push(hasMembership ? '/(tabs)/lessons/library' : '/(tabs)/lessons/free-library')}>
               <AppText language={uiLanguage} variant="caption" style={styles.libraryButtonText}>
                 {hasMembership ? copy.browseLibrary : copy.browseFreeLibrary}
               </AppText>
@@ -806,11 +811,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: theme.spacing.md,
   },
-  resumeNumber: {
+  resumeNumberGroup: {
     minWidth: 54,
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  resumeNumber: {
     fontSize: 32,
     lineHeight: 38,
     fontWeight: theme.typography.weights.bold,
+  },
+  resumeLockIcon: {
+    width: 40,
+    height: 40,
   },
   resumeTextGroup: {
     flex: 1,

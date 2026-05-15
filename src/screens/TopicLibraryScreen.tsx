@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import lockImage from '@/assets/images/lock.webp';
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
@@ -31,7 +32,6 @@ type TopicLibraryCopy = {
   freeTitle: string;
   freeDesc: string;
   freeCta: string;
-  lockedLabel: string;
   lockedBody: string;
   openTopicPlaceholder: string;
 };
@@ -71,9 +71,8 @@ const getCopy = (uiLanguage: UiLanguage): TopicLibraryCopy => {
       loadingErrorFallback: 'เราไม่สามารถโหลดคลังหัวข้อได้ กรุณาลองอีกครั้ง',
       untitledTopic: 'ไม่มีชื่อหัวข้อ',
       freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
-      freeDesc: 'คุณสามารถเข้าถึงสื่อการเรียนที่แนะนำของเราได้ ปลดล็อกแหล่งการเรียนรู้ของเราทั้งหมดได้เมื่อสมัครสมาชิก!',
+      freeDesc: 'คุณสามารถเข้าถึงหัวข้อแนะนำทั้งหมดของเราได้ อัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
       freeCta: 'สมัครสมาชิก',
-      lockedLabel: 'สมาชิก',
       lockedBody: 'อัปเกรดเพื่อปลดล็อกหัวข้อนี้',
       openTopicPlaceholder: 'หน้ารายละเอียดหัวข้อจะเชื่อมในขั้นตอนถัดไป',
     };
@@ -91,9 +90,8 @@ const getCopy = (uiLanguage: UiLanguage): TopicLibraryCopy => {
     loadingErrorFallback: 'Failed to load topics.',
     untitledTopic: 'Untitled topic',
     freeTitle: 'Free plan',
-    freeDesc: 'Featured topics stay open. Upgrade for the full library.',
+    freeDesc: 'You can access all of our featured topics. Upgrade to access the full library.',
     freeCta: 'Upgrade',
-    lockedLabel: 'Members',
     lockedBody: 'Upgrade to unlock this topic',
     openTopicPlaceholder: 'Topic detail will be connected in the next step.',
   };
@@ -190,7 +188,10 @@ export function TopicLibraryScreen() {
     const isLocked = !hasMembership && !topic.is_featured;
     if (isLocked) {
       prefetchPricing();
-      router.push('/(tabs)/account/membership');
+      router.push({
+        pathname: '/(tabs)/account/membership',
+        params: { returnTo: '/(tabs)/resources/topic-library' },
+      });
       return;
     }
 
@@ -205,7 +206,12 @@ export function TopicLibraryScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} />
+        <StandardPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          onBackPress={() => router.push('/(tabs)/resources')}
+          backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
+        />
 
         <View style={styles.contentWrap}>
           <Stack gap="md">
@@ -225,7 +231,10 @@ export function TopicLibraryScreen() {
                     style={styles.noticeButton}
                     onPress={() => {
                       prefetchPricing();
-                      router.push('/(tabs)/account/membership');
+                      router.push({
+                        pathname: '/(tabs)/account/membership',
+                        params: { returnTo: '/(tabs)/resources/topic-library' },
+                      });
                     }}>
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.freeCta}
@@ -335,9 +344,7 @@ export function TopicLibraryScreen() {
                             <View style={styles.topicAside}>
                               {isLocked ? (
                                 <View style={styles.lockBadge}>
-                                  <AppText language={uiLanguage} variant="caption" style={styles.lockBadgeText}>
-                                    {copy.lockedLabel}
-                                  </AppText>
+                                  <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" />
                                 </View>
                               ) : null}
                               <AppText language="en" variant="body" style={styles.topicArrow}>
@@ -476,14 +483,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     alignSelf: 'center',
-    height: 22,
+    height: 24,
     paddingLeft: 0,
     paddingRight: theme.spacing.sm,
     paddingVertical: 0,
-    marginTop: 1,
+    marginTop: 0,
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.sizes.md,
+    lineHeight: 20,
+    textAlignVertical: 'center',
   },
   searchInputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,
@@ -565,15 +573,13 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   lockBadge: {
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#FFF4E8',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
+    minWidth: 24,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
   },
-  lockBadgeText: {
-    fontWeight: theme.typography.weights.semibold,
+  lockIcon: {
+    width: 18,
+    height: 18,
   },
   topicArrow: {
     fontSize: 24,

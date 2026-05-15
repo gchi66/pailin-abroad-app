@@ -128,20 +128,48 @@ export async function writeAppLessonProgress(input: WriteAppLessonProgressInput)
     throw new Error(unitError.message);
   }
 
-  const { error: progressError } = await supabase.from('user_lesson_progress').upsert(
-    {
-      user_id: user.id,
-      lesson_id: input.lessonId,
-      started_at: now,
-      last_unit_type: input.unitType,
-      last_unit_key: input.unitKey,
-    },
-    {
-      onConflict: 'user_id,lesson_id',
-    }
-  );
+  const { data: existingProgress, error: existingProgressError } = await supabase
+    .from('user_lesson_progress')
+    .select('user_id, lesson_id, started_at, is_completed, completed_at')
+    .eq('user_id', user.id)
+    .eq('lesson_id', input.lessonId)
+    .maybeSingle();
 
-  if (progressError) {
-    throw new Error(progressError.message);
+  if (existingProgressError) {
+    throw new Error(existingProgressError.message);
+  }
+
+  if (existingProgress) {
+    const { error: progressUpdateError } = await supabase
+      .from('user_lesson_progress')
+      .update({
+        started_at: existingProgress.started_at ?? now,
+        last_unit_type: input.unitType,
+        last_unit_key: input.unitKey,
+        is_completed: existingProgress.is_completed ?? false,
+        completed_at: existingProgress.completed_at ?? null,
+      })
+      .eq('user_id', user.id)
+      .eq('lesson_id', input.lessonId);
+
+    if (progressUpdateError) {
+      throw new Error(progressUpdateError.message);
+    }
+
+    return;
+  }
+
+  const { error: progressInsertError } = await supabase.from('user_lesson_progress').insert({
+    user_id: user.id,
+    lesson_id: input.lessonId,
+    started_at: now,
+    last_unit_type: input.unitType,
+    last_unit_key: input.unitKey,
+    is_completed: false,
+    completed_at: null,
+  });
+
+  if (progressInsertError) {
+    throw new Error(progressInsertError.message);
   }
 }

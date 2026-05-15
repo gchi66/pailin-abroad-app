@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, LayoutChangeEvent, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
@@ -59,6 +59,7 @@ export function LessonAudioTray({
   const [showRates, setShowRates] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
+  const dragTranslateY = useRef(new Animated.Value(0)).current;
 
   const progressRatio = useMemo(() => {
     if (!durationMillis || durationMillis <= 0) {
@@ -101,7 +102,8 @@ export function LessonAudioTray({
 
     setIsCollapsed(true);
     setShowRates(false);
-  }, [autoCollapseSignal]);
+    dragTranslateY.setValue(0);
+  }, [autoCollapseSignal, dragTranslateY]);
 
   useEffect(() => {
     if (!autoExpandSignal) {
@@ -110,7 +112,8 @@ export function LessonAudioTray({
 
     setIsCollapsed(false);
     setShowRates(false);
-  }, [autoExpandSignal]);
+    dragTranslateY.setValue(0);
+  }, [autoExpandSignal, dragTranslateY]);
 
   const handleTrackLayout = (event: LayoutChangeEvent) => {
     setTrackWidth(event.nativeEvent.layout.width);
@@ -125,73 +128,134 @@ export function LessonAudioTray({
     onSeek(ratio);
   };
 
-  const handleToggleCollapsed = () => {
-    setIsCollapsed((previous) => {
-      const next = !previous;
-      if (next) {
-        setShowRates(false);
-      }
-      return next;
-    });
+  const animateDragReset = () => {
+    Animated.spring(dragTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
+    }).start();
   };
+
+  const setCollapsedState = (next: boolean) => {
+    setIsCollapsed(next);
+    if (next) {
+      setShowRates(false);
+    }
+    animateDragReset();
+  };
+
+  const handleToggleCollapsed = () => {
+    setCollapsedState(!isCollapsed);
+  };
+
+  const trayPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dy) > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+          Math.abs(gestureState.dy) > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onPanResponderGrant: () => {
+          setShowRates(false);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const maxDrag = 72;
+          const constrainedDrag = isCollapsed
+            ? Math.max(-maxDrag, Math.min(0, gestureState.dy))
+            : Math.max(0, Math.min(maxDrag, gestureState.dy));
+
+          dragTranslateY.setValue(constrainedDrag);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (!isCollapsed && gestureState.dy > 36) {
+            setCollapsedState(true);
+            return;
+          }
+
+          if (isCollapsed && gestureState.dy < -36) {
+            setCollapsedState(false);
+            return;
+          }
+
+          animateDragReset();
+        },
+        onPanResponderTerminate: () => {
+          animateDragReset();
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [dragTranslateY, isCollapsed]
+  );
 
   const playButtonLabel = isPlaying ? 'Pause audio' : 'Play audio';
   const collapseLabel = isCollapsed ? 'Expand audio controls' : 'Collapse audio controls';
 
   return (
-    <View style={styles.shell}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={collapseLabel}
-        onPress={handleToggleCollapsed}
+    <Animated.View style={[styles.shell, { transform: [{ translateY: dragTranslateY }] }]}>
+      <View
+        {...trayPanResponder.panHandlers}
         style={styles.handleHitArea}>
-        <View style={styles.handle} />
-      </Pressable>
-
-      {isCollapsed ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Expand audio controls"
-          onPress={() => setIsCollapsed(false)}
-          style={styles.collapsedRow}>
-          <Animated.View style={[styles.liveDot, { opacity: pulse }]} />
-
-          <AppText language={language} variant="body" style={styles.collapsedTitle} numberOfLines={1}>
-            {title}
-          </AppText>
-
-          <View style={styles.collapsedActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={playButtonLabel}
-              disabled={isDisabled}
-              onPress={onTogglePlay}
-              style={[styles.collapsedPlayButton, isDisabled ? styles.disabledControl : null]}>
-              <View style={styles.playButtonInner}>
-                {isPlaying ? (
-                  <View style={styles.pauseGlyph}>
-                    <View style={styles.pauseBar} />
-                    <View style={styles.pauseBar} />
-                  </View>
-                ) : (
-                  <View style={styles.playGlyph} />
-                )}
-              </View>
-            </Pressable>
-          </View>
+          accessibilityLabel={collapseLabel}
+          onPress={handleToggleCollapsed}
+          style={styles.handlePressable}>
+          <View style={styles.handle} />
         </Pressable>
+      </View>
+
+      {isCollapsed ? (
+        <View
+          {...trayPanResponder.panHandlers}
+          style={styles.collapsedRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Expand audio controls"
+            onPress={() => setCollapsedState(false)}
+            style={styles.collapsedRowPressable}>
+            <Animated.View style={[styles.liveDot, { opacity: pulse }]} />
+
+            <AppText language={language} variant="body" style={styles.collapsedTitle} numberOfLines={1}>
+              {title}
+            </AppText>
+
+            <View style={styles.collapsedActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={playButtonLabel}
+                disabled={isDisabled}
+                onPress={onTogglePlay}
+                style={[styles.collapsedPlayButton, isDisabled ? styles.disabledControl : null]}>
+                <View style={styles.playButtonInner}>
+                  {isPlaying ? (
+                    <View style={styles.pauseGlyph}>
+                      <View style={styles.pauseBar} />
+                      <View style={styles.pauseBar} />
+                    </View>
+                  ) : (
+                    <View style={styles.playGlyph} />
+                  )}
+                </View>
+              </Pressable>
+            </View>
+          </Pressable>
+        </View>
       ) : (
         <View style={styles.expandedWrap}>
-          <View style={styles.expandedTopRow}>
-            <View style={styles.copyBlock}>
-              <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
-                {title}
-              </AppText>
-              {subtitle ? (
-                <AppText language={language} variant="muted" style={styles.trackSubtitle} numberOfLines={1}>
-                  {subtitle}
+          <View {...trayPanResponder.panHandlers}>
+            <View style={styles.expandedTopRow}>
+              <View style={styles.copyBlock}>
+                <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
+                  {title}
                 </AppText>
-              ) : null}
+                {subtitle ? (
+                  <AppText language={language} variant="muted" style={styles.trackSubtitle} numberOfLines={1}>
+                    {subtitle}
+                  </AppText>
+                ) : null}
+              </View>
             </View>
           </View>
 
@@ -300,7 +364,7 @@ export function LessonAudioTray({
           </View>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -317,6 +381,12 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingBottom: 8,
     minHeight: 22,
+  },
+  handlePressable: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 22,
+    alignSelf: 'stretch',
   },
   handle: {
     width: 42,
@@ -349,6 +419,9 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   collapsedRow: {
+    width: '100%',
+  },
+  collapsedRowPressable: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

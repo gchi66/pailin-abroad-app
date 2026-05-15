@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { membershipImages } from '@/src/assets/app-images';
@@ -79,6 +80,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       planWarning: 'กรุณาเลือกแผนการชำระเงิน',
       joinPlaceholder: 'ยังไม่เชื่อมการชำระเงินจริงในแอป',
       loadingTitle: 'กำลังโหลดข้อมูลสมาชิก',
+      backLabel: 'ย้อนกลับ',
       loadingErrorTitle: 'เกิดข้อผิดพลาด',
       loadingErrorBody: 'เราไม่สามารถโหลดราคาสมาชิกได้ กรุณาลองใหม่อีกครั้ง',
       guaranteeStrong: 'รับประกันคืนเงิน 100%',
@@ -140,6 +142,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     planWarning: 'Please select a payment plan',
     joinPlaceholder: 'Real app payment flow is not connected yet.',
     loadingTitle: 'Loading membership',
+    backLabel: 'Back',
     loadingErrorTitle: 'Something went wrong',
     loadingErrorBody: "We couldn't load membership pricing. Please try again.",
     guaranteeStrong: '100% money-back guarantee',
@@ -387,6 +390,8 @@ function MembershipPlanCard({
 }
 
 export function MembershipScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
   const { uiLanguage } = useUiLanguage();
   const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
@@ -509,6 +514,18 @@ export function MembershipScreen() {
       ? selectedPlan.duration
       : `${selectedPlan.duration} • ${selectedPlan.price}/${selectedPlan.period}`
     : '';
+  const canGoBack = typeof router.canGoBack === 'function' ? router.canGoBack() : false;
+  const returnTo = typeof params.returnTo === 'string' && params.returnTo.trim() ? params.returnTo.trim() : null;
+  const handleBackPress = () => {
+    if (returnTo) {
+      router.replace(returnTo as never);
+      return;
+    }
+
+    if (canGoBack) {
+      router.back();
+    }
+  };
 
   if (pricingState.loading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -524,6 +541,13 @@ export function MembershipScreen() {
         style={styles.screen}
         contentContainerStyle={[styles.contentContainer, isCompactLayout ? styles.contentContainerWithStickyBar : null]}>
         <Stack gap="md">
+        {canGoBack || returnTo ? (
+          <Pressable accessibilityRole="button" onPress={handleBackPress} style={styles.backLink}>
+            <AppText language={uiLanguage} variant="caption" style={styles.backLinkText}>
+              {`← ${copy.backLabel}`}
+            </AppText>
+          </Pressable>
+        ) : null}
         <View style={styles.headerBlock}>
           <AppText language={uiLanguage} variant="title" style={styles.membershipTitle}>
             <AppText language={uiLanguage} variant="title" style={styles.membershipTitleHighlight}>
@@ -694,6 +718,14 @@ const styles = StyleSheet.create({
   headerBlock: {
     alignItems: 'center',
     paddingTop: theme.spacing.sm,
+  },
+  backLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: theme.spacing.xs,
+  },
+  backLinkText: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
   },
   membershipTitle: {
     textAlign: 'center',

@@ -7390,6 +7390,9 @@ export default function LessonDetailShellScreen() {
                     ? getPracticeOpenAnswer(exercise, item)
                     : practiceOpenAnswers[answerKey] ?? '';
               const showMarkButtons = isSentenceTransformExercise && (item.correctTag === 'yes' || item.correctTag === 'no');
+              const resolvedExampleMarkState =
+                item.correctTag === 'yes' ? true : item.correctTag === 'no' ? false : null;
+              const displayMarkState = item.isExample ? resolvedExampleMarkState : markState;
               const shouldStackPracticeMedia = false;
               const inputCount = isOpenExercise ? getPracticeOpenInputCount(exercise, item) : 1;
               const openAnswerKeys = Array.from({ length: inputCount }, (_, inputIndex) =>
@@ -7454,6 +7457,26 @@ export default function LessonDetailShellScreen() {
                               {abPromptLayout.thaiLine}
                             </AppText>
                           ) : null}
+                          {showMarkButtons ? (
+                            <View style={styles.practiceSentenceToggleRow}>
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled
+                                style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
+                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                                  ✓
+                                </AppText>
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled
+                                style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
+                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                                  X
+                                </AppText>
+                              </Pressable>
+                            </View>
+                          ) : null}
                           <View style={styles.practiceAbAnswerRow}>
                             <AppText
                               language="en"
@@ -7486,6 +7509,26 @@ export default function LessonDetailShellScreen() {
                               style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
                               {item.textJsonbTh.length ? renderRichInlines(item.textJsonbTh, `${answerKey}-example-th`) : item.promptTh || item.textTh}
                             </AppText>
+                          ) : null}
+                          {showMarkButtons ? (
+                            <View style={styles.practiceSentenceToggleRow}>
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled
+                                style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
+                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                                  ✓
+                                </AppText>
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled
+                                style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
+                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                                  X
+                                </AppText>
+                              </Pressable>
+                            </View>
                           ) : null}
 
                           <TextInput
@@ -7540,7 +7583,7 @@ export default function LessonDetailShellScreen() {
                           <Pressable
                             accessibilityRole="button"
                             onPress={() => handlePracticeSentenceCorrectToggle(exercise.id, item.key, true, item.text)}
-                            style={[styles.practiceSentenceToggle, markState === true ? styles.practiceSentenceToggleActive : null]}>
+                            style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
                             <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
                               ✓
                             </AppText>
@@ -7548,7 +7591,7 @@ export default function LessonDetailShellScreen() {
                           <Pressable
                             accessibilityRole="button"
                             onPress={() => handlePracticeSentenceCorrectToggle(exercise.id, item.key, false, item.text)}
-                            style={[styles.practiceSentenceToggle, markState === false ? styles.practiceSentenceToggleActive : null]}>
+                            style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
                             <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
                               X
                             </AppText>
@@ -8508,10 +8551,10 @@ export default function LessonDetailShellScreen() {
                         {prepareItems.length ? (
                           useTwoColumnPrepareLayout ? (
                             <View style={[styles.prepareList, styles.prepareListTwoColumn]}>
-                              <View style={styles.prepareColumn}>
+                              <View style={[styles.prepareColumn, styles.prepareColumnLeft]}>
                                 {prepareItemsLeftColumn.map((item) => renderPrepareItem(item))}
                               </View>
-                              <View style={styles.prepareColumn}>
+                              <View style={[styles.prepareColumn, styles.prepareColumnRight]}>
                                 {prepareItemsRightColumn.map((item) => renderPrepareItem(item))}
                               </View>
                             </View>
@@ -10112,6 +10155,7 @@ const styles = StyleSheet.create({
   },
   prepareList: {
     gap: theme.spacing.sm,
+    marginLeft: -12,
   },
   prepareListTwoColumn: {
     flexDirection: 'row',
@@ -10122,6 +10166,12 @@ const styles = StyleSheet.create({
   prepareColumn: {
     flex: 1,
     gap: theme.spacing.sm,
+  },
+  prepareColumnLeft: {
+    flex: 1.12,
+  },
+  prepareColumnRight: {
+    flex: 0.88,
   },
   prepareItemRow: {
     flexDirection: 'row',
@@ -10783,8 +10833,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   practiceSentenceToggleActive: {
-    backgroundColor: theme.colors.accentMuted,
-    borderColor: theme.colors.accent,
+    backgroundColor: '#91CAFF',
+    borderColor: theme.colors.border,
   },
   practiceSentenceToggleText: {
     color: theme.colors.text,

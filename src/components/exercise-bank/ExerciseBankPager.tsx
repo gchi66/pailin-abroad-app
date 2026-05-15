@@ -628,6 +628,8 @@ export function ExerciseBankPager({
 
   const activeExercise = normalizedExercises[activeIndex] ?? null;
   const isLastExercise = activeIndex >= normalizedExercises.length - 1;
+  const contentToggleLabel = contentLang === 'th' ? 'Switch exercise text to English' : 'Switch exercise text to Thai';
+  const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
 
   useEffect(() => {
     contentScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -891,30 +893,17 @@ export function ExerciseBankPager({
           </AppText>
         </Pressable>
 
-        <View style={styles.languageToggle}>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.languageButton, contentLang === 'th' ? styles.languageButtonActive : null]}
-            onPress={() => onSetContentLang('th')}>
-            <AppText
-              language="th"
-              variant="caption"
-              style={[styles.languageButtonText, contentLang === 'th' ? styles.languageButtonTextActive : null]}>
-              ไทย
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={contentToggleLabel}
+          onPress={() => onSetContentLang(contentLang === 'en' ? 'th' : 'en')}
+          style={styles.translatePill}>
+          <View style={styles.translatePillLabel}>
+            <AppText language="en" variant="caption" style={styles.translatePillText}>
+              {contentToggleText}
             </AppText>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.languageButton, contentLang === 'en' ? styles.languageButtonActive : null]}
-            onPress={() => onSetContentLang('en')}>
-            <AppText
-              language="en"
-              variant="caption"
-              style={[styles.languageButtonText, contentLang === 'en' ? styles.languageButtonTextActive : null]}>
-              EN
-            </AppText>
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       </View>
 
       <View style={styles.headerBlock}>
@@ -923,16 +912,16 @@ export function ExerciseBankPager({
             {sectionTitle}
           </AppText>
 
-          <View style={styles.categoryChip}>
-            <AppText language={language} variant="caption" style={styles.categoryChipText}>
-              {categoryLabel}
-            </AppText>
-          </View>
+          <AppText language={language} variant="muted" style={styles.sectionMeta}>
+            {`${activeIndex + 1} / ${normalizedExercises.length} ${copy.exercisesLabel}`}
+          </AppText>
         </View>
 
-        <AppText language={language} variant="muted" style={styles.sectionMeta}>
-          {`${activeIndex + 1} / ${normalizedExercises.length} ${copy.exercisesLabel}`}
-        </AppText>
+        <View style={styles.categoryChip}>
+          <AppText language={language} variant="caption" style={styles.categoryChipText}>
+            {categoryLabel}
+          </AppText>
+        </View>
       </View>
 
       <View {...(normalizedExercises.length > 1 ? pagerPanResponder.panHandlers : {})} style={styles.pagerBody}>
@@ -1176,13 +1165,25 @@ function renderExerciseBody(params: {
           const answerValue =
             exercise.kind === 'sentence_transform' && markState === true ? item.text : openAnswers[answerKey] ?? '';
           const showMarkButtons = exercise.kind === 'sentence_transform' && (item.correctTag === 'yes' || item.correctTag === 'no');
+          const resolvedExampleMarkState =
+            item.correctTag === 'yes' ? true : item.correctTag === 'no' ? false : null;
+          const displayMarkState = item.isExample ? resolvedExampleMarkState : markState;
 
           return (
             <View key={answerKey} style={item.isExample ? styles.exampleCard : styles.questionBlock}>
+              {item.isExample ? (
+                <View style={styles.exampleHeader}>
+                  <AppText language="en" variant="caption" style={styles.exampleLabel}>
+                    {copy.exampleLabel.toUpperCase()}
+                  </AppText>
+                </View>
+              ) : null}
               <View style={styles.questionHeader}>
-                <AppText language="en" variant="caption" style={styles.questionNumber}>
-                  {item.isExample ? copy.exampleLabel.toUpperCase() : item.numberLabel || `${itemIndex + 1}`}
-                </AppText>
+                {!item.isExample ? (
+                  <AppText language="en" variant="caption" style={styles.questionNumber}>
+                    {item.numberLabel || `${itemIndex + 1}`}
+                  </AppText>
+                ) : null}
                 <View style={styles.questionTextWrap}>
                   {promptPair.english ? (
                     <AppText language="en" variant="body" style={styles.questionText}>
@@ -1193,6 +1194,28 @@ function renderExerciseBody(params: {
                     <AppText language="th" variant="body" style={styles.questionThaiText}>
                       {promptPair.thai}
                     </AppText>
+                  ) : null}
+                  {showMarkButtons ? (
+                    <View style={styles.sentenceToggleRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={item.isExample}
+                        onPress={() => onSentenceCorrectToggle(exercise.id, item.key, true, item.text)}
+                        style={[styles.sentenceToggle, displayMarkState === true ? styles.sentenceToggleActive : null]}>
+                        <AppText language="en" variant="caption" style={styles.sentenceToggleText}>
+                          ✓
+                        </AppText>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={item.isExample}
+                        onPress={() => onSentenceCorrectToggle(exercise.id, item.key, false, item.text)}
+                        style={[styles.sentenceToggle, displayMarkState === false ? styles.sentenceToggleActive : null]}>
+                        <AppText language="en" variant="caption" style={styles.sentenceToggleText}>
+                          X
+                        </AppText>
+                      </Pressable>
+                    </View>
                   ) : null}
                 </View>
               </View>
@@ -1205,27 +1228,6 @@ function renderExerciseBody(params: {
                     accessibilityLabel={contentLang === 'th' ? item.altTextTh || item.altText : item.altText || item.altTextTh}
                     style={styles.image}
                   />
-                </View>
-              ) : null}
-
-              {showMarkButtons ? (
-                <View style={styles.sentenceToggleRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => onSentenceCorrectToggle(exercise.id, item.key, true, item.text)}
-                    style={[styles.sentenceToggle, markState === true ? styles.sentenceToggleActive : null]}>
-                    <AppText language="en" variant="caption" style={styles.sentenceToggleText}>
-                      ✓
-                    </AppText>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => onSentenceCorrectToggle(exercise.id, item.key, false, item.text)}
-                    style={[styles.sentenceToggle, markState === false ? styles.sentenceToggleActive : null]}>
-                    <AppText language="en" variant="caption" style={styles.sentenceToggleText}>
-                      X
-                    </AppText>
-                  </Pressable>
                 </View>
               ) : null}
 
@@ -1247,7 +1249,7 @@ function renderExerciseBody(params: {
                 onChangeText={(value) => onOpenAnswerChange(exercise.id, item.key, value)}
               />
 
-              {item.isExample && item.answer ? (
+              {item.isExample && item.answer && !showMarkButtons ? (
                 <AppText language={language} variant="muted" style={styles.exampleAnswer}>
                   {`${copy.answerLabel}: ${item.answer}`}
                 </AppText>
@@ -1433,30 +1435,32 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semibold,
   },
-  languageToggle: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  languageButton: {
-    minWidth: 56,
-    minHeight: 36,
-    borderRadius: theme.radii.xl,
-    paddingHorizontal: theme.spacing.sm,
+  translatePill: {
+    minWidth: 58,
+    minHeight: 38,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  languageButtonActive: {
-    backgroundColor: '#91CAFF',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  translatePillLabel: {
+    minWidth: 24,
+    minHeight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: 1 }],
   },
-  languageButtonText: {
-    color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  languageButtonTextActive: {
+  translatePillText: {
     color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.semibold,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   headerBlock: {
     marginBottom: theme.spacing.sm,
@@ -1469,6 +1473,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   categoryChip: {
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
@@ -1499,6 +1504,9 @@ const styles = StyleSheet.create({
   },
   exerciseTitle: {
     color: theme.colors.text,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
   },
   exercisePrompt: {
     color: theme.colors.mutedText,
@@ -1519,6 +1527,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accentSurface,
     padding: theme.spacing.md,
     gap: theme.spacing.sm,
+  },
+  exampleHeader: {
+    marginBottom: 2,
+  },
+  exampleLabel: {
+    color: '#3CA0FE',
+    fontWeight: theme.typography.weights.bold,
   },
   questionHeader: {
     flexDirection: 'row',
@@ -1660,8 +1675,8 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   sentenceToggle: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
@@ -1670,11 +1685,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   sentenceToggleActive: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: '#91CAFF',
   },
   sentenceToggleText: {
     color: theme.colors.text,
-    fontSize: 13,
+    fontSize: 12,
   },
   imageShell: {
     width: '100%',
