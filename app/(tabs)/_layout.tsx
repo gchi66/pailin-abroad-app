@@ -98,6 +98,12 @@ export default function TabLayout() {
           title: text.resources,
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="square.grid.2x2.fill" color={color} />,
         }}
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push('/(tabs)/resources');
+          },
+        }}
       />
       <Tabs.Screen
         name="account"

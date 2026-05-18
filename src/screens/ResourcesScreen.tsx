@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
@@ -125,17 +125,28 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
 
 export function ResourcesScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnTo = typeof returnToParam === 'string' && returnToParam.trim() ? returnToParam : null;
   const { uiLanguage } = useUiLanguage();
   const copy = resourcePageCopy[uiLanguage];
 
   const handleCardPress = (card: ResourceCardCopy) => {
     if (card.id === 'exercise-bank') {
-      router.push('/(tabs)/resources/exercise-bank');
+      if (returnTo) {
+        router.push(`/(tabs)/resources/exercise-bank?returnTo=${encodeURIComponent(returnTo)}`);
+      } else {
+        router.push('/(tabs)/resources/exercise-bank');
+      }
       return;
     }
 
     if (card.id === 'topic-library') {
-      router.push('/(tabs)/resources/topic-library');
+      if (returnTo) {
+        router.push(`/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(returnTo)}`);
+      } else {
+        router.push('/(tabs)/resources/topic-library');
+      }
       return;
     }
 
@@ -145,7 +156,13 @@ export function ResourcesScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
+        <StandardPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          subtitle={copy.subtitle}
+          onBackPress={returnTo ? () => router.push(returnTo as never) : undefined}
+          backLabel={returnTo ? (uiLanguage === 'th' ? 'กลับ' : 'Back') : undefined}
+        />
 
         <View style={styles.contentWrap}>
           <Stack gap="md" style={styles.cardsShell}>

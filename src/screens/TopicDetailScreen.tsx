@@ -59,11 +59,14 @@ const getCopy = (uiLanguage: UiLanguage): TopicDetailCopy => {
 
 export function TopicDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ slug?: string | string[] }>();
+  const params = useLocalSearchParams<{ slug?: string | string[]; returnTo?: string | string[] }>();
   const slugParam = Array.isArray(params.slug) ? params.slug[0] : params.slug;
   const slug = typeof slugParam === 'string' ? slugParam : '';
+  const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnTo = typeof returnToParam === 'string' && returnToParam.trim() ? returnToParam : null;
   const { uiLanguage } = useUiLanguage();
   const copy = getCopy(uiLanguage);
+  const backLabel = returnTo ? (uiLanguage === 'th' ? 'กลับ' : 'Back') : copy.backLabel;
   const [contentLang, setContentLang] = useState<ContentLanguage>('en');
   const [topic, setTopic] = useState<TopicDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +74,8 @@ export function TopicDetailScreen() {
   const [isRefetching, setIsRefetching] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const hasLoadedRef = useRef(false);
+  const contentToggleLabel = contentLang === 'th' ? 'Translate to English' : 'Translate to Thai';
+  const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
 
   useEffect(() => {
     let isMounted = true;
@@ -132,36 +137,27 @@ export function TopicDetailScreen() {
         <View style={styles.contentWrap}>
           <Stack gap="md">
             <View style={styles.topRow}>
-              <Pressable accessibilityRole="button" style={styles.backButton} onPress={() => router.back()}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.backButton}
+                onPress={() => router.push((returnTo || '/(tabs)/resources/topic-library') as never)}>
                 <AppText language={uiLanguage} variant="caption" style={styles.backButtonText}>
-                  ← {copy.backLabel}
+                  ← {backLabel}
                 </AppText>
               </Pressable>
 
-              <View style={styles.languageToggle}>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.languageButton, contentLang === 'th' ? styles.languageButtonActive : null]}
-                  onPress={() => setContentLang('th')}>
-                  <AppText
-                    language="th"
-                    variant="caption"
-                    style={[styles.languageButtonText, contentLang === 'th' ? styles.languageButtonTextActive : null]}>
-                    ไทย
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={contentToggleLabel}
+                disabled={isRefetching}
+                onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
+                style={[styles.translatePill, isRefetching ? styles.translatePillDisabled : null]}>
+                <View style={styles.translatePillLabel}>
+                  <AppText language="en" variant="caption" style={styles.translatePillText}>
+                    {contentToggleText}
                   </AppText>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.languageButton, contentLang === 'en' ? styles.languageButtonActive : null]}
-                  onPress={() => setContentLang('en')}>
-                  <AppText
-                    language="en"
-                    variant="caption"
-                    style={[styles.languageButtonText, contentLang === 'en' ? styles.languageButtonTextActive : null]}>
-                    EN
-                  </AppText>
-                </Pressable>
-              </View>
+                </View>
+              </Pressable>
             </View>
 
             {!topic ? (
@@ -180,47 +176,49 @@ export function TopicDetailScreen() {
 
             {topic ? (
               <>
-                <View style={styles.heroSection}>
-                  <Stack gap="sm">
-                    <AppText language={uiLanguage} variant="title" style={styles.heroTitle}>
-                      {topicName}
-                    </AppText>
-
-                    {topic.subtitle ? (
-                      <AppText language={uiLanguage} variant="body" style={styles.heroSubtitle}>
-                        {topic.subtitle}
+                <View style={styles.topicContentBlock}>
+                  <View style={styles.heroSection}>
+                    <Stack gap="sm">
+                      <AppText language={uiLanguage} variant="title" style={styles.heroTitle}>
+                        {topicName}
                       </AppText>
-                    ) : null}
 
-                    {topic.tags.length > 0 ? (
-                      <View style={styles.tagRow}>
-                        {topic.tags.map((tag) => (
-                          <View key={`${topic.id}-${tag}`} style={styles.tagChip}>
-                            <AppText language={uiLanguage} variant="caption" style={styles.tagText}>
-                              {tag}
-                            </AppText>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
+                      {topic.subtitle ? (
+                        <AppText language={uiLanguage} variant="body" style={styles.heroSubtitle}>
+                          {topic.subtitle}
+                        </AppText>
+                      ) : null}
 
-                    {isRefetching ? (
-                      <AppText language={uiLanguage} variant="muted" style={styles.translatingText}>
-                        {copy.translating}
+                      {topic.tags.length > 0 ? (
+                        <View style={styles.tagRow}>
+                          {topic.tags.map((tag) => (
+                            <View key={`${topic.id}-${tag}`} style={styles.tagChip}>
+                              <AppText language={uiLanguage} variant="caption" style={styles.tagText}>
+                                {tag}
+                              </AppText>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+
+                      {isRefetching ? (
+                        <AppText language={uiLanguage} variant="muted" style={styles.translatingText}>
+                          {copy.translating}
+                        </AppText>
+                      ) : null}
+                    </Stack>
+                  </View>
+
+                  {Array.isArray(topic.content_jsonb) && topic.content_jsonb.length > 0 ? (
+                    <TopicRichContent contentLang={contentLang} nodes={topic.content_jsonb} />
+                  ) : (
+                    <Card padding="lg" radius="lg" style={styles.stateCard}>
+                      <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
+                        {copy.emptyBody}
                       </AppText>
-                    ) : null}
-                  </Stack>
+                    </Card>
+                  )}
                 </View>
-
-                {Array.isArray(topic.content_jsonb) && topic.content_jsonb.length > 0 ? (
-                  <TopicRichContent contentLang={contentLang} nodes={topic.content_jsonb} />
-                ) : (
-                  <Card padding="lg" radius="lg" style={styles.stateCard}>
-                    <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                      {copy.emptyBody}
-                    </AppText>
-                  </Card>
-                )}
               </>
             ) : null}
           </Stack>
@@ -281,6 +279,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.lg,
   },
+  topicContentBlock: {
+    gap: 0,
+  },
   heroTitle: {
     fontSize: theme.typography.sizes.lg,
     lineHeight: 36,
@@ -288,30 +289,35 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     color: theme.colors.mutedText,
   },
-  languageToggle: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  languageButton: {
-    minWidth: 56,
-    minHeight: 36,
-    borderRadius: theme.radii.xl,
-    paddingHorizontal: theme.spacing.sm,
+  translatePill: {
+    minWidth: 58,
+    minHeight: 38,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  languageButtonActive: {
-    backgroundColor: '#91CAFF',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  translatePillDisabled: {
+    opacity: 0.7,
   },
-  languageButtonText: {
-    color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.semibold,
+  translatePillLabel: {
+    minWidth: 24,
+    minHeight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: 1 }],
   },
-  languageButtonTextActive: {
+  translatePillText: {
     color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.semibold,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   tagRow: {
     flexDirection: 'row',

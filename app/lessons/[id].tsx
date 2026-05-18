@@ -303,6 +303,29 @@ type PracticeAbPromptLayout = {
   thaiLine: string | null;
 };
 
+type PendingRichLink = {
+  kind: 'lesson' | 'page' | 'external';
+  title: string;
+  subtitle: string;
+  route: string | null;
+  externalUrl: string | null;
+  actionLabel: string;
+  note: string | null;
+  icon: keyof typeof MaterialIcons.glyphMap;
+};
+
+const formatLessonNumber = (lesson: Pick<LessonListItem, 'level' | 'lesson_order'> | null | undefined) => {
+  if (typeof lesson?.level === 'number' && typeof lesson?.lesson_order === 'number') {
+    return `${lesson.level}.${lesson.lesson_order}`;
+  }
+
+  if (typeof lesson?.lesson_order === 'number') {
+    return lesson.lesson_order.toString();
+  }
+
+  return null;
+};
+
 type PracticeFillBlankMeasureToken =
   | { id: string; type: 'text'; text: string; measureText: string; style?: LessonRichInline | null }
   | { id: string; type: 'blank'; blankId: string; minLen: number; measureText: string };
@@ -310,10 +333,51 @@ type PracticeFillBlankMeasureToken =
 const getPracticeInlineTextStyle = (inline: LessonRichInline | null | undefined, compact = false) => [
   styles.practiceInlineText,
   compact ? styles.practiceInlineTextCompact : null,
-  inline?.bold ? styles.practiceInlineBold : null,
-  inline?.italic ? styles.practiceInlineItalic : null,
+  {
+    fontFamily: getInlineFontFamily('en', {
+      bold: inline?.bold === true,
+      italic: inline?.italic === true,
+    }),
+  },
   inline?.underline ? styles.practiceInlineUnderline : null,
 ];
+
+const getInlineFontFamily = (
+  language: UiLanguage,
+  options?: { bold?: boolean | null; italic?: boolean | null; medium?: boolean | null }
+) => {
+  const bold = options?.bold === true;
+  const italic = options?.italic === true;
+  const medium = options?.medium === true;
+  const faces = theme.typography.fontFaces[language];
+
+  if (language === 'th') {
+    if (bold) {
+      return faces.semibold;
+    }
+    if (medium) {
+      return faces.medium;
+    }
+    return faces.regular;
+  }
+
+  if (bold && italic) {
+    return faces.semiboldItalic;
+  }
+  if (medium && italic) {
+    return faces.mediumItalic;
+  }
+  if (bold) {
+    return faces.semibold;
+  }
+  if (medium) {
+    return faces.medium;
+  }
+  if (italic) {
+    return faces.italic;
+  }
+  return faces.regular;
+};
 
 const renderPracticeInlineTextToken = (
   token: { type: 'text'; text: string; style?: LessonRichInline | null },
@@ -1633,7 +1697,6 @@ const getRichNodesForLanguage = (
 };
 
 const INLINE_LINK_ARTIFACT_RE = /\(\s*link\s*\)/gi;
-const LINK_PROMPT_SENTENCE_RE = /^click here\b/i;
 
 const cleanAudioTags = (text: string) =>
   text
@@ -1727,10 +1790,10 @@ const speakerLineIsThai = (line: string) => {
 };
 
 const PHRASE_SPEAKER_TURN_RE = /(?:[A-Za-z][A-Za-z ]{0,24}|[\u0E00-\u0E7F][\u0E00-\u0E7F ]{0,24}):\s*/g;
-
+const LINK_PROMPT_SENTENCE_RE = /^click here\b/i;
 const LINK_PLACEHOLDER_RE = /\blink\s*xx\b/i;
 
-const isLinkPlaceholderNode = (node: LessonRichNode, contentLang: UiLanguage) => {
+const isPhraseLinkPlaceholderNode = (node: LessonRichNode, contentLang: UiLanguage) => {
   const inlineText = Array.isArray(node.inlines)
     ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join(' ')
     : '';
@@ -2158,6 +2221,32 @@ const resolveHeaderImageUrl = (rawValue: string | null) => {
   return `${env.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/lesson-images/${normalized}`;
 };
 
+const normalizeInternalHref = (href: string) => {
+  let nextHref = href.trim();
+  if (!nextHref) {
+    return '';
+  }
+
+  if (nextHref.startsWith('https://pa.invalid/lesson/')) {
+    return nextHref.replace('https://pa.invalid', '');
+  }
+  if (nextHref.startsWith('https://pa.invalid/topic-library/')) {
+    return nextHref.replace('https://pa.invalid', '');
+  }
+  if (nextHref.startsWith('https://pa.invalid/')) {
+    return nextHref.replace('https://pa.invalid', '');
+  }
+
+  return nextHref;
+};
+
+const formatLinkedLabel = (value: string) =>
+  value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
 const secondsToMillis = (seconds: number) => Math.max(0, Math.round(seconds * 1000));
 const millisToSeconds = (millis: number) => Math.max(0, millis / 1000);
 const PITCH_CORRECTION_QUALITY = 'medium';
@@ -2235,6 +2324,8 @@ export default function LessonDetailShellScreen() {
   const [contentScrollMeasuredHeight, setContentScrollMeasuredHeight] = useState(0);
   const [appLessonProgressDetail, setAppLessonProgressDetail] = useState<AppLessonProgressDetail | null>(null);
   const [savedAnswerStateByUnit, setSavedAnswerStateByUnit] = useState<Record<string, Record<string, unknown>>>({});
+  const [pendingRichLink, setPendingRichLink] = useState<PendingRichLink | null>(null);
+  const richLinkLessonCacheRef = useRef<Record<string, LessonListItem | null>>({});
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSubscriptionRef = useRef<{ remove: () => void } | null>(null);
@@ -2847,13 +2938,36 @@ export default function LessonDetailShellScreen() {
 
   const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
   const tabBarText = TAB_BAR_LABELS[uiLanguage];
-  const richInlineBaseStyle = contentLang === 'th' ? styles.richInlineTextThai : styles.richInlineTextEnglish;
-  const richInlineBoldStyle = contentLang === 'th' ? styles.richInlineBoldThai : styles.richInlineBoldEnglish;
-  const applyInlineBaseStyle = contentLang === 'th' ? styles.applyInlineTextThai : styles.applyInlineTextEnglish;
-  const applyInlineBoldStyle = contentLang === 'th' ? styles.applyInlineBoldThai : styles.applyInlineBoldEnglish;
   const practiceOpenInputStyle = contentLang === 'th' ? styles.practiceOpenInputThai : styles.practiceOpenInputEnglish;
   const applyInputStyle = contentLang === 'th' ? styles.applyInputThai : styles.applyInputEnglish;
   const pageCopy = useMemo(() => getLessonDetailCopy(pageLanguage), [pageLanguage]);
+  const richLinkCopy = useMemo(
+    () =>
+      uiLanguage === 'th'
+        ? {
+            openLesson: 'เปิดบทเรียน',
+            openPage: 'เปิดหน้า',
+            openLink: 'เปิดลิงก์',
+            lessonSubtitle: 'เปิดบทเรียนนี้ในแอป',
+            topicSubtitle: 'คลังหัวข้อการเรียนรู้',
+            exerciseSubtitle: 'คลังแบบฝึกหัด',
+            resourcesSubtitle: 'สื่อการเรียน',
+            progressSaved: 'ความคืบหน้าของบทเรียนจะถูกบันทึกไว้',
+            externalSubtitle: 'ลิงก์ภายนอก',
+          }
+        : {
+            openLesson: 'Open lesson',
+            openPage: 'Open page',
+            openLink: 'Open link',
+            lessonSubtitle: 'Open this lesson in the app',
+            topicSubtitle: 'Topic library',
+            exerciseSubtitle: 'Exercise bank',
+            resourcesSubtitle: 'Resources',
+            progressSaved: 'Your lesson progress will be saved.',
+            externalSubtitle: 'External link',
+          },
+    [uiLanguage]
+  );
   const isLockedLesson = useMemo(() => {
     if (hasMembership) {
       return false;
@@ -3404,6 +3518,7 @@ export default function LessonDetailShellScreen() {
         .disallowInterruption(true),
     []
   );
+  const richLinkSheetTranslateY = useSharedValue(0);
   const allComprehensionQuestionsAnswered =
     normalizedQuestions.length > 0 &&
     normalizedQuestions.every((question) => (selectedAnswers[question.id] ?? []).length > 0);
@@ -5251,9 +5366,13 @@ export default function LessonDetailShellScreen() {
 
       const baseApplyTextStyle = [
         styles.applyInlineText,
-        applyInlineBaseStyle,
-        inline.bold ? applyInlineBoldStyle : null,
-        inline.italic ? styles.applyInlineItalic : null,
+        {
+          fontFamily: getInlineFontFamily(contentLang, {
+            bold: inline.bold === true,
+            italic: inline.italic === true,
+          }),
+        },
+        inline.italic && contentLang === 'th' ? styles.applyInlineItalic : null,
         inline.underline ? styles.applyInlineUnderline : null,
       ];
 
@@ -5470,22 +5589,233 @@ export default function LessonDetailShellScreen() {
     return null;
   };
 
-  const handleOpenRichLink = (href: string) => {
-    let nextHref = href.trim();
-    if (!nextHref) {
+  const resolveRichLinkDestination = useCallback(
+    async (href: string): Promise<PendingRichLink | null> => {
+      const nextHref = normalizeInternalHref(href);
+      const lessonReturnTo = lessonId ? `/lessons/${lessonId}` : null;
+      if (!nextHref) {
+        return null;
+      }
+
+      if (nextHref.startsWith('/lesson/')) {
+        const lessonId = nextHref.replace('/lesson/', '').replace(/^\/+/, '').split(/[/?#]/)[0];
+        if (!lessonId) {
+          return null;
+        }
+
+        const cachedLesson = richLinkLessonCacheRef.current[lessonId];
+        let linkedLesson = typeof cachedLesson === 'undefined' ? null : cachedLesson;
+
+        if (typeof cachedLesson === 'undefined') {
+          try {
+            linkedLesson = await getLessonById(lessonId);
+          } catch {
+            linkedLesson = null;
+          }
+
+          richLinkLessonCacheRef.current[lessonId] = linkedLesson;
+        }
+
+        const linkedLessonNumber = formatLessonNumber(linkedLesson);
+        const linkedLessonTitle =
+          uiLanguage === 'th'
+            ? linkedLesson?.title_th || linkedLesson?.title || null
+            : linkedLesson?.title || linkedLesson?.title_th || null;
+        const linkedLessonLabel = linkedLessonNumber ? `${uiCopy.lessonLabel} ${linkedLessonNumber}` : null;
+
+        return {
+          kind: 'lesson',
+          title: linkedLessonTitle || linkedLessonLabel || richLinkCopy.lessonSubtitle,
+          subtitle: linkedLessonTitle
+            ? linkedLessonLabel || richLinkCopy.lessonSubtitle
+            : richLinkCopy.lessonSubtitle,
+          route: `/lessons/${lessonId}`,
+          externalUrl: null,
+          actionLabel: richLinkCopy.openLesson,
+          note: null,
+          icon: 'menu-book',
+        };
+      }
+
+      if (nextHref.startsWith('/topic-library/')) {
+        const slug = nextHref.replace('/topic-library/', '').replace(/^\/+/, '').split(/[/?#]/)[0];
+        if (!slug) {
+          return null;
+        }
+
+        return {
+          kind: 'page',
+          title: formatLinkedLabel(slug),
+          subtitle: richLinkCopy.topicSubtitle,
+          route: lessonReturnTo
+            ? `/(tabs)/resources/topic-library/${slug}?returnTo=${encodeURIComponent(lessonReturnTo)}`
+            : `/(tabs)/resources/topic-library/${slug}`,
+          externalUrl: null,
+          actionLabel: richLinkCopy.openPage,
+          note: richLinkCopy.progressSaved,
+          icon: 'article',
+        };
+      }
+
+      if (nextHref === '/topic-library' || nextHref === '/resources/topic-library') {
+        return {
+          kind: 'page',
+          title: uiLanguage === 'th' ? 'คลังหัวข้อการเรียนรู้' : 'Topic Library',
+          subtitle: richLinkCopy.topicSubtitle,
+          route: lessonReturnTo
+            ? `/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(lessonReturnTo)}`
+            : '/(tabs)/resources/topic-library',
+          externalUrl: null,
+          actionLabel: richLinkCopy.openPage,
+          note: richLinkCopy.progressSaved,
+          icon: 'article',
+        };
+      }
+
+      if (nextHref === '/exercise-bank' || nextHref === '/resources/exercise-bank') {
+        return {
+          kind: 'page',
+          title: uiLanguage === 'th' ? 'คลังแบบฝึกหัด' : 'Exercise Bank',
+          subtitle: richLinkCopy.exerciseSubtitle,
+          route: lessonReturnTo
+            ? `/(tabs)/resources/exercise-bank?returnTo=${encodeURIComponent(lessonReturnTo)}`
+            : '/(tabs)/resources/exercise-bank',
+          externalUrl: null,
+          actionLabel: richLinkCopy.openPage,
+          note: richLinkCopy.progressSaved,
+          icon: 'edit-note',
+        };
+      }
+
+      if (
+        nextHref === '/common-mistakes' ||
+        nextHref === '/phrases-verbs' ||
+        nextHref === '/culture-notes' ||
+        nextHref === '/resources'
+      ) {
+        const pageLabel =
+          nextHref === '/common-mistakes'
+            ? uiLanguage === 'th'
+              ? 'ข้อผิดพลาดที่พบบ่อย'
+              : 'Common Mistakes'
+            : nextHref === '/phrases-verbs'
+              ? uiLanguage === 'th'
+                ? 'วลี & Phrasal Verbs'
+                : 'Phrases & Phrasal Verbs'
+              : nextHref === '/culture-notes'
+                ? uiLanguage === 'th'
+                  ? 'เกร็ดความรู้ทางวัฒนธรรม'
+                  : 'Culture Notes'
+                : uiLanguage === 'th'
+                  ? 'สื่อการเรียน'
+                  : 'Resources';
+
+        return {
+          kind: 'page',
+          title: pageLabel,
+          subtitle: richLinkCopy.resourcesSubtitle,
+          route: lessonReturnTo
+            ? `/(tabs)/resources?returnTo=${encodeURIComponent(lessonReturnTo)}`
+            : '/(tabs)/resources',
+          externalUrl: null,
+          actionLabel: richLinkCopy.openPage,
+          note: richLinkCopy.progressSaved,
+          icon: 'folder-open',
+        };
+      }
+
+      if (nextHref.startsWith('/')) {
+        return {
+          kind: 'page',
+          title: formatLinkedLabel(nextHref.replace(/^\/+/, '')),
+          subtitle: richLinkCopy.resourcesSubtitle,
+          route: lessonReturnTo
+            ? `/(tabs)/resources?returnTo=${encodeURIComponent(lessonReturnTo)}`
+            : '/(tabs)/resources',
+          externalUrl: null,
+          actionLabel: richLinkCopy.openPage,
+          note: richLinkCopy.progressSaved,
+          icon: 'folder-open',
+        };
+      }
+
+      return {
+        kind: 'external',
+        title: nextHref.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+        subtitle: richLinkCopy.externalSubtitle,
+        route: null,
+        externalUrl: nextHref,
+        actionLabel: richLinkCopy.openLink,
+        note: null,
+        icon: 'open-in-new',
+      };
+    },
+    [lessonId, richLinkCopy, uiCopy.lessonLabel, uiLanguage]
+  );
+
+  const handleOpenRichLink = useCallback(
+    async (href: string) => {
+      const resolvedDestination = await resolveRichLinkDestination(href);
+      if (!resolvedDestination) {
+        return;
+      }
+
+      richLinkSheetTranslateY.value = 0;
+      setPendingRichLink(resolvedDestination);
+    },
+    [resolveRichLinkDestination, richLinkSheetTranslateY]
+  );
+
+  const closeRichLinkSheet = useCallback(() => {
+    richLinkSheetTranslateY.value = 0;
+    setPendingRichLink(null);
+  }, [richLinkSheetTranslateY]);
+
+  const handleConfirmRichLink = useCallback(() => {
+    if (!pendingRichLink) {
       return;
     }
-    if (nextHref.startsWith('https://pa.invalid/lesson/')) {
-      nextHref = nextHref.replace('https://pa.invalid', '');
-    }
-    if (nextHref.startsWith('https://pa.invalid/topic-library/')) {
-      nextHref = nextHref.replace('https://pa.invalid', '');
-    }
-    if (nextHref.startsWith('/')) {
+
+    if (pendingRichLink.route) {
+      richLinkSheetTranslateY.value = 0;
+      router.push(pendingRichLink.route as never);
+      setPendingRichLink(null);
       return;
     }
-    void Linking.openURL(nextHref).catch(() => undefined);
-  };
+
+    if (pendingRichLink.externalUrl) {
+      richLinkSheetTranslateY.value = 0;
+      void Linking.openURL(pendingRichLink.externalUrl).catch(() => undefined);
+      setPendingRichLink(null);
+    }
+  }, [pendingRichLink, richLinkSheetTranslateY, router]);
+
+  const richLinkSheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: richLinkSheetTranslateY.value }],
+  }));
+
+  const richLinkSheetGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([8, 9999])
+        .failOffsetX([-20, 20])
+        .shouldCancelWhenOutside(false)
+        .onUpdate((event) => {
+          'worklet';
+          richLinkSheetTranslateY.value = Math.max(0, event.translationY);
+        })
+        .onEnd((event) => {
+          'worklet';
+
+          if (event.translationY > 90 || event.velocityY > 900) {
+            runOnJS(closeRichLinkSheet)();
+            return;
+          }
+
+          richLinkSheetTranslateY.value = withTiming(0, { duration: 160 });
+        }),
+    [closeRichLinkSheet, richLinkSheetTranslateY]
+  );
 
   const renderRichAudioBulletLines = (
     inlines: LessonRichInline[] | null | undefined,
@@ -5682,9 +6012,13 @@ export default function LessonDetailShellScreen() {
 
         const baseTextStyle = [
           styles.richInlineText,
-          richInlineBaseStyle,
-          inline.bold ? richInlineBoldStyle : null,
-          inline.italic ? styles.richInlineItalic : null,
+          {
+            fontFamily: getInlineFontFamily(contentLang, {
+              bold: inline.bold === true,
+              italic: inline.italic === true,
+            }),
+          },
+          inline.italic && contentLang === 'th' ? styles.richInlineItalic : null,
           inline.underline ? styles.richInlineUnderline : null,
           shouldShowHighlightFor(inline) ? styles.richInlineHighlight : null,
           shouldShowHighlightFor(inline) && String(inline.highlight).trim().toLowerCase() === '#f4cccc'
@@ -5844,10 +6178,14 @@ export default function LessonDetailShellScreen() {
       const shouldShowHighlight = options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
       const baseTextStyle = [
         styles.richInlineText,
-        richInlineBaseStyle,
+        {
+          fontFamily: getInlineFontFamily(contentLang, {
+            bold: inline.bold === true,
+            italic: inline.italic === true,
+          }),
+        },
         options?.isSubheader ? styles.richInlineSubheaderText : null,
-        inline.bold ? richInlineBoldStyle : null,
-        inline.italic ? styles.richInlineItalic : null,
+        inline.italic && contentLang === 'th' ? styles.richInlineItalic : null,
         inline.underline ? styles.richInlineUnderline : null,
         shouldShowHighlight ? styles.richInlineHighlight : null,
         shouldShowHighlight && highlightColor === '#f4cccc' ? styles.richInlineHighlightPink : null,
@@ -6478,7 +6816,7 @@ export default function LessonDetailShellScreen() {
     const hasAccent = applyNodeHasAccent(node);
     const hasAudio = Boolean(node.audio_key || node.audio_seq);
 
-    if (isLinkPlaceholderNode(node, contentLang)) {
+    if (options?.isPhraseCard && isPhraseLinkPlaceholderNode(node, contentLang)) {
       return null;
     }
 
@@ -8246,6 +8584,76 @@ export default function LessonDetailShellScreen() {
                 </Pressable>
               </Stack>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={closeRichLinkSheet}
+        transparent
+        visible={Boolean(pendingRichLink)}>
+        <View style={styles.richLinkModalRoot}>
+          <Pressable accessibilityRole="button" onPress={closeRichLinkSheet} style={styles.richLinkBackdrop} />
+
+          <View style={[styles.richLinkSheetWrap, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
+            <GestureDetector gesture={richLinkSheetGesture}>
+              <Animated.View style={richLinkSheetAnimatedStyle}>
+                <View style={styles.richLinkSheet}>
+                  <View style={styles.richLinkHandle} />
+
+                  <View style={styles.richLinkSheetHeader}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.richLinkSheetEyebrow}>
+                      {pendingRichLink?.actionLabel ?? ''}
+                    </AppText>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={pageCopy.completionClose}
+                      onPress={closeRichLinkSheet}
+                      style={styles.richLinkCloseButton}>
+                      <MaterialIcons name="close" size={18} color={theme.colors.text} />
+                    </Pressable>
+                  </View>
+
+                  {pendingRichLink ? (
+                    <>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={handleConfirmRichLink}
+                        style={({ pressed }) => [
+                          styles.richLinkCard,
+                          pressed ? styles.richLinkActionPressed : null,
+                        ]}>
+                        <View style={styles.richLinkCardIcon}>
+                          <MaterialIcons name={pendingRichLink.icon} size={20} color={theme.colors.accent} />
+                        </View>
+
+                        <View style={styles.richLinkCardCopy}>
+                          <AppText language={uiLanguage} variant="body" style={styles.richLinkCardTitle}>
+                            {pendingRichLink.title}
+                          </AppText>
+                          <AppText language={uiLanguage} variant="caption" style={styles.richLinkCardSubtitle}>
+                            {pendingRichLink.subtitle}
+                          </AppText>
+                        </View>
+
+                        <MaterialIcons name="arrow-forward" size={18} color={theme.colors.text} />
+                      </Pressable>
+
+                      {pendingRichLink.note ? (
+                        <View style={styles.richLinkNote}>
+                          <MaterialIcons name="info-outline" size={14} color={theme.colors.accent} />
+                          <AppText language={uiLanguage} variant="caption" style={styles.richLinkNoteText}>
+                            {pendingRichLink.note}
+                          </AppText>
+                        </View>
+                      ) : null}
+                    </>
+                  ) : null}
+                </View>
+              </Animated.View>
+            </GestureDetector>
           </View>
         </View>
       </Modal>
@@ -11435,6 +11843,110 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   completionModalButtonPressed: {
+    opacity: 0.9,
+  },
+  richLinkModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  richLinkBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(18, 22, 28, 0.28)',
+  },
+  richLinkSheetWrap: {
+    paddingHorizontal: theme.spacing.md,
+  },
+  richLinkSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.md,
+    ...brutalShadow,
+  },
+  richLinkHandle: {
+    alignSelf: 'center',
+    width: 34,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#D7D7D7',
+    marginBottom: 2,
+  },
+  richLinkSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  richLinkSheetEyebrow: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  richLinkCloseButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  richLinkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm + 2,
+    ...brutalShadow,
+  },
+  richLinkCardIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.accentSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  richLinkCardCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  richLinkCardTitle: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  richLinkCardSubtitle: {
+    color: theme.colors.mutedText,
+  },
+  richLinkNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    borderRadius: 12,
+    backgroundColor: theme.colors.accentMuted,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  richLinkNoteText: {
+    color: '#326A9C',
+    flex: 1,
+  },
+  richLinkActionPressed: {
     opacity: 0.9,
   },
   ctaRow: {

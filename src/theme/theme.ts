@@ -39,14 +39,22 @@ export const theme = {
       en: {
         regular: 'Poppins',
         medium: 'Poppins-Medium',
+        italic: 'Poppins-Italic',
+        mediumItalic: 'Poppins-MediumItalic',
         semibold: 'Poppins-SemiBold',
+        semiboldItalic: 'Poppins-SemiBoldItalic',
         bold: 'Poppins-Bold',
+        boldItalic: 'Poppins-BoldItalic',
       },
       th: {
         regular: 'Anuphan',
         medium: 'Anuphan-Medium',
+        italic: 'Anuphan',
+        mediumItalic: 'Anuphan-Medium',
         semibold: 'Anuphan-SemiBold',
+        semiboldItalic: 'Anuphan-SemiBold',
         bold: 'Anuphan-Bold',
+        boldItalic: 'Anuphan-Bold',
       },
     },
 

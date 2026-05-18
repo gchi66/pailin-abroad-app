@@ -62,9 +62,13 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
     Poppins: require('@/assets/fonts/Poppins-Regular.ttf'),
+    'Poppins-Italic': require('@/assets/fonts/Poppins-Italic.ttf'),
     'Poppins-Medium': require('@/assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-MediumItalic': require('@/assets/fonts/Poppins-MediumItalic.ttf'),
     'Poppins-SemiBold': require('@/assets/fonts/Poppins-SemiBold.ttf'),
+    'Poppins-SemiBoldItalic': require('@/assets/fonts/Poppins-SemiBoldItalic.ttf'),
     'Poppins-Bold': require('@/assets/fonts/Poppins-Bold.ttf'),
+    'Poppins-BoldItalic': require('@/assets/fonts/Poppins-BoldItalic.ttf'),
     Anuphan: require('@/assets/fonts/Anuphan-Regular.ttf'),
     'Anuphan-Medium': require('@/assets/fonts/Anuphan-Medium.ttf'),
     'Anuphan-SemiBold': require('@/assets/fonts/Anuphan-SemiBold.ttf'),

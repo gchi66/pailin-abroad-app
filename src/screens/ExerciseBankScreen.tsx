@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
 import { prefetchPricing } from '@/src/api/pricing';
@@ -84,6 +84,9 @@ const getCopy = (language: UiLanguage): Copy => {
 
 export function ExerciseBankScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnTo = typeof returnToParam === 'string' && returnToParam.trim() ? returnToParam : null;
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
@@ -220,7 +223,7 @@ export function ExerciseBankScreen() {
         <StandardPageHeader
           language={uiLanguage}
           title={copy.title}
-          onBackPress={() => router.push('/(tabs)/resources')}
+          onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
           backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
         />
 
