@@ -9275,7 +9275,7 @@ export default function LessonDetailShellScreen() {
                   ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab ? (
                     (isPracticeTab ? activePracticeExercise : activePagerGroup) ? (
                       <GestureDetector gesture={richPagerGesture}>
-                        <View style={styles.richPagerShell}>
+                        <View style={[styles.richPagerShell, hasMultiplePagerCards ? styles.richPagerShellBottomControls : null]}>
                           <Animated.View
                             style={[
                               styles.richPagerCard,
@@ -9312,7 +9312,12 @@ export default function LessonDetailShellScreen() {
                           </Animated.View>
 
                           {hasMultiplePagerCards ? (
-                            <View style={[styles.richPagerControls, shouldStackPagerDots ? styles.richPagerControlsStacked : null]}>
+                            <View
+                              style={[
+                                styles.richPagerControls,
+                                styles.richPagerControlsBottom,
+                                shouldStackPagerDots ? styles.richPagerControlsStacked : null,
+                              ]}>
                               <View style={styles.richPagerArrowRow}>
                                 <Pressable
                                   accessibilityRole="button"
