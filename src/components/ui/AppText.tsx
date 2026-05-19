@@ -92,6 +92,12 @@ export function AppText({
     if (React.isValidElement(node)) {
       const element = node as React.ReactElement<{ children?: React.ReactNode }>;
 
+      // Preserve explicitly constructed nested Text spans as-is so callers can
+      // control font family, italics, links, and other rich-text styling.
+      if (element.type === Text) {
+        return element;
+      }
+
       return React.cloneElement(element, undefined, renderChildren(element.props.children, `${keyPrefix}-child`));
     }
 

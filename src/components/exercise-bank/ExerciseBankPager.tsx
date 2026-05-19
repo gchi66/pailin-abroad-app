@@ -97,8 +97,6 @@ type FillBlankMeasureToken =
   | { id: string; type: 'text'; text: string; measureText: string }
   | { id: string; type: 'blank'; blankId: string; minLen: number; measureText: string };
 
-const FILL_BLANK_SHORT_WIDTH = 74;
-const FILL_BLANK_LONG_WIDTH = 128;
 const FILL_BLANK_SHORT_MEASURE = ' MMMMMMMM ';
 const FILL_BLANK_LONG_MEASURE = ' MMMMMMMMMMMMMM ';
 
@@ -593,6 +591,7 @@ function FillBlankMeasuredRows(props: {
                     styles.fillBlankInput,
                     fillBlankInputStyle,
                     token.minLen <= 4 ? styles.fillBlankInputShort : styles.fillBlankInputLong,
+                    isExample ? styles.fillBlankExampleInput : null,
                   ]}
                 />
               )
@@ -724,6 +723,7 @@ export function ExerciseBankPager({
   const handleOpenAnswerChange = (exerciseId: string, itemKey: string, value: string) => {
     const answerKey = getItemStateKey(exerciseId, itemKey);
     setOpenAnswers((previous) => ({ ...previous, [answerKey]: value }));
+    setCheckedExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setMarkedCorrect((previous) => ({ ...previous, [answerKey]: null }));
     setEvaluations((previous) => {
       if (!(answerKey in previous)) {
@@ -739,6 +739,7 @@ export function ExerciseBankPager({
   const handleBlankAnswerChange = (exerciseId: string, itemKey: string, blankId: string, value: string) => {
     const answerKey = getBlankKey(exerciseId, itemKey, blankId);
     setBlankAnswers((previous) => ({ ...previous, [answerKey]: value }));
+    setCheckedExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setEvaluations((previous) => {
       const itemKeyState = getItemStateKey(exerciseId, itemKey);
       if (!(itemKeyState in previous)) {
@@ -753,6 +754,7 @@ export function ExerciseBankPager({
 
   const handleSentenceCorrectToggle = (exerciseId: string, itemKey: string, isCorrect: boolean, sourceText: string) => {
     const answerKey = getItemStateKey(exerciseId, itemKey);
+    setCheckedExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setMarkedCorrect((previous) => ({ ...previous, [answerKey]: isCorrect }));
     setOpenAnswers((previous) => ({ ...previous, [answerKey]: isCorrect ? sourceText : previous[answerKey] ?? '' }));
     setEvaluations((previous) => {
@@ -818,34 +820,30 @@ export function ExerciseBankPager({
   };
 
   const handleCheckOpenExercise = async (exercise: NormalizedExercise) => {
-    const missingAnswer = exercise.items.some((item) => {
+    const attemptedItems = exercise.items.filter((item) => {
       if (item.isExample) {
         return false;
       }
       if (exercise.kind === 'fill_blank') {
-        return item.blanks.some((blank) => !normalizeAnswerText(blankAnswers[getBlankKey(exercise.id, item.key, blank.id)] ?? ''));
+        return item.blanks.some((blank) => Boolean(normalizeAnswerText(blankAnswers[getBlankKey(exercise.id, item.key, blank.id)] ?? '')));
       }
       const answerKey = getItemStateKey(exercise.id, item.key);
       const markState = markedCorrect[answerKey];
       if (exercise.kind === 'sentence_transform' && markState === true) {
-        return false;
+        return true;
       }
-      return !normalizeAnswerText(openAnswers[answerKey] ?? '');
+      return Boolean(normalizeAnswerText(openAnswers[answerKey] ?? ''));
     });
 
-    if (missingAnswer) {
-      setExerciseErrors((previous) => ({ ...previous, [exercise.id]: copy.answerAll }));
+    setExerciseErrors((previous) => ({ ...previous, [exercise.id]: '' }));
+    setCheckedExercises((previous) => ({ ...previous, [exercise.id]: true }));
+
+    if (attemptedItems.length === 0) {
       return;
     }
 
-    setExerciseErrors((previous) => ({ ...previous, [exercise.id]: '' }));
-
     await Promise.all(
-      exercise.items.map(async (item) => {
-        if (item.isExample || !exercise.kind || exercise.kind === 'multiple_choice') {
-          return;
-        }
-
+      attemptedItems.map(async (item) => {
         const answerKey = getItemStateKey(exercise.id, item.key);
         const markState = markedCorrect[answerKey];
         let userAnswer = '';
@@ -1321,12 +1319,25 @@ function renderExerciseBody(params: {
           });
 
           return (
-            <View key={itemStateKey} style={item.isExample ? styles.exampleCard : styles.questionBlock}>
-              <View style={styles.questionHeader}>
-                <AppText language="en" variant="caption" style={styles.questionNumber}>
-                  {item.isExample ? copy.exampleLabel.toUpperCase() : item.numberLabel || `${itemIndex + 1}`}
-                </AppText>
-                <View style={styles.questionTextWrap}>
+            <View key={itemStateKey} style={item.isExample ? styles.fillBlankExampleCard : styles.fillBlankQuestionCard}>
+              {item.isExample ? (
+                <View style={styles.fillBlankExampleHeader}>
+                  <AppText language="en" variant="caption" style={styles.fillBlankExampleLabel}>
+                    {copy.exampleLabel.toUpperCase()}
+                  </AppText>
+                </View>
+              ) : null}
+
+              <View style={item.isExample ? styles.fillBlankExampleBody : styles.fillBlankQuestionHeader}>
+                {!item.isExample ? (
+                  <View style={styles.fillBlankNumberSlot}>
+                    <AppText language="en" variant="caption" style={styles.questionNumber}>
+                      {item.numberLabel || `${itemIndex + 1}`}
+                    </AppText>
+                  </View>
+                ) : null}
+
+                <View style={[styles.questionTextWrap, styles.fillBlankContentWrap]}>
                   {item.imageUrl ? (
                     <View style={styles.imageShell}>
                       <Image
@@ -1356,12 +1367,6 @@ function renderExerciseBody(params: {
                     {contentLang === 'th' && item.textTh ? (
                       <AppText language="th" variant="body" style={styles.questionThaiText}>
                         {item.textTh}
-                      </AppText>
-                    ) : null}
-
-                    {item.isExample && item.answer ? (
-                      <AppText language={language} variant="muted" style={styles.exampleAnswer}>
-                        {`${copy.answerLabel}: ${item.answer}`}
                       </AppText>
                     ) : null}
                   </Stack>
@@ -1519,6 +1524,41 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: '#D9D9D9',
+  },
+  fillBlankQuestionCard: {
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#D9D9D9',
+  },
+  fillBlankExampleCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.accentSurface,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  fillBlankExampleHeader: {
+    marginBottom: 2,
+  },
+  fillBlankExampleLabel: {
+    color: '#3CA0FE',
+    fontWeight: theme.typography.weights.bold,
+  },
+  fillBlankQuestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: theme.spacing.xs,
+  },
+  fillBlankExampleBody: {
+    gap: theme.spacing.xs,
+  },
+  fillBlankNumberSlot: {
+    minWidth: 18,
+  },
+  fillBlankContentWrap: {
+    gap: theme.spacing.xs,
   },
   exampleCard: {
     borderWidth: 1,
@@ -1729,12 +1769,17 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.md,
   },
   fillBlankInput: {
-    minHeight: 38,
-    borderBottomWidth: 2,
+    minHeight: 32,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.xs,
+    borderRadius: theme.radii.xl,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 0,
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.md,
+    textAlign: 'center',
   },
   fillBlankInputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,
@@ -1743,10 +1788,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFaces.th.regular,
   },
   fillBlankInputShort: {
-    width: FILL_BLANK_SHORT_WIDTH,
+    width: 96,
   },
   fillBlankInputLong: {
-    width: FILL_BLANK_LONG_WIDTH,
+    width: 132,
+  },
+  fillBlankExampleInput: {
+    backgroundColor: theme.colors.surface,
   },
   exampleAnswer: {
     color: theme.colors.mutedText,

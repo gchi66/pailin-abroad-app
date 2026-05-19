@@ -4,11 +4,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
-import lockImage from '@/assets/images/lock.webp';
-import {
-  AppLessonProgressSummary,
-  fetchAppLessonProgressSummaries,
-} from '@/src/api/app-lesson-progress';
+import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
@@ -24,14 +20,13 @@ import {
   getLessonLibrarySelection,
   setLessonLibrarySelection,
 } from '@/src/lib/lesson-library-selection';
+import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-const PRIORITY_PROGRESS_LESSON_COUNT = 6;
-
 const toStageLabel = (stage: StageName, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
     if (stage === 'Beginner') return 'ระดับเริ่มต้น';
@@ -200,14 +195,6 @@ export function LessonsLibraryScreen() {
     () => lessonsForSelection.map((lesson) => lesson.id).filter(Boolean),
     [lessonsForSelection]
   );
-  const priorityLessonIds = useMemo(
-    () => visibleLessonIds.slice(0, PRIORITY_PROGRESS_LESSON_COUNT),
-    [visibleLessonIds]
-  );
-  const remainingLessonIds = useMemo(
-    () => visibleLessonIds.slice(PRIORITY_PROGRESS_LESSON_COUNT),
-    [visibleLessonIds]
-  );
 
   const refreshProgressSummaries = React.useCallback(async () => {
     if (!hasMembership || !visibleLessonIds.length) {
@@ -217,49 +204,32 @@ export function LessonsLibraryScreen() {
 
     const requestId = progressRequestIdRef.current + 1;
     progressRequestIdRef.current = requestId;
+    setProgressByLesson({});
 
-    try {
-      const prioritySummaries = await fetchAppLessonProgressSummaries(priorityLessonIds);
-      if (progressRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      console.info('[app-progress] lesson library priority summaries ok', {
-        lessonCount: Object.keys(prioritySummaries).length,
-        requestedLessonCount: priorityLessonIds.length,
-      });
-      setProgressByLesson((prev) => ({
-        ...prev,
-        ...prioritySummaries,
-      }));
-
-      if (!remainingLessonIds.length) {
-        return;
-      }
-
-      const remainingSummaries = await fetchAppLessonProgressSummaries(remainingLessonIds);
-      if (progressRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      console.info('[app-progress] lesson library remaining summaries ok', {
-        lessonCount: Object.keys(remainingSummaries).length,
-        requestedLessonCount: remainingLessonIds.length,
-      });
-      setProgressByLesson((prev) => ({
-        ...prev,
-        ...remainingSummaries,
-      }));
-    } catch (error) {
-      console.warn('[app-progress] lesson library summaries fetch failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        requestedLessonCount: visibleLessonIds.length,
-      });
-      if (progressRequestIdRef.current === requestId) {
-        setProgressByLesson({});
-      }
-    }
-  }, [hasMembership, priorityLessonIds, remainingLessonIds, visibleLessonIds.length]);
+    await loadLessonProgressSummariesProgressively({
+      lessonIds: visibleLessonIds,
+      isCancelled: () => progressRequestIdRef.current !== requestId,
+      onPartial: (summaries) => {
+        console.info('[app-progress] lesson library summary ok', {
+          lessonCount: Object.keys(summaries).length,
+          requestedLessonCount: 1,
+        });
+        setProgressByLesson((prev) => ({
+          ...prev,
+          ...summaries,
+        }));
+      },
+      onError: (error) => {
+        console.warn('[app-progress] lesson library summaries fetch failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          requestedLessonCount: visibleLessonIds.length,
+        });
+        if (progressRequestIdRef.current === requestId) {
+          setProgressByLesson({});
+        }
+      },
+    });
+  }, [hasMembership, visibleLessonIds]);
 
   useFocusEffect(
     React.useCallback(() => {

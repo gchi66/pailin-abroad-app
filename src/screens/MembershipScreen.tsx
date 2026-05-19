@@ -197,7 +197,7 @@ const formatAmount = (value: number) =>
   Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 const buildPriceWithSymbol = (currency: string | null, value: number) => {
-  const symbol = currency === 'USD' ? '$' : 'B';
+  const symbol = currency === 'USD' ? '$' : '฿';
   return `${symbol}${formatAmount(value)}`;
 };
 

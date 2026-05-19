@@ -73,6 +73,7 @@ import {
   parseAppCardKey,
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
+import { ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '@/src/theme/theme';
 import {
   LessonApplyContent,
@@ -1644,6 +1645,66 @@ const renderTextWithBlankRuns = (text: string, keyPrefix: string, blankStyle: ob
     return <React.Fragment key={`${keyPrefix}-text-${index}`}>{segment}</React.Fragment>;
   });
 };
+
+const THAI_ITALIC_SKEW = {
+  transform: [{ skewX: '-50deg' as const }],
+};
+
+const getRichInlineSegmentStyle = (
+  scriptLanguage: ScriptLanguage,
+  inline: LessonRichInline,
+  options?: {
+    isSubheader?: boolean;
+    muted?: boolean;
+    isLink?: boolean;
+    shouldShowHighlight?: boolean;
+    highlightColor?: string;
+    extraStyle?: object | null;
+  }
+) => [
+  styles.richInlineText,
+  {
+    fontFamily: getInlineFontFamily(scriptLanguage, {
+      bold: inline.bold === true,
+      italic: inline.italic === true,
+    }),
+  },
+  options?.isSubheader ? styles.richInlineSubheaderText : null,
+  inline.italic && scriptLanguage === 'th' ? THAI_ITALIC_SKEW : null,
+  inline.italic && scriptLanguage === 'th' ? { color: '#ff0000' } : null,
+  inline.underline ? styles.richInlineUnderline : null,
+  options?.shouldShowHighlight ? styles.richInlineHighlight : null,
+  options?.shouldShowHighlight && options.highlightColor === '#f4cccc' ? styles.richInlineHighlightPink : null,
+  options?.shouldShowHighlight && options.highlightColor === '#d9ead3' ? styles.richInlineHighlightGreen : null,
+  options?.shouldShowHighlight &&
+  (options.highlightColor === '#c9daf7' || options.highlightColor === '#c9daf8')
+    ? styles.richInlineHighlightBlue
+    : null,
+  options?.muted ? styles.richInlineThaiMuted : null,
+  options?.isLink ? styles.richInlineLink : null,
+  options?.extraStyle ?? null,
+];
+
+const renderRichTextScriptSegments = (
+  text: string,
+  keyPrefix: string,
+  inline: LessonRichInline,
+  options?: {
+    isSubheader?: boolean;
+    muted?: boolean;
+    isLink?: boolean;
+    shouldShowHighlight?: boolean;
+    highlightColor?: string;
+    extraStyle?: object | null;
+  }
+) =>
+  splitTextByScript(text).map((segment, segmentIndex) => (
+    <Text
+      key={`${keyPrefix}-segment-${segmentIndex}`}
+      style={getRichInlineSegmentStyle(segment.language, inline, options)}>
+      {renderTextWithBlankRuns(segment.text, `${keyPrefix}-segment-${segmentIndex}`, styles.richInlineBlank)}
+    </Text>
+  ));
 
 const applyNodeHasAccent = (node: LessonRichNode) =>
   Boolean(node.is_response) ||
@@ -6009,30 +6070,10 @@ export default function LessonDetailShellScreen() {
 
         const spanOffset = lineOffset;
         lineOffset += rawText.length;
-
-        const baseTextStyle = [
-          styles.richInlineText,
-          {
-            fontFamily: getInlineFontFamily(contentLang, {
-              bold: inline.bold === true,
-              italic: inline.italic === true,
-            }),
-          },
-          inline.italic && contentLang === 'th' ? styles.richInlineItalic : null,
-          inline.underline ? styles.richInlineUnderline : null,
-          shouldShowHighlightFor(inline) ? styles.richInlineHighlight : null,
-          shouldShowHighlightFor(inline) && String(inline.highlight).trim().toLowerCase() === '#f4cccc'
-            ? styles.richInlineHighlightPink
-            : null,
-          shouldShowHighlightFor(inline) && String(inline.highlight).trim().toLowerCase() === '#d9ead3'
-            ? styles.richInlineHighlightGreen
-            : null,
-          shouldShowHighlightFor(inline) &&
-          (String(inline.highlight).trim().toLowerCase() === '#c9daf7' ||
-            String(inline.highlight).trim().toLowerCase() === '#c9daf8')
-            ? styles.richInlineHighlightBlue
-            : null,
-        ];
+        const highlightColor =
+          typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
+        const shouldShowHighlight = shouldShowHighlightFor(inline);
+        const isLink = typeof inline.link === 'string' && inline.link.trim().length > 0;
 
         const markerAwareParts = rawText.split(INLINE_MARKER_RE).filter((part) => part !== '');
         let consumedChars = 0;
@@ -6043,13 +6084,16 @@ export default function LessonDetailShellScreen() {
             renderedSpans.push(
               <Text
                 key={`${keyPrefix}-line-${lineIndex}-${spanIndex}-marker-${partIndex}-${renderedSpans.length}`}
-                onPress={typeof inline.link === 'string' && inline.link.trim()
+                onPress={isLink
                   ? () => handleOpenRichLink(inline.link as string)
                   : undefined}
                 style={[
-                  baseTextStyle,
+                  ...getRichInlineSegmentStyle('en', inline, {
+                    shouldShowHighlight,
+                    highlightColor,
+                    isLink,
+                  }),
                   styles.richInlineMarker,
-                  typeof inline.link === 'string' && inline.link.trim() ? styles.richInlineLink : null,
                   markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
                   markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                   markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
@@ -6094,19 +6138,16 @@ export default function LessonDetailShellScreen() {
 
             const pushPiece = (text: string, extraStyle?: object | null) => {
               renderedSpans.push(
-                <Text
-                  key={`${keyPrefix}-line-${lineIndex}-${spanIndex}-${partIndex}-${pieceIndex}-${renderedSpans.length}`}
-                  onPress={typeof inline.link === 'string' && inline.link.trim()
-                    ? () => handleOpenRichLink(inline.link as string)
-                    : undefined}
-                  style={[
-                    baseTextStyle,
-                    shouldMutePiece ? styles.richInlineThaiMuted : null,
-                    typeof inline.link === 'string' && inline.link.trim() ? styles.richInlineLink : null,
-                    extraStyle ?? null,
-                  ]}>
-                  {text}
-                </Text>
+                <React.Fragment
+                  key={`${keyPrefix}-line-${lineIndex}-${spanIndex}-${partIndex}-${pieceIndex}-${renderedSpans.length}`}>
+                  {renderRichTextScriptSegments(text, `${keyPrefix}-line-${lineIndex}-${spanIndex}-${partIndex}-${pieceIndex}-${renderedSpans.length}`, inline, {
+                    muted: shouldMutePiece,
+                    isLink,
+                    shouldShowHighlight,
+                    highlightColor,
+                    extraStyle,
+                  })}
+                </React.Fragment>
               );
             };
 
@@ -6145,7 +6186,6 @@ export default function LessonDetailShellScreen() {
               options?.isPhraseCard ? styles.phraseAudioText : null,
               styles.richAudioTextCompact,
               options?.isPhraseCard ? styles.phraseAudioTextCompact : null,
-              lineIndex > 0 && !options?.isPhraseCard ? styles.richAudioTranslationRow : null,
               options?.isPhraseCard && lineMetadata[lineIndex]?.isEnglishSpeakerLine ? styles.phraseDialogueEnglishTurn : null,
               options?.isPhraseCard && lineMetadata[lineIndex]?.isThaiLineForPhraseCard ? styles.phraseDialogueThaiTurn : null,
               options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
@@ -6176,32 +6216,14 @@ export default function LessonDetailShellScreen() {
       const highlightColor =
         typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
       const shouldShowHighlight = options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
-      const baseTextStyle = [
-        styles.richInlineText,
-        {
-          fontFamily: getInlineFontFamily(contentLang, {
-            bold: inline.bold === true,
-            italic: inline.italic === true,
-          }),
-        },
-        options?.isSubheader ? styles.richInlineSubheaderText : null,
-        inline.italic && contentLang === 'th' ? styles.richInlineItalic : null,
-        inline.underline ? styles.richInlineUnderline : null,
-        shouldShowHighlight ? styles.richInlineHighlight : null,
-        shouldShowHighlight && highlightColor === '#f4cccc' ? styles.richInlineHighlightPink : null,
-        shouldShowHighlight && highlightColor === '#d9ead3' ? styles.richInlineHighlightGreen : null,
-        shouldShowHighlight &&
-        (highlightColor === '#c9daf7' || highlightColor === '#c9daf8')
-          ? styles.richInlineHighlightBlue
-          : null,
-      ];
       const renderThaiSegments = (part: string, partKey: string) => {
         if (options?.muteThaiInAudioRow !== true) {
-          return [
-            <Text key={`${partKey}-plain`} style={baseTextStyle}>
-              {part}
-            </Text>,
-          ];
+          return renderRichTextScriptSegments(part, `${partKey}-plain`, inline, {
+            isSubheader: options?.isSubheader,
+            shouldShowHighlight,
+            highlightColor,
+            isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+          });
         }
 
         const lines = part.split('\n');
@@ -6223,7 +6245,12 @@ export default function LessonDetailShellScreen() {
                     <Text
                       key={`${bodyKey}-marker-${partIndex}`}
                       style={[
-                        baseTextStyle,
+                        ...getRichInlineSegmentStyle('en', inline, {
+                          isSubheader: options?.isSubheader,
+                          shouldShowHighlight,
+                          highlightColor,
+                          isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                        }),
                         styles.richInlineMarker,
                         markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
                         markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
@@ -6250,14 +6277,15 @@ export default function LessonDetailShellScreen() {
                     (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
 
                   return (
-                    <Text
-                      key={`${bodyKey}-${partIndex}-${pieceIndex}`}
-                      style={[
-                        baseTextStyle,
-                        shouldMutePiece ? styles.richInlineThaiMuted : null,
-                      ]}>
-                      {renderTextWithBlankRuns(piece, `${bodyKey}-${partIndex}-${pieceIndex}`, styles.richInlineBlank)}
-                    </Text>
+                    <React.Fragment key={`${bodyKey}-${partIndex}-${pieceIndex}`}>
+                      {renderRichTextScriptSegments(piece, `${bodyKey}-${partIndex}-${pieceIndex}`, inline, {
+                        isSubheader: options?.isSubheader,
+                        muted: shouldMutePiece,
+                        shouldShowHighlight,
+                        highlightColor,
+                        isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                      })}
+                    </React.Fragment>
                   );
                 });
               });
@@ -6279,14 +6307,15 @@ export default function LessonDetailShellScreen() {
                 (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
 
               return (
-                <Text
-                  key={`${bodyKey}-${pieceIndex}`}
-                  style={[
-                    baseTextStyle,
-                    shouldMutePiece ? styles.richInlineThaiMuted : null,
-                  ]}>
-                  {renderTextWithBlankRuns(piece, `${bodyKey}-${pieceIndex}`, styles.richInlineBlank)}
-                </Text>
+                <React.Fragment key={`${bodyKey}-${pieceIndex}`}>
+                  {renderRichTextScriptSegments(piece, `${bodyKey}-${pieceIndex}`, inline, {
+                    isSubheader: options?.isSubheader,
+                    muted: shouldMutePiece,
+                    shouldShowHighlight,
+                    highlightColor,
+                    isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                  })}
+                </React.Fragment>
               );
             });
           };
@@ -6299,7 +6328,12 @@ export default function LessonDetailShellScreen() {
               <Text
                 key={`${lineKey}-speaker`}
                 style={[
-                  baseTextStyle,
+                  ...getRichInlineSegmentStyle(isEnglishSpeaker ? 'en' : 'th', inline, {
+                    isSubheader: options?.isSubheader,
+                    shouldShowHighlight,
+                    highlightColor,
+                    isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                  }),
                   styles.richSpeakerPrefix,
                   isEnglishSpeaker ? null : styles.richSpeakerPrefixThai,
                 ]}>
@@ -6314,7 +6348,15 @@ export default function LessonDetailShellScreen() {
             renderedLine.push(
               <Text
                 key={`${lineKey}-break`}
-                style={[baseTextStyle, options?.muteThaiInAudioRow === true ? styles.richAudioLineBreakGap : null]}>
+                style={[
+                  ...getRichInlineSegmentStyle('en', inline, {
+                    isSubheader: options?.isSubheader,
+                    shouldShowHighlight,
+                    highlightColor,
+                    isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                  }),
+                  options?.muteThaiInAudioRow === true ? styles.richAudioLineBreakGap : null,
+                ]}>
                 {'\n'}
               </Text>
             );
@@ -6326,16 +6368,9 @@ export default function LessonDetailShellScreen() {
       const textParts = textValue.split(INLINE_MARKER_RE).filter(Boolean);
       const renderedText =
         textParts.length > 1 ? (
-          <Text key={`${keyPrefix}-${index}`} style={baseTextStyle}>
+          <Text key={`${keyPrefix}-${index}`} style={styles.richInlineText}>
             {textParts.map((part, partIndex) => {
               const markerColor = INLINE_MARKER_COLORS[part];
-              const markerStyle = [
-                baseTextStyle,
-                markerColor ? styles.richInlineMarker : null,
-                markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
-                markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
-                markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
-              ];
 
               if (!markerColor) {
                 return renderThaiSegments(part, `${keyPrefix}-${index}-${partIndex}`);
@@ -6344,14 +6379,25 @@ export default function LessonDetailShellScreen() {
               return (
                 <Text
                   key={`${keyPrefix}-${index}-${partIndex}`}
-                  style={markerStyle}>
+                  style={[
+                    ...getRichInlineSegmentStyle('en', inline, {
+                      isSubheader: options?.isSubheader,
+                      shouldShowHighlight,
+                      highlightColor,
+                      isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                    }),
+                    styles.richInlineMarker,
+                    markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
+                    markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
+                    markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
+                  ]}>
                   {part}
                 </Text>
               );
             })}
           </Text>
         ) : (
-          <Text key={`${keyPrefix}-${index}`} style={baseTextStyle}>
+          <Text key={`${keyPrefix}-${index}`} style={styles.richInlineText}>
             {renderThaiSegments(textValue, `${keyPrefix}-${index}`)}
           </Text>
         );
@@ -8324,11 +8370,6 @@ export default function LessonDetailShellScreen() {
                           </AppText>
                         ) : null}
 
-                        {item.isExample && item.answer ? (
-                          <AppText language={pageLanguage} variant="muted" style={styles.practiceExampleAnswer}>
-                            {pageLanguage === 'th' ? `คำตอบ: ${item.answer}` : `Answer: ${item.answer}`}
-                          </AppText>
-                        ) : null}
                       </Stack>
                     </View>
                   </View>
@@ -10413,7 +10454,6 @@ const styles = StyleSheet.create({
   },
   richAudioTranslationRow: {
     marginTop: 5,
-    fontStyle: 'italic',
   },
   phraseAudioTranslationRow: {
     marginTop: -3,

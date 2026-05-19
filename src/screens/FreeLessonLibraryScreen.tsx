@@ -1,22 +1,27 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
-import checkCircleImage from '@/assets/images/CheckCircle.png';
+import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
+import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
+import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
+import { getLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
   const preferredText = preferred?.trim();
   if (preferredText) {
@@ -42,9 +47,13 @@ const getStageTitle = (stage: StageName, uiLanguage: 'en' | 'th') => {
 export function FreeLessonLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
+  const { hasAccount } = useAppSession();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [progressByLesson, setProgressByLesson] = useState<Record<string, AppLessonProgressSummary>>({});
+  const [progressRefreshToken, setProgressRefreshToken] = useState(() => getLessonLibraryProgressRefreshToken());
+  const progressRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,6 +121,47 @@ export function FreeLessonLibraryScreen() {
     return grouped;
   }, [items]);
 
+  const visibleLessonIds = useMemo(() => {
+    return STAGE_ORDER.flatMap((stage) => (lessonsByStage.get(stage) ?? []).map((lesson) => lesson.id)).filter(Boolean);
+  }, [lessonsByStage]);
+
+  const refreshProgressSummaries = React.useCallback(async () => {
+    if (!hasAccount || !visibleLessonIds.length) {
+      setProgressByLesson({});
+      return;
+    }
+
+    const requestId = progressRequestIdRef.current + 1;
+    progressRequestIdRef.current = requestId;
+    setProgressByLesson({});
+
+    await loadLessonProgressSummariesProgressively({
+      lessonIds: visibleLessonIds,
+      isCancelled: () => progressRequestIdRef.current !== requestId,
+      onPartial: (summaries) => {
+        setProgressByLesson((prev) => ({
+          ...prev,
+          ...summaries,
+        }));
+      },
+      onError: () => {
+        if (progressRequestIdRef.current === requestId) {
+          setProgressByLesson({});
+        }
+      },
+    });
+  }, [hasAccount, visibleLessonIds]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
+    }, [])
+  );
+
+  useEffect(() => {
+    void refreshProgressSummaries();
+  }, [progressRefreshToken, refreshProgressSummaries]);
+
   const handleLessonPress = (lesson: LessonListItem) => {
     router.push({
       pathname: '/lessons/[id]',
@@ -170,6 +220,7 @@ export function FreeLessonLibraryScreen() {
                             typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
                               ? `${lesson.level}.${lesson.lesson_order}`
                               : '-';
+                          const progress = progressByLesson[lesson.id];
 
                           return (
                             <Pressable
@@ -194,7 +245,15 @@ export function FreeLessonLibraryScreen() {
                                   </View>
                                 </View>
                                 <View style={styles.lessonRight}>
-                                  <Image source={checkCircleImage} style={styles.checkIcon} resizeMode="contain" />
+                                  {progress?.is_completed ? (
+                                    <Image
+                                      source={blueCompletedCheckImage}
+                                      style={styles.completedStatusIcon}
+                                      resizeMode="contain"
+                                    />
+                                  ) : progress?.has_started && (progress.percent_complete ?? 0) > 0 ? (
+                                    <LessonProgressCircle percent={progress.percent_complete} />
+                                  ) : null}
                                 </View>
                               </View>
                             </Pressable>
@@ -325,13 +384,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   lessonRight: {
-    width: 24,
+    minWidth: 48,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  checkIcon: {
-    width: 22,
-    height: 22,
+  completedStatusIcon: {
+    width: 20,
+    height: 20,
   },
 });
