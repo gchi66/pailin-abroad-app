@@ -7,6 +7,7 @@ export type ExerciseBankSectionSummary = {
   section?: string | null;
   section_th?: string | null;
   section_slug?: string | null;
+  section_order?: number | null;
   exercise_count?: number | null;
   featured_count?: number | null;
   is_featured?: boolean | null;

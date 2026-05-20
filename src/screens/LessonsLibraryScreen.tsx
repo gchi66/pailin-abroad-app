@@ -71,6 +71,20 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
   return emptyFallback;
 };
 
+const splitLessonFocusText = (focusText: string) => {
+  const trimmed = focusText.trim();
+  const match = /^(.*?)(\s*\([^)]+\))$/.exec(trimmed);
+
+  if (!match) {
+    return { main: trimmed, aside: '' };
+  }
+
+  return {
+    main: match[1]?.trim() ?? trimmed,
+    aside: match[2]?.trim() ?? '',
+  };
+};
+
 export function LessonsLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
@@ -371,6 +385,7 @@ export function LessonsLibraryScreen() {
                 uiLanguage === 'th'
                   ? pickText(lesson.focus_th, lesson.focus, '')
                   : pickText(lesson.focus, lesson.focus_th, '');
+              const focusParts = splitLessonFocusText(focusText);
               const lessonNumber =
                 typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
                   ? `${lesson.level}.${lesson.lesson_order}`
@@ -401,9 +416,18 @@ export function LessonsLibraryScreen() {
                             {titleText}
                           </AppText>
                           {focusText ? (
-                            <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
-                              {focusText}
-                            </AppText>
+                            <View style={styles.lessonSubtitleGroup}>
+                              {focusParts.main ? (
+                                <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
+                                  {focusParts.main}
+                                </AppText>
+                              ) : null}
+                              {focusParts.aside ? (
+                                <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitleAside}>
+                                  {focusParts.aside}
+                                </AppText>
+                              ) : null}
+                            </View>
                           ) : null}
                         </View>
                       </View>
@@ -611,8 +635,17 @@ const styles = StyleSheet.create({
   lessonTitle: {
     fontWeight: theme.typography.weights.semibold,
   },
+  lessonSubtitleGroup: {
+    gap: 1,
+  },
   lessonSubtitle: {
     color: theme.colors.mutedText,
+  },
+  lessonSubtitleAside: {
+    color: '#8C8D93',
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 15,
   },
   lessonRight: {
     minWidth: 48,

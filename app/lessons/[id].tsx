@@ -6471,6 +6471,13 @@ export default function LessonDetailShellScreen() {
             onPress={() => {
               void handleToggleSnippet(snippet);
             }}
+            style={
+              options?.isPhraseCard
+                ? options.phraseIsLeadAudio
+                  ? styles.phraseLeadAudioButtonOffset
+                  : styles.phraseAudioButtonOffset
+                : undefined
+            }
           />
           <View style={styles.richAudioTextWrap}>
             {renderRichAudioBulletLines(node.inlines, nodeKey, options)}
@@ -10295,6 +10302,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: theme.spacing.xs,
     marginTop: theme.spacing.sm,
+  },
+  phraseAudioButtonOffset: {
+    marginTop: 1,
+  },
+  phraseLeadAudioButtonOffset: {
+    marginTop: -3,
   },
   phraseAudioRowCompact: {
     marginTop: theme.spacing.xs,

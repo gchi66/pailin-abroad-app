@@ -4,6 +4,7 @@ import { getLessonsIndex } from '@/src/api/lessons';
 import {
   checkInDailyStreak,
   CompletedLessonProgress,
+  fetchUserLessonEngagements,
   UserStats,
   fetchUserCompletedLessons,
   fetchUserPathwayLessons,
@@ -106,6 +107,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
   const [stats, setStats] = useState<UserStats | null>(null);
   const [pathwayLessons, setPathwayLessons] = useState<LessonListItem[]>([]);
   const [completedProgress, setCompletedProgress] = useState<CompletedLessonProgress[]>([]);
+  const [lessonEngagements, setLessonEngagements] = useState<Record<string, string>>({});
   const [allLessons, setAllLessons] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
   const [isCompletedProgressLoading, setIsCompletedProgressLoading] = useState(enabled);
@@ -201,6 +203,32 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       }
     };
 
+    const loadLessonEngagements = async () => {
+      try {
+        const engagementResult = await withRequestTiming('lesson engagements', fetchUserLessonEngagements, (result) => ({
+          engagementCount: result.length,
+        }));
+
+        if (!isMounted) {
+          return;
+        }
+
+        const latestByLessonId = engagementResult.reduce<Record<string, string>>((acc, entry) => {
+          const lessonId = entry.lesson_id?.trim();
+          const lastVisitedAt = entry.last_visited_at?.trim();
+          if (!lessonId || !lastVisitedAt || acc[lessonId]) {
+            return acc;
+          }
+          acc[lessonId] = lastVisitedAt;
+          return acc;
+        }, {});
+
+        setLessonEngagements(latestByLessonId);
+      } catch {
+        // Timing helper already logs the request failure; keep the main pathway usable.
+      }
+    };
+
     const loadLessonIndex = async () => {
       const startedAt = Date.now();
       setIsLessonIndexLoading(true);
@@ -228,6 +256,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     void loadPathwayLessons();
     void loadStats();
     void loadCompletedProgress();
+    void loadLessonEngagements();
     void loadLessonIndex();
 
     return () => {
@@ -261,8 +290,26 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
 
   const completedIds = useMemo(() => new Set(completedLessons.map((lesson) => lesson.id)), [completedLessons]);
 
+  const completedProgressByLessonId = useMemo(
+    () =>
+      new Map(
+        completedProgress
+          .filter((entry) => typeof entry.lesson_id === 'string' && entry.lesson_id.trim().length > 0)
+          .map((entry) => [entry.lesson_id, entry] as const)
+      ),
+    [completedProgress]
+  );
+
+  const lessonSequence = useMemo(() => {
+    if (allLessons.length > 0) {
+      return allLessons;
+    }
+
+    return pathwayLessons;
+  }, [allLessons, pathwayLessons]);
+
   const pathwayRows = useMemo(() => {
-    return pathwayLessons.reduce<PathwayLessonRow[]>((rows, lesson) => {
+    return lessonSequence.reduce<PathwayLessonRow[]>((rows, lesson) => {
       if (!isLessonListItem(lesson)) {
         return rows;
       }
@@ -283,12 +330,52 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       rows.push({ lesson, state: 'available' });
       return rows;
     }, []);
-  }, [completedIds, firstLessonIds, hasMembership, pathwayLessons]);
+  }, [completedIds, firstLessonIds, hasMembership, lessonSequence]);
 
   const resumeRow = useMemo(() => {
-    const firstAvailable = pathwayRows.find((row) => row.state === 'available');
-    return firstAvailable ?? pathwayRows[0] ?? null;
-  }, [pathwayRows]);
+    const pathwayIndexByLessonId = new Map(pathwayRows.map((row, index) => [row.lesson.id, index] as const));
+    const recentLessonIds = Object.entries(lessonEngagements)
+      .sort((left, right) => {
+        const leftTime = Date.parse(left[1]);
+        const rightTime = Date.parse(right[1]);
+        return rightTime - leftTime;
+      })
+      .map(([lessonId]) => lessonId);
+
+    for (const lessonId of recentLessonIds) {
+      const rowIndex = pathwayIndexByLessonId.get(lessonId);
+      if (rowIndex == null) {
+        continue;
+      }
+
+      const row = pathwayRows[rowIndex];
+      if (!row) {
+        continue;
+      }
+
+      const completionEntry = completedProgressByLessonId.get(lessonId);
+      if (!completionEntry) {
+        return row;
+      }
+
+      const lastVisitedAt = lessonEngagements[lessonId] ?? '';
+      const lastVisitedTime = Date.parse(lastVisitedAt);
+      const completedAtTime = completionEntry.completed_at ? Date.parse(completionEntry.completed_at) : Number.NaN;
+      const wasCompletedBeforeLatestSession =
+        Number.isFinite(lastVisitedTime) &&
+        Number.isFinite(completedAtTime) &&
+        completedAtTime < lastVisitedTime;
+
+      if (wasCompletedBeforeLatestSession) {
+        continue;
+      }
+
+      return pathwayRows[rowIndex + 1] ?? null;
+    }
+
+    const firstNotCompleted = pathwayRows.find((row) => row.state !== 'completed');
+    return firstNotCompleted ?? pathwayRows[0] ?? null;
+  }, [completedProgressByLessonId, lessonEngagements, pathwayRows]);
 
   const setLessonCompletedOptimistically = async (params: { lesson: LessonListItem; completed: boolean }) => {
     const previousProgress = completedProgress;

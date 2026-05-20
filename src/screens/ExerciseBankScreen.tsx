@@ -18,6 +18,21 @@ import { ExerciseBankCategory, ExerciseBankSectionSummary } from '@/src/types/ex
 type UiLanguage = 'en' | 'th';
 type FilterMode = 'featured' | 'categories';
 
+const CATEGORY_ORDER = [
+  'verbs-and-tenses',
+  'nouns-and-articles',
+  'pronouns',
+  'adjectives',
+  'conjunctions',
+  'prepositions',
+  'other-concepts',
+];
+
+const CATEGORY_ORDER_INDEX = CATEGORY_ORDER.reduce<Record<string, number>>((acc, slug, index) => {
+  acc[slug] = index;
+  return acc;
+}, {});
+
 type Copy = {
   title: string;
   subtitle: string;
@@ -150,7 +165,7 @@ export function ExerciseBankScreen() {
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const visibleSections = useMemo(() => {
     const source = filterMode === 'featured' ? featured : sections;
-    return source.filter((section) => {
+    const filtered = source.filter((section) => {
       if (filterMode === 'categories' && selectedCategory !== 'all' && section.category_slug !== selectedCategory) {
         return false;
       }
@@ -161,6 +176,22 @@ export function ExerciseBankScreen() {
 
       const haystack = [section.section, section.section_th, section.category_label].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(normalizedSearch);
+    });
+
+    return [...filtered].sort((a, b) => {
+      const categoryOrderA = CATEGORY_ORDER_INDEX[a.category_slug?.trim() ?? ''] ?? Number.MAX_SAFE_INTEGER;
+      const categoryOrderB = CATEGORY_ORDER_INDEX[b.category_slug?.trim() ?? ''] ?? Number.MAX_SAFE_INTEGER;
+      if (categoryOrderA !== categoryOrderB) {
+        return categoryOrderA - categoryOrderB;
+      }
+
+      const sectionOrderA = typeof a.section_order === 'number' ? a.section_order : Number.MAX_SAFE_INTEGER;
+      const sectionOrderB = typeof b.section_order === 'number' ? b.section_order : Number.MAX_SAFE_INTEGER;
+      if (sectionOrderA !== sectionOrderB) {
+        return sectionOrderA - sectionOrderB;
+      }
+
+      return String(a.section ?? '').localeCompare(String(b.section ?? ''));
     });
   }, [featured, filterMode, normalizedSearch, sections, selectedCategory]);
 

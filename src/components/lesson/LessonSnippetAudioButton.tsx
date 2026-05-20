@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import { Image, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
 const playIcon = require('../../../assets/images/snippet_play_button.png');
 const pauseIcon = require('../../../assets/images/blue-pause-button.webp');
@@ -10,6 +10,7 @@ type LessonSnippetAudioButtonProps = {
   isLoading?: boolean;
   isPlaying?: boolean;
   onPress: () => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function LessonSnippetAudioButton({
@@ -18,6 +19,7 @@ export function LessonSnippetAudioButton({
   isLoading = false,
   isPlaying = false,
   onPress,
+  style,
 }: LessonSnippetAudioButtonProps) {
   return (
     <Pressable
@@ -30,6 +32,7 @@ export function LessonSnippetAudioButton({
         styles.button,
         disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.buttonPressed : null,
+        style,
       ]}>
       <Image source={isPlaying ? pauseIcon : playIcon} resizeMode="contain" style={styles.icon} />
     </Pressable>

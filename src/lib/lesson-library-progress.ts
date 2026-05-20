@@ -3,6 +3,8 @@ import {
   fetchAppLessonProgressSummaries,
 } from '@/src/api/app-lesson-progress';
 
+const LESSON_PROGRESS_BATCH_SIZE = 4;
+
 type ProgressiveProgressLoadOptions = {
   lessonIds: string[];
   onPartial: (summaries: Record<string, AppLessonProgressSummary>) => void;
@@ -21,12 +23,13 @@ export async function loadLessonProgressSummariesProgressively({
   }
 
   try {
-    for (const lessonId of lessonIds) {
+    for (let start = 0; start < lessonIds.length; start += LESSON_PROGRESS_BATCH_SIZE) {
       if (isCancelled?.()) {
         return;
       }
 
-      const summaries = await fetchAppLessonProgressSummaries([lessonId]);
+      const lessonIdBatch = lessonIds.slice(start, start + LESSON_PROGRESS_BATCH_SIZE);
+      const summaries = await fetchAppLessonProgressSummaries(lessonIdBatch);
       if (isCancelled?.()) {
         return;
       }

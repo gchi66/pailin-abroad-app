@@ -46,6 +46,11 @@ export type CompletedLessonProgress = {
   lessons?: LessonListItem | null;
 };
 
+export type LessonEngagementProgress = {
+  lesson_id: string;
+  last_visited_at?: string | null;
+};
+
 type CompletedLessonsResponse = {
   completed_lessons: CompletedLessonProgress[];
 };
@@ -149,6 +154,33 @@ export async function fetchUserCompletedLessons() {
 export async function fetchUserPathwayLessons() {
   const json = await fetchAuthedJson<PathwayLessonsResponse>('/api/user/pathway-lessons');
   return json.pathway_lessons ?? [];
+}
+
+export async function fetchUserLessonEngagements() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('You must be signed in to load lesson engagement.');
+  }
+
+  const { data, error } = await supabase
+    .from('user_lesson_unit_progress')
+    .select('lesson_id, last_visited_at, unit_key')
+    .eq('user_id', user.id)
+    .like('unit_key', 'app:%')
+    .not('last_visited_at', 'is', null)
+    .order('last_visited_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).filter(
+    (entry): entry is LessonEngagementProgress =>
+      typeof entry.lesson_id === 'string' && entry.lesson_id.trim().length > 0
+  );
 }
 
 type CancelSubscriptionResponse = {

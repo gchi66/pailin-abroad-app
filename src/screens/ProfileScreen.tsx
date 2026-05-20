@@ -106,7 +106,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     guestBody: 'Go back to Account to sign in or create an account first.',
     profileCardTitle: 'Member Snapshot',
     editCardTitle: 'Edit Profile',
-    usernameLabel: 'Username',
+      usernameLabel: 'First Name/Nickname',
     usernamePlaceholder: 'Choose a username',
     avatarPickerTitle: 'Choose an avatar',
     saveChanges: 'Save Changes',
