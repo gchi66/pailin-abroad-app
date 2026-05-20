@@ -49,12 +49,12 @@ export const theme = {
       th: {
         regular: 'Anuphan',
         medium: 'Anuphan-Medium',
-        italic: 'Anuphan',
-        mediumItalic: 'Anuphan-Medium',
+        italic: 'Kanit-LightItalic',
+        mediumItalic: 'Kanit-LightItalic',
         semibold: 'Anuphan-SemiBold',
-        semiboldItalic: 'Anuphan-SemiBold',
+        semiboldItalic: 'Kanit-LightItalic',
         bold: 'Anuphan-Bold',
-        boldItalic: 'Anuphan-Bold',
+        boldItalic: 'Kanit-LightItalic',
       },
     },
 

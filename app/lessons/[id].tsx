@@ -353,6 +353,15 @@ const getInlineFontFamily = (
   const faces = theme.typography.fontFaces[language];
 
   if (language === 'th') {
+    if (bold && italic) {
+      return faces.semiboldItalic;
+    }
+    if (medium && italic) {
+      return faces.mediumItalic;
+    }
+    if (italic) {
+      return faces.italic;
+    }
     if (bold) {
       return faces.semibold;
     }
@@ -1646,10 +1655,6 @@ const renderTextWithBlankRuns = (text: string, keyPrefix: string, blankStyle: ob
   });
 };
 
-const THAI_ITALIC_SKEW = {
-  transform: [{ skewX: '-50deg' as const }],
-};
-
 const getRichInlineSegmentStyle = (
   scriptLanguage: ScriptLanguage,
   inline: LessonRichInline,
@@ -1670,8 +1675,6 @@ const getRichInlineSegmentStyle = (
     }),
   },
   options?.isSubheader ? styles.richInlineSubheaderText : null,
-  inline.italic && scriptLanguage === 'th' ? THAI_ITALIC_SKEW : null,
-  inline.italic && scriptLanguage === 'th' ? { color: '#ff0000' } : null,
   inline.underline ? styles.richInlineUnderline : null,
   options?.shouldShowHighlight ? styles.richInlineHighlight : null,
   options?.shouldShowHighlight && options.highlightColor === '#f4cccc' ? styles.richInlineHighlightPink : null,
@@ -5433,7 +5436,6 @@ export default function LessonDetailShellScreen() {
             italic: inline.italic === true,
           }),
         },
-        inline.italic && contentLang === 'th' ? styles.applyInlineItalic : null,
         inline.underline ? styles.applyInlineUnderline : null,
       ];
 
@@ -10386,9 +10388,6 @@ const styles = StyleSheet.create({
   richInlineBoldThai: {
     fontFamily: theme.typography.fontFaces.th.semibold,
   },
-  richInlineItalic: {
-    fontStyle: 'italic',
-  },
   richInlineUnderline: {
     textDecorationLine: 'underline',
   },
@@ -10927,9 +10926,6 @@ const styles = StyleSheet.create({
   },
   applyInlineBoldThai: {
     fontFamily: theme.typography.fontFaces.th.semibold,
-  },
-  applyInlineItalic: {
-    fontStyle: 'italic',
   },
   applyInlineUnderline: {
     textDecorationLine: 'underline',

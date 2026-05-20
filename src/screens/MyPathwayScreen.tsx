@@ -91,9 +91,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     progressTitle: 'My Progress',
     progressLoading: 'Loading progress details...',
     viewDetails: 'View details →',
-    lessonsDone: 'Lessons\ndone',
-    levelsDone: 'Levels\ndone',
-    dailyStreak: 'Daily\nstreak',
+    lessonsDone: 'Lessons\ncomplete',
+    levelsDone: 'Levels\ncomplete',
+    dailyStreak: 'Day\nstreak',
     levelShort: 'Level',
     lessonsCompleteForLevel: (completedCount, totalCount, level) =>
       `${completedCount} of ${totalCount} lessons complete for Level ${typeof level === 'number' ? level : '–'}`,
