@@ -766,8 +766,8 @@
   - English account-exit copy now uses `Log Out` instead of `Sign Out`
   - account-management detail should now be treated as split across Profile, Settings, and More rather than all living on Profile
 - Next recommended work:
-  - continue cleanup/polish across `More`, `Settings`, and Membership/payment surfaces as needed
-  - continue refining membership/payment behavior and App Store-facing account-management details as needed
+  - figure out notifications
+  - figure out how to wire up App Store payments
 
 ## Recent Native Cleanup Pass
 - Lesson detail / guided study polish:

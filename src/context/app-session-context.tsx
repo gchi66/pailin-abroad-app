@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 
 import { checkInDailyStreak } from '@/src/api/user';
 import { UserProfile, fetchUserProfile } from '@/src/api/user';
+import { syncRevenueCatUser } from '@/src/lib/revenuecat';
 import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -259,6 +260,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       logAuth('dailyStreakCheckIn:error', error instanceof Error ? error.message : 'Unknown error');
     });
   }, [appState, session?.user]);
+
+  useEffect(() => {
+    void syncRevenueCatUser(session?.user?.id ?? null).catch((error) => {
+      logAuth('revenuecat:sync:error', error instanceof Error ? error.message : 'Unknown error');
+    });
+  }, [session?.user?.id]);
 
   const signIn = async ({ email, password }: { email: string; password: string }) => {
     const { error } = await supabase.auth.signInWithPassword({

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { membershipImages } from '@/src/assets/app-images';
@@ -9,7 +10,17 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import {
+  getPlanPackageMap,
+  getRevenueCatCustomerInfo,
+  getRevenueCatOffering,
+  hasRevenueCatFullAccess,
+  initializeRevenueCat,
+  isRevenueCatAvailable,
+  purchaseRevenueCatPackage,
+} from '@/src/lib/revenuecat';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
@@ -47,6 +58,8 @@ type PlanCopy = {
   savings?: string;
 };
 
+type PlanId = 'monthly' | '3-month' | '6-month' | 'lifetime';
+
 const INITIAL_PRICING_STATE: PricingState = {
   loading: true,
   error: null,
@@ -67,6 +80,22 @@ const monthsByPeriod: Record<string, number> = {
   '6-month': 6,
 };
 
+const THB_PROMO_MONTHLY_PRICES: Record<string, { currentPerMonth: number; originalPerMonth: number }> = {
+  monthly: { currentPerMonth: 199, originalPerMonth: 399 },
+  '3-month': { currentPerMonth: 179, originalPerMonth: 349 },
+  '6-month': { currentPerMonth: 149, originalPerMonth: 299 },
+};
+
+const THB_LIFETIME_PRICING = {
+  current: 3490,
+  original: 6999,
+};
+
+const USD_LIFETIME_PRICING = {
+  current: 99.99,
+  original: 199.99,
+};
+
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
@@ -77,12 +106,20 @@ const getCopy = (uiLanguage: UiLanguage) => {
       payMonthlyLabel: 'จ่ายรายเดือน',
       period: 'เดือน',
       joinCta: 'สมัครเลย!',
+      joinLoading: 'กำลังดำเนินการ...',
       planWarning: 'กรุณาเลือกแผนการชำระเงิน',
-      joinPlaceholder: 'ยังไม่เชื่อมการชำระเงินจริงในแอป',
+      joinPlaceholder: 'การชำระเงินสำเร็จแล้ว สิทธิ์อาจใช้เวลาสักครู่ในการซิงก์กับบัญชีของคุณ',
       loadingTitle: 'กำลังโหลดข้อมูลสมาชิก',
       backLabel: 'ย้อนกลับ',
       loadingErrorTitle: 'เกิดข้อผิดพลาด',
       loadingErrorBody: 'เราไม่สามารถโหลดราคาสมาชิกได้ กรุณาลองใหม่อีกครั้ง',
+      purchaseUnavailableTitle: 'ยังไม่พร้อมใช้งาน',
+      purchaseUnavailableBody: 'เราไม่พบตัวเลือกการสมัครในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+      signInRequiredTitle: 'กรุณาเข้าสู่ระบบก่อน',
+      signInRequiredBody: 'คุณต้องเข้าสู่ระบบก่อนจึงจะสมัครสมาชิกได้',
+      alreadyMemberTitle: 'คุณเป็นสมาชิกอยู่แล้ว',
+      alreadyMemberBody: 'บัญชีนี้มีสิทธิ์เข้าถึงแบบเต็มรูปแบบอยู่แล้ว',
+      purchaseSuccessTitle: 'การซื้อสำเร็จ',
       guaranteeStrong: 'รับประกันคืนเงิน 100%',
       guaranteeBody:
         'ภายใน 30 วันหลังจากวันชำระเงิน หากคุณไม่พึงพอใจในการเป็นสมาชิกกับเรา แต่เรามั่นใจว่าคุณจะหลงรัก Pailin Abroad อย่างแน่นอนเลย!',
@@ -139,12 +176,20 @@ const getCopy = (uiLanguage: UiLanguage) => {
     payMonthlyLabel: 'PAY MONTHLY',
     period: 'month',
     joinCta: 'JOIN NOW!',
+    joinLoading: 'PROCESSING...',
     planWarning: 'Please select a payment plan',
-    joinPlaceholder: 'Real app payment flow is not connected yet.',
+    joinPlaceholder: 'Your purchase went through. It may take a moment for access to sync to your account.',
     loadingTitle: 'Loading membership',
     backLabel: 'Back',
     loadingErrorTitle: 'Something went wrong',
     loadingErrorBody: "We couldn't load membership pricing. Please try again.",
+    purchaseUnavailableTitle: 'Products unavailable',
+    purchaseUnavailableBody: "We couldn't load the membership products right now. Please try again.",
+    signInRequiredTitle: 'Sign in required',
+    signInRequiredBody: 'You need to sign in before purchasing membership.',
+    alreadyMemberTitle: 'You already have full access',
+    alreadyMemberBody: 'This account is already unlocked.',
+    purchaseSuccessTitle: 'Purchase complete',
     guaranteeStrong: '100% money-back guarantee',
     guaranteeBody:
       "within 30 days of your purchase if you're not completely satisfied with your membership. But, we're confident you'll love Pailin Abroad!",
@@ -392,12 +437,16 @@ function MembershipPlanCard({
 export function MembershipScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ returnTo?: string }>();
+  const { hasAccount, refreshProfile } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('lifetime');
   const [showPlanWarning, setShowPlanWarning] = useState(false);
   const [pricingState, setPricingState] = useState<PricingState>(INITIAL_PRICING_STATE);
+  const [availablePackages, setAvailablePackages] = useState<Partial<Record<PlanId, PurchasesPackage>>>({});
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
+  const [purchaseInProgress, setPurchaseInProgress] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -436,14 +485,42 @@ export function MembershipScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRevenueCatProducts = async () => {
+      if (Platform.OS !== 'ios' || !isRevenueCatAvailable()) {
+        return;
+      }
+
+      try {
+        await initializeRevenueCat();
+        const [offering, nextCustomerInfo] = await Promise.all([getRevenueCatOffering(), getRevenueCatCustomerInfo()]);
+        if (cancelled) {
+          return;
+        }
+        setAvailablePackages(getPlanPackageMap(offering));
+        setCustomerInfo(nextCustomerInfo);
+      } catch (error) {
+        console.warn('[revenuecat] failed to load products', error);
+      }
+    };
+
+    void loadRevenueCatProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAccount]);
+
   const allPlans = useMemo<MembershipCard[]>(() => {
     if (pricingState.loading || pricingState.error) {
       return [];
     }
 
     const isUsdPricing = pricingState.currency === 'USD';
-    const lifetimePrice = isUsdPricing ? 150 : 3500;
-    const lifetimeOriginalPrice = lifetimePrice * 2;
+    const lifetimePrice = isUsdPricing ? USD_LIFETIME_PRICING.current : THB_LIFETIME_PRICING.current;
+    const lifetimeOriginalPrice = isUsdPricing ? USD_LIFETIME_PRICING.original : THB_LIFETIME_PRICING.original;
     const lifetimePlan: MembershipCard = {
       id: 'lifetime',
       duration: copy.lifetime.title,
@@ -460,25 +537,30 @@ export function MembershipScreen() {
       isLifetime: true,
     };
 
-    const monthlyTier = pricingState.plans.find((plan) => plan.billing_period === 'monthly');
-    const baseMonthlyPrice = monthlyTier ? Number(monthlyTier.amount_per_month) : null;
-
     const plans: MembershipCard[] = [...pricingState.plans]
       .sort((a, b) => (monthsByPeriod[b.billing_period] ?? 0) - (monthsByPeriod[a.billing_period] ?? 0))
       .map((plan) => {
         const copyKey = billingPeriodToCopyKey[plan.billing_period];
         const planCopy = copy.plans[copyKey] as PlanCopy;
         const months = monthsByPeriod[plan.billing_period] ?? 1;
-        const originalPrice = baseMonthlyPrice && months > 1 ? baseMonthlyPrice * months : null;
+        const thbPromoPrice = pricingState.currency === 'THB' ? THB_PROMO_MONTHLY_PRICES[plan.billing_period] : null;
+        const currentPerMonth = thbPromoPrice ? thbPromoPrice.currentPerMonth : Number(plan.amount_per_month);
+        const originalPerMonth = thbPromoPrice
+          ? thbPromoPrice.originalPerMonth
+          : Number.isFinite(Number(plan.amount_per_month))
+            ? Number(plan.amount_per_month) * 2
+            : null;
+        const totalPrice = currentPerMonth * months;
+        const originalPrice = originalPerMonth ? originalPerMonth * months : null;
         return {
           id: plan.billing_period,
           duration: planCopy.duration,
           bestFor: planCopy.bestFor,
           savings: planCopy.savings ?? null,
-          price: buildPriceWithSymbol(pricingState.currency, Number(plan.amount_per_month)),
-          totalPrice: Number(plan.amount_total),
+          price: buildPriceWithSymbol(pricingState.currency, currentPerMonth),
+          totalPrice,
           originalPrice,
-          originalDisplayPrice: Number(plan.amount_per_month) * 2,
+          originalDisplayPrice: originalPerMonth,
           billingPeriod: pricingState.currency ?? '',
           period: copy.period,
         } satisfies MembershipCard;
@@ -499,14 +581,44 @@ export function MembershipScreen() {
 
   const selectedPlan = allPlans.find((plan) => plan.id === selectedPlanId) ?? null;
   const isCompactLayout = width < 768;
+  const selectedPackage = selectedPlan ? availablePackages[selectedPlan.id as PlanId] ?? null : null;
+  const alreadyHasRevenueCatAccess = hasRevenueCatFullAccess(customerInfo);
 
-  const handleJoinPress = () => {
+  const handleJoinPress = async () => {
     if (!selectedPlan) {
       setShowPlanWarning(true);
       return;
     }
+
+    if (!hasAccount) {
+      Alert.alert(copy.signInRequiredTitle, copy.signInRequiredBody);
+      return;
+    }
+
+    if (alreadyHasRevenueCatAccess) {
+      Alert.alert(copy.alreadyMemberTitle, copy.alreadyMemberBody);
+      return;
+    }
+
+    if (Platform.OS !== 'ios' || !selectedPackage) {
+      Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
+      return;
+    }
+
     setShowPlanWarning(false);
-    Alert.alert(copy.joinCta, copy.joinPlaceholder);
+
+    try {
+      setPurchaseInProgress(true);
+      const result = await purchaseRevenueCatPackage(selectedPackage);
+      setCustomerInfo(result.customerInfo);
+      await refreshProfile();
+      Alert.alert(copy.purchaseSuccessTitle, copy.joinPlaceholder);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : copy.loadingErrorBody;
+      Alert.alert(copy.loadingErrorTitle, message);
+    } finally {
+      setPurchaseInProgress(false);
+    }
   };
 
   const stickyPlanLabel = selectedPlan
@@ -606,9 +718,10 @@ export function MembershipScreen() {
           <Button
             language={uiLanguage}
             onPress={handleJoinPress}
+            disabled={purchaseInProgress}
             style={styles.joinButton}
             textStyle={styles.joinButtonText}
-            title={copy.joinCta}
+            title={purchaseInProgress ? copy.joinLoading : copy.joinCta}
           />
         ) : null}
 
@@ -665,9 +778,10 @@ export function MembershipScreen() {
             <Button
               language={uiLanguage}
               onPress={handleJoinPress}
+              disabled={purchaseInProgress}
               style={styles.stickyJoinButton}
               textStyle={styles.stickyJoinButtonText}
-              title={copy.joinCta}
+              title={purchaseInProgress ? copy.joinLoading : copy.joinCta}
             />
           </View>
         </View>
