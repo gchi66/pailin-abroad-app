@@ -20,6 +20,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { FACEBOOK_URL, INSTAGRAM_URL, LINE_URL } from '@/src/config/social';
 import { theme } from '@/src/theme/theme';
@@ -162,6 +163,7 @@ export function ContactScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.keyboardAvoidingView}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
         <Stack gap="md">
           <StandardPageHeader
             language={uiLanguage}
@@ -274,7 +276,8 @@ export function ContactScreen() {
             />
           </Stack>
         </Stack>
-      </ScrollView>
+            </ResponsivePageShell>
+    </ScrollView>
     </KeyboardAvoidingView>
   );
 }

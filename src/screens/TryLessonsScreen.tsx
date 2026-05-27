@@ -9,6 +9,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { homeMockData, pickText } from '@/src/mocks/home';
@@ -74,6 +75,7 @@ export function TryLessonsScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
       <Stack gap="xl">
         <View style={styles.headerBlock}>
           <Stack gap="sm">
@@ -190,6 +192,7 @@ export function TryLessonsScreen() {
           </Stack>
         </Card>
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }

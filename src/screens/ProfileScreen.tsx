@@ -8,6 +8,7 @@ import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { updateOnboardingProfile } from '@/src/api/onboarding';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { resolveAvatarSource } from '@/src/lib/avatar';
@@ -213,178 +214,182 @@ export function ProfileScreen() {
   if (!hasAccount) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-        <Card padding="lg" radius="lg" style={styles.neoCard}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {copy.guestTitle}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-              {copy.guestBody}
-            </AppText>
-          </Stack>
-        </Card>
+        <ResponsivePageShell>
+          <Card padding="lg" radius="lg" style={styles.neoCard}>
+            <Stack gap="sm">
+              <AppText language={uiLanguage} variant="title" style={styles.title}>
+                {copy.guestTitle}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
+                {copy.guestBody}
+              </AppText>
+            </Stack>
+          </Card>
+        </ResponsivePageShell>
       </ScrollView>
     );
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <Stack gap="md">
-        <StandardPageHeader
-          language={uiLanguage}
-          title={copy.title}
-          onBackPress={() => router.push('/(tabs)/account')}
-          backLabel={copy.back}
-          rightActionLabel={isEditing ? copy.cancel : copy.edit}
-          onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
-          topInsetOffset={52}
-        />
+      <ResponsivePageShell>
+        <Stack gap="md">
+          <StandardPageHeader
+            language={uiLanguage}
+            title={copy.title}
+            onBackPress={() => router.push('/(tabs)/account')}
+            backLabel={copy.back}
+            rightActionLabel={isEditing ? copy.cancel : copy.edit}
+            onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
+            topInsetOffset={52}
+          />
 
-        <Card padding="lg" radius="lg" style={styles.neoCard}>
-          <Stack gap="md">
-            <View style={styles.profileHeaderRow}>
-              <View style={styles.avatar}>
-                {isEditing && draftAvatarSource ? (
-                  <Image source={draftAvatarSource} style={styles.avatarImage} resizeMode="cover" />
-                ) : avatarSource ? (
-                  <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
-                ) : (
-                  <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
-                    {avatarLabel || copy.avatarLabel}
+          <Card padding="lg" radius="lg" style={styles.neoCard}>
+            <Stack gap="md">
+              <View style={styles.profileHeaderRow}>
+                <View style={styles.avatar}>
+                  {isEditing && draftAvatarSource ? (
+                    <Image source={draftAvatarSource} style={styles.avatarImage} resizeMode="cover" />
+                  ) : avatarSource ? (
+                    <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
+                  ) : (
+                    <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
+                      {avatarLabel || copy.avatarLabel}
+                    </AppText>
+                  )}
+                </View>
+                <View style={styles.profileIdentity}>
+                  <AppText language={uiLanguage} variant="body" style={styles.profileName}>
+                    {profileData.displayName}
                   </AppText>
-                )}
+                  <AppText language={uiLanguage} variant="muted">
+                    {profileData.email}
+                  </AppText>
+                </View>
               </View>
-              <View style={styles.profileIdentity}>
-                <AppText language={uiLanguage} variant="body" style={styles.profileName}>
-                  {profileData.displayName}
-                </AppText>
-                <AppText language={uiLanguage} variant="muted">
-                  {profileData.email}
-                </AppText>
-              </View>
-            </View>
 
-            {isEditing ? (
-              <Stack gap="md">
-                <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                  {copy.editCardTitle}
-                </AppText>
-                <Stack gap="xs">
-                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
-                    {copy.usernameLabel}
+              {isEditing ? (
+                <Stack gap="md">
+                  <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
+                    {copy.editCardTitle}
                   </AppText>
-                  <View style={styles.inputShell}>
-                    <TextInput
-                      placeholder={copy.usernamePlaceholder}
-                      placeholderTextColor={theme.colors.mutedText}
-                      style={styles.textInput}
-                      value={draftUsername}
-                      onChangeText={setDraftUsername}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
+                  <Stack gap="xs">
+                    <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
+                      {copy.usernameLabel}
+                    </AppText>
+                    <View style={styles.inputShell}>
+                      <TextInput
+                        placeholder={copy.usernamePlaceholder}
+                        placeholderTextColor={theme.colors.mutedText}
+                        style={styles.textInput}
+                        value={draftUsername}
+                        onChangeText={setDraftUsername}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </Stack>
+
+                  <Stack gap="xs">
+                    <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
+                      {copy.avatarPickerTitle}
+                    </AppText>
+                    <View style={styles.avatarGrid}>
+                      {AVATAR_OPTIONS.map((avatarPath) => {
+                        const optionSource = resolveAvatarSource(avatarPath);
+                        if (!optionSource) {
+                          return null;
+                        }
+
+                        return (
+                          <Pressable
+                            key={avatarPath}
+                            accessibilityRole="button"
+                            style={[styles.avatarOption, draftAvatarPath === avatarPath ? styles.avatarOptionSelected : null]}
+                            onPress={() => setDraftAvatarPath(avatarPath)}>
+                            <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </Stack>
+
+                  <Button
+                    title={isSaving ? copy.saving : copy.saveChanges}
+                    language={uiLanguage}
+                    onPress={() => {
+                      void handleSaveProfile();
+                    }}
+                    disabled={isSaving}
+                  />
+                </Stack>
+              ) : (
+                <Stack gap="sm">
+                  <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
+                    {copy.profileCardTitle}
+                  </AppText>
+                  <View style={styles.metaRow}>
+                    <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                      {copy.membershipLabel}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                      {profileData.membershipLabel}
+                    </AppText>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                      {copy.languageLabel}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                      {copy.languageValue}
+                    </AppText>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                      {copy.joinedLabel}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                      {profileData.joinedLabel}
+                    </AppText>
                   </View>
                 </Stack>
+              )}
+            </Stack>
+          </Card>
 
-                <Stack gap="xs">
-                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
-                    {copy.avatarPickerTitle}
-                  </AppText>
-                  <View style={styles.avatarGrid}>
-                    {AVATAR_OPTIONS.map((avatarPath) => {
-                      const optionSource = resolveAvatarSource(avatarPath);
-                      if (!optionSource) {
-                        return null;
-                      }
+          <Pressable
+            accessibilityRole="button"
+            style={styles.signOutRow}
+            onPress={() => {
+              void signOut().then(({ error }) => {
+                if (error) {
+                  Alert.alert(copy.signOut, error);
+                  return;
+                }
+                Alert.alert(copy.signOut, copy.signOutSuccess);
+                router.replace('/(tabs)/account');
+              });
+            }}>
+            <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
+              {copy.signOut}
+            </AppText>
+          </Pressable>
 
-                      return (
-                        <Pressable
-                          key={avatarPath}
-                          accessibilityRole="button"
-                          style={[styles.avatarOption, draftAvatarPath === avatarPath ? styles.avatarOptionSelected : null]}
-                          onPress={() => setDraftAvatarPath(avatarPath)}>
-                          <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </Stack>
-
-                <Button
-                  title={isSaving ? copy.saving : copy.saveChanges}
-                  language={uiLanguage}
-                  onPress={() => {
-                    void handleSaveProfile();
-                  }}
-                  disabled={isSaving}
-                />
-              </Stack>
-            ) : (
-              <Stack gap="sm">
-                <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                  {copy.profileCardTitle}
-                </AppText>
-                <View style={styles.metaRow}>
-                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                    {copy.membershipLabel}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                    {profileData.membershipLabel}
-                  </AppText>
-                </View>
-                <View style={styles.metaRow}>
-                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                    {copy.languageLabel}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                    {copy.languageValue}
-                  </AppText>
-                </View>
-                <View style={styles.metaRow}>
-                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                    {copy.joinedLabel}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                    {profileData.joinedLabel}
-                  </AppText>
-                </View>
-              </Stack>
-            )}
-          </Stack>
-        </Card>
-
-        <Pressable
-          accessibilityRole="button"
-          style={styles.signOutRow}
-          onPress={() => {
-            void signOut().then(({ error }) => {
-              if (error) {
-                Alert.alert(copy.signOut, error);
-                return;
-              }
-              Alert.alert(copy.signOut, copy.signOutSuccess);
-              router.replace('/(tabs)/account');
-            });
-          }}>
-          <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
-            {copy.signOut}
-          </AppText>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          style={styles.devtoolsRow}
-          onPress={() =>
-            router.push({
-              pathname: '/onboarding',
-              params: { devtools: '1' },
-            })
-          }>
-          <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
-            {copy.onboardingDevtools}
-          </AppText>
-        </Pressable>
-      </Stack>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.devtoolsRow}
+            onPress={() =>
+              router.push({
+                pathname: '/onboarding',
+                params: { devtools: '1' },
+              })
+            }>
+            <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
+              {copy.onboardingDevtools}
+            </AppText>
+          </Pressable>
+        </Stack>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }

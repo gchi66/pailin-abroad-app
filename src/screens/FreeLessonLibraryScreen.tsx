@@ -12,6 +12,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
@@ -182,6 +183,7 @@ export function FreeLessonLibraryScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
       <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'} />
 
@@ -269,6 +271,7 @@ export function FreeLessonLibraryScreen() {
           </View>
         ) : null}
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }

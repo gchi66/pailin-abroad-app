@@ -7,6 +7,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
@@ -253,6 +254,7 @@ export function AboutScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
       <Stack gap="md">
         <StandardPageHeader
           language={uiLanguage}
@@ -350,6 +352,7 @@ export function AboutScreen() {
           </Stack>
         )}
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }

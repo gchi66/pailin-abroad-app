@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { getLessonsIndex } from '@/src/api/lessons';
 import {
-  checkInDailyStreak,
   CompletedLessonProgress,
   fetchUserLessonEngagements,
   UserStats,
@@ -29,8 +28,24 @@ type UsePathwayDataParams = {
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
 const PATHWAY_TIMING_LABEL = '[pathway-load]';
+const APP_BOOTSTRAP_LABEL = '[app-bootstrap]';
 
 const getElapsedMs = (startedAt: number) => Date.now() - startedAt;
+
+const getBootstrapStartedAt = () =>
+  (globalThis as typeof globalThis & { __pailinAppBootstrapStartedAt?: number }).__pailinAppBootstrapStartedAt ?? null;
+
+const getBootstrapElapsedMs = () => {
+  const startedAt = getBootstrapStartedAt();
+  return startedAt ? Date.now() - startedAt : null;
+};
+
+const logBootstrap = (message: string, metadata?: Record<string, unknown>) => {
+  console.info(APP_BOOTSTRAP_LABEL, message, {
+    elapsedMs: getBootstrapElapsedMs(),
+    ...(metadata ?? {}),
+  });
+};
 
 const logRequestTiming = (name: string, startedAt: number, metadata?: Record<string, unknown>) => {
   console.info(PATHWAY_TIMING_LABEL, `${name} loaded`, {
@@ -125,11 +140,15 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     }
 
     let isMounted = true;
+    logBootstrap('pathway data effect started', {
+      hasMembership,
+    });
 
     const loadPathwayLessons = async () => {
       const startedAt = Date.now();
       setIsLoading(true);
       setErrorMessage(null);
+      console.info(PATHWAY_TIMING_LABEL, 'pathway lessons started');
 
       try {
         const pathwayResult = await withRequestTiming('pathway lessons', fetchUserPathwayLessons, (result) => ({
@@ -162,9 +181,9 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
 
     const loadStats = async () => {
       setIsStatsLoading(true);
+      console.info(PATHWAY_TIMING_LABEL, 'stats started');
 
       try {
-        await withRequestTiming('daily streak check-in', checkInDailyStreak);
         const statsResult = await withRequestTiming('stats', fetchUserStats);
 
         if (!isMounted) {
@@ -183,6 +202,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
 
     const loadCompletedProgress = async () => {
       setIsCompletedProgressLoading(true);
+      console.info(PATHWAY_TIMING_LABEL, 'completed lessons started');
 
       try {
         const completedResult = await withRequestTiming('completed lessons', fetchUserCompletedLessons, (result) => ({
@@ -204,6 +224,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     };
 
     const loadLessonEngagements = async () => {
+      console.info(PATHWAY_TIMING_LABEL, 'lesson engagements started');
       try {
         const engagementResult = await withRequestTiming('lesson engagements', fetchUserLessonEngagements, (result) => ({
           engagementCount: result.length,
@@ -232,6 +253,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     const loadLessonIndex = async () => {
       const startedAt = Date.now();
       setIsLessonIndexLoading(true);
+      console.info(PATHWAY_TIMING_LABEL, 'lesson index started');
 
       try {
         const lessonsIndex = await getLessonsIndex();
@@ -262,7 +284,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     return () => {
       isMounted = false;
     };
-  }, [enabled]);
+  }, [enabled, hasMembership]);
 
   const firstLessonIds = useMemo(() => {
     const firstByLevel = new Map<string, string>();

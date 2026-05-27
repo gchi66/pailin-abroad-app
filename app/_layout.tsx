@@ -19,6 +19,24 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+const APP_BOOTSTRAP_LABEL = '[app-bootstrap]';
+const APP_BOOTSTRAP_STARTED_AT = Date.now();
+
+const setBootstrapStart = () => {
+  (globalThis as typeof globalThis & { __pailinAppBootstrapStartedAt?: number }).__pailinAppBootstrapStartedAt =
+    APP_BOOTSTRAP_STARTED_AT;
+};
+
+const getBootstrapElapsedMs = () => Date.now() - APP_BOOTSTRAP_STARTED_AT;
+
+const logBootstrap = (message: string, metadata?: Record<string, unknown>) => {
+  console.info(APP_BOOTSTRAP_LABEL, message, {
+    elapsedMs: getBootstrapElapsedMs(),
+    ...(metadata ?? {}),
+  });
+};
+
+setBootstrapStart();
 void SplashScreen.preventAutoHideAsync();
 
 function AppRouteGate() {
@@ -31,6 +49,15 @@ function AppRouteGate() {
   const isOnboardingDevtoolsMode = isOnOnboardingRoute && params.devtools === '1';
   const shouldRedirectToOnboarding = !isLoading && hasAccount && !hasCompletedOnboarding && !isOnOnboardingRoute;
   const shouldRedirectToApp = !isLoading && hasAccount && hasCompletedOnboarding && isOnOnboardingRoute && !isOnboardingDevtoolsMode;
+
+  useEffect(() => {
+    logBootstrap('route gate ready', {
+      hasAccount,
+      hasCompletedOnboarding,
+      isLoading,
+      pathname,
+    });
+  }, [hasAccount, hasCompletedOnboarding, isLoading, pathname]);
 
   useEffect(() => {
     if (isLoading || !hasAccount) {
@@ -80,7 +107,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    logBootstrap('root layout mounted');
+  }, []);
+
+  useEffect(() => {
     if (fontsLoaded) {
+      logBootstrap('fonts loaded');
       void SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);

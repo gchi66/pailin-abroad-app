@@ -13,6 +13,7 @@ import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
@@ -281,6 +282,7 @@ export function LessonsLibraryScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
       <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={title} />
 
@@ -457,6 +459,7 @@ export function LessonsLibraryScreen() {
           </Stack>
         ) : null}
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }

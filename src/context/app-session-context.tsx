@@ -1,17 +1,32 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
-import { checkInDailyStreak } from '@/src/api/user';
 import { UserProfile, fetchUserProfile } from '@/src/api/user';
 import { syncRevenueCatUser } from '@/src/lib/revenuecat';
 import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const APP_BOOTSTRAP_LABEL = '[app-bootstrap]';
+
+const getBootstrapStartedAt = () =>
+  (globalThis as typeof globalThis & { __pailinAppBootstrapStartedAt?: number }).__pailinAppBootstrapStartedAt ?? null;
+
+const getBootstrapElapsedMs = () => {
+  const startedAt = getBootstrapStartedAt();
+  return startedAt ? Date.now() - startedAt : null;
+};
+
+const logBootstrap = (message: string, metadata?: Record<string, unknown>) => {
+  console.info(APP_BOOTSTRAP_LABEL, message, {
+    elapsedMs: getBootstrapElapsedMs(),
+    ...(metadata ?? {}),
+  });
+};
 
 type AppProfile = UserProfile & {
   is_paid: boolean;
@@ -19,6 +34,21 @@ type AppProfile = UserProfile & {
   subscription_status: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
+  cancel_at: string | null;
+};
+
+type AppUserRow = {
+  id: string;
+  username: string | null;
+  email: string | null;
+  avatar_image: string | null;
+  is_admin: boolean | null;
+  created_at: string | null;
+  is_paid: boolean | null;
+  onboarding_completed: boolean | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
   cancel_at: string | null;
 };
 
@@ -49,7 +79,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  const hasIgnoredInitialSession = useRef(false);
 
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',
@@ -59,6 +89,102 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const logAuth = (...args: unknown[]) => {
     console.log('[auth]', ...args);
   };
+
+  const fetchUsersRow = useCallback(async (userId: string) => {
+    return supabase
+      .from('users')
+      .select(
+        'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, current_period_end, cancel_at_period_end, cancel_at'
+      )
+      .eq('id', userId)
+      .maybeSingle<AppUserRow>();
+  }, []);
+
+  const buildMinimalProfile = useCallback((currentUser: User, userRow: AppUserRow | null): AppProfile => {
+    return {
+      id: userRow?.id ?? currentUser.id,
+      name: userRow?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+      username: userRow?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+      email: userRow?.email ?? currentUser.email ?? null,
+      avatar_image:
+        userRow?.avatar_image ??
+        (typeof currentUser.user_metadata?.avatar_image === 'string' ? currentUser.user_metadata.avatar_image : null),
+      is_admin: userRow?.is_admin === true,
+      created_at: userRow?.created_at ?? null,
+      is_paid: userRow?.is_paid === true,
+      onboarding_completed: userRow?.onboarding_completed === true,
+      lessons_complete: 0,
+      subscription_status: userRow?.subscription_status ?? null,
+      current_period_end: userRow?.current_period_end ?? null,
+      cancel_at_period_end: userRow?.cancel_at_period_end === true,
+      cancel_at: userRow?.cancel_at ?? null,
+    };
+  }, []);
+
+  const mergeEnrichedProfile = useCallback((currentUser: User, userRow: AppUserRow | null, backendProfile: UserProfile): AppProfile => {
+    return {
+      id: userRow?.id ?? backendProfile.id ?? currentUser.id,
+      name:
+        backendProfile.name ??
+        userRow?.username ??
+        currentUser.user_metadata?.username ??
+        currentUser.user_metadata?.name ??
+        null,
+      username:
+        userRow?.username ??
+        backendProfile.username ??
+        currentUser.user_metadata?.username ??
+        currentUser.user_metadata?.name ??
+        null,
+      email: userRow?.email ?? backendProfile.email ?? currentUser.email ?? null,
+      avatar_image:
+        userRow?.avatar_image ??
+        backendProfile.avatar_image ??
+        (typeof currentUser.user_metadata?.avatar_image === 'string' ? currentUser.user_metadata.avatar_image : null),
+      is_admin: userRow?.is_admin ?? backendProfile.is_admin ?? false,
+      created_at: userRow?.created_at ?? backendProfile.created_at ?? null,
+      is_paid: userRow?.is_paid === true,
+      onboarding_completed: userRow?.onboarding_completed === true,
+      lessons_complete: backendProfile.lessons_complete ?? 0,
+      subscription_status: userRow?.subscription_status ?? backendProfile.subscription_status ?? null,
+      current_period_end: userRow?.current_period_end ?? backendProfile.current_period_end ?? null,
+      cancel_at_period_end: userRow?.cancel_at_period_end === true || backendProfile.cancel_at_period_end === true,
+      cancel_at: userRow?.cancel_at ?? backendProfile.cancel_at ?? null,
+    };
+  }, []);
+
+  const enrichProfile = useCallback(async (currentUser: User, userRow: AppUserRow | null) => {
+    const enrichStartedAt = Date.now();
+
+    try {
+      logBootstrap('profile enrichment started', {
+        userId: currentUser.id,
+      });
+      const backendProfileStartedAt = Date.now();
+      const backendProfile = await fetchUserProfile();
+      logBootstrap('profile backend loaded', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - backendProfileStartedAt,
+      });
+
+      setAuthError(null);
+      setProfile((previousProfile) => ({
+        ...(previousProfile ?? buildMinimalProfile(currentUser, userRow)),
+        ...mergeEnrichedProfile(currentUser, userRow, backendProfile),
+      }));
+      logBootstrap('profile enrichment completed', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - enrichStartedAt,
+      });
+    } catch (error) {
+      logBootstrap('profile enrichment failed', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - enrichStartedAt,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      setAuthError((previousError) => previousError ?? (error instanceof Error ? error.message : 'Could not load profile.'));
+    }
+  }, [buildMinimalProfile, mergeEnrichedProfile]);
 
   const createSessionFromUrl = useCallback(async (url: string) => {
     logAuth('createSessionFromUrl:start');
@@ -93,47 +219,69 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     logAuth('createSessionFromUrl:success');
   }, []);
 
-  const fetchProfile = useCallback(async (currentUser: User | null) => {
+  const fetchProfile = useCallback(async (
+    currentUser: User | null,
+    options?: { background?: boolean; waitForEnrichment?: boolean }
+  ) => {
     if (!currentUser) {
+      logBootstrap('profile skipped', {
+        reason: 'no current user',
+      });
       setProfile(null);
       return;
     }
 
+    const profileStartedAt = Date.now();
+    const shouldEnrich = options?.background !== false;
+    const shouldWaitForEnrichment = options?.waitForEnrichment === true;
+
     try {
-      const data = await fetchUserProfile();
-      const { data: userRow } = await supabase
-        .from('users')
-        .select(
-          'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, current_period_end, cancel_at_period_end, cancel_at'
-        )
-        .eq('id', currentUser.id)
-        .maybeSingle();
-      setAuthError(null);
-      setProfile({
-        id: userRow?.id ?? data.id ?? currentUser.id,
-        name: data.name ?? userRow?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
-        username: userRow?.username ?? data.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
-        email: userRow?.email ?? data.email ?? currentUser.email ?? null,
-        avatar_image: userRow?.avatar_image ?? data.avatar_image ?? null,
-        is_admin: userRow?.is_admin ?? data.is_admin ?? false,
-        created_at: userRow?.created_at ?? data.created_at ?? null,
-        is_paid: userRow?.is_paid === true,
-        onboarding_completed: userRow?.onboarding_completed === true,
-        lessons_complete: data.lessons_complete ?? 0,
-        subscription_status: userRow?.subscription_status ?? data.subscription_status ?? null,
-        current_period_end: userRow?.current_period_end ?? data.current_period_end ?? null,
-        cancel_at_period_end: userRow?.cancel_at_period_end === true || data.cancel_at_period_end === true,
-        cancel_at: userRow?.cancel_at ?? data.cancel_at ?? null,
+      logBootstrap('profile fetch started', {
+        userId: currentUser.id,
+        backgroundEnrichment: shouldEnrich,
+        waitForEnrichment: shouldWaitForEnrichment,
       });
+      const usersRowStartedAt = Date.now();
+      const { data: userRow, error: usersError } = await fetchUsersRow(currentUser.id);
+      logBootstrap('profile users row loaded', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - usersRowStartedAt,
+        hasUsersError: Boolean(usersError),
+      });
+
+      if (usersError) {
+        throw usersError;
+      }
+
+      const minimalProfile = buildMinimalProfile(currentUser, userRow ?? null);
+      setAuthError(null);
+      setProfile(minimalProfile);
+      logBootstrap('profile minimal loaded', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - profileStartedAt,
+      });
+
+      if (shouldEnrich) {
+        const enrichmentPromise = enrichProfile(currentUser, userRow ?? null);
+        if (shouldWaitForEnrichment) {
+          await enrichmentPromise;
+        }
+      }
+
       return;
     } catch (error) {
-      const { data, error: usersError } = await supabase
-        .from('users')
-        .select(
-          'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, current_period_end, cancel_at_period_end, cancel_at'
-        )
-        .eq('id', currentUser.id)
-        .maybeSingle();
+      logBootstrap('profile minimal load failed', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - profileStartedAt,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      const fallbackUsersRowStartedAt = Date.now();
+      const { data, error: usersError } = await fetchUsersRow(currentUser.id);
+      logBootstrap('profile fallback users row loaded', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - fallbackUsersRowStartedAt,
+        hasUsersError: Boolean(usersError),
+      });
 
       if (usersError) {
         setAuthError(error instanceof Error ? error.message : usersError.message);
@@ -153,36 +301,46 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           cancel_at_period_end: false,
           cancel_at: null,
         });
+        logBootstrap('profile fallback completed with minimal data', {
+          userId: currentUser.id,
+          stepElapsedMs: Date.now() - profileStartedAt,
+        });
         return;
       }
 
       setAuthError(null);
-      setProfile({
-        id: data?.id ?? currentUser.id,
-        name: data?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
-        username: data?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
-        email: data?.email ?? currentUser.email ?? null,
-        avatar_image: data?.avatar_image ?? null,
-        is_admin: data?.is_admin ?? false,
-        created_at: data?.created_at ?? null,
-        is_paid: data?.is_paid === true,
-        onboarding_completed: data?.onboarding_completed === true,
-        lessons_complete: 0,
-        subscription_status: data?.subscription_status ?? null,
-        current_period_end: data?.current_period_end ?? null,
-        cancel_at_period_end: data?.cancel_at_period_end === true,
-        cancel_at: data?.cancel_at ?? null,
+      setProfile(buildMinimalProfile(currentUser, data ?? null));
+      logBootstrap('profile fallback completed', {
+        userId: currentUser.id,
+        stepElapsedMs: Date.now() - profileStartedAt,
       });
+
+      if (shouldEnrich) {
+        const enrichmentPromise = enrichProfile(currentUser, data ?? null);
+        if (shouldWaitForEnrichment) {
+          await enrichmentPromise;
+        }
+      }
     }
-  }, []);
+  }, [buildMinimalProfile, enrichProfile, fetchUsersRow]);
 
   useEffect(() => {
     let isMounted = true;
 
     const hydrate = async () => {
+      const hydrateStartedAt = Date.now();
+      logBootstrap('session hydrate started');
       setIsLoading(true);
+
+      const getSessionStartedAt = Date.now();
       const { data, error } = await supabase.auth.getSession();
       logAuth('hydrate:getSession', {
+        hasSession: Boolean(data.session),
+        userId: data.session?.user?.id ?? null,
+        error: error?.message ?? null,
+      });
+      logBootstrap('session getSession completed', {
+        stepElapsedMs: Date.now() - getSessionStartedAt,
         hasSession: Boolean(data.session),
         userId: data.session?.user?.id ?? null,
         error: error?.message ?? null,
@@ -200,13 +358,46 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       await fetchProfile(nextSession?.user ?? null);
       if (isMounted) {
         setIsLoading(false);
+        logBootstrap('session hydrate completed', {
+          stepElapsedMs: Date.now() - hydrateStartedAt,
+          hasSession: Boolean(nextSession),
+          userId: nextSession?.user?.id ?? null,
+        });
       }
     };
 
     void hydrate();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'TOKEN_REFRESHED') {
+        logBootstrap('auth state change ignored', {
+          event,
+          reason: 'token refresh does not require profile reload',
+          hasSession: Boolean(nextSession),
+          userId: nextSession?.user?.id ?? null,
+        });
+        setSession(nextSession);
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION' && !hasIgnoredInitialSession.current) {
+        hasIgnoredInitialSession.current = true;
+        logBootstrap('auth state change ignored', {
+          event,
+          reason: 'hydrate handles initial session',
+          hasSession: Boolean(nextSession),
+          userId: nextSession?.user?.id ?? null,
+        });
+        return;
+      }
+
       logAuth('onAuthStateChange', {
+        event,
+        hasSession: Boolean(nextSession),
+        userId: nextSession?.user?.id ?? null,
+      });
+      const authStateStartedAt = Date.now();
+      logBootstrap('auth state change started', {
         event,
         hasSession: Boolean(nextSession),
         userId: nextSession?.user?.id ?? null,
@@ -217,6 +408,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         await fetchProfile(nextSession?.user ?? null);
         if (isMounted) {
           setIsLoading(false);
+          logBootstrap('auth state change completed', {
+            event,
+            stepElapsedMs: Date.now() - authStateStartedAt,
+            hasSession: Boolean(nextSession),
+            userId: nextSession?.user?.id ?? null,
+          });
         }
       })();
     });
@@ -242,26 +439,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, [createSessionFromUrl, fetchProfile]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      setAppState(nextState);
+    logBootstrap('revenuecat sync started', {
+      userId: session?.user?.id ?? null,
     });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!session?.user || appState !== 'active') {
-      return;
-    }
-
-    void checkInDailyStreak().catch((error) => {
-      logAuth('dailyStreakCheckIn:error', error instanceof Error ? error.message : 'Unknown error');
-    });
-  }, [appState, session?.user]);
-
-  useEffect(() => {
     void syncRevenueCatUser(session?.user?.id ?? null).catch((error) => {
       logAuth('revenuecat:sync:error', error instanceof Error ? error.message : 'Unknown error');
     });
@@ -369,7 +549,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const refreshProfile = async () => {
-    await fetchProfile(session?.user ?? null);
+    await fetchProfile(session?.user ?? null, { background: true, waitForEnrichment: true });
   };
 
   const user = session?.user ?? null;

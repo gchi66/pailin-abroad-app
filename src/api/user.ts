@@ -29,6 +29,7 @@ export type UserStats = {
   daily_streak_checked_in_today?: boolean;
   daily_streak_opened_on?: string | null;
   daily_streak_timezone?: string | null;
+  daily_streak_last_checkin_date?: string | null;
 };
 
 export type DailyStreakResponse = {
@@ -36,6 +37,8 @@ export type DailyStreakResponse = {
   checked_in_today?: boolean;
   opened_on?: string | null;
   timezone?: string | null;
+  last_checkin_date?: string | null;
+  should_celebrate?: boolean;
 };
 
 export type CompletedLessonProgress = {

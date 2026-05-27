@@ -10,6 +10,7 @@ import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { TopicDetail } from '@/src/types/topic-library';
@@ -131,6 +132,7 @@ export function TopicDetailScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
       <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
 
@@ -224,6 +226,7 @@ export function TopicDetailScreen() {
           </Stack>
         </View>
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }

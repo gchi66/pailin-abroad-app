@@ -10,6 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
@@ -652,6 +653,7 @@ export function MembershipScreen() {
       <ScrollView
         style={styles.screen}
         contentContainerStyle={[styles.contentContainer, isCompactLayout ? styles.contentContainerWithStickyBar : null]}>
+      <ResponsivePageShell>
         <Stack gap="md">
         {canGoBack || returnTo ? (
           <Pressable accessibilityRole="button" onPress={handleBackPress} style={styles.backLink}>
@@ -762,7 +764,8 @@ export function MembershipScreen() {
           </Stack>
         </Card>
         </Stack>
-      </ScrollView>
+            </ResponsivePageShell>
+    </ScrollView>
 
       {selectedPlan && isCompactLayout ? (
         <View style={styles.stickyBarShell}>

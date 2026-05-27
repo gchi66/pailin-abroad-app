@@ -47,7 +47,7 @@ import {
   fetchLessonAnswerStates,
   saveLessonAnswerState,
 } from '@/src/api/lesson-answer-state';
-import { fetchUserCompletedLessons, upsertLessonCompletion } from '@/src/api/user';
+import { checkInDailyStreak, fetchUserCompletedLessons, upsertLessonCompletion } from '@/src/api/user';
 import { LessonConversationIntroOverlay } from '@/src/components/lesson/LessonConversationIntroOverlay';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
@@ -116,6 +116,28 @@ type LessonTab = {
   id: string;
   type: string;
   section: ResolvedLessonSection | null;
+};
+
+type StreakCelebrationState = {
+  streak: number;
+  title: string;
+  body: string;
+};
+
+const getStreakCelebrationCopy = (language: UiLanguage, streak: number): StreakCelebrationState => {
+  if (language === 'th') {
+    return {
+      streak,
+      title: `${streak}-day streak — เยี่ยมมาก`,
+      body: streak > 1 ? 'รักษาจังหวะนี้ต่อไปพรุ่งนี้นะ' : 'เริ่มสตรีคได้สวยมาก กลับมาอีกพรุ่งนี้นะ',
+    };
+  }
+
+  return {
+    streak,
+    title: `${streak}-day streak — nice work.`,
+    body: streak > 1 ? 'Keep it going tomorrow.' : 'Strong start. Come back tomorrow to build your streak.',
+  };
 };
 
 type NormalizedLessonQuestionOption = {
@@ -2323,6 +2345,7 @@ export default function LessonDetailShellScreen() {
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, user } = useAppSession();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isTabletLessonLayout = windowWidth >= 768;
   const insets = useSafeAreaInsets();
   const menuOverlayBottomInset = APP_TAB_BAR_HEIGHT + insets.bottom;
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
@@ -2380,6 +2403,7 @@ export default function LessonDetailShellScreen() {
   const [completionModalState, setCompletionModalState] = useState<
     'success' | 'skip_warning' | 'skip_success' | null
   >(null);
+  const [streakCelebration, setStreakCelebration] = useState<StreakCelebrationState | null>(null);
   const [nextSectionHintMessage, setNextSectionHintMessage] = useState<string | null>(null);
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
@@ -2402,6 +2426,7 @@ export default function LessonDetailShellScreen() {
   const applyInputRef = useRef<TextInput | null>(null);
   const practiceInputRefsMap = useRef<Record<string, TextInput | null>>({});
   const activePracticeInputKeyRef = useRef<string | null>(null);
+  const streakCelebrationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const practiceInputVisibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentScrollOffsetRef = useRef(0);
   const contentScrollTargetOffsetRef = useRef(0);
@@ -2442,6 +2467,8 @@ export default function LessonDetailShellScreen() {
       practiceInputVisibilityTimeoutRef.current = null;
     }
   }, []);
+
+  const shouldContainLessonContent = isTabletLessonLayout && !isFullscreen;
 
   const ensurePracticeInputVisible = useCallback((inputKey: string, attempt = 0) => {
     if (activePracticeInputKeyRef.current !== inputKey) {
@@ -3352,7 +3379,39 @@ export default function LessonDetailShellScreen() {
     }
 
     setHasStartedLesson(true);
-  }, [applyPendingResumeSection]);
+    void checkInDailyStreak()
+      .then((result) => {
+        if (!result.should_celebrate || (result.daily_streak ?? 0) <= 0) {
+          return;
+        }
+
+        setStreakCelebration(getStreakCelebrationCopy(uiLanguage, result.daily_streak));
+      })
+      .catch((error) => {
+        console.warn('[lesson-streak] check-in failed', error instanceof Error ? error.message : 'Unknown error');
+      });
+  }, [applyPendingResumeSection, uiLanguage]);
+  useEffect(() => {
+    if (!streakCelebration) {
+      if (streakCelebrationTimeoutRef.current) {
+        clearTimeout(streakCelebrationTimeoutRef.current);
+        streakCelebrationTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    streakCelebrationTimeoutRef.current = setTimeout(() => {
+      setStreakCelebration(null);
+      streakCelebrationTimeoutRef.current = null;
+    }, 4000);
+
+    return () => {
+      if (streakCelebrationTimeoutRef.current) {
+        clearTimeout(streakCelebrationTimeoutRef.current);
+        streakCelebrationTimeoutRef.current = null;
+      }
+    };
+  }, [streakCelebration]);
   const handleSetActiveInnerCardIndex = useCallback(
     (nextIndex: number) => {
       const clampedIndex = Math.max(0, Math.min(nextIndex, Math.max(0, activeInnerCardCount - 1)));
@@ -8442,6 +8501,80 @@ export default function LessonDetailShellScreen() {
     ? normalizedPracticeExercises.map((exercise) => exercise.id)
     : activePagerGroups.map((group) => group.key);
   const shouldStackPagerDots = pagerDotKeys.length > 10;
+  const shouldShowBottomPagerDock =
+    hasMultiplePagerCards &&
+    (isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab) &&
+    Boolean(isPracticeTab ? activePracticeExercise : activePagerGroup);
+
+  const renderRichPagerControls = () => (
+    <View
+      style={[
+        styles.richPagerControls,
+        styles.richPagerControlsBottom,
+        shouldStackPagerDots ? styles.richPagerControlsStacked : null,
+      ]}>
+      <View style={styles.richPagerArrowRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pageLanguage === 'th' ? 'การ์ดก่อนหน้า' : 'Previous card'}
+          accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
+          disabled={activeInnerCardIndex === 0}
+          onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
+          style={[
+            styles.richPagerArrowButton,
+            activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
+          ]}>
+          <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+            ←
+          </AppText>
+        </Pressable>
+
+        {!shouldStackPagerDots ? (
+          <View style={styles.richPagerDots}>
+            {pagerDotKeys.map((dotKey, index) => (
+              <View
+                key={dotKey}
+                style={[
+                  styles.richPagerDot,
+                  index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                ]}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.richPagerArrowSpacer} />
+        )}
+
+        {isLastPagerCard ? (
+          <View style={styles.richPagerArrowSpacer} />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={pageLanguage === 'th' ? 'การ์ดถัดไป' : 'Next card'}
+            onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
+            style={styles.richPagerArrowButton}>
+            <AppText language="en" variant="body" style={styles.richPagerArrowText}>
+              →
+            </AppText>
+          </Pressable>
+        )}
+      </View>
+
+      {shouldStackPagerDots ? (
+        <View style={[styles.richPagerDots, styles.richPagerDotsStacked]}>
+          {pagerDotKeys.map((dotKey, index) => (
+            <View
+              key={dotKey}
+              style={[
+                styles.richPagerDot,
+                index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+              ]}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
 
   return (
     <View style={styles.screen}>
@@ -8748,103 +8881,129 @@ export default function LessonDetailShellScreen() {
                 <View style={styles.coverOverlay} />
 
                 <View style={styles.coverContent}>
-                  <View style={styles.coverTopMetaRow}>
-                    <View style={styles.coverTopBar}>
-                      <View style={styles.coverTopLeft}>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={backToLibraryLabel}
-                          onPress={() => {
-                            void navigateToLessonLibrary();
-                          }}
-                          style={styles.backButton}>
-                          <MaterialIcons name="arrow-back" size={24} color={theme.colors.surface} />
-                        </Pressable>
-                      </View>
-
-                      {isLessonReady ? (
-                        <View pointerEvents="none" style={styles.coverTopCenter}>
-                          <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
-                            {sectionCount} {uiCopy.lessonSections}
-                          </AppText>
+                  <View style={[styles.coverContentShell, isTabletLessonLayout ? styles.coverContentShellTablet : null]}>
+                    <View style={styles.coverTopMetaRow}>
+                      <View style={styles.coverTopBar}>
+                        <View style={styles.coverTopLeft}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={backToLibraryLabel}
+                            onPress={() => {
+                              void navigateToLessonLibrary();
+                            }}
+                            style={styles.backButton}>
+                            <MaterialIcons name="arrow-back" size={24} color={theme.colors.surface} />
+                          </Pressable>
                         </View>
-                      ) : null}
+
+                        {isLessonReady ? (
+                          <View pointerEvents="none" style={styles.coverTopCenter}>
+                            <AppText language={uiLanguage} variant="caption" style={styles.stagePill}>
+                              {sectionCount} {uiCopy.lessonSections}
+                            </AppText>
+                          </View>
+                        ) : null}
+                      </View>
                     </View>
-                  </View>
 
-                  <View style={styles.coverBottomPanel}>
-                    <Stack gap="sm">
-                      <AppText language={uiLanguage} variant="caption" style={styles.coverLessonLabel}>
-                        {uiCopy.lessonLabel} {coverLessonNumber}
-                      </AppText>
-
-                      <AppText language="en" variant="title" style={styles.coverTitle}>
-                        {englishTitle ?? 'Untitled lesson'}
-                      </AppText>
-
-                      {thaiTitle ? (
-                        <AppText language="th" variant="body" style={styles.coverThaiTitle}>
-                          {thaiTitle}
+                    <View style={styles.coverBottomPanel}>
+                      <Stack gap="sm">
+                        <AppText language={uiLanguage} variant="caption" style={styles.coverLessonLabel}>
+                          {uiCopy.lessonLabel} {coverLessonNumber}
                         </AppText>
-                      ) : null}
-                    </Stack>
 
-                    {resolvedFocus ? (
-                      <View style={styles.coverFocusBlock}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.coverFocusEyebrow}>
-                          {uiCopy.lessonFocus}
+                        <AppText language="en" variant="title" style={styles.coverTitle}>
+                          {englishTitle ?? 'Untitled lesson'}
                         </AppText>
-                        <AppText language={uiLanguage} variant="body" style={styles.coverFocusText}>
-                          {resolvedFocus}
-                        </AppText>
-                      </View>
-                    ) : null}
 
-                    {isLockedLesson ? (
-                      <View style={styles.coverLockedWrap}>
-                        <Card padding="md" radius="md" style={styles.coverLockedNotice}>
-                          <Stack gap="xs">
-                            <AppText language={uiLanguage} variant="body" style={styles.coverLockedTitle}>
-                              {uiCopy.lockedLessonTitle}
-                            </AppText>
-                            <AppText language={uiLanguage} variant="muted" style={styles.coverLockedBody}>
-                              {uiCopy.lockedLessonBody}
-                            </AppText>
-                          </Stack>
-                        </Card>
-
-                        <Button
-                          language={uiLanguage}
-                          title={uiCopy.unlockLesson}
-                          onPress={() => {
-                            prefetchPricing();
-                            router.push('/(tabs)/account/membership');
-                          }}
-                          style={styles.coverStartButton}
-                        />
-                      </View>
-                    ) : (
-                      <Stack gap="xs">
-                        <Button
-                          language={uiLanguage}
-                          title={startLessonLabel}
-                          disabled={!isLessonReady}
-                          onPress={openLessonAtResume}
-                          style={styles.coverStartButton}
-                        />
-                        {errorMessage && !isLessonReady ? (
-                          <AppText language={uiLanguage} variant="muted" style={styles.coverInlineError}>
-                            {errorMessage}
+                        {thaiTitle ? (
+                          <AppText language="th" variant="body" style={styles.coverThaiTitle}>
+                            {thaiTitle}
                           </AppText>
                         ) : null}
                       </Stack>
-                    )}
+
+                      {resolvedFocus ? (
+                        <View style={styles.coverFocusBlock}>
+                          <AppText language={uiLanguage} variant="caption" style={styles.coverFocusEyebrow}>
+                            {uiCopy.lessonFocus}
+                          </AppText>
+                          <AppText language={uiLanguage} variant="body" style={styles.coverFocusText}>
+                            {resolvedFocus}
+                          </AppText>
+                        </View>
+                      ) : null}
+
+                      {isLockedLesson ? (
+                        <View style={styles.coverLockedWrap}>
+                          <Card padding="md" radius="md" style={styles.coverLockedNotice}>
+                            <Stack gap="xs">
+                              <AppText language={uiLanguage} variant="body" style={styles.coverLockedTitle}>
+                                {uiCopy.lockedLessonTitle}
+                              </AppText>
+                              <AppText language={uiLanguage} variant="muted" style={styles.coverLockedBody}>
+                                {uiCopy.lockedLessonBody}
+                              </AppText>
+                            </Stack>
+                          </Card>
+
+                          <Button
+                            language={uiLanguage}
+                            title={uiCopy.unlockLesson}
+                            onPress={() => {
+                              prefetchPricing();
+                              router.push('/(tabs)/account/membership');
+                            }}
+                            style={styles.coverStartButton}
+                          />
+                        </View>
+                      ) : (
+                        <Stack gap="xs">
+                          <Button
+                            language={uiLanguage}
+                            title={startLessonLabel}
+                            disabled={!isLessonReady}
+                            onPress={openLessonAtResume}
+                            style={styles.coverStartButton}
+                          />
+                          {errorMessage && !isLessonReady ? (
+                            <AppText language={uiLanguage} variant="muted" style={styles.coverInlineError}>
+                              {errorMessage}
+                            </AppText>
+                          ) : null}
+                        </Stack>
+                      )}
+                    </View>
                   </View>
                 </View>
               </View>
             </View>
           ) : (
             <View style={styles.stepperScreen}>
+              {streakCelebration ? (
+                <View style={styles.streakCelebrationWrap} pointerEvents="box-none">
+                  <View style={styles.streakCelebrationCard}>
+                    <View style={styles.streakCelebrationIconWrap}>
+                      <MaterialIcons name="local-fire-department" size={20} color={theme.colors.text} />
+                    </View>
+                    <View style={styles.streakCelebrationCopy}>
+                      <AppText language={uiLanguage} variant="body" style={styles.streakCelebrationTitle}>
+                        {streakCelebration.title}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="caption" style={styles.streakCelebrationBody}>
+                        {streakCelebration.body}
+                      </AppText>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={uiLanguage === 'th' ? 'ปิดการแจ้งเตือนสตรีค' : 'Dismiss streak message'}
+                      onPress={() => setStreakCelebration(null)}
+                      style={styles.streakCelebrationCloseButton}>
+                      <MaterialIcons name="close" size={18} color={theme.colors.mutedText} />
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
               {shouldShowConversationIntroOverlay ? (
                 <Animated.View style={[styles.conversationIntroOverlayWrap, conversationIntroAnimatedStyle]}>
                   <LessonConversationIntroOverlay
@@ -8937,6 +9096,7 @@ export default function LessonDetailShellScreen() {
                     bounces={shouldEnableBodyScroll}
                     contentContainerStyle={[
                       styles.contentScrollContent,
+                      shouldContainLessonContent ? styles.contentScrollContentTablet : null,
                       isFullscreen ? { paddingTop: insets.top + 12 } : null,
                       isKeyboardOpen ? { paddingBottom: lessonKeyboardHeight + 24 } : null,
                     ]}
@@ -8957,6 +9117,7 @@ export default function LessonDetailShellScreen() {
                     scrollEventThrottle={16}
                     showsVerticalScrollIndicator={false}
                     style={styles.contentScroll}>
+                    <View style={[styles.lessonContentShell, shouldContainLessonContent ? styles.lessonContentShellTablet : null]}>
                   <View style={styles.sectionHeaderRow}>
                     <AppText language={pageLanguage} variant="title" style={styles.studySectionTitle}>
                       {activeSectionTitle ?? pageCopy.noSectionAvailable}
@@ -8994,6 +9155,12 @@ export default function LessonDetailShellScreen() {
 
                   <View style={styles.sectionDivider} />
 
+                  <View
+                    style={[
+                      styles.sectionBodyBlock,
+                      shouldContainLessonContent ? styles.sectionBodyBlockTablet : null,
+                      hasMultiplePagerCards ? styles.sectionBodyBlockPager : null,
+                    ]}>
                   {isPrepareTab ? (
                     <Card padding="md" radius="lg" style={styles.prepareCard}>
                       <Stack gap="md">
@@ -9325,7 +9492,7 @@ export default function LessonDetailShellScreen() {
                   ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab ? (
                     (isPracticeTab ? activePracticeExercise : activePagerGroup) ? (
                       <GestureDetector gesture={richPagerGesture}>
-                        <View style={[styles.richPagerShell, hasMultiplePagerCards ? styles.richPagerShellBottomControls : null]}>
+                        <View style={styles.richPagerShell}>
                           <Animated.View
                             style={[
                               styles.richPagerCard,
@@ -9360,76 +9527,6 @@ export default function LessonDetailShellScreen() {
                               </View>
                             </View>
                           </Animated.View>
-
-                          {hasMultiplePagerCards ? (
-                            <View
-                              style={[
-                                styles.richPagerControls,
-                                styles.richPagerControlsBottom,
-                                shouldStackPagerDots ? styles.richPagerControlsStacked : null,
-                              ]}>
-                              <View style={styles.richPagerArrowRow}>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel={pageLanguage === 'th' ? 'การ์ดก่อนหน้า' : 'Previous card'}
-                                  accessibilityState={{ disabled: activeInnerCardIndex === 0 }}
-                                  disabled={activeInnerCardIndex === 0}
-                                  onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex - 1)}
-                                  style={[
-                                    styles.richPagerArrowButton,
-                                    activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
-                                  ]}>
-                                  <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                    ←
-                                  </AppText>
-                                </Pressable>
-
-                                {!shouldStackPagerDots ? (
-                                  <View style={styles.richPagerDots}>
-                                    {pagerDotKeys.map((dotKey, index) => (
-                                      <View
-                                        key={dotKey}
-                                        style={[
-                                          styles.richPagerDot,
-                                          index === activeInnerCardIndex ? styles.richPagerDotActive : null,
-                                        ]}
-                                      />
-                                    ))}
-                                  </View>
-                                ) : (
-                                  <View style={styles.richPagerArrowSpacer} />
-                                )}
-
-                                {isLastPagerCard ? (
-                                  <View style={styles.richPagerArrowSpacer} />
-                                ) : (
-                                  <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel={pageLanguage === 'th' ? 'การ์ดถัดไป' : 'Next card'}
-                                  onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
-                                  style={styles.richPagerArrowButton}>
-                                    <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-                                      →
-                                    </AppText>
-                                  </Pressable>
-                                )}
-                              </View>
-
-                              {shouldStackPagerDots ? (
-                                <View style={[styles.richPagerDots, styles.richPagerDotsStacked]}>
-                                  {pagerDotKeys.map((dotKey, index) => (
-                                    <View
-                                      key={dotKey}
-                                      style={[
-                                        styles.richPagerDot,
-                                        index === activeInnerCardIndex ? styles.richPagerDotActive : null,
-                                      ]}
-                                    />
-                                  ))}
-                                </View>
-                              ) : null}
-                            </View>
-                          ) : null}
                         </View>
                       </GestureDetector>
                     ) : (
@@ -9540,7 +9637,15 @@ export default function LessonDetailShellScreen() {
                       </View>
                     </Stack>
                   )}
+                  </View>
+                    </View>
                   </ScrollView>
+
+                  {shouldShowBottomPagerDock ? (
+                    <View style={styles.bottomPagerDock}>
+                      {renderRichPagerControls()}
+                    </View>
+                  ) : null}
 
                   <View
                     style={[
@@ -9830,10 +9935,18 @@ const styles = StyleSheet.create({
   },
   coverContent: {
     flex: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.xl + theme.spacing.xs,
     paddingBottom: theme.spacing.xl,
+  },
+  coverContentShell: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
+    justifyContent: 'space-between',
+  },
+  coverContentShellTablet: {
+    maxWidth: 760,
   },
   coverTopMetaRow: {
     alignItems: 'flex-start',
@@ -9942,6 +10055,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  streakCelebrationWrap: {
+    position: 'absolute',
+    top: 56,
+    left: 12,
+    right: 12,
+    zIndex: 30,
+  },
+  streakCelebrationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  streakCelebrationIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.warningSurface,
+  },
+  streakCelebrationCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  streakCelebrationTitle: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+  },
+  streakCelebrationBody: {
+    color: theme.colors.mutedText,
+  },
+  streakCelebrationCloseButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   conversationIntroOverlayWrap: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 40,
@@ -9963,6 +10125,24 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 28,
     gap: 14,
+  },
+  contentScrollContentTablet: {
+    alignItems: 'center',
+  },
+  lessonContentShell: {
+    width: '100%',
+  },
+  lessonContentShellTablet: {
+    maxWidth: 760,
+  },
+  sectionBodyBlock: {
+    marginTop: 8,
+  },
+  sectionBodyBlockTablet: {
+    marginTop: 18,
+  },
+  sectionBodyBlockPager: {
+    flex: 1,
   },
   studyNavBar: {
     flexDirection: 'row',
@@ -10103,9 +10283,6 @@ const styles = StyleSheet.create({
   richPagerShell: {
     gap: theme.spacing.md,
   },
-  richPagerShellBottomControls: {
-    flex: 1,
-  },
   richPagerCard: {
     minHeight: 420,
     gap: theme.spacing.md,
@@ -10159,8 +10336,14 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   richPagerControlsBottom: {
-    marginTop: 'auto',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.sm,
+  },
+  bottomPagerDock: {
+    borderTopWidth: 1,
+    borderTopColor: '#DDE6F0',
+    backgroundColor: theme.colors.background,
   },
   richPagerArrowRow: {
     flexDirection: 'row',

@@ -7,6 +7,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -87,34 +88,36 @@ export function ExerciseBankSectionScreen() {
 
   return (
     <View style={styles.screen}>
-      {errorMessage ? (
-        <View style={styles.centeredState}>
-          <Card padding="lg" radius="lg" style={styles.errorCard}>
-            <Stack gap="md">
-              <AppText language={uiLanguage} variant="body" style={styles.errorTitle}>
-                {copy.errorTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                {errorMessage}
-              </AppText>
-              <Button language={uiLanguage} title={copy.backToBank} onPress={() => router.push('/(tabs)/resources/exercise-bank')} />
-            </Stack>
-          </Card>
-        </View>
-      ) : null}
+      <ResponsivePageShell>
+        {errorMessage ? (
+          <View style={styles.centeredState}>
+            <Card padding="lg" radius="lg" style={styles.errorCard}>
+              <Stack gap="md">
+                <AppText language={uiLanguage} variant="body" style={styles.errorTitle}>
+                  {copy.errorTitle}
+                </AppText>
+                <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
+                  {errorMessage}
+                </AppText>
+                <Button language={uiLanguage} title={copy.backToBank} onPress={() => router.push('/(tabs)/resources/exercise-bank')} />
+              </Stack>
+            </Card>
+          </View>
+        ) : null}
 
-      {!errorMessage && section ? (
-        <ExerciseBankPager
-          language={uiLanguage}
-          contentLang={contentLang}
-          sectionTitle={sectionTitle}
-          categoryLabel={section.category_label || section.category || ''}
-          exercises={Array.isArray(section.exercises) ? section.exercises : []}
-          onSetContentLang={setContentLang}
-          onBack={() => router.back()}
-          onDone={() => router.push('/(tabs)/resources/exercise-bank')}
-        />
-      ) : null}
+        {!errorMessage && section ? (
+          <ExerciseBankPager
+            language={uiLanguage}
+            contentLang={contentLang}
+            sectionTitle={sectionTitle}
+            categoryLabel={section.category_label || section.category || ''}
+            exercises={Array.isArray(section.exercises) ? section.exercises : []}
+            onSetContentLang={setContentLang}
+            onBack={() => router.back()}
+            onDone={() => router.push('/(tabs)/resources/exercise-bank')}
+          />
+        ) : null}
+      </ResponsivePageShell>
     </View>
   );
 }

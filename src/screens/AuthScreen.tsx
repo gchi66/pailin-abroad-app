@@ -131,6 +131,8 @@ export function AuthScreen() {
   const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]/.test(password);
   const isBusy = isSubmitting || isLoading || isGoogleSubmitting;
   const isCompactScreen = height <= 720 || width <= 350;
+  const isTabletScreen = width >= 768;
+  const isLargeTabletScreen = width >= 1024;
 
   const handleSubmit = async () => {
     if (mode === 'signup') {
@@ -221,59 +223,159 @@ export function AuthScreen() {
         keyboardShouldPersistTaps="handled"
         bounces={false}>
         <View style={[styles.centerShell, isCompactScreen ? styles.centerShellCompact : null]}>
-          <View style={[styles.panel, isCompactScreen ? styles.panelCompact : null]}>
+          <View
+            style={[
+              styles.panel,
+              isCompactScreen ? styles.panelCompact : null,
+              isTabletScreen ? styles.panelTablet : null,
+              isLargeTabletScreen ? styles.panelLargeTablet : null,
+            ]}>
             <View style={[styles.topRow, isCompactScreen ? styles.topRowCompact : null]}>
-              <Image source={fullLogoImage} style={[styles.wordmarkLogo, isCompactScreen ? styles.wordmarkLogoCompact : null]} contentFit="contain" />
+              <Image
+                source={fullLogoImage}
+                style={[
+                  styles.wordmarkLogo,
+                  isCompactScreen ? styles.wordmarkLogoCompact : null,
+                  isTabletScreen ? styles.wordmarkLogoTablet : null,
+                  isLargeTabletScreen ? styles.wordmarkLogoLargeTablet : null,
+                ]}
+                contentFit="contain"
+              />
               <LanguageToggle />
             </View>
 
-            <Animated.View style={[styles.headerBlock, isCompactScreen ? styles.headerBlockCompact : null, modeContentStyle]}>
+            <Animated.View
+              style={[
+                styles.headerBlock,
+                isCompactScreen ? styles.headerBlockCompact : null,
+                isTabletScreen ? styles.headerBlockTablet : null,
+                isLargeTabletScreen ? styles.headerBlockLargeTablet : null,
+                modeContentStyle,
+              ]}>
               {mode === 'signup' ? (
                 <>
-                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="title"
+                    style={[
+                      styles.headlineLine,
+                      isCompactScreen ? styles.headlineLineCompact : null,
+                      isTabletScreen ? styles.headlineLineTablet : null,
+                      isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
+                    ]}>
                     {copy.signUpTitleLineOne}
                   </AppText>
-                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
-                    <AppText language={uiLanguage} variant="title" style={[styles.headlineAccent, isCompactScreen ? styles.headlineLineCompact : null]}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="title"
+                    style={[
+                      styles.headlineLine,
+                      isCompactScreen ? styles.headlineLineCompact : null,
+                      isTabletScreen ? styles.headlineLineTablet : null,
+                    ]}>
+                    <AppText
+                      language={uiLanguage}
+                      variant="title"
+                      style={[
+                        styles.headlineAccent,
+                        isCompactScreen ? styles.headlineLineCompact : null,
+                        isTabletScreen ? styles.headlineLineTablet : null,
+                        isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
+                      ]}>
                       {copy.signUpTitleAccent}
                     </AppText>
                     {copy.signUpTitleTail ? ` ${copy.signUpTitleTail}` : ''}
                   </AppText>
-                  <AppText language={uiLanguage} variant="caption" style={[styles.subtitle, isCompactScreen ? styles.subtitleCompact : null]}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="caption"
+                    style={[
+                      styles.subtitle,
+                      isCompactScreen ? styles.subtitleCompact : null,
+                      isTabletScreen ? styles.subtitleTablet : null,
+                      isLargeTabletScreen ? styles.subtitleLargeTablet : null,
+                    ]}>
                     {copy.signUpSubtitle}
                   </AppText>
                 </>
               ) : (
                 <>
-                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="title"
+                    style={[
+                      styles.headlineLine,
+                      isCompactScreen ? styles.headlineLineCompact : null,
+                      isTabletScreen ? styles.headlineLineTablet : null,
+                      isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
+                    ]}>
                     {copy.signInTitleLineOne}
                   </AppText>
-                  <AppText language={uiLanguage} variant="title" style={[styles.headlineLine, isCompactScreen ? styles.headlineLineCompact : null]}>
-                    <AppText language={uiLanguage} variant="title" style={[styles.headlineAccent, isCompactScreen ? styles.headlineLineCompact : null]}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="title"
+                    style={[
+                      styles.headlineLine,
+                      isCompactScreen ? styles.headlineLineCompact : null,
+                      isTabletScreen ? styles.headlineLineTablet : null,
+                    ]}>
+                    <AppText
+                      language={uiLanguage}
+                      variant="title"
+                      style={[
+                        styles.headlineAccent,
+                        isCompactScreen ? styles.headlineLineCompact : null,
+                        isTabletScreen ? styles.headlineLineTablet : null,
+                        isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
+                      ]}>
                       {copy.signInTitleAccent}
                     </AppText>
                     {copy.signInTitleTail ? ` ${copy.signInTitleTail}` : ''}
                   </AppText>
-                  <AppText language={uiLanguage} variant="caption" style={[styles.subtitle, isCompactScreen ? styles.subtitleCompact : null]}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="caption"
+                    style={[
+                      styles.subtitle,
+                      isCompactScreen ? styles.subtitleCompact : null,
+                      isTabletScreen ? styles.subtitleTablet : null,
+                      isLargeTabletScreen ? styles.subtitleLargeTablet : null,
+                    ]}>
                     {copy.signInSubtitle}
                   </AppText>
                 </>
               )}
             </Animated.View>
 
-            <View style={[styles.formShell, isCompactScreen ? styles.formShellCompact : null]}>
+            <View
+              style={[
+                styles.formShell,
+                isCompactScreen ? styles.formShellCompact : null,
+                isTabletScreen ? styles.formShellTablet : null,
+                isLargeTabletScreen ? styles.formShellLargeTablet : null,
+              ]}>
               <Pressable
                 accessibilityRole="button"
                 style={({ pressed }) => [
                   styles.googleButton,
                   isCompactScreen ? styles.googleButtonCompact : null,
+                  isTabletScreen ? styles.googleButtonTablet : null,
+                  isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
                   pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
                   isGoogleSubmitting ? styles.buttonDisabled : null,
                 ]}
                 onPress={handleGoogle}
                 disabled={isGoogleSubmitting}>
                 <GoogleBadge />
-                <AppText language={uiLanguage} variant="caption" style={[styles.googleButtonText, isCompactScreen ? styles.googleButtonTextCompact : null]}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[
+                    styles.googleButtonText,
+                    isCompactScreen ? styles.googleButtonTextCompact : null,
+                    isTabletScreen ? styles.googleButtonTextTablet : null,
+                    isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
+                  ]}>
                   {isGoogleSubmitting ? copy.googleLoading : copy.google}
                 </AppText>
               </Pressable>
@@ -298,6 +400,8 @@ export function AuthScreen() {
                   textContentType="emailAddress"
                   autoComplete="email"
                   isCompact={isCompactScreen}
+                  isTablet={isTabletScreen}
+                  isLargeTablet={isLargeTabletScreen}
                 />
 
                 <FormField
@@ -312,6 +416,8 @@ export function AuthScreen() {
                   autoComplete="password"
                   style={styles.fieldSpacing}
                   isCompact={isCompactScreen}
+                  isTablet={isTabletScreen}
+                  isLargeTablet={isLargeTabletScreen}
                   trailingAccessory={
                     <PasswordVisibilityButton
                       isVisible={showPassword}
@@ -334,6 +440,8 @@ export function AuthScreen() {
                       autoComplete="password"
                       style={styles.fieldSpacing}
                       isCompact={isCompactScreen}
+                      isTablet={isTabletScreen}
+                      isLargeTablet={isLargeTabletScreen}
                       trailingAccessory={
                         <PasswordVisibilityButton
                           isVisible={showConfirmPassword}
@@ -342,10 +450,37 @@ export function AuthScreen() {
                       }
                     />
 
-                    <View style={[styles.rulesCard, isCompactScreen ? styles.rulesCardCompact : null]}>
-                      <PasswordRule language={uiLanguage} text={copy.passwordRuleOne} isMet={meetsLength} isCompact={isCompactScreen} />
-                      <PasswordRule language={uiLanguage} text={copy.passwordRuleTwo} isMet={meetsUppercase} isCompact={isCompactScreen} />
-                      <PasswordRule language={uiLanguage} text={copy.passwordRuleThree} isMet={meetsNumberOrSymbol} isCompact={isCompactScreen} />
+                    <View
+                      style={[
+                        styles.rulesCard,
+                        isCompactScreen ? styles.rulesCardCompact : null,
+                        isTabletScreen ? styles.rulesCardTablet : null,
+                        isLargeTabletScreen ? styles.rulesCardLargeTablet : null,
+                      ]}>
+                      <PasswordRule
+                        language={uiLanguage}
+                        text={copy.passwordRuleOne}
+                        isMet={meetsLength}
+                        isCompact={isCompactScreen}
+                        isTablet={isTabletScreen}
+                        isLargeTablet={isLargeTabletScreen}
+                      />
+                      <PasswordRule
+                        language={uiLanguage}
+                        text={copy.passwordRuleTwo}
+                        isMet={meetsUppercase}
+                        isCompact={isCompactScreen}
+                        isTablet={isTabletScreen}
+                        isLargeTablet={isLargeTabletScreen}
+                      />
+                      <PasswordRule
+                        language={uiLanguage}
+                        text={copy.passwordRuleThree}
+                        isMet={meetsNumberOrSymbol}
+                        isCompact={isCompactScreen}
+                        isTablet={isTabletScreen}
+                        isLargeTablet={isLargeTabletScreen}
+                      />
                     </View>
                   </>
                 ) : null}
@@ -362,19 +497,37 @@ export function AuthScreen() {
                 style={({ pressed }) => [
                   styles.ctaButton,
                   isCompactScreen ? styles.ctaButtonCompact : null,
+                  isTabletScreen ? styles.ctaButtonTablet : null,
+                  isLargeTabletScreen ? styles.ctaButtonLargeTablet : null,
                   pressed && !isBusy ? styles.buttonPressed : null,
                   isBusy ? styles.buttonDisabled : null,
                 ]}
                 onPress={handleSubmit}
                 disabled={isBusy}>
                 {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-                <AppText language={uiLanguage} variant="caption" style={[styles.ctaText, isCompactScreen ? styles.ctaTextCompact : null]}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[
+                    styles.ctaText,
+                    isCompactScreen ? styles.ctaTextCompact : null,
+                    isTabletScreen ? styles.ctaTextTablet : null,
+                    isLargeTabletScreen ? styles.ctaTextLargeTablet : null,
+                  ]}>
                   {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
                 </AppText>
               </Pressable>
 
               <Pressable accessibilityRole="button" onPress={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}>
-                <AppText language={uiLanguage} variant="caption" style={[styles.footerText, isCompactScreen ? styles.footerTextCompact : null]}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[
+                    styles.footerText,
+                    isCompactScreen ? styles.footerTextCompact : null,
+                    isTabletScreen ? styles.footerTextTablet : null,
+                    isLargeTabletScreen ? styles.footerTextLargeTablet : null,
+                  ]}>
                   {mode === 'signup' ? copy.footerSignupPrefix : copy.footerSigninPrefix}
                   <AppText language={uiLanguage} variant="caption" style={styles.footerAction}>
                     {mode === 'signup' ? copy.footerSignupAction : copy.footerSigninAction}
@@ -383,7 +536,15 @@ export function AuthScreen() {
               </Pressable>
 
               {mode === 'signup' ? (
-                <AppText language={uiLanguage} variant="caption" style={[styles.termsText, isCompactScreen ? styles.termsTextCompact : null]}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[
+                    styles.termsText,
+                    isCompactScreen ? styles.termsTextCompact : null,
+                    isTabletScreen ? styles.termsTextTablet : null,
+                    isLargeTabletScreen ? styles.termsTextLargeTablet : null,
+                  ]}>
                   {copy.termsPrefix}
                   <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
                     {copy.termsTerms}
@@ -411,6 +572,8 @@ function FormField({
   placeholder,
   secureTextEntry,
   isCompact,
+  isTablet,
+  isLargeTablet,
   style,
   textContentType,
   trailingAccessory,
@@ -428,11 +591,20 @@ function FormField({
   textContentType?: 'emailAddress' | 'password';
   trailingAccessory?: React.ReactNode;
   isCompact?: boolean;
+  isTablet?: boolean;
+  isLargeTablet?: boolean;
   uiLanguage: 'en' | 'th';
   value: string;
 }) {
   return (
-    <View style={[styles.inputShell, isCompact ? styles.inputShellCompact : null, style]}>
+    <View
+      style={[
+        styles.inputShell,
+        isCompact ? styles.inputShellCompact : null,
+        isTablet ? styles.inputShellTablet : null,
+        isLargeTablet ? styles.inputShellLargeTablet : null,
+        style,
+      ]}>
       <TextInput
         accessibilityLabel={placeholder}
         autoCapitalize={autoCapitalize}
@@ -443,7 +615,13 @@ function FormField({
         placeholderTextColor="#B0BFCC"
         secureTextEntry={secureTextEntry}
         selectionColor={theme.colors.text}
-        style={[styles.input, isCompact ? styles.inputCompact : null, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+        style={[
+          styles.input,
+          isCompact ? styles.inputCompact : null,
+          isTablet ? styles.inputTablet : null,
+          isLargeTablet ? styles.inputLargeTablet : null,
+          uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish,
+        ]}
         textContentType={textContentType}
         value={value}
         onChangeText={onChangeText}
@@ -461,13 +639,42 @@ function PasswordVisibilityButton({ isVisible, onPress }: { isVisible: boolean; 
   );
 }
 
-function PasswordRule({ isMet, isCompact, language, text }: { isMet: boolean; isCompact?: boolean; language: 'en' | 'th'; text: string }) {
+function PasswordRule({
+  isMet,
+  isCompact,
+  isTablet,
+  isLargeTablet,
+  language,
+  text,
+}: {
+  isMet: boolean;
+  isCompact?: boolean;
+  isTablet?: boolean;
+  isLargeTablet?: boolean;
+  language: 'en' | 'th';
+  text: string;
+}) {
   return (
     <View style={styles.ruleRow}>
-      <View style={[styles.ruleDot, isCompact ? styles.ruleDotCompact : null, isMet ? styles.ruleDotMet : null]}>
+      <View
+        style={[
+          styles.ruleDot,
+          isCompact ? styles.ruleDotCompact : null,
+          isTablet ? styles.ruleDotTablet : null,
+          isLargeTablet ? styles.ruleDotLargeTablet : null,
+          isMet ? styles.ruleDotMet : null,
+        ]}>
         {isMet ? <MaterialIcons name="check" size={12} color="#1A2332" /> : null}
       </View>
-      <AppText language={language} variant="caption" style={[styles.ruleText, isCompact ? styles.ruleTextCompact : null]}>
+      <AppText
+        language={language}
+        variant="caption"
+        style={[
+          styles.ruleText,
+          isCompact ? styles.ruleTextCompact : null,
+          isTablet ? styles.ruleTextTablet : null,
+          isLargeTablet ? styles.ruleTextLargeTablet : null,
+        ]}>
         {text}
       </AppText>
     </View>
@@ -499,6 +706,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
   },
+  panelTablet: {
+    maxWidth: 520,
+  },
+  panelLargeTablet: {
+    maxWidth: 680,
+  },
   panelCompact: {
     maxWidth: 340,
   },
@@ -518,9 +731,25 @@ const styles = StyleSheet.create({
     width: 128,
     height: 24,
   },
+  wordmarkLogoTablet: {
+    width: 176,
+    height: 32,
+  },
+  wordmarkLogoLargeTablet: {
+    width: 210,
+    height: 38,
+  },
   headerBlock: {
     marginTop: 18,
     marginBottom: 18,
+  },
+  headerBlockTablet: {
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  headerBlockLargeTablet: {
+    marginTop: 30,
+    marginBottom: 30,
   },
   headerBlockCompact: {
     marginTop: 14,
@@ -535,6 +764,14 @@ const styles = StyleSheet.create({
   headlineLineCompact: {
     fontSize: 24,
     lineHeight: 27,
+  },
+  headlineLineTablet: {
+    fontSize: 40,
+    lineHeight: 44,
+  },
+  headlineLineLargeTablet: {
+    fontSize: 52,
+    lineHeight: 56,
   },
   headlineAccent: {
     fontSize: 28,
@@ -554,8 +791,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  subtitleTablet: {
+    marginTop: 10,
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  subtitleLargeTablet: {
+    marginTop: 12,
+    fontSize: 20,
+    lineHeight: 28,
+  },
   formShell: {
     gap: 14,
+  },
+  formShellTablet: {
+    gap: 18,
+  },
+  formShellLargeTablet: {
+    gap: 22,
   },
   formShellCompact: {
     gap: 10,
@@ -584,9 +837,27 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 12,
   },
+  googleButtonTablet: {
+    minHeight: 68,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+  },
+  googleButtonLargeTablet: {
+    minHeight: 78,
+    borderRadius: 20,
+    paddingHorizontal: 22,
+  },
   googleButtonText: {
     color: '#1A2332',
     fontWeight: '800',
+  },
+  googleButtonTextTablet: {
+    fontSize: 19,
+    lineHeight: 24,
+  },
+  googleButtonTextLargeTablet: {
+    fontSize: 22,
+    lineHeight: 28,
   },
   googleButtonTextCompact: {
     fontSize: 13,
@@ -641,6 +912,18 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 12,
   },
+  inputShellTablet: {
+    minHeight: 68,
+    borderRadius: 18,
+    paddingLeft: 18,
+    paddingRight: 14,
+  },
+  inputShellLargeTablet: {
+    minHeight: 78,
+    borderRadius: 20,
+    paddingLeft: 22,
+    paddingRight: 18,
+  },
   input: {
     flex: 1,
     minHeight: 52,
@@ -654,6 +937,16 @@ const styles = StyleSheet.create({
     minHeight: 46,
     fontSize: 14,
     lineHeight: 18,
+  },
+  inputTablet: {
+    minHeight: 62,
+    fontSize: 19,
+    lineHeight: 24,
+  },
+  inputLargeTablet: {
+    minHeight: 72,
+    fontSize: 22,
+    lineHeight: 28,
   },
   inputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,
@@ -685,6 +978,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 0,
   },
+  rulesCardTablet: {
+    marginTop: 14,
+    gap: 10,
+  },
+  rulesCardLargeTablet: {
+    marginTop: 16,
+    gap: 12,
+  },
   ruleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -705,6 +1006,16 @@ const styles = StyleSheet.create({
     height: 14,
     marginRight: 6,
   },
+  ruleDotTablet: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+  },
+  ruleDotLargeTablet: {
+    width: 22,
+    height: 22,
+    marginRight: 12,
+  },
   ruleDotMet: {
     backgroundColor: '#CDEB8B',
   },
@@ -718,6 +1029,14 @@ const styles = StyleSheet.create({
   ruleTextCompact: {
     fontSize: 12,
     lineHeight: 15,
+  },
+  ruleTextTablet: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  ruleTextLargeTablet: {
+    fontSize: 18,
+    lineHeight: 24,
   },
   errorText: {
     color: '#FF4545',
@@ -748,6 +1067,14 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 12,
   },
+  ctaButtonTablet: {
+    minHeight: 68,
+    borderRadius: 18,
+  },
+  ctaButtonLargeTablet: {
+    minHeight: 78,
+    borderRadius: 20,
+  },
   ctaText: {
     color: '#FFFFFF',
     fontSize: 15,
@@ -757,6 +1084,14 @@ const styles = StyleSheet.create({
   ctaTextCompact: {
     fontSize: 14,
     lineHeight: 16,
+  },
+  ctaTextTablet: {
+    fontSize: 19,
+    lineHeight: 24,
+  },
+  ctaTextLargeTablet: {
+    fontSize: 22,
+    lineHeight: 28,
   },
   footerText: {
     marginTop: 2,
@@ -768,6 +1103,14 @@ const styles = StyleSheet.create({
     marginTop: 0,
     fontSize: 12,
     lineHeight: 16,
+  },
+  footerTextTablet: {
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  footerTextLargeTablet: {
+    fontSize: 20,
+    lineHeight: 26,
   },
   footerAction: {
     color: '#FF4545',
@@ -785,6 +1128,14 @@ const styles = StyleSheet.create({
   termsTextCompact: {
     fontSize: 9,
     lineHeight: 13,
+  },
+  termsTextTablet: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  termsTextLargeTablet: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   termsAction: {
     color: '#AAB8C5',

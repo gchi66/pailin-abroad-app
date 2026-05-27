@@ -6,6 +6,7 @@ import { prefetchPricing } from '@/src/api/pricing';
 import { AuthScreen } from '@/src/screens/AuthScreen';
 import { AppText } from '@/src/components/ui/AppText';
 import { Stack } from '@/src/components/ui/Stack';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -57,6 +58,7 @@ export function MoreScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
       <Stack gap="md" style={styles.pageContent}>
         <View style={styles.headerRow}>
           <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
@@ -115,6 +117,7 @@ export function MoreScreen() {
           </Stack>
         </View>
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }

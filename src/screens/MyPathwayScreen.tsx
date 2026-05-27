@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
@@ -8,8 +8,8 @@ import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
-import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
@@ -46,6 +46,8 @@ type PathwayCopy = {
   noResumeLesson: string;
   noUpcomingLessons: string;
   freePlanBody: string;
+  slowLoading: string;
+  verySlowLoading: string;
 };
 
 const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
@@ -77,6 +79,8 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
       noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
       noUpcomingLessons: 'ยังไม่มีบทเรียนถัดไปเพิ่มเติมในตอนนี้',
       freePlanBody: 'แพ็กเกจฟรียังเรียนบทแรกของแต่ละเลเวลได้ และอัปเกรดเมื่อพร้อมเพื่อปลดล็อกบทเรียนทั้งหมด',
+      slowLoading: 'กำลังโหลดความคืบหน้าของคุณ...',
+      verySlowLoading: 'ข้อมูลยังมาไม่ครบ อาจเป็นเพราะการเชื่อมต่อช้า',
     };
   }
 
@@ -107,6 +111,8 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     noResumeLesson: 'There is no next lesson right now.',
     noUpcomingLessons: 'There are no more upcoming lessons right now.',
     freePlanBody: 'Your free plan still includes the first lesson of each level. Upgrade whenever you are ready for full pathway access.',
+    slowLoading: 'Loading your progress...',
+    verySlowLoading: 'Still loading lesson data. Your connection may be slow.',
   };
 };
 
@@ -181,6 +187,10 @@ const renderStatLabel = (label: string, uiLanguage: UiLanguage) => {
   ));
 };
 
+const LoadingBar = ({ width, height = 12 }: { width: number | string; height?: number }) => (
+  <View style={[styles.loadingBar, { width, height }]} />
+);
+
 const getProgressContext = (
   pathwayRows: PathwayLessonRow[],
   allLessons: LessonListItem[],
@@ -211,9 +221,13 @@ const getProgressContext = (
 
 export function MyPathwayScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { uiLanguage, setUiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, profile, user } = useAppSession();
+  const isTabletScreen = width >= 768;
+  const isLargeTabletScreen = width >= 1024;
   const copy = getCopy(uiLanguage);
+  const [showVerySlowLoadingMessage, setShowVerySlowLoadingMessage] = useState(false);
   const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
   const {
     allLessons,
@@ -255,9 +269,33 @@ export function MyPathwayScreen() {
     return pathwayRows.slice(resumeIndex + 1).filter((row) => row.state !== 'completed').slice(0, 2);
   }, [pathwayRows, resumeRow]);
 
-  if (isLoading) {
-    return <PageLoadingState language={uiLanguage} />;
-  }
+  useEffect(() => {
+    const bootstrapStartedAt =
+      (globalThis as typeof globalThis & { __pailinAppBootstrapStartedAt?: number }).__pailinAppBootstrapStartedAt ?? null;
+
+    console.info('[app-bootstrap]', 'my pathway screen rendered', {
+      elapsedMs: bootstrapStartedAt ? Date.now() - bootstrapStartedAt : null,
+      hasAccount,
+      hasMembership,
+    });
+  }, [hasAccount, hasMembership]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setShowVerySlowLoadingMessage(false);
+      return;
+    }
+
+    const verySlowTimer = setTimeout(() => {
+      setShowVerySlowLoadingMessage(true);
+    }, 5000);
+
+    return () => {
+      clearTimeout(verySlowTimer);
+    };
+  }, [isLoading]);
+
+  const slowConnectionMessage = showVerySlowLoadingMessage ? copy.verySlowLoading : null;
 
   const handleOpenLesson = (lesson: LessonListItem | null) => {
     const lessonId = lesson?.id ?? null;
@@ -279,8 +317,20 @@ export function MyPathwayScreen() {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <Stack gap="md">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isTabletScreen ? styles.contentContainerTablet : null,
+      ]}>
+      <ResponsivePageShell>
+      <Stack
+        gap="md"
+        style={[
+          styles.pageShell,
+          isTabletScreen ? styles.pageShellTablet : null,
+          isLargeTabletScreen ? styles.pageShellLargeTablet : null,
+        ]}>
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
             <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
@@ -354,6 +404,14 @@ export function MyPathwayScreen() {
           </Pressable>
         ) : null}
 
+        {slowConnectionMessage ? (
+          <View style={styles.loadingNotice}>
+            <AppText language={uiLanguage} variant="caption" style={styles.loadingNoticeText}>
+              {slowConnectionMessage}
+            </AppText>
+          </View>
+        ) : null}
+
         <Card padding="md" radius="lg" style={styles.progressCard}>
           <Stack gap="sm">
             <View style={styles.progressHeader}>
@@ -370,7 +428,7 @@ export function MyPathwayScreen() {
             <View style={styles.progressMetrics}>
               <View style={styles.progressMetricPrimary}>
                 <AppText language={uiLanguage} variant="body" style={styles.stageText}>
-                  {getStageLabel(progressContext.stage, uiLanguage)}
+                  {isLoading ? (uiLanguage === 'th' ? 'กำลังโหลดความคืบหน้า...' : 'Loading progress...') : getStageLabel(progressContext.stage, uiLanguage)}
                 </AppText>
                 {typeof progressContext.level === 'number' ? (
                   <View style={styles.levelPill}>
@@ -384,7 +442,7 @@ export function MyPathwayScreen() {
               <View style={styles.statsGrid}>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {stats?.lessons_completed ?? profile?.lessons_complete ?? completedLessons.length}
+                    {stats?.lessons_completed ?? completedLessons.length}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.lessonsDone, uiLanguage)}</View>
                 </View>
@@ -477,6 +535,21 @@ export function MyPathwayScreen() {
                   style={styles.resumeButton}
                 />
               </Stack>
+            ) : isLoading ? (
+              <Stack gap="md">
+                <View style={styles.resumeMeta}>
+                  <View style={styles.resumeNumberGroup}>
+                    <LoadingBar width={44} height={28} />
+                  </View>
+
+                  <View style={styles.resumeTextGroup}>
+                    <LoadingBar width="72%" height={22} />
+                    <LoadingBar width="48%" />
+                  </View>
+                </View>
+
+                <View style={styles.loadingButton} />
+              </Stack>
             ) : (
               <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
                 {errorMessage || copy.noResumeLesson}
@@ -530,6 +603,21 @@ export function MyPathwayScreen() {
                   </Pressable>
                 );
               })
+            ) : isLoading ? (
+              <>
+                {[0, 1].map((index) => (
+                  <Card key={`up-next-loading-${index}`} padding="md" radius="lg" style={styles.upNextCard}>
+                    <View style={styles.upNextMain}>
+                      <LoadingBar width={34} height={18} />
+
+                      <View style={styles.upNextCopy}>
+                        <LoadingBar width="68%" height={18} />
+                        <LoadingBar width="44%" />
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+              </>
             ) : (
               <Card padding="md" radius="lg" style={styles.upNextCard}>
                 <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
@@ -549,6 +637,7 @@ export function MyPathwayScreen() {
           </Stack>
         </Stack>
       </Stack>
+          </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -559,8 +648,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
+    flexGrow: 1,
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
+  },
+  contentContainerTablet: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+  },
+  pageShell: {
+    width: '100%',
+  },
+  pageShellTablet: {
+    maxWidth: 820,
+  },
+  pageShellLargeTablet: {
+    maxWidth: 920,
   },
   headerBlock: {
     marginHorizontal: -theme.spacing.md,
@@ -701,6 +805,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 2,
+  },
+  loadingNotice: {
+    marginTop: -theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  loadingNoticeText: {
+    color: '#66758A',
+  },
+  loadingBar: {
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.accentMuted,
+  },
+  loadingButton: {
+    width: '100%',
+    height: 52,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.accentMuted,
   },
   progressHeader: {
     flexDirection: 'row',
