@@ -219,7 +219,6 @@ export function LessonsLibraryScreen() {
 
     const requestId = progressRequestIdRef.current + 1;
     progressRequestIdRef.current = requestId;
-    setProgressByLesson({});
 
     await loadLessonProgressSummariesProgressively({
       lessonIds: visibleLessonIds,

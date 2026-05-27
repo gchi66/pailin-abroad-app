@@ -9,7 +9,7 @@ export function PrimaryScreen() {
   const { hasAccount, isLoading } = useAppSession();
 
   if (isLoading) {
-    return <PageLoadingState />;
+    return <PageLoadingState animate={false} showImage={false} />;
   }
 
   if (hasAccount) {

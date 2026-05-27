@@ -77,10 +77,23 @@ function AppRouteGate() {
   if (shouldRedirectToOnboarding || shouldRedirectToApp) {
     return (
       <View pointerEvents="none" style={styles.routeGateOverlay}>
-        <PageLoadingState />
+        <PageLoadingState animate={false} showImage={false} />
       </View>
     );
   }
+
+  return null;
+}
+
+function SplashVisibilityGate({ fontsLoaded }: { fontsLoaded: boolean }) {
+  const { isLoading } = useAppSession();
+
+  useEffect(() => {
+    if (fontsLoaded && !isLoading) {
+      logBootstrap('splash hidden');
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, isLoading]);
 
   return null;
 }
@@ -113,7 +126,6 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       logBootstrap('fonts loaded');
-      void SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
@@ -127,6 +139,7 @@ export default function RootLayout() {
         <OnboardingProvider>
           <UiLanguageProvider>
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <SplashVisibilityGate fontsLoaded={fontsLoaded} />
               <AppRouteGate />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

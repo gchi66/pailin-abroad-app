@@ -71,7 +71,7 @@ export default function TabLayout() {
   if (!isLoading && hasAccount && !hasCompletedOnboarding) {
     return (
       <View style={styles.redirectOverlay}>
-        <PageLoadingState language={uiLanguage} />
+        <PageLoadingState language={uiLanguage} animate={false} showImage={false} />
       </View>
     );
   }

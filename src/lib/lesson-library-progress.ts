@@ -3,7 +3,7 @@ import {
   fetchAppLessonProgressSummaries,
 } from '@/src/api/app-lesson-progress';
 
-const LESSON_PROGRESS_BATCH_SIZE = 4;
+const LESSON_PROGRESS_BATCH_SIZE = 12;
 
 type ProgressiveProgressLoadOptions = {
   lessonIds: string[];

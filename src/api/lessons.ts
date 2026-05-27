@@ -70,6 +70,8 @@ const setCachedResolvedLesson = (lessonId: string, lang: 'en' | 'th', payload: R
   resolvedLessonCache.set(key, { payload, timestamp: Date.now() });
 };
 
+const elapsedMs = (start: number) => Math.max(0, Math.round(performance.now() - start));
+
 async function getLessonAuthHeaders() {
   const {
     data: { session },
@@ -171,40 +173,76 @@ export async function fetchResolvedLesson(
   lessonId: string,
   lang: 'en' | 'th' = 'en'
 ): Promise<ResolvedLessonPayload> {
+  const requestStartedAt = performance.now();
   const cached = getCachedResolvedLesson(lessonId, lang);
   if (cached) {
+    console.info('[lesson-load] resolved lesson cache hit', {
+      lessonId,
+      lang,
+      elapsedMs: elapsedMs(requestStartedAt),
+      sectionCount: Array.isArray(cached.sections) ? cached.sections.length : 0,
+    });
     return cached;
   }
 
   const requestKey = resolvedLessonCacheKey(lessonId, lang);
   const inflightRequest = inflightResolvedLessonRequests.get(requestKey);
   if (inflightRequest) {
+    console.info('[lesson-load] resolved lesson inflight reuse', {
+      lessonId,
+      lang,
+      elapsedMs: elapsedMs(requestStartedAt),
+    });
     return inflightRequest;
   }
 
   const requestPromise = (async () => {
     const baseUrl = assertApiBaseUrl();
+    const authStartedAt = performance.now();
     const headers = await getLessonAuthHeaders();
+    const authElapsedMs = elapsedMs(authStartedAt);
+    const fetchStartedAt = performance.now();
     const response = await fetch(`${baseUrl}/api/lessons/${lessonId}/resolved?lang=${lang}`, {
       method: 'GET',
       headers,
     });
+    const fetchElapsedMs = elapsedMs(fetchStartedAt);
 
+    const jsonStartedAt = performance.now();
     const json = (await response.json().catch(() => null)) as
       | ResolvedLessonPayload
       | { error?: string }
       | null;
+    const jsonElapsedMs = elapsedMs(jsonStartedAt);
 
     if (!response.ok) {
       const message =
         json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
           ? json.error
           : `Failed to fetch lesson (${response.status})`;
+      console.info('[lesson-load] resolved lesson failed', {
+        lessonId,
+        lang,
+        status: response.status,
+        authElapsedMs,
+        fetchElapsedMs,
+        jsonElapsedMs,
+        elapsedMs: elapsedMs(requestStartedAt),
+      });
       throw new Error(message);
     }
 
     const payload = json as ResolvedLessonPayload;
     setCachedResolvedLesson(lessonId, lang, payload);
+    console.info('[lesson-load] resolved lesson fetched', {
+      lessonId,
+      lang,
+      authElapsedMs,
+      fetchElapsedMs,
+      jsonElapsedMs,
+      elapsedMs: elapsedMs(requestStartedAt),
+      sectionCount: Array.isArray(payload.sections) ? payload.sections.length : 0,
+    });
     return payload;
   })();
 

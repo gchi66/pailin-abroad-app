@@ -32,16 +32,9 @@ export async function initializeRevenueCat() {
     return true;
   }
 
-  Purchases.setLogLevel(LOG_LEVEL.ERROR);
-  Purchases.setLogHandler((level, message) => {
-    if (__DEV__ && message.includes('Error fetching offerings')) {
-      return;
-    }
-
-    if (level === LOG_LEVEL.ERROR) {
-      console.error(`[RevenueCat] ${message}`);
-    }
-  });
+  if (__DEV__) {
+    Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+  }
 
   Purchases.configure({
     apiKey: getTrimmedApiKey(),

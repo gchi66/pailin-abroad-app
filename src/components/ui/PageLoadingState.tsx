@@ -10,19 +10,25 @@ type PageLoadingStateProps = {
   language?: UiLanguage;
   errorTitle?: string | null;
   errorBody?: string | null;
+  animationDelayMs?: number;
+  animate?: boolean;
+  showImage?: boolean;
 };
 
 export function PageLoadingState({
   language = 'en',
   errorTitle = null,
   errorBody = null,
+  animationDelayMs = 0,
+  animate = true,
+  showImage = true,
 }: PageLoadingStateProps) {
   const scale = useRef(new Animated.Value(0.95)).current;
   const opacity = useRef(new Animated.Value(0.85)).current;
   const hasError = Boolean(errorTitle || errorBody);
 
   useEffect(() => {
-    if (hasError) {
+    if (hasError || !animate) {
       scale.stopAnimation();
       opacity.stopAnimation();
       scale.setValue(1);
@@ -59,12 +65,15 @@ export function PageLoadingState({
       ])
     );
 
-    loop.start();
+    const timerId = setTimeout(() => {
+      loop.start();
+    }, animationDelayMs);
 
     return () => {
+      clearTimeout(timerId);
       loop.stop();
     };
-  }, [hasError, opacity, scale]);
+  }, [animate, animationDelayMs, hasError, opacity, scale]);
 
   const animatedImageStyle = {
     opacity,
@@ -74,11 +83,13 @@ export function PageLoadingState({
   return (
     <View style={styles.page}>
       <View style={[styles.inner, hasError ? styles.innerError : null]}>
-        <Animated.Image
-          source={membershipImages.state}
-          resizeMode="contain"
-          style={[styles.image, animatedImageStyle]}
-        />
+        {showImage ? (
+          <Animated.Image
+            source={membershipImages.state}
+            resizeMode="contain"
+            style={[styles.image, animatedImageStyle]}
+          />
+        ) : null}
 
         {hasError ? (
           <View style={styles.errorTextBlock}>

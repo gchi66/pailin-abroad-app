@@ -2336,6 +2336,7 @@ const formatLinkedLabel = (value: string) =>
 const secondsToMillis = (seconds: number) => Math.max(0, Math.round(seconds * 1000));
 const millisToSeconds = (millis: number) => Math.max(0, millis / 1000);
 const PITCH_CORRECTION_QUALITY = 'medium';
+const elapsedMs = (start: number) => Math.max(0, Math.round(performance.now() - start));
 
 export default function LessonDetailShellScreen() {
   const params = useLocalSearchParams<{ id?: string; locked?: string }>();
@@ -2439,9 +2440,21 @@ export default function LessonDetailShellScreen() {
   const pendingLessonPersistenceRef = useRef<Set<Promise<unknown>>>(new Set());
   const hasHydratedLessonAnswerStateRef = useRef(false);
   const hasInteractedWithLessonAnswerStateRef = useRef(false);
+  const lessonLoadStartedAtRef = useRef(performance.now());
+  const lessonReadyLoggedRef = useRef(false);
+  const lessonContentEnteredLoggedRef = useRef(false);
+  const progressHydrateStartedAtRef = useRef<number | null>(null);
+  const answerStateHydrateStartedAtRef = useRef<number | null>(null);
   const conversationIntroTranslateY = useSharedValue(0);
   const conversationIntroScale = useSharedValue(1);
   const conversationIntroOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    console.info('[lesson-load] lesson detail mounted', {
+      lessonId,
+      lockedParam,
+    });
+  }, [lessonId, lockedParam]);
 
   const dismissLessonKeyboard = useCallback(() => {
     applyInputRef.current?.blur();
@@ -2614,11 +2627,22 @@ export default function LessonDetailShellScreen() {
       }
 
       try {
+        answerStateHydrateStartedAtRef.current = performance.now();
+        console.info('[lesson-load] answer state hydrate started', {
+          lessonId,
+        });
         const answerStates = await fetchLessonAnswerStates(lessonId);
         if (!isMounted) {
           return;
         }
 
+        console.info('[lesson-load] answer state hydrate loaded', {
+          lessonId,
+          elapsedMs: answerStateHydrateStartedAtRef.current
+            ? elapsedMs(answerStateHydrateStartedAtRef.current)
+            : null,
+          unitCount: Object.keys(answerStates).length,
+        });
         console.info('[answer-state] hydrate fetched', {
           lessonId,
           unitKeys: Object.keys(answerStates),
@@ -2626,6 +2650,12 @@ export default function LessonDetailShellScreen() {
         setSavedAnswerStateByUnit(answerStates);
       } catch {
         if (isMounted) {
+          console.info('[lesson-load] answer state hydrate failed', {
+            lessonId,
+            elapsedMs: answerStateHydrateStartedAtRef.current
+              ? elapsedMs(answerStateHydrateStartedAtRef.current)
+              : null,
+          });
           setSavedAnswerStateByUnit({});
         }
       }
@@ -2652,11 +2682,23 @@ export default function LessonDetailShellScreen() {
       }
 
       try {
+        progressHydrateStartedAtRef.current = performance.now();
+        console.info('[lesson-load] progress hydrate started', {
+          lessonId,
+        });
         const detail = await fetchAppLessonProgressDetail(lessonId);
         if (!isMounted) {
           return;
         }
 
+        console.info('[lesson-load] progress hydrate loaded', {
+          lessonId,
+          elapsedMs: progressHydrateStartedAtRef.current
+            ? elapsedMs(progressHydrateStartedAtRef.current)
+            : null,
+          hasResume: Boolean(detail.resume),
+          completedUnitCount: Array.isArray(detail.completed_unit_keys) ? detail.completed_unit_keys.length : 0,
+        });
         setAppLessonProgressDetail(detail);
         pendingAppResumeRef.current = detail.resume;
         writtenAppProgressUnitKeysRef.current = new Set(detail.completed_unit_keys ?? []);
@@ -2665,6 +2707,12 @@ export default function LessonDetailShellScreen() {
           return;
         }
 
+        console.info('[lesson-load] progress hydrate failed', {
+          lessonId,
+          elapsedMs: progressHydrateStartedAtRef.current
+            ? elapsedMs(progressHydrateStartedAtRef.current)
+            : null,
+        });
         setAppLessonProgressDetail(null);
         pendingAppResumeRef.current = null;
         writtenAppProgressUnitKeysRef.current = new Set();
@@ -2786,12 +2834,29 @@ export default function LessonDetailShellScreen() {
 
       setIsLoading(!lessonRef.current);
       setErrorMessage(null);
+      lessonLoadStartedAtRef.current = performance.now();
+      lessonReadyLoggedRef.current = false;
+      lessonContentEnteredLoggedRef.current = false;
+      console.info('[lesson-load] cover load started', {
+        lessonId,
+        contentLang,
+        hasCachedLesson: Boolean(lessonRef.current),
+      });
 
       try {
         const row = await fetchResolvedLesson(lessonId, contentLang);
         if (!isMounted) {
           return;
         }
+        console.info('[lesson-load] cover lesson loaded', {
+          lessonId,
+          contentLang,
+          elapsedMs: elapsedMs(lessonLoadStartedAtRef.current),
+          sectionCount: Array.isArray(row.sections) ? row.sections.length : 0,
+          questionCount: Array.isArray(row.questions) ? row.questions.length : 0,
+          phraseCount: Array.isArray(row.phrases) ? row.phrases.length : 0,
+          practiceExerciseCount: Array.isArray(row.practice_exercises) ? row.practice_exercises.length : 0,
+        });
         setLesson(row);
         setCoverLesson(row);
         const otherLang = contentLang === 'th' ? 'en' : 'th';
@@ -2801,6 +2866,12 @@ export default function LessonDetailShellScreen() {
           return;
         }
         const message = error instanceof Error ? error.message : uiCopy.fetchLessonFailed;
+        console.info('[lesson-load] cover load failed', {
+          lessonId,
+          contentLang,
+          elapsedMs: elapsedMs(lessonLoadStartedAtRef.current),
+          message,
+        });
         setErrorMessage(message);
       } finally {
         if (isMounted) {
@@ -2862,6 +2933,8 @@ export default function LessonDetailShellScreen() {
     writtenAppProgressUnitKeysRef.current = new Set();
     hasHydratedLessonAnswerStateRef.current = false;
     hasInteractedWithLessonAnswerStateRef.current = false;
+    progressHydrateStartedAtRef.current = null;
+    answerStateHydrateStartedAtRef.current = null;
     conversationIntroTranslateY.value = 0;
     conversationIntroScale.value = 1;
     conversationIntroOpacity.value = 1;
@@ -2877,6 +2950,20 @@ export default function LessonDetailShellScreen() {
 
   const lessonCover = lesson ?? coverLesson;
   const isLessonReady = Boolean(lesson);
+
+  useEffect(() => {
+    if (!lessonId || !isLessonReady || lessonReadyLoggedRef.current) {
+      return;
+    }
+
+    lessonReadyLoggedRef.current = true;
+    console.info('[lesson-load] start lesson ready', {
+      lessonId,
+      contentLang,
+      elapsedMs: elapsedMs(lessonLoadStartedAtRef.current),
+      sectionCount,
+    });
+  }, [contentLang, isLessonReady, lessonId, sectionCount]);
 
   const englishTitle = useMemo(() => {
     return lesson?.title_en?.trim() || lesson?.title?.trim() || coverLesson?.title?.trim() || lesson?.title_th?.trim() || coverLesson?.title_th?.trim() || null;
@@ -3373,6 +3460,11 @@ export default function LessonDetailShellScreen() {
     return true;
   }, [activeSectionIndex, prepareSectionIndex, resolveResumeSectionIndex]);
   const openLessonAtResume = useCallback(() => {
+    console.info('[lesson-load] lesson start pressed', {
+      lessonId,
+      elapsedMsSinceCoverLoadStart: elapsedMs(lessonLoadStartedAtRef.current),
+      hasPendingResume: Boolean(pendingAppResumeRef.current),
+    });
     if (!applyPendingResumeSection()) {
       setActiveSectionIndex(0);
       setMaxVisitedSectionIndex(0);
@@ -3390,7 +3482,21 @@ export default function LessonDetailShellScreen() {
       .catch((error) => {
         console.warn('[lesson-streak] check-in failed', error instanceof Error ? error.message : 'Unknown error');
       });
-  }, [applyPendingResumeSection, uiLanguage]);
+  }, [applyPendingResumeSection, lessonId, uiLanguage]);
+
+  useEffect(() => {
+    if (!hasStartedLesson || lessonContentEnteredLoggedRef.current) {
+      return;
+    }
+
+    lessonContentEnteredLoggedRef.current = true;
+    console.info('[lesson-load] lesson content entered', {
+      lessonId,
+      elapsedMsSinceCoverLoadStart: elapsedMs(lessonLoadStartedAtRef.current),
+      activeSectionIndex,
+    });
+  }, [activeSectionIndex, hasStartedLesson, lessonId]);
+
   useEffect(() => {
     if (!streakCelebration) {
       if (streakCelebrationTimeoutRef.current) {

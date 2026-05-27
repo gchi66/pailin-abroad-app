@@ -3,11 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { getLessonsIndex } from '@/src/api/lessons';
 import {
   CompletedLessonProgress,
+  DailyStreakResponse,
   fetchUserLessonEngagements,
   UserStats,
   fetchUserCompletedLessons,
+  fetchDailyStreak,
   fetchUserPathwayLessons,
-  fetchUserStats,
   upsertLessonCompletion,
 } from '@/src/api/user';
 import { LessonListItem } from '@/src/types/lesson';
@@ -119,7 +120,7 @@ const sortCompletedProgress = (left: CompletedLessonProgress, right: CompletedLe
 };
 
 export function usePathwayData({ enabled = true, hasMembership }: UsePathwayDataParams) {
-  const [stats, setStats] = useState<UserStats | null>(null);
+  const [dailyStreak, setDailyStreak] = useState<DailyStreakResponse | null>(null);
   const [pathwayLessons, setPathwayLessons] = useState<LessonListItem[]>([]);
   const [completedProgress, setCompletedProgress] = useState<CompletedLessonProgress[]>([]);
   const [lessonEngagements, setLessonEngagements] = useState<Record<string, string>>({});
@@ -140,14 +141,40 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     }
 
     let isMounted = true;
+    let lessonIndexResolved = false;
+    let pathwayLessonsResolved = false;
+    let lessonIndexFailed = false;
+    let pathwayLessonsFailed = false;
+    let coreContentSettled = false;
     logBootstrap('pathway data effect started', {
       hasMembership,
     });
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    const settleCoreContent = (source: 'lesson index' | 'pathway lessons' | 'failure') => {
+      if (coreContentSettled || !isMounted) {
+        return;
+      }
+
+      const hasContent = lessonIndexResolved || pathwayLessonsResolved;
+      const hasFailedEverySource = lessonIndexFailed && pathwayLessonsFailed;
+      if (!hasContent && !hasFailedEverySource) {
+        return;
+      }
+
+      coreContentSettled = true;
+      setIsLoading(false);
+
+      if (source !== 'failure') {
+        console.info(PATHWAY_TIMING_LABEL, 'critical data loaded', {
+          source,
+        });
+      }
+    };
 
     const loadPathwayLessons = async () => {
       const startedAt = Date.now();
-      setIsLoading(true);
-      setErrorMessage(null);
       console.info(PATHWAY_TIMING_LABEL, 'pathway lessons started');
 
       try {
@@ -159,23 +186,20 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
           return;
         }
 
-        setPathwayLessons(pathwayResult.filter(isLessonListItem).sort(compareLessons));
-        console.info(PATHWAY_TIMING_LABEL, 'critical data loaded', {
-          elapsedMs: getElapsedMs(startedAt),
-          pathwayCount: pathwayResult.length,
-        });
+        const normalizedPathwayLessons = pathwayResult.filter(isLessonListItem).sort(compareLessons);
+        setPathwayLessons(normalizedPathwayLessons);
+        pathwayLessonsResolved = normalizedPathwayLessons.length > 0;
+        settleCoreContent('pathway lessons');
       } catch (error) {
-        if (isMounted) {
+        pathwayLessonsFailed = true;
+        if (isMounted && lessonIndexFailed) {
           setErrorMessage(error instanceof Error ? error.message : 'Could not load pathway data.');
         }
         console.warn(PATHWAY_TIMING_LABEL, 'critical data failed', {
           elapsedMs: getElapsedMs(startedAt),
           error: error instanceof Error ? error.message : 'Unknown error',
         });
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        settleCoreContent('failure');
       }
     };
 
@@ -184,13 +208,13 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       console.info(PATHWAY_TIMING_LABEL, 'stats started');
 
       try {
-        const statsResult = await withRequestTiming('stats', fetchUserStats);
+        const dailyStreakResult = await withRequestTiming('stats', fetchDailyStreak);
 
         if (!isMounted) {
           return;
         }
 
-        setStats(statsResult);
+        setDailyStreak(dailyStreakResult);
       } catch {
         // Timing helper already logs the request failure; keep the main pathway usable.
       } finally {
@@ -262,12 +286,17 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
           return;
         }
 
-        setAllLessons(lessonsIndex.filter(isLessonListItem).sort(compareLessons));
+        const normalizedLessonsIndex = lessonsIndex.filter(isLessonListItem).sort(compareLessons);
+        setAllLessons(normalizedLessonsIndex);
+        lessonIndexResolved = normalizedLessonsIndex.length > 0;
         logRequestTiming('lesson index', startedAt, {
           lessonCount: lessonsIndex.length,
         });
+        settleCoreContent('lesson index');
       } catch (error) {
+        lessonIndexFailed = true;
         logRequestFailure('lesson index', startedAt, error);
+        settleCoreContent('failure');
       } finally {
         if (isMounted) {
           setIsLessonIndexLoading(false);
@@ -309,6 +338,60 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       .filter(isLessonListItem)
       .sort(compareLessons);
   }, [completedProgress]);
+
+  const levelsCompleted = useMemo(() => {
+    if (allLessons.length === 0 || completedLessons.length === 0) {
+      return 0;
+    }
+
+    const totalLessonsByLevel = new Map<string, number>();
+    const completedLessonsByLevel = new Map<string, Set<string>>();
+
+    allLessons.forEach((lesson) => {
+      if (!lesson.stage || typeof lesson.level !== 'number') {
+        return;
+      }
+
+      const key = `${lesson.stage}_${lesson.level}`;
+      totalLessonsByLevel.set(key, (totalLessonsByLevel.get(key) ?? 0) + 1);
+    });
+
+    completedLessons.forEach((lesson) => {
+      if (!lesson.stage || typeof lesson.level !== 'number' || !lesson.id) {
+        return;
+      }
+
+      const key = `${lesson.stage}_${lesson.level}`;
+      if (!completedLessonsByLevel.has(key)) {
+        completedLessonsByLevel.set(key, new Set());
+      }
+
+      completedLessonsByLevel.get(key)?.add(lesson.id);
+    });
+
+    let totalCompletedLevels = 0;
+    totalLessonsByLevel.forEach((totalCount, key) => {
+      const completedCount = completedLessonsByLevel.get(key)?.size ?? 0;
+      if (totalCount > 0 && completedCount === totalCount) {
+        totalCompletedLevels += 1;
+      }
+    });
+
+    return totalCompletedLevels;
+  }, [allLessons, completedLessons]);
+
+  const stats = useMemo<UserStats>(
+    () => ({
+      lessons_completed: completedLessons.length,
+      levels_completed: levelsCompleted,
+      daily_streak: dailyStreak?.daily_streak ?? 0,
+      daily_streak_checked_in_today: dailyStreak?.checked_in_today,
+      daily_streak_opened_on: dailyStreak?.opened_on ?? null,
+      daily_streak_timezone: dailyStreak?.timezone ?? null,
+      daily_streak_last_checkin_date: dailyStreak?.last_checkin_date ?? null,
+    }),
+    [completedLessons.length, dailyStreak, levelsCompleted]
+  );
 
   const completedIds = useMemo(() => new Set(completedLessons.map((lesson) => lesson.id)), [completedLessons]);
 
@@ -420,41 +503,10 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     })();
 
     setCompletedProgress(nextProgress);
-    setStats((current) => {
-      if (!current) {
-        return current;
-      }
-
-      const wasCompleted = previousProgress.some((entry) => entry.lesson_id === params.lesson.id && entry.is_completed);
-      if (params.completed === wasCompleted) {
-        return current;
-      }
-
-      return {
-        ...current,
-        lessons_completed: Math.max(0, current.lessons_completed + (params.completed ? 1 : -1)),
-      };
-    });
-
     try {
       await upsertLessonCompletion({ lessonId: params.lesson.id, completed: params.completed });
     } catch (error) {
       setCompletedProgress(previousProgress);
-      setStats((current) => {
-        if (!current) {
-          return current;
-        }
-
-        const wasCompleted = previousProgress.some((entry) => entry.lesson_id === params.lesson.id && entry.is_completed);
-        if (params.completed === wasCompleted) {
-          return current;
-        }
-
-        return {
-          ...current,
-          lessons_completed: Math.max(0, current.lessons_completed + (params.completed ? -1 : 1)),
-        };
-      });
       throw error;
     }
   };
