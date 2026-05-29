@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -63,12 +65,29 @@ type AppSessionContextValue = {
   hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
   signUp: (params: { email: string; password: string }) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
+  signInWithApple: () => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 };
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
+
+const getAppleDisplayName = (credential: AppleAuthentication.AppleAuthenticationCredential) => {
+  const givenName = credential.fullName?.givenName?.trim() ?? '';
+  const familyName = credential.fullName?.familyName?.trim() ?? '';
+  const fullName = [givenName, familyName].filter(Boolean).join(' ').trim();
+
+  if (!fullName) {
+    return null;
+  }
+
+  return {
+    fullName,
+    givenName: givenName || null,
+    familyName: familyName || null,
+  };
+};
 
 type AppSessionProviderProps = {
   children: React.ReactNode;
@@ -480,6 +499,79 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     };
   };
 
+  const signInWithApple = async () => {
+    try {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        const message = 'Sign in with Apple is not available on this device.';
+        setAuthError(message);
+        return { error: message };
+      }
+
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!credential.identityToken) {
+        const message = 'Missing Apple identity token.';
+        setAuthError(message);
+        return { error: message };
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+        nonce: rawNonce,
+      });
+
+      if (error) {
+        setAuthError(error.message);
+        return { error: error.message };
+      }
+
+      const displayName = getAppleDisplayName(credential);
+      if (displayName) {
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              name: displayName.fullName,
+              username: displayName.fullName,
+              given_name: displayName.givenName,
+              family_name: displayName.familyName,
+            },
+          });
+        } catch (updateError) {
+          logAuth(
+            'apple:updateUser:error',
+            updateError instanceof Error ? updateError.message : 'Unknown error'
+          );
+        }
+      }
+
+      setAuthError(null);
+      return { error: null };
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'ERR_REQUEST_CANCELED'
+      ) {
+        return { error: null };
+      }
+
+      const message = error instanceof Error ? error.message : 'Apple sign-in did not complete.';
+      setAuthError(message);
+      return { error: message };
+    }
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -568,6 +660,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     hasCompletedOnboarding,
     signIn,
     signUp,
+    signInWithApple,
     signInWithGoogle,
     signOut,
     refreshProfile,

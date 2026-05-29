@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
@@ -30,7 +31,7 @@ export function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const { authError, isLoading, signIn, signInWithGoogle, signUp } = useAppSession();
+  const { authError, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,6 +39,8 @@ export function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+  const [isAppleSubmitting, setIsAppleSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const modeAnim = useRef(new Animated.Value(1)).current;
 
@@ -53,6 +56,7 @@ export function AuthScreen() {
             signInTitleAccent: 'ต้อนรับ',
             signInTitleTail: 'กลับมา',
             signInSubtitle: 'ดีใจที่ได้เจอคุณอีกครั้ง',
+            appleLoading: 'กำลังเชื่อมต่อ Apple...',
             google: 'สมัครด้วย Google',
             googleLoading: 'กำลังเชื่อมต่อ Google...',
             divider: 'or email',
@@ -88,6 +92,7 @@ export function AuthScreen() {
             signInTitleAccent: 'back.',
             signInTitleTail: '',
             signInSubtitle: 'Good to see you again.',
+            appleLoading: 'Connecting Apple...',
             google: 'Continue with Google',
             googleLoading: 'Connecting Google...',
             divider: 'or email',
@@ -129,10 +134,38 @@ export function AuthScreen() {
   const meetsLength = password.length >= 8;
   const meetsUppercase = /[A-Z]/.test(password);
   const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]/.test(password);
-  const isBusy = isSubmitting || isLoading || isGoogleSubmitting;
+  const isBusy = isSubmitting || isLoading || isAppleSubmitting || isGoogleSubmitting;
   const isCompactScreen = height <= 720 || width <= 350;
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
+  const showAppleButton = Platform.OS === 'ios' && isAppleAvailable;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (Platform.OS !== 'ios') {
+      setIsAppleAvailable(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    void AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (isMounted) {
+          setIsAppleAvailable(available);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsAppleAvailable(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSubmit = async () => {
     if (mode === 'signup') {
@@ -183,6 +216,18 @@ export function AuthScreen() {
       }
     } finally {
       setIsGoogleSubmitting(false);
+    }
+  };
+
+  const handleApple = async () => {
+    setIsAppleSubmitting(true);
+    try {
+      const { error } = await signInWithApple();
+      if (error) {
+        Alert.alert(copy.authErrorTitle, error);
+      }
+    } finally {
+      setIsAppleSubmitting(false);
     }
   };
 
@@ -354,31 +399,61 @@ export function AuthScreen() {
                 isTabletScreen ? styles.formShellTablet : null,
                 isLargeTabletScreen ? styles.formShellLargeTablet : null,
               ]}>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.googleButton,
-                  isCompactScreen ? styles.googleButtonCompact : null,
-                  isTabletScreen ? styles.googleButtonTablet : null,
-                  isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
-                  pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
-                  isGoogleSubmitting ? styles.buttonDisabled : null,
-                ]}
-                onPress={handleGoogle}
-                disabled={isGoogleSubmitting}>
-                <GoogleBadge />
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[
-                    styles.googleButtonText,
-                    isCompactScreen ? styles.googleButtonTextCompact : null,
-                    isTabletScreen ? styles.googleButtonTextTablet : null,
-                    isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
-                  ]}>
-                  {isGoogleSubmitting ? copy.googleLoading : copy.google}
-                </AppText>
-              </Pressable>
+              <View style={styles.socialButtons}>
+                {showAppleButton ? (
+                  <View
+                    style={[
+                      styles.appleButtonShell,
+                      isCompactScreen ? styles.appleButtonShellCompact : null,
+                      isTabletScreen ? styles.appleButtonShellTablet : null,
+                      isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
+                      isAppleSubmitting ? styles.buttonDisabled : null,
+                    ]}>
+                    {isAppleSubmitting ? (
+                      <View style={styles.appleButtonLoadingState}>
+                        <ActivityIndicator color="#FFFFFF" />
+                        <AppText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
+                          {copy.appleLoading}
+                        </AppText>
+                      </View>
+                    ) : (
+                      <AppleAuthentication.AppleAuthenticationButton
+                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                        cornerRadius={isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14}
+                        onPress={handleApple}
+                        style={styles.appleButton}
+                      />
+                    )}
+                  </View>
+                ) : null}
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.googleButton,
+                    isCompactScreen ? styles.googleButtonCompact : null,
+                    isTabletScreen ? styles.googleButtonTablet : null,
+                    isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
+                    pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
+                    isGoogleSubmitting ? styles.buttonDisabled : null,
+                  ]}
+                  onPress={handleGoogle}
+                  disabled={isGoogleSubmitting}>
+                  <GoogleBadge />
+                  <AppText
+                    language={uiLanguage}
+                    variant="caption"
+                    style={[
+                      styles.googleButtonText,
+                      isCompactScreen ? styles.googleButtonTextCompact : null,
+                      isTabletScreen ? styles.googleButtonTextTablet : null,
+                      isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
+                    ]}>
+                    {isGoogleSubmitting ? copy.googleLoading : copy.google}
+                  </AppText>
+                </Pressable>
+              </View>
 
               <View style={[styles.dividerRow, isCompactScreen ? styles.dividerRowCompact : null]}>
                 <View style={styles.dividerLine} />
@@ -691,11 +766,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7FAFD',
   },
   contentContainer: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
   },
   centerShell: {
-    flex: 1,
+    flexGrow: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -704,7 +780,6 @@ const styles = StyleSheet.create({
   },
   panel: {
     width: '100%',
-    maxWidth: 360,
   },
   panelTablet: {
     maxWidth: 520,
@@ -712,9 +787,7 @@ const styles = StyleSheet.create({
   panelLargeTablet: {
     maxWidth: 680,
   },
-  panelCompact: {
-    maxWidth: 340,
-  },
+  panelCompact: {},
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -813,12 +886,58 @@ const styles = StyleSheet.create({
   formShellCompact: {
     gap: 10,
   },
+  socialButtons: {
+    gap: 12,
+    marginTop: 6,
+  },
+  appleButtonShell: {
+    height: 50,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#1A2332',
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    shadowOffset: {
+      width: 1.75,
+      height: 1.75,
+    },
+    elevation: 3,
+  },
+  appleButtonShellCompact: {
+    height: 46,
+    borderRadius: 12,
+  },
+  appleButtonShellTablet: {
+    height: 62,
+    borderRadius: 18,
+  },
+  appleButtonShellLargeTablet: {
+    height: 72,
+    borderRadius: 20,
+  },
+  appleButton: {
+    width: '100%',
+    height: '100%',
+  },
+  appleButtonLoadingState: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#111111',
+    paddingHorizontal: 14,
+  },
+  appleButtonLoadingText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
   googleButton: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 7,
     borderRadius: 14,
     borderWidth: 2,
     borderColor: '#1A2332',
@@ -850,6 +969,8 @@ const styles = StyleSheet.create({
   googleButtonText: {
     color: '#1A2332',
     fontWeight: '800',
+    fontSize: 17,
+    lineHeight: 21,
   },
   googleButtonTextTablet: {
     fontSize: 19,
