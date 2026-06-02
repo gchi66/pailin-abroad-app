@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
   stageText: {
     fontSize: 32,
     lineHeight: 38,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.semibold,
   },
   levelPill: {
     paddingHorizontal: 10,
@@ -853,17 +853,17 @@ const styles = StyleSheet.create({
   resumeMeta: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: theme.spacing.md,
+    gap: 4,
   },
   resumeNumberGroup: {
-    minWidth: 54,
+    minWidth: 42,
     alignItems: 'flex-start',
     gap: 4,
   },
   resumeNumber: {
     fontSize: 32,
     lineHeight: 38,
-    fontWeight: theme.typography.weights.bold,
+    fontFamily: theme.typography.fontFaces.en.medium,
   },
   resumeLockIcon: {
     width: 40,
@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
   resumeTitle: {
     fontSize: 28,
     lineHeight: 34,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.semibold,
   },
   resumeFocus: {
     color: '#66758A',
