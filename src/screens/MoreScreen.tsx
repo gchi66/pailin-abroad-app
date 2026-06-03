@@ -60,25 +60,25 @@ export function MoreScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
       <Stack gap="md" style={styles.pageContent}>
-        <View style={styles.headerRow}>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
-            <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
-            onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-            style={styles.languagePill}>
-            <AppText
-              language={uiLanguage === 'th' ? 'en' : 'th'}
-              variant="caption"
-              style={styles.languagePillText}>
-              {pathwayToggleLabel}
-            </AppText>
-          </Pressable>
+        <View style={styles.headerBlock}>
+          <View style={styles.headerRow}>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
+              <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
+              onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
+              style={styles.languagePill}>
+              <AppText
+                language={uiLanguage === 'th' ? 'en' : 'th'}
+                variant="caption"
+                style={styles.languagePillText}>
+                {pathwayToggleLabel}
+              </AppText>
+            </Pressable>
+          </View>
         </View>
-
-        <View style={styles.divider} />
 
         <View style={styles.actionsWrap}>
           <Stack gap="md">
@@ -129,19 +129,25 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+    padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
   pageContent: {
     flex: 1,
   },
+  headerBlock: {
+    marginHorizontal: -theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
   headerRow: {
-    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: 10,
-    paddingBottom: 4,
+    gap: 14,
+    minHeight: 58,
   },
   logo: {
     width: 180,
@@ -176,10 +182,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textAlignVertical: 'center',
     transform: [{ translateY: 1 }],
-  },
-  divider: {
-    height: 2,
-    backgroundColor: theme.colors.border,
   },
   actionsWrap: {
     flex: 1,

@@ -92,6 +92,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       joinedLabel: 'เข้าร่วมเมื่อ',
       signOut: 'ออกจากระบบ',
       onboardingDevtools: 'เปิด Onboarding Devtools',
+      paymentSuccessDevtools: 'เปิด Payment Success Devtools',
       languageValue: 'ไทย',
       signOutSuccess: 'ออกจากระบบแล้ว',
       avatarLabel: 'PP',
@@ -119,6 +120,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     joinedLabel: 'Joined',
     signOut: 'Log Out',
     onboardingDevtools: 'Open Onboarding Devtools',
+    paymentSuccessDevtools: 'Open Payment Success Devtools',
     languageValue: 'English',
     signOutSuccess: 'Signed out successfully.',
     avatarLabel: 'PP',
@@ -386,6 +388,20 @@ export function ProfileScreen() {
             }>
             <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
               {copy.onboardingDevtools}
+            </AppText>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            style={styles.devtoolsRow}
+            onPress={() =>
+              router.push({
+                pathname: '/purchase-success',
+                params: { returnTo: '/(tabs)', devtools: '1' },
+              })
+            }>
+            <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
+              {copy.paymentSuccessDevtools}
             </AppText>
           </Pressable>
         </Stack>

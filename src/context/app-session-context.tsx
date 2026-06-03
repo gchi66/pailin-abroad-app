@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import type { CustomerInfo } from 'react-native-purchases';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
@@ -8,7 +9,14 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
 import { UserProfile, fetchUserProfile } from '@/src/api/user';
-import { syncRevenueCatUser } from '@/src/lib/revenuecat';
+import {
+  addRevenueCatCustomerInfoUpdateListener,
+  getRevenueCatCustomerInfo,
+  hasRevenueCatFullAccess,
+  invalidateRevenueCatCustomerInfoCache,
+  removeRevenueCatCustomerInfoUpdateListener,
+  syncRevenueCatUser,
+} from '@/src/lib/revenuecat';
 import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -69,6 +77,7 @@ type AppSessionContextValue = {
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
+  refreshMembershipAccess: () => Promise<void>;
 };
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
@@ -96,6 +105,7 @@ type AppSessionProviderProps = {
 export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AppProfile | null>(null);
+  const [revenueCatCustomerInfo, setRevenueCatCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const hasIgnoredInitialSession = useRef(false);
@@ -461,10 +471,29 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     logBootstrap('revenuecat sync started', {
       userId: session?.user?.id ?? null,
     });
-    void syncRevenueCatUser(session?.user?.id ?? null).catch((error) => {
-      logAuth('revenuecat:sync:error', error instanceof Error ? error.message : 'Unknown error');
-    });
+    void (async () => {
+      try {
+        await syncRevenueCatUser(session?.user?.id ?? null);
+        const customerInfo = await getRevenueCatCustomerInfo();
+        setRevenueCatCustomerInfo(customerInfo);
+      } catch (error) {
+        logAuth('revenuecat:sync:error', error instanceof Error ? error.message : 'Unknown error');
+        setRevenueCatCustomerInfo(null);
+      }
+    })();
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    const handleCustomerInfoUpdated = (nextCustomerInfo: CustomerInfo) => {
+      setRevenueCatCustomerInfo(nextCustomerInfo);
+    };
+
+    addRevenueCatCustomerInfoUpdateListener(handleCustomerInfoUpdated);
+
+    return () => {
+      removeRevenueCatCustomerInfoUpdateListener(handleCustomerInfoUpdated);
+    };
+  }, []);
 
   const signIn = async ({ email, password }: { email: string; password: string }) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -644,9 +673,16 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     await fetchProfile(session?.user ?? null, { background: true, waitForEnrichment: true });
   };
 
+  const refreshMembershipAccess = async () => {
+    await invalidateRevenueCatCustomerInfoCache();
+    const customerInfo = await getRevenueCatCustomerInfo();
+    setRevenueCatCustomerInfo(customerInfo);
+    await fetchProfile(session?.user ?? null, { background: true, waitForEnrichment: true });
+  };
+
   const user = session?.user ?? null;
   const hasAccount = user !== null;
-  const hasMembership = profile?.is_paid === true;
+  const hasMembership = profile?.is_paid === true || hasRevenueCatFullAccess(revenueCatCustomerInfo);
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
 
   const value = {
@@ -664,6 +700,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     signInWithGoogle,
     signOut,
     refreshProfile,
+    refreshMembershipAccess,
   };
 
   return <AppSessionContext.Provider value={value}>{children}</AppSessionContext.Provider>;

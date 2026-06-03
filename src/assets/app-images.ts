@@ -9,6 +9,8 @@ import grantImage from '@/assets/images/grant.webp';
 import heroImage from '@/assets/images/characters/hero_image_pailin_luke.webp';
 import membershipBannerImage from '@/assets/images/membership_launch_pricing_banner.webp';
 import membershipStateImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import paymentSuccessConfettiImage from '@/assets/images/payment_success_confetti_bg.webp';
+import paymentSuccessPailinImage from '@/assets/images/pailin-blue-circle-thumbs-up.webp';
 
 import chloeActiveThumb from '@/assets/images/characters/chloe_blue_circle.webp';
 import chloeDefaultThumb from '@/assets/images/characters/chloe_white_circle.webp';
@@ -80,4 +82,9 @@ export const aboutImages = {
 export const membershipImages = {
   banner: membershipBannerImage,
   state: membershipStateImage,
+} as const;
+
+export const paymentSuccessImages = {
+  confetti: paymentSuccessConfettiImage,
+  pailinThumbsUp: paymentSuccessPailinImage,
 } as const;

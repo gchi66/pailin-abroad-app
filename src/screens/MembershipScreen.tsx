@@ -438,7 +438,7 @@ function MembershipPlanCard({
 export function MembershipScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ returnTo?: string }>();
-  const { hasAccount, refreshProfile } = useAppSession();
+  const { hasAccount, refreshMembershipAccess } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
@@ -612,8 +612,11 @@ export function MembershipScreen() {
       setPurchaseInProgress(true);
       const result = await purchaseRevenueCatPackage(selectedPackage);
       setCustomerInfo(result.customerInfo);
-      await refreshProfile();
-      Alert.alert(copy.purchaseSuccessTitle, copy.joinPlaceholder);
+      await refreshMembershipAccess();
+      router.replace({
+        pathname: '/purchase-success',
+        params: { returnTo: '/(tabs)' },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : copy.loadingErrorBody;
       Alert.alert(copy.loadingErrorTitle, message);

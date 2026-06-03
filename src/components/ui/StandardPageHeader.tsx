@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: 4,
-    borderBottomWidth: 2,
+    borderBottomWidth: 1,
     borderColor: theme.colors.border,
   },
   actionRow: {

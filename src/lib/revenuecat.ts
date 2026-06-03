@@ -1,5 +1,11 @@
 import { Platform } from 'react-native';
-import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage, LOG_LEVEL } from 'react-native-purchases';
+import Purchases, {
+  CustomerInfo,
+  CustomerInfoUpdateListener,
+  PurchasesOffering,
+  PurchasesPackage,
+  LOG_LEVEL,
+} from 'react-native-purchases';
 
 import { env } from '@/src/config/env';
 
@@ -82,6 +88,23 @@ export async function getRevenueCatCustomerInfo() {
   }
 
   return Purchases.getCustomerInfo();
+}
+
+export async function invalidateRevenueCatCustomerInfoCache() {
+  const isReady = await initializeRevenueCat();
+  if (!isReady) {
+    return;
+  }
+
+  await Purchases.invalidateCustomerInfoCache();
+}
+
+export function addRevenueCatCustomerInfoUpdateListener(listener: CustomerInfoUpdateListener) {
+  Purchases.addCustomerInfoUpdateListener(listener);
+}
+
+export function removeRevenueCatCustomerInfoUpdateListener(listener: CustomerInfoUpdateListener) {
+  Purchases.removeCustomerInfoUpdateListener(listener);
 }
 
 export async function purchaseRevenueCatPackage(pkg: PurchasesPackage) {
