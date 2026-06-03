@@ -34,6 +34,14 @@ const AVATAR_OPTIONS = [
   '/images/characters/avatar_8.webp',
 ] as const;
 
+const isPrivateRelayEmail = (value: string | null | undefined) => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return value.trim().toLowerCase().endsWith('@privaterelay.appleid.com');
+};
+
 const formatJoinedLabel = (value: string | null, uiLanguage: UiLanguage) => {
   if (!value) {
     return uiLanguage === 'th' ? 'เพิ่งเชื่อมต่อบัญชีในแอป' : 'Recently connected in the app';
@@ -143,7 +151,8 @@ export function ProfileScreen() {
     (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
     user?.email ||
     'Pailin Abroad';
-  const email = profile?.email?.trim() || user?.email || '—';
+  const resolvedEmail = profile?.email?.trim() || user?.email || '—';
+  const email = isPrivateRelayEmail(resolvedEmail) ? null : resolvedEmail;
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
   const profileData = getProfileDisplayData(uiLanguage, {
@@ -264,9 +273,11 @@ export function ProfileScreen() {
                   <AppText language={uiLanguage} variant="body" style={styles.profileName}>
                     {profileData.displayName}
                   </AppText>
-                  <AppText language={uiLanguage} variant="muted">
-                    {profileData.email}
-                  </AppText>
+                  {email ? (
+                    <AppText language={uiLanguage} variant="muted">
+                      {profileData.email}
+                    </AppText>
+                  ) : null}
                 </View>
               </View>
 

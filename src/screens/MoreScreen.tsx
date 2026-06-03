@@ -58,7 +58,7 @@ export function MoreScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <ResponsivePageShell>
+      <ResponsivePageShell style={styles.pageShell}>
       <Stack gap="md" style={styles.pageContent}>
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
@@ -133,6 +133,9 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   pageContent: {
+    flex: 1,
+  },
+  pageShell: {
     flex: 1,
   },
   headerBlock: {
