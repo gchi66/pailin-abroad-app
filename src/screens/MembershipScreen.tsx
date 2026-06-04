@@ -114,6 +114,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
       backLabel: 'ย้อนกลับ',
       loadingErrorTitle: 'เกิดข้อผิดพลาด',
       loadingErrorBody: 'เราไม่สามารถโหลดราคาสมาชิกได้ กรุณาลองใหม่อีกครั้ง',
+      termsTitle: 'ข้อกำหนดและเงื่อนไข',
+      privacyTitle: 'นโยบายความเป็นส่วนตัว',
       purchaseUnavailableTitle: 'ยังไม่พร้อมใช้งาน',
       purchaseUnavailableBody: 'เราไม่พบตัวเลือกการสมัครในขณะนี้ กรุณาลองใหม่อีกครั้ง',
       signInRequiredTitle: 'กรุณาเข้าสู่ระบบก่อน',
@@ -184,6 +186,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     backLabel: 'Back',
     loadingErrorTitle: 'Something went wrong',
     loadingErrorBody: "We couldn't load membership pricing. Please try again.",
+    termsTitle: 'Terms & Conditions',
+    privacyTitle: 'Privacy Policy',
     purchaseUnavailableTitle: 'Products unavailable',
     purchaseUnavailableBody: "We couldn't load the membership products right now. Please try again.",
     signInRequiredTitle: 'Sign in required',
@@ -766,6 +770,19 @@ export function MembershipScreen() {
             </Stack>
           </Stack>
         </Card>
+
+        <View style={styles.legalFooter}>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/account/terms')}>
+            <AppText language={uiLanguage} variant="caption" style={styles.legalFooterLink}>
+              {copy.termsTitle}
+            </AppText>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/account/privacy')}>
+            <AppText language={uiLanguage} variant="caption" style={styles.legalFooterLink}>
+              {copy.privacyTitle}
+            </AppText>
+          </Pressable>
+        </View>
         </Stack>
             </ResponsivePageShell>
     </ScrollView>
@@ -1206,6 +1223,17 @@ const styles = StyleSheet.create({
   },
   featuresCard: {
     backgroundColor: '#FFFDF9',
+  },
+  legalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+  },
+  legalFooterLink: {
+    color: theme.colors.text,
+    textDecorationLine: 'underline',
   },
   stickyBarShell: {
     position: 'absolute',
