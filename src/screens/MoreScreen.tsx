@@ -36,9 +36,9 @@ export function MoreScreen() {
           membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
           actions: [
             { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },
+            { key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' },
             { key: 'about', label: 'เกี่ยวกับเรา', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'ติดต่อเรา', href: '/(tabs)/account/contact' },
-            { key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' },
           ] satisfies MoreAction[],
         }
       : {
@@ -46,9 +46,9 @@ export function MoreScreen() {
           membershipBody: 'Unlock all lessons and our full content library.',
           actions: [
             { key: 'profile', label: 'Profile', href: '/(tabs)/account/profile' },
+            { key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' },
             { key: 'about', label: 'About', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'Contact', href: '/(tabs)/account/contact' },
-            { key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' },
           ] satisfies MoreAction[],
         };
 

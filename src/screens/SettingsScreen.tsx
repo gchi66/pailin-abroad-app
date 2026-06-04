@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { prefetchPricing } from '@/src/api/pricing';
-import { cancelUserSubscription, deleteUserAccount } from '@/src/api/user';
+import { getPricing, prefetchPricing } from '@/src/api/pricing';
+import { BillingInvoice, BillingPaymentMethod, cancelUserSubscription, deleteUserAccount, fetchBillingInvoices, fetchBillingPaymentMethod } from '@/src/api/user';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -12,33 +12,32 @@ import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { getPlanPackageMap, getRevenueCatCustomerInfo, getRevenueCatOffering } from '@/src/lib/revenuecat';
 import { theme } from '@/src/theme/theme';
 
-type SectionKey = 'more';
+type SectionKey = 'billing-history' | 'more';
 
 type SettingsCopy = {
   title: string;
-  membershipTitle: string;
-  subscriptionSectionTitle: string;
+  back: string;
+  subscriptionInfoTitle: string;
   planLabel: string;
   billingLabel: string;
   priceLabel: string;
-  statusLabel: string;
-  statusActive: string;
-  statusCancelling: string;
-  statusFree: string;
-  currentPlanPaid: string;
   currentPlanFree: string;
-  billingPaid: string;
   billingFree: string;
-  pricePaid: string;
   priceFree: string;
   changePlan: string;
-  appPreferencesTitle: string;
-  legalIntro: string;
   termsTitle: string;
   privacyTitle: string;
   moreTitle: string;
+  billingHistoryTitle: string;
+  billingManagedByApple: string;
+  billingNoChargeHistory: string;
+  billingPaymentMethodLabel: string;
+  billingPaymentsLabel: string;
+  billingNoCardOnFile: string;
+  billingLoading: string;
   cancelMembership: string;
   deleteAccount: string;
   deleteAccountHint: string;
@@ -63,27 +62,24 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     return {
       title: 'การตั้งค่า',
       back: 'ย้อนกลับ',
-      membershipTitle: 'สมาชิกและการเรียกเก็บเงิน',
-      subscriptionSectionTitle: 'การสมัครสมาชิก',
+      subscriptionInfoTitle: 'ข้อมูลการสมัครสมาชิก',
       planLabel: 'แผนปัจจุบัน',
       billingLabel: 'รอบบิลถัดไป',
       priceLabel: 'ราคา',
-      statusLabel: 'สถานะ',
-      statusActive: 'ใช้งานอยู่',
-      statusCancelling: 'ยกเลิกเมื่อสิ้นสุดรอบบิล',
-      statusFree: 'ฟรี',
-      currentPlanPaid: 'Premium Monthly',
       currentPlanFree: 'Free Plan',
-      billingPaid: 'N/A',
       billingFree: 'ไม่มี',
-      pricePaid: '฿400/เดือน',
       priceFree: 'ฟรี',
       changePlan: 'เปลี่ยนแผน',
-      appPreferencesTitle: 'การตั้งค่าแอป',
-      legalIntro: 'ดูรายละเอียดข้อกำหนดและนโยบายของเราได้ด้านล่าง',
       termsTitle: 'ข้อกำหนดและเงื่อนไข',
       privacyTitle: 'นโยบายความเป็นส่วนตัว',
       moreTitle: 'เพิ่มเติม',
+      billingHistoryTitle: 'ประวัติการเรียกเก็บเงิน',
+      billingManagedByApple: 'การชำระเงินนี้จัดการผ่าน Apple โปรดตรวจสอบการสมัครสมาชิกและประวัติการซื้อในบัญชี Apple ของคุณ',
+      billingNoChargeHistory: 'ยังไม่มีประวัติการชำระเงิน',
+      billingPaymentMethodLabel: 'วิธีการชำระเงิน',
+      billingPaymentsLabel: 'การชำระเงิน',
+      billingNoCardOnFile: 'ไม่มีบัตรที่บันทึกไว้',
+      billingLoading: 'กำลังโหลดข้อมูลการเรียกเก็บเงิน...',
       cancelMembership: 'ยกเลิกสมาชิก',
       deleteAccount: 'ลบบัญชี',
       deleteAccountHint: 'การลบบัญชีจะลบข้อมูลและความคืบหน้าของคุณอย่างถาวร',
@@ -107,27 +103,24 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
   return {
     title: 'Settings',
     back: 'Back',
-    membershipTitle: 'Membership & Billing',
-    subscriptionSectionTitle: 'Subscription',
+    subscriptionInfoTitle: 'Subscription Info',
     planLabel: 'Current Plan',
     billingLabel: 'Next Billing Date',
     priceLabel: 'Price',
-    statusLabel: 'Status',
-    statusActive: 'Active',
-    statusCancelling: 'Cancels at period end',
-    statusFree: 'Free',
-    currentPlanPaid: 'Premium Monthly',
     currentPlanFree: 'Free Plan',
-    billingPaid: 'N/A',
     billingFree: 'None',
-    pricePaid: '฿400/month',
     priceFree: 'Free',
     changePlan: 'Change Plan',
-    appPreferencesTitle: 'App Preferences',
-    legalIntro: 'Review our legal terms and privacy details below.',
     termsTitle: 'Terms & Conditions',
     privacyTitle: 'Privacy Policy',
     moreTitle: 'More',
+    billingHistoryTitle: 'Billing History',
+    billingManagedByApple: 'This subscription is managed through Apple. Check your Apple account for payment method and purchase history.',
+    billingNoChargeHistory: 'No payments yet.',
+    billingPaymentMethodLabel: 'Payment Method',
+    billingPaymentsLabel: 'Payments',
+    billingNoCardOnFile: 'No card on file',
+    billingLoading: 'Loading billing details...',
     cancelMembership: 'Cancel Membership',
     deleteAccount: 'Delete Account',
     deleteAccountHint: 'Deleting your account permanently removes your data and learning progress.',
@@ -148,6 +141,49 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
   };
 };
 
+type PlanId = 'monthly' | '3-month' | '6-month' | 'lifetime';
+
+type SubscriptionInfoState = {
+  currentPlanId: PlanId | null;
+  priceText: string | null;
+};
+
+type BillingHistoryState = {
+  paymentMethod: BillingPaymentMethod | null;
+  invoices: BillingInvoice[];
+  source: 'stripe' | 'apple' | 'none';
+  isLoading: boolean;
+  hasLoaded: boolean;
+};
+
+const PLAN_LABELS: Record<PlanId, { en: string; th: string }> = {
+  monthly: { en: 'Monthly', th: 'รายเดือน' },
+  '3-month': { en: '3 months', th: '3 เดือน' },
+  '6-month': { en: '6 months', th: '6 เดือน' },
+  lifetime: { en: 'Lifetime', th: 'ตลอดชีพ' },
+};
+
+const getPlanIdFromProductIdentifier = (productIdentifier: string | null | undefined): PlanId | null => {
+  if (typeof productIdentifier !== 'string') {
+    return null;
+  }
+
+  if (productIdentifier.includes('.lifetime')) return 'lifetime';
+  if (productIdentifier.includes('.6month')) return '6-month';
+  if (productIdentifier.includes('.3month')) return '3-month';
+  if (productIdentifier.includes('.1month')) return 'monthly';
+
+  return null;
+};
+
+const formatFallbackPrice = (amount: number, currency: string | null, uiLanguage: 'en' | 'th') => {
+  const symbol = currency === 'USD' ? '$' : '฿';
+  return `${symbol}${Number(amount).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}/${uiLanguage === 'th' ? 'เดือน' : 'month'}`;
+};
+
 const formatBillingDate = (value: string | null, uiLanguage: 'en' | 'th') => {
   if (!value) {
     return uiLanguage === 'th' ? 'ไม่มี' : 'None';
@@ -165,6 +201,25 @@ const formatBillingDate = (value: string | null, uiLanguage: 'en' | 'th') => {
   });
 };
 
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error('Billing request timed out'));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
 export function SettingsScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
@@ -174,13 +229,75 @@ export function SettingsScreen() {
   const [isCancellingMembership, setIsCancellingMembership] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const hasPendingCancellation = profile?.cancel_at_period_end === true;
+  const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfoState>({
+    currentPlanId: null,
+    priceText: null,
+  });
+  const [billingHistory, setBillingHistory] = useState<BillingHistoryState>({
+    paymentMethod: null,
+    invoices: [],
+    source: 'none',
+    isLoading: false,
+    hasLoaded: false,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSubscriptionInfo = async () => {
+      if (!hasMembership) {
+        if (isMounted) {
+          setSubscriptionInfo({ currentPlanId: null, priceText: null });
+        }
+        return;
+      }
+
+      try {
+        const [offering, customerInfo] = await Promise.all([getRevenueCatOffering(), getRevenueCatCustomerInfo()]);
+        const planPackageMap = getPlanPackageMap(offering);
+        const entitlement = customerInfo?.entitlements.active?.full_access;
+        const productIdentifier =
+          (typeof entitlement?.productIdentifier === 'string' ? entitlement.productIdentifier : null) ||
+          (Array.isArray(customerInfo?.activeSubscriptions) ? customerInfo.activeSubscriptions[0] ?? null : null);
+        const currentPlanId = getPlanIdFromProductIdentifier(productIdentifier);
+        let priceText = currentPlanId ? planPackageMap[currentPlanId]?.product?.priceString ?? null : null;
+
+        if (!priceText && currentPlanId && currentPlanId !== 'lifetime') {
+          const pricing = await getPricing();
+          const matchedPlan = pricing.plans.find((plan) => plan.billing_period === currentPlanId);
+          if (matchedPlan) {
+            priceText = formatFallbackPrice(matchedPlan.amount_per_month, pricing.currency, uiLanguage);
+          }
+        }
+
+        if (isMounted) {
+          setSubscriptionInfo({ currentPlanId, priceText });
+        }
+      } catch {
+        if (isMounted) {
+          setSubscriptionInfo({ currentPlanId: null, priceText: null });
+        }
+      }
+    };
+
+    void loadSubscriptionInfo();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasMembership, uiLanguage]);
 
   const subscriptionRows = useMemo(
     () => [
       {
         key: 'plan',
         label: copy.planLabel,
-        value: hasMembership ? copy.currentPlanPaid : copy.currentPlanFree,
+        value:
+          hasMembership && subscriptionInfo.currentPlanId
+            ? PLAN_LABELS[subscriptionInfo.currentPlanId][uiLanguage]
+            : hasMembership
+              ? '—'
+              : copy.currentPlanFree,
       },
       {
         key: 'billing',
@@ -190,15 +307,115 @@ export function SettingsScreen() {
       {
         key: 'price',
         label: copy.priceLabel,
-        value: hasMembership ? copy.pricePaid : copy.priceFree,
-      },
-      {
-        key: 'status',
-        label: copy.statusLabel,
-        value: hasMembership ? (hasPendingCancellation ? copy.statusCancelling : copy.statusActive) : copy.statusFree,
+        value: hasMembership ? subscriptionInfo.priceText ?? '—' : copy.priceFree,
       },
     ],
-    [copy, hasMembership, hasPendingCancellation, profile?.current_period_end, uiLanguage]
+    [copy, hasMembership, profile?.current_period_end, subscriptionInfo.currentPlanId, subscriptionInfo.priceText, uiLanguage]
+  );
+
+  useEffect(() => {
+    if (openSection !== 'billing-history' || billingHistory.isLoading || billingHistory.hasLoaded) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadBillingHistory = async () => {
+      setBillingHistory((current) => ({ ...current, isLoading: true }));
+
+      try {
+        const [paymentMethodResult, invoicesResult] = await Promise.allSettled([
+          withTimeout(fetchBillingPaymentMethod(), 4000),
+          withTimeout(fetchBillingInvoices(), 4000),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const paymentMethodResponse = paymentMethodResult.status === 'fulfilled' ? paymentMethodResult.value : null;
+        const invoicesResponse = invoicesResult.status === 'fulfilled' ? invoicesResult.value : null;
+        const paymentMethodError = paymentMethodResult.status === 'rejected' ? paymentMethodResult.reason : null;
+        const invoicesError = invoicesResult.status === 'rejected' ? invoicesResult.reason : null;
+        const errorMessages = [paymentMethodError, invoicesError]
+          .map((error) => (error instanceof Error ? error.message : ''))
+          .filter(Boolean);
+        const isStripeMissing = errorMessages.some(
+          (message) => message.includes('No Stripe customer found') || message.includes('No active subscription found')
+        );
+
+        if (paymentMethodResponse || invoicesResponse) {
+          setBillingHistory({
+            paymentMethod: paymentMethodResponse?.payment_method ?? null,
+            invoices: invoicesResponse?.invoices ?? [],
+            source: 'stripe',
+            isLoading: false,
+            hasLoaded: true,
+          });
+          return;
+        }
+
+        setBillingHistory({
+          paymentMethod: null,
+          invoices: [],
+          source: hasMembership && isStripeMissing ? 'apple' : 'none',
+          isLoading: false,
+          hasLoaded: true,
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : '';
+        const isStripeMissing =
+          message.includes('No Stripe customer found') || message.includes('No active subscription found');
+
+        setBillingHistory({
+          paymentMethod: null,
+          invoices: [],
+          source: hasMembership && isStripeMissing ? 'apple' : 'none',
+          isLoading: false,
+          hasLoaded: true,
+        });
+      }
+    };
+
+    void loadBillingHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [billingHistory.hasLoaded, billingHistory.isLoading, hasMembership, openSection]);
+
+  const formattedPaymentMethod = useMemo(() => {
+    if (!billingHistory.paymentMethod) {
+      return copy.billingNoCardOnFile;
+    }
+
+    const brand = billingHistory.paymentMethod.brand
+      ? billingHistory.paymentMethod.brand.charAt(0).toUpperCase() + billingHistory.paymentMethod.brand.slice(1)
+      : 'Card';
+
+    return `${brand} •••• ${billingHistory.paymentMethod.last4}`;
+  }, [billingHistory.paymentMethod, copy.billingNoCardOnFile]);
+
+  const formattedInvoices = useMemo(
+    () =>
+      billingHistory.invoices.map((invoice) => ({
+        id: invoice.id,
+        date: new Date(invoice.created * 1000).toLocaleDateString(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
+        amount: new Intl.NumberFormat(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+          style: 'currency',
+          currency: (invoice.currency || 'USD').toUpperCase(),
+        }).format(invoice.amount / 100),
+        status: invoice.status ? invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1) : null,
+      })),
+    [billingHistory.invoices, uiLanguage]
   );
 
   const handleChangePlan = () => {
@@ -286,13 +503,10 @@ export function SettingsScreen() {
         <Card padding="lg" radius="lg" style={styles.neoCard}>
           <Stack gap="md">
             <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-              {copy.membershipTitle}
+              {copy.subscriptionInfoTitle}
             </AppText>
 
             <Stack gap="xs">
-              <AppText language={uiLanguage} variant="caption" style={styles.subsectionLabel}>
-                {copy.subscriptionSectionTitle}
-              </AppText>
               {subscriptionRows.map((row, index) => (
                 <View key={row.key} style={[styles.infoRow, index < subscriptionRows.length - 1 ? styles.infoRowBorder : null]}>
                   <AppText language={uiLanguage} variant="body" style={styles.infoLabel}>
@@ -309,67 +523,146 @@ export function SettingsScreen() {
           </Stack>
         </Card>
 
-        <View style={styles.moreSection}>
-          <Pressable accessibilityRole="button" style={styles.moreTrigger} onPress={() => setOpenSection((current) => (current === 'more' ? null : 'more'))}>
-            <AppText language={uiLanguage} variant="body" style={styles.moreTitle}>
-              {copy.moreTitle}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.collapsibleChevron}>
-              {openSection === 'more' ? '−' : '+'}
-            </AppText>
-          </Pressable>
+        <Card padding="lg" radius="lg" style={styles.neoCard}>
+          <View style={styles.moreCardContent}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.moreTrigger}
+              onPress={() => setOpenSection((current) => (current === 'billing-history' ? null : 'billing-history'))}>
+              <AppText language={uiLanguage} variant="body" style={styles.moreTitle}>
+                {copy.billingHistoryTitle}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.collapsibleChevron}>
+                {openSection === 'billing-history' ? '−' : '+'}
+              </AppText>
+            </Pressable>
 
-          {openSection === 'more' ? (
-            <View style={styles.moreBody}>
-              {hasMembership ? (
+            {openSection === 'billing-history' ? (
+              <View style={styles.moreBody}>
+                {billingHistory.isLoading ? (
+                  <View style={styles.billingLoadingRow}>
+                    <ActivityIndicator color={theme.colors.text} size="small" />
+                    <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                      {copy.billingLoading}
+                    </AppText>
+                  </View>
+                ) : billingHistory.source === 'stripe' ? (
+                  <View>
+                    <View style={[styles.billingInfoRow, styles.infoRowBorder]}>
+                      <AppText language={uiLanguage} variant="body" style={styles.infoLabel}>
+                        {copy.billingPaymentMethodLabel}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="body" style={styles.billingInfoValue}>
+                        {formattedPaymentMethod}
+                      </AppText>
+                    </View>
+
+                    <View style={styles.billingPaymentsBlock}>
+                      <AppText language={uiLanguage} variant="body" style={styles.billingSectionLabel}>
+                        {copy.billingPaymentsLabel}
+                      </AppText>
+                      {formattedInvoices.length > 0 ? (
+                        formattedInvoices.map((invoice, index) => (
+                          <View
+                            key={invoice.id}
+                            style={[styles.billingInvoiceRow, index < formattedInvoices.length - 1 ? styles.infoRowBorder : null]}>
+                            <View style={styles.billingInvoiceTextBlock}>
+                              <AppText language={uiLanguage} variant="body" style={styles.billingInvoiceAmount}>
+                                {invoice.amount}
+                              </AppText>
+                              <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                                {invoice.date}
+                              </AppText>
+                            </View>
+                            <AppText language={uiLanguage} variant="muted" style={styles.billingStatus}>
+                              {invoice.status ?? ''}
+                            </AppText>
+                          </View>
+                        ))
+                      ) : (
+                        <AppText language={uiLanguage} variant="muted" style={styles.billingEmptyText}>
+                          {copy.billingNoChargeHistory}
+                        </AppText>
+                      )}
+                    </View>
+                  </View>
+                ) : billingHistory.source === 'apple' ? (
+                  <AppText language={uiLanguage} variant="muted" style={styles.billingEmptyText}>
+                    {copy.billingManagedByApple}
+                  </AppText>
+                ) : (
+                  <AppText language={uiLanguage} variant="muted" style={styles.billingEmptyText}>
+                    {copy.billingNoChargeHistory}
+                  </AppText>
+                )}
+              </View>
+            ) : null}
+          </View>
+        </Card>
+
+        <Card padding="lg" radius="lg" style={styles.neoCard}>
+          <View style={styles.moreCardContent}>
+            <Pressable accessibilityRole="button" style={styles.moreTrigger} onPress={() => setOpenSection((current) => (current === 'more' ? null : 'more'))}>
+              <AppText language={uiLanguage} variant="body" style={styles.moreTitle}>
+                {copy.moreTitle}
+              </AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.collapsibleChevron}>
+                {openSection === 'more' ? '−' : '+'}
+              </AppText>
+            </Pressable>
+
+            {openSection === 'more' ? (
+              <View style={styles.moreBody}>
+                {hasMembership ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isCancellingMembership || hasPendingCancellation}
+                    style={[styles.dangerRow, styles.infoRowBorder, isCancellingMembership || hasPendingCancellation ? styles.disabledRow : null]}
+                    onPress={handleCancelMembership}>
+                    <View style={styles.dangerRowContent}>
+                      <View style={styles.dangerTextBlock}>
+                        <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
+                          {copy.cancelMembership}
+                        </AppText>
+                        {hasPendingCancellation ? (
+                          <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                            {copy.cancellationScheduledLabel}
+                            {profile?.cancel_at ? ` • ${formatBillingDate(profile.cancel_at, uiLanguage)}` : ''}
+                          </AppText>
+                        ) : null}
+                      </View>
+                      {isCancellingMembership ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
+                    </View>
+                    <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
+                      ›
+                    </AppText>
+                  </Pressable>
+                ) : null}
+
                 <Pressable
                   accessibilityRole="button"
-                  disabled={isCancellingMembership || hasPendingCancellation}
-                  style={[styles.dangerRow, isCancellingMembership || hasPendingCancellation ? styles.disabledRow : null]}
-                  onPress={handleCancelMembership}>
+                  disabled={isDeletingAccount}
+                  style={[styles.dangerRow, isDeletingAccount ? styles.disabledRow : null]}
+                  onPress={handleDeleteAccount}>
                   <View style={styles.dangerRowContent}>
                     <View style={styles.dangerTextBlock}>
                       <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
-                        {copy.cancelMembership}
+                        {copy.deleteAccount}
                       </AppText>
-                      {hasPendingCancellation ? (
-                        <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
-                          {copy.cancellationScheduledLabel}
-                          {profile?.cancel_at ? ` • ${formatBillingDate(profile.cancel_at, uiLanguage)}` : ''}
-                        </AppText>
-                      ) : null}
+                      <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                        {copy.deleteAccountHint}
+                      </AppText>
                     </View>
-                    {isCancellingMembership ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
+                    {isDeletingAccount ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
                   </View>
                   <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
                     ›
                   </AppText>
                 </Pressable>
-              ) : null}
-
-              <Pressable
-                accessibilityRole="button"
-                disabled={isDeletingAccount}
-                style={[styles.dangerRow, isDeletingAccount ? styles.disabledRow : null]}
-                onPress={handleDeleteAccount}>
-                <View style={styles.dangerRowContent}>
-                  <View style={styles.dangerTextBlock}>
-                    <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
-                      {copy.deleteAccount}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
-                      {copy.deleteAccountHint}
-                    </AppText>
-                  </View>
-                  {isDeletingAccount ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
-                </View>
-                <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
-                  ›
-                </AppText>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
+              </View>
+            ) : null}
+          </View>
+        </Card>
 
         <View style={styles.legalFooter}>
           <Pressable accessibilityRole="button" onPress={() => router.push('/account/terms')}>
@@ -410,11 +703,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.bold,
   },
-  subsectionLabel: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
-    textTransform: 'uppercase',
-  },
   infoRow: {
     minHeight: 52,
     flexDirection: 'row',
@@ -437,34 +725,87 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.bold,
   },
-  moreSection: {
-    borderRadius: theme.radii.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    overflow: 'hidden',
-  },
   collapsibleChevron: {
+    width: 24,
+    minWidth: 24,
+    textAlign: 'center',
     color: theme.colors.text,
-    fontSize: 24,
+    fontSize: 22,
     lineHeight: 24,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.regular,
   },
   moreTrigger: {
-    minHeight: 56,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   moreTitle: {
     color: theme.colors.text,
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: theme.typography.weights.bold,
+  },
+  moreCardContent: {
+    gap: theme.spacing.xs,
+    marginVertical: -(theme.spacing.lg - theme.spacing.sm),
   },
   moreBody: {
     borderTopWidth: 1,
     borderTopColor: '#D7D7D7',
+    marginTop: -2,
+  },
+  billingLoadingRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  billingInfoRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  billingInfoValue: {
+    flex: 1,
+    textAlign: 'right',
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  billingPaymentsBlock: {
+    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  billingSectionLabel: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  billingInvoiceRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  billingInvoiceTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  billingInvoiceAmount: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  billingStatus: {
+    color: theme.colors.mutedText,
+    textAlign: 'right',
+  },
+  billingEmptyText: {
+    color: theme.colors.mutedText,
+    paddingVertical: theme.spacing.sm,
   },
   legalFooter: {
     flexDirection: 'row',
@@ -479,12 +820,11 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.sm,
   },
   dangerRow: {
-    minHeight: 60,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
   },
   dangerRowContent: {
@@ -510,7 +850,7 @@ const styles = StyleSheet.create({
   },
   dangerChevron: {
     color: theme.colors.mutedText,
-    fontSize: 24,
+    fontSize: 28,
     lineHeight: 24,
   },
 });

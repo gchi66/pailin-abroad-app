@@ -452,7 +452,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: theme.radii.lg,
-    backgroundColor: '#F4F0E6',
   },
   teamTopRow: {
     flexDirection: 'row',

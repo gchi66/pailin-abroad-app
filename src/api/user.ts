@@ -196,10 +196,45 @@ type DeleteAccountResponse = {
   message?: string;
 };
 
+export type BillingPaymentMethod = {
+  id: string;
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+};
+
+type BillingPaymentMethodResponse = {
+  payment_method: BillingPaymentMethod | null;
+};
+
+export type BillingInvoice = {
+  id: string;
+  number: string | null;
+  amount: number;
+  currency: string;
+  created: number;
+  status: string | null;
+  description: string | null;
+  pdf_url: string | null;
+};
+
+type BillingInvoicesResponse = {
+  invoices: BillingInvoice[];
+};
+
 export async function cancelUserSubscription() {
   return fetchAuthedJson<CancelSubscriptionResponse>('/api/cancel-subscription', {
     method: 'POST',
   });
+}
+
+export async function fetchBillingPaymentMethod() {
+  return fetchAuthedJson<BillingPaymentMethodResponse>('/api/get-payment-method');
+}
+
+export async function fetchBillingInvoices() {
+  return fetchAuthedJson<BillingInvoicesResponse>('/api/get-invoices');
 }
 
 export async function deleteUserAccount() {

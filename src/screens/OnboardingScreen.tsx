@@ -409,7 +409,7 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onCon
   const paidBenefits = [copy.paidBenefit1, copy.paidBenefit2, copy.paidBenefit3, copy.paidBenefit4];
 
   return (
-    <View style={[styles.stepPage, styles.benefitsStepPage, { width: cardWidth }]}>
+    <View style={[styles.stepPage, { width: cardWidth }]}>
       <Stack gap={compact ? 'md' : 'lg'} style={styles.benefitsStepContent}>
         <Stack gap="xs" align="center">
           <AppText language={uiLanguage} variant="title" style={[styles.benefitsTitle, compact ? styles.benefitsTitleCompact : null]}>
@@ -545,7 +545,7 @@ export function OnboardingScreen() {
 
   const compact = height <= 700;
   const veryCompact = height <= 620;
-  const shellInnerHorizontalPadding = compact ? theme.spacing.md : theme.spacing.lg;
+  const shellInnerHorizontalPadding = theme.spacing.sm;
   const shellInnerWidth = Math.max(width - theme.spacing.md * 2 - shellInnerHorizontalPadding * 2 - 2, 240);
   const shellHeight = compact
     ? Math.max(520, Math.min(620, height - insets.top - theme.spacing.sm * 2 - 8))
@@ -901,6 +901,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.md,
     minHeight: 32,
+    paddingHorizontal: theme.spacing.sm,
   },
   shellLogo: {
     width: 136,
@@ -912,9 +913,6 @@ const styles = StyleSheet.create({
   stepPage: {
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.xs,
-  },
-  benefitsStepPage: {
-    paddingHorizontal: 0,
   },
   centeredStep: {
     flex: 1,
@@ -1165,7 +1163,7 @@ const styles = StyleSheet.create({
   },
   planCardsRow: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
     alignItems: 'stretch',
   },
   planCardFree: {
@@ -1190,7 +1188,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   planCardCompact: {
-    padding: theme.spacing.sm,
+    padding: theme.spacing.xs,
   },
   planPillFree: {
     alignSelf: 'flex-start',
@@ -1346,6 +1344,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.sm,
   },
   backButtonPlaceholder: {
     width: 110,

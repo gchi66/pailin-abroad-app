@@ -86,7 +86,6 @@ const getCopy = (uiLanguage: UiLanguage) => {
       cancel: 'ยกเลิก',
       guestTitle: 'ยังไม่ได้เข้าสู่ระบบ',
       guestBody: 'กลับไปที่หน้า Account เพื่อเข้าสู่ระบบหรือสมัครสมาชิกก่อน',
-      profileCardTitle: 'ข้อมูลสมาชิก',
       editCardTitle: 'แก้ไขโปรไฟล์',
       usernameLabel: 'ชื่อผู้ใช้',
       usernamePlaceholder: 'ตั้งชื่อผู้ใช้',
@@ -96,12 +95,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
       profileNameError: 'กรุณากรอกชื่อผู้ใช้',
       updateSuccess: 'อัปเดตโปรไฟล์แล้ว',
       membershipLabel: 'สถานะสมาชิก',
-      languageLabel: 'ภาษาหน้าแอป',
       joinedLabel: 'เข้าร่วมเมื่อ',
       signOut: 'ออกจากระบบ',
-      onboardingDevtools: 'เปิด Onboarding Devtools',
-      paymentSuccessDevtools: 'เปิด Payment Success Devtools',
-      languageValue: 'ไทย',
       signOutSuccess: 'ออกจากระบบแล้ว',
       avatarLabel: 'PP',
     };
@@ -114,7 +109,6 @@ const getCopy = (uiLanguage: UiLanguage) => {
     cancel: 'Cancel',
     guestTitle: 'You are not signed in',
     guestBody: 'Go back to Account to sign in or create an account first.',
-    profileCardTitle: 'Member Snapshot',
     editCardTitle: 'Edit Profile',
       usernameLabel: 'First Name/Nickname',
     usernamePlaceholder: 'Choose a username',
@@ -124,12 +118,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     profileNameError: 'Please enter a username.',
     updateSuccess: 'Profile updated.',
     membershipLabel: 'Membership',
-    languageLabel: 'App Language',
     joinedLabel: 'Joined',
     signOut: 'Log Out',
-    onboardingDevtools: 'Open Onboarding Devtools',
-    paymentSuccessDevtools: 'Open Payment Success Devtools',
-    languageValue: 'English',
     signOutSuccess: 'Signed out successfully.',
     avatarLabel: 'PP',
   };
@@ -338,23 +328,12 @@ export function ProfileScreen() {
                 </Stack>
               ) : (
                 <Stack gap="sm">
-                  <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                    {copy.profileCardTitle}
-                  </AppText>
                   <View style={styles.metaRow}>
                     <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
                       {copy.membershipLabel}
                     </AppText>
                     <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
                       {profileData.membershipLabel}
-                    </AppText>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                      {copy.languageLabel}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                      {copy.languageValue}
                     </AppText>
                   </View>
                   <View style={styles.metaRow}>
@@ -385,34 +364,6 @@ export function ProfileScreen() {
             }}>
             <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
               {copy.signOut}
-            </AppText>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            style={styles.devtoolsRow}
-            onPress={() =>
-              router.push({
-                pathname: '/onboarding',
-                params: { devtools: '1' },
-              })
-            }>
-            <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
-              {copy.onboardingDevtools}
-            </AppText>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            style={styles.devtoolsRow}
-            onPress={() =>
-              router.push({
-                pathname: '/purchase-success',
-                params: { returnTo: '/(tabs)', devtools: '1' },
-              })
-            }>
-            <AppText language={uiLanguage} variant="body" style={styles.devtoolsText}>
-              {copy.paymentSuccessDevtools}
             </AppText>
           </Pressable>
         </Stack>
@@ -559,18 +510,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-  },
-  devtoolsRow: {
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: 0,
-    paddingBottom: theme.spacing.sm,
-  },
-  devtoolsText: {
-    color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.medium,
   },
   linkChevron: {
     fontSize: 20,
