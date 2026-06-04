@@ -2350,6 +2350,7 @@ export default function LessonDetailShellScreen() {
   const insets = useSafeAreaInsets();
   const menuOverlayBottomInset = APP_TAB_BAR_HEIGHT + insets.bottom;
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
+  const thaiLessonCopy = useMemo(() => getLessonDetailCopy('th'), []);
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
   const [coverLesson, setCoverLesson] = useState<LessonListItem | null>(null);
@@ -3773,6 +3774,8 @@ export default function LessonDetailShellScreen() {
     : 0;
   const contentToggleLabel = contentLang === 'th' ? translateToEnglishLabel : translateToThaiLabel;
   const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
+  const isExpertTranslationComingSoonLesson =
+    typeof lessonCover?.level === 'number' && lessonCover.level >= 13 && lessonCover.level <= 16;
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
   const audioTraySubtitle =
@@ -4461,6 +4464,15 @@ export default function LessonDetailShellScreen() {
     flushPendingLessonPersistence,
     isLessonCompleted,
   ]);
+
+  const handleContentTogglePress = useCallback(() => {
+    if (contentLang === 'en' && isExpertTranslationComingSoonLesson) {
+      Alert.alert(thaiLessonCopy.translationComingSoonTitle, thaiLessonCopy.translationComingSoonBody);
+      return;
+    }
+
+    setContentLang((previous) => (previous === 'en' ? 'th' : 'en'));
+  }, [contentLang, isExpertTranslationComingSoonLesson, thaiLessonCopy.translationComingSoonBody, thaiLessonCopy.translationComingSoonTitle]);
 
   const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
     if (lockedComprehensionQuestions[questionId]) {
@@ -9181,7 +9193,7 @@ export default function LessonDetailShellScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={contentToggleLabel}
                           disabled={isTranslatingContent}
-                          onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
+                          onPress={handleContentTogglePress}
                           style={[styles.translatePill, isTranslatingContent ? styles.translatePillDisabled : null]}>
                           <View style={styles.translatePillLabel}>
                             <AppText language="en" variant="caption" style={styles.translatePillText}>
@@ -9235,7 +9247,7 @@ export default function LessonDetailShellScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={contentToggleLabel}
                           disabled={isTranslatingContent}
-                          onPress={() => setContentLang((previous) => (previous === 'en' ? 'th' : 'en'))}
+                          onPress={handleContentTogglePress}
                           style={[styles.translatePill, isTranslatingContent ? styles.translatePillDisabled : null]}>
                           <View style={styles.translatePillLabel}>
                             <AppText language="en" variant="caption" style={styles.translatePillText}>

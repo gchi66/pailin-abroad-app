@@ -388,8 +388,12 @@ export function LessonsLibraryScreen() {
                   : pickText(lesson.focus, lesson.focus_th, '');
               const focusParts = splitLessonFocusText(focusText);
               const lessonNumber =
-                typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
-                  ? `${lesson.level}.${lesson.lesson_order}`
+                typeof lesson.level === 'number'
+                  ? isCheckpointLesson(lesson)
+                    ? `${lesson.level}.chp`
+                    : typeof lesson.lesson_order === 'number'
+                      ? `${lesson.level}.${lesson.lesson_order}`
+                      : '-'
                   : '-';
               const progress = progressByLesson[lesson.id];
 

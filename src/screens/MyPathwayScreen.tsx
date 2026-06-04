@@ -133,7 +133,14 @@ const getLessonTitle = (lesson: LessonListItem, uiLanguage: UiLanguage, emptyFal
 const getLessonFocus = (lesson: LessonListItem, uiLanguage: UiLanguage) =>
   uiLanguage === 'th' ? pickText(lesson.focus_th, lesson.focus, '') : pickText(lesson.focus, lesson.focus_th, '');
 
+const isCheckpointLesson = (lesson: LessonListItem) =>
+  [lesson.title, lesson.title_th].some((value) => String(value ?? '').toLowerCase().includes('checkpoint'));
+
 const getLessonNumber = (lesson: LessonListItem) => {
+  if (typeof lesson.level === 'number' && isCheckpointLesson(lesson)) {
+    return `${lesson.level}.chp`;
+  }
+
   if (typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number') {
     return `${lesson.level}.${lesson.lesson_order}`;
   }
@@ -464,14 +471,24 @@ export function MyPathwayScreen() {
             {resumeRow ? (
               <Stack gap="md">
                 <View style={styles.resumeMeta}>
+                  {(() => {
+                    const lessonNumber = getLessonNumber(resumeRow.lesson);
+                    const digitCount = lessonNumber.replace(/\D/g, '').length;
+
+                    return (
                   <View style={styles.resumeNumberGroup}>
-                    <AppText language={uiLanguage} variant="body" style={styles.resumeNumber}>
-                      {getLessonNumber(resumeRow.lesson)}
+                    <AppText
+                      language={uiLanguage}
+                      variant="body"
+                      style={[styles.resumeNumber, digitCount >= 4 ? styles.resumeNumberCompact : null]}>
+                      {lessonNumber}
                     </AppText>
                     {!hasMembership && resumeRow.state === 'locked' ? (
                       <Image source={lockImage} style={styles.resumeLockIcon} resizeMode="contain" />
                     ) : null}
                   </View>
+                    );
+                  })()}
 
                   <View style={styles.resumeTextGroup}>
                     <AppText language={uiLanguage} variant="body" style={styles.resumeTitle}>
@@ -865,6 +882,10 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginTop: 2,
     fontFamily: theme.typography.fontFaces.en.medium,
+  },
+  resumeNumberCompact: {
+    fontSize: 17,
+    lineHeight: 22,
   },
   resumeLockIcon: {
     width: 40,

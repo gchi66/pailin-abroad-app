@@ -231,144 +231,166 @@ export function ProfileScreen() {
     );
   }
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <ResponsivePageShell>
-        <Stack gap="md">
-          <StandardPageHeader
-            language={uiLanguage}
-            title={copy.title}
-            onBackPress={() => router.push('/(tabs)/account')}
-            backLabel={copy.back}
-            rightActionLabel={isEditing ? copy.cancel : copy.edit}
-            onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
-            topInsetOffset={52}
-          />
+  const profileContent = (
+    <>
+      <StandardPageHeader
+        language={uiLanguage}
+        title={copy.title}
+        onBackPress={() => router.push('/(tabs)/account')}
+        backLabel={copy.back}
+        rightActionLabel={isEditing ? copy.cancel : copy.edit}
+        onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
+        topInsetOffset={52}
+      />
 
-          <Card padding="lg" radius="lg" style={styles.neoCard}>
-            <Stack gap="md">
-              <View style={styles.profileHeaderRow}>
-                <View style={styles.avatar}>
-                  {isEditing && draftAvatarSource ? (
-                    <Image source={draftAvatarSource} style={styles.avatarImage} resizeMode="cover" />
-                  ) : avatarSource ? (
-                    <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
-                  ) : (
-                    <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
-                      {avatarLabel || copy.avatarLabel}
-                    </AppText>
-                  )}
-                </View>
-                <View style={styles.profileIdentity}>
-                  <AppText language={uiLanguage} variant="body" style={styles.profileName}>
-                    {profileData.displayName}
+      <View style={isEditing ? null : styles.pageCenterGroup}>
+        <Card padding="lg" radius="lg" style={styles.neoCard}>
+          <Stack gap="md" style={!isEditing ? styles.profileCardContent : null}>
+            <View style={styles.profileHeaderRow}>
+              <View style={styles.avatar}>
+                {isEditing && draftAvatarSource ? (
+                  <Image source={draftAvatarSource} style={styles.avatarImage} resizeMode="cover" />
+                ) : avatarSource ? (
+                  <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
+                ) : (
+                  <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
+                    {avatarLabel || copy.avatarLabel}
                   </AppText>
-                  {email ? (
-                    <AppText language={uiLanguage} variant="muted">
-                      {profileData.email}
-                    </AppText>
-                  ) : null}
-                </View>
+                )}
               </View>
-
-              {isEditing ? (
-                <Stack gap="md">
-                  <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                    {copy.editCardTitle}
+              <View style={styles.profileIdentity}>
+                <AppText language={uiLanguage} variant="body" style={styles.profileName}>
+                  {profileData.displayName}
+                </AppText>
+                {email ? (
+                  <AppText language={uiLanguage} variant="muted">
+                    {profileData.email}
                   </AppText>
-                  <Stack gap="xs">
-                    <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
-                      {copy.usernameLabel}
-                    </AppText>
-                    <View style={styles.inputShell}>
-                      <TextInput
-                        placeholder={copy.usernamePlaceholder}
-                        placeholderTextColor={theme.colors.mutedText}
-                        style={styles.textInput}
-                        value={draftUsername}
-                        onChangeText={setDraftUsername}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                    </View>
-                  </Stack>
+                ) : null}
+              </View>
+            </View>
 
-                  <Stack gap="xs">
-                    <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
-                      {copy.avatarPickerTitle}
-                    </AppText>
-                    <View style={styles.avatarGrid}>
-                      {AVATAR_OPTIONS.map((avatarPath) => {
-                        const optionSource = resolveAvatarSource(avatarPath);
-                        if (!optionSource) {
-                          return null;
-                        }
-
-                        return (
-                          <Pressable
-                            key={avatarPath}
-                            accessibilityRole="button"
-                            style={[styles.avatarOption, draftAvatarPath === avatarPath ? styles.avatarOptionSelected : null]}
-                            onPress={() => setDraftAvatarPath(avatarPath)}>
-                            <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </Stack>
-
-                  <Button
-                    title={isSaving ? copy.saving : copy.saveChanges}
-                    language={uiLanguage}
-                    onPress={() => {
-                      void handleSaveProfile();
-                    }}
-                    disabled={isSaving}
-                  />
-                </Stack>
-              ) : (
-                <Stack gap="sm">
-                  <View style={styles.metaRow}>
-                    <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                      {copy.membershipLabel}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                      {profileData.membershipLabel}
-                    </AppText>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                      {copy.joinedLabel}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                      {profileData.joinedLabel}
-                    </AppText>
+            {isEditing ? (
+              <Stack gap="md">
+                <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
+                  {copy.editCardTitle}
+                </AppText>
+                <Stack gap="xs">
+                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
+                    {copy.usernameLabel}
+                  </AppText>
+                  <View style={styles.inputShell}>
+                    <TextInput
+                      placeholder={copy.usernamePlaceholder}
+                      placeholderTextColor={theme.colors.mutedText}
+                      style={styles.textInput}
+                      value={draftUsername}
+                      onChangeText={setDraftUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
                   </View>
                 </Stack>
-              )}
-            </Stack>
-          </Card>
 
-          <Pressable
-            accessibilityRole="button"
-            style={styles.signOutRow}
-            onPress={() => {
-              void signOut().then(({ error }) => {
-                if (error) {
-                  Alert.alert(copy.signOut, error);
-                  return;
-                }
-                Alert.alert(copy.signOut, copy.signOutSuccess);
-                router.replace('/(tabs)/account');
-              });
-            }}>
-            <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
-              {copy.signOut}
-            </AppText>
-          </Pressable>
-        </Stack>
-      </ResponsivePageShell>
-    </ScrollView>
+                <Stack gap="xs">
+                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
+                    {copy.avatarPickerTitle}
+                  </AppText>
+                  <View style={styles.avatarGrid}>
+                    {AVATAR_OPTIONS.map((avatarPath) => {
+                      const optionSource = resolveAvatarSource(avatarPath);
+                      if (!optionSource) {
+                        return null;
+                      }
+
+                      return (
+                        <Pressable
+                          key={avatarPath}
+                          accessibilityRole="button"
+                          style={[styles.avatarOption, draftAvatarPath === avatarPath ? styles.avatarOptionSelected : null]}
+                          onPress={() => setDraftAvatarPath(avatarPath)}>
+                          <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </Stack>
+
+                <Button
+                  title={isSaving ? copy.saving : copy.saveChanges}
+                  language={uiLanguage}
+                  onPress={() => {
+                    void handleSaveProfile();
+                  }}
+                  disabled={isSaving}
+                />
+              </Stack>
+            ) : (
+              <Stack gap="sm">
+                <View style={styles.metaRow}>
+                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                    {copy.membershipLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                    {profileData.membershipLabel}
+                  </AppText>
+                </View>
+                <View style={styles.metaRow}>
+                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
+                    {copy.joinedLabel}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
+                    {profileData.joinedLabel}
+                  </AppText>
+                </View>
+              </Stack>
+            )}
+          </Stack>
+        </Card>
+
+        <Pressable
+          accessibilityRole="button"
+          style={styles.signOutRow}
+          onPress={() => {
+            void signOut().then(({ error }) => {
+              if (error) {
+                Alert.alert(copy.signOut, error);
+                return;
+              }
+              Alert.alert(copy.signOut, copy.signOutSuccess);
+              router.replace('/(tabs)/account');
+            });
+          }}>
+          <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
+            {copy.signOut}
+          </AppText>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  if (isEditing) {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+        <ResponsivePageShell>
+          <Stack gap="md" style={styles.pageContent}>
+            {profileContent}
+          </Stack>
+        </ResponsivePageShell>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.contentContainerStatic}>
+        <ResponsivePageShell style={styles.pageContent}>
+          <Stack gap="md" style={styles.pageContent}>
+            {profileContent}
+          </Stack>
+        </ResponsivePageShell>
+      </View>
+    </View>
   );
 }
 
@@ -380,6 +402,15 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
+    flexGrow: 1,
+  },
+  contentContainerStatic: {
+    flex: 1,
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
+  },
+  pageContent: {
+    flex: 1,
   },
   neoCard: {
     borderWidth: 1.5,
@@ -402,6 +433,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
+  },
+  profileCardContent: {
+    minHeight: 148,
+    justifyContent: 'center',
   },
   avatar: {
     width: 64,
@@ -476,7 +511,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: theme.spacing.md,
   },
   metaLabel: {
@@ -510,6 +545,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
+  },
+  pageCenterGroup: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: theme.spacing.md,
   },
   linkChevron: {
     fontSize: 20,

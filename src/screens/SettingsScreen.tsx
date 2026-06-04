@@ -314,14 +314,14 @@ export function SettingsScreen() {
   );
 
   useEffect(() => {
-    if (openSection !== 'billing-history' || billingHistory.isLoading || billingHistory.hasLoaded) {
+    if (openSection !== 'billing-history' || billingHistory.hasLoaded) {
       return;
     }
 
     let isMounted = true;
 
     const loadBillingHistory = async () => {
-      setBillingHistory((current) => ({ ...current, isLoading: true }));
+      setBillingHistory((current) => (current.isLoading ? current : { ...current, isLoading: true }));
 
       try {
         const [paymentMethodResult, invoicesResult] = await Promise.allSettled([
@@ -386,7 +386,7 @@ export function SettingsScreen() {
     return () => {
       isMounted = false;
     };
-  }, [billingHistory.hasLoaded, billingHistory.isLoading, hasMembership, openSection]);
+  }, [billingHistory.hasLoaded, hasMembership, openSection]);
 
   const formattedPaymentMethod = useMemo(() => {
     if (!billingHistory.paymentMethod) {

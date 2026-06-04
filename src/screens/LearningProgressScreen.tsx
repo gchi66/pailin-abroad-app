@@ -52,7 +52,14 @@ const getLessonTitle = (lesson: LessonListItem, uiLanguage: UiLanguage, emptyFal
     ? pickText(lesson.title_th, lesson.title, emptyFallback)
     : pickText(lesson.title, lesson.title_th, emptyFallback);
 
+const isCheckpointLesson = (lesson: LessonListItem) =>
+  [lesson.title, lesson.title_th].some((value) => String(value ?? '').toLowerCase().includes('checkpoint'));
+
 const getLessonNumber = (lesson: LessonListItem) => {
+  if (typeof lesson.level === 'number' && isCheckpointLesson(lesson)) {
+    return `${lesson.level}.chp`;
+  }
+
   if (typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number') {
     return `${lesson.level}.${lesson.lesson_order}`;
   }
