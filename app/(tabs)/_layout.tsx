@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs, useRouter } from 'expo-router';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -34,16 +33,10 @@ export default function TabLayout() {
   useColorScheme();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasCompletedOnboarding, isLoading } = useAppSession();
+  const { hasAccount } = useAppSession();
 
   const styles = useMemo(() => createStyles(insets.top, insets.bottom), [insets.bottom, insets.top]);
   const text = labels[uiLanguage];
-
-  useEffect(() => {
-    if (!isLoading && hasAccount && !hasCompletedOnboarding) {
-      router.replace('/onboarding');
-    }
-  }, [hasAccount, hasCompletedOnboarding, isLoading, router]);
 
   const tabsScreenOptions = useMemo(
     () => ({
@@ -67,14 +60,6 @@ export default function TabLayout() {
       uiLanguage,
     ]
   );
-
-  if (!isLoading && hasAccount && !hasCompletedOnboarding) {
-    return (
-      <View style={styles.redirectOverlay}>
-        <PageLoadingState language={uiLanguage} animate={false} showImage={false} />
-      </View>
-    );
-  }
 
   return (
     <Tabs screenOptions={tabsScreenOptions}>
@@ -163,11 +148,5 @@ const createStyles = (insetTop: number, insetBottom: number) =>
     },
     tabBarLabelThai: {
       fontFamily: theme.typography.fontFaces.th.semibold,
-    },
-    redirectOverlay: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.background,
     },
   });

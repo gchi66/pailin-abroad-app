@@ -409,7 +409,7 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onCon
   const paidBenefits = [copy.paidBenefit1, copy.paidBenefit2, copy.paidBenefit3, copy.paidBenefit4];
 
   return (
-    <View style={[styles.stepPage, { width: cardWidth }]}>
+    <View style={[styles.stepPage, styles.benefitsStepPage, { width: cardWidth }]}>
       <Stack gap={compact ? 'md' : 'lg'} style={styles.benefitsStepContent}>
         <Stack gap="xs" align="center">
           <AppText language={uiLanguage} variant="title" style={[styles.benefitsTitle, compact ? styles.benefitsTitleCompact : null]}>
@@ -912,6 +912,9 @@ const styles = StyleSheet.create({
   stepPage: {
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.xs,
+  },
+  benefitsStepPage: {
+    paddingHorizontal: 0,
   },
   centeredStep: {
     flex: 1,

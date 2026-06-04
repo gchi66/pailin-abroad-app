@@ -861,8 +861,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   resumeNumber: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 22,
+    lineHeight: 28,
+    marginTop: 2,
     fontFamily: theme.typography.fontFaces.en.medium,
   },
   resumeLockIcon: {
