@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { prefetchPricing } from '@/src/api/pricing';
 import { AuthScreen } from '@/src/screens/AuthScreen';
@@ -21,6 +22,29 @@ type MoreAction = {
     | '/(tabs)/account/about'
     | '/(tabs)/account/contact'
     | '/(tabs)/account/settings';
+};
+
+const actionIconMap: Record<MoreAction['key'], { icon: React.ComponentProps<typeof MaterialIcons>['name']; tint: string; bg: string }> = {
+  profile: {
+    icon: 'person',
+    tint: '#1A2332',
+    bg: '#DCEEFF',
+  },
+  settings: {
+    icon: 'tune',
+    tint: '#1A2332',
+    bg: '#E8F3E0',
+  },
+  about: {
+    icon: 'auto-awesome',
+    tint: '#1A2332',
+    bg: '#FFF1CC',
+  },
+  contact: {
+    icon: 'mail',
+    tint: '#1A2332',
+    bg: '#FFE3DF',
+  },
 };
 
 export function MoreScreen() {
@@ -90,13 +114,18 @@ export function MoreScreen() {
                   prefetchPricing();
                   router.push('/(tabs)/account/membership');
                 }}>
-                <View style={styles.membershipCopy}>
-                  <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
-                    {copy.membershipTitle}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="muted" style={styles.membershipBody}>
-                    {copy.membershipBody}
-                  </AppText>
+                <View style={styles.actionLeading}>
+                  <View style={[styles.iconBadge, styles.membershipIconBadge]}>
+                    <MaterialIcons name="workspace-premium" size={24} color="#1A2332" />
+                  </View>
+                  <View style={styles.membershipCopy}>
+                    <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
+                      {copy.membershipTitle}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.membershipBody}>
+                      {copy.membershipBody}
+                    </AppText>
+                  </View>
                 </View>
                 <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
                   ›
@@ -104,16 +133,25 @@ export function MoreScreen() {
               </Pressable>
             ) : null}
 
-            {copy.actions.map((action) => (
-              <Pressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
-                <AppText language={uiLanguage} variant="body" style={styles.linkText}>
-                  {action.label}
-                </AppText>
+            {copy.actions.map((action) => {
+              const iconConfig = actionIconMap[action.key];
+
+              return (
+                <Pressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
+                  <View style={styles.actionLeading}>
+                    <View style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
+                      <MaterialIcons name={iconConfig.icon} size={22} color={iconConfig.tint} />
+                    </View>
+                    <AppText language={uiLanguage} variant="body" style={styles.linkText}>
+                      {action.label}
+                    </AppText>
+                  </View>
                 <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
                   ›
                 </AppText>
-              </Pressable>
-            ))}
+                </Pressable>
+              );
+            })}
           </Stack>
         </View>
       </Stack>
@@ -195,7 +233,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: theme.spacing.md,
+    marginHorizontal: theme.spacing.xs,
     marginBottom: theme.spacing.sm,
     borderRadius: theme.radii.lg,
     borderWidth: 1.5,
@@ -209,10 +247,34 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
   },
+  actionLeading: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    minWidth: 0,
+  },
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 0.65,
+    shadowRadius: 0,
+    elevation: 1,
+  },
+  membershipIconBadge: {
+    backgroundColor: '#FFE6A8',
+  },
   membershipCopy: {
     flex: 1,
     gap: theme.spacing.xs,
-    paddingRight: theme.spacing.md,
+    minWidth: 0,
   },
   membershipTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -228,7 +290,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: theme.spacing.md,
+    marginHorizontal: theme.spacing.xs,
     borderRadius: theme.radii.lg,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -242,6 +304,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   linkText: {
+    flex: 1,
     fontSize: theme.typography.sizes.lg,
     lineHeight: theme.typography.lineHeights.lg,
     fontWeight: theme.typography.weights.bold,

@@ -397,6 +397,33 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
     void hydrate();
 
+    void Linking.getInitialURL()
+      .then((initialUrl) => {
+        if (!initialUrl) {
+          return;
+        }
+
+        logAuth('linking:initialUrl');
+        return createSessionFromUrl(initialUrl).catch((error: unknown) => {
+          if (error instanceof Error) {
+            logAuth('linking:initialUrl:error', error.message);
+            setAuthError(error.message);
+            return;
+          }
+
+          logAuth('linking:initialUrl:error', 'Could not complete sign-in.');
+          setAuthError('Could not complete sign-in.');
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error) {
+          logAuth('linking:getInitialURL:error', error.message);
+          return;
+        }
+
+        logAuth('linking:getInitialURL:error', 'Unknown error');
+      });
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (event === 'TOKEN_REFRESHED') {
         logBootstrap('auth state change ignored', {

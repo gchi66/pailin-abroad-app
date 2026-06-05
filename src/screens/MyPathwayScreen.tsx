@@ -888,8 +888,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   resumeLockIcon: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    marginLeft: -2,
   },
   resumeTextGroup: {
     flex: 1,
