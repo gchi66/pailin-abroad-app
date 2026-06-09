@@ -67,6 +67,30 @@ const getLessonNumber = (lesson: LessonListItem) => {
   return '–';
 };
 
+const getStageLabel = (stage: string | null, uiLanguage: UiLanguage) => {
+  if (!stage?.trim()) {
+    return uiLanguage === 'th' ? 'เส้นทางหลัก' : 'Main pathway';
+  }
+
+  const normalizedStage = stage.trim();
+
+  if (uiLanguage === 'th') {
+    const stageMap: Record<string, string> = {
+      Beginner: 'ระดับเริ่มต้น',
+      Intermediate: 'ระดับกลาง',
+      Advanced: 'ระดับสูง',
+      Expert: 'ระดับเชี่ยวชาญ',
+    };
+
+    return stageMap[normalizedStage] || normalizedStage;
+  }
+
+  return normalizedStage;
+};
+
+const getLevelLabel = (level: number, uiLanguage: UiLanguage) =>
+  uiLanguage === 'th' ? `เลเวล ${level}` : `Level ${level}`;
+
 const getProgressContext = (
   pathwayRows: PathwayLessonRow[],
   allLessons: LessonListItem[],
@@ -123,7 +147,7 @@ const formatLearningSince = (value: string | null, uiLanguage: UiLanguage) => {
     return value;
   }
 
-  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH-u-ca-gregory' : 'en-US', {
     month: 'short',
     year: 'numeric',
   });
@@ -264,12 +288,12 @@ export function LearningProgressScreen() {
                 {copy.currentStage}
               </AppText>
               <AppText language={uiLanguage} variant="body" style={styles.stageValue}>
-                {progressContext.stage || copy.fallbackStage}
+                {getStageLabel(progressContext.stage, uiLanguage)}
               </AppText>
               {typeof progressContext.level === 'number' ? (
                 <View style={styles.levelPill}>
                   <AppText language={uiLanguage} variant="caption" style={styles.levelPillText}>
-                    Level {progressContext.level}
+                    {getLevelLabel(progressContext.level, uiLanguage)}
                   </AppText>
                 </View>
               ) : null}
@@ -333,7 +357,7 @@ export function LearningProgressScreen() {
             {stageBreakdown.map((row) => (
               <View key={row.stage} style={styles.breakdownRow}>
                 <AppText language={uiLanguage} variant="caption" style={styles.breakdownStage}>
-                  {row.stage}
+                  {getStageLabel(row.stage, uiLanguage)}
                 </AppText>
 
                 <View style={styles.breakdownTrack}>

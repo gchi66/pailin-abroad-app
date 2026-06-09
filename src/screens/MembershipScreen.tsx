@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
+import { CustomerInfo, PurchasesPackage, PURCHASES_ERROR_CODE, PurchasesError } from 'react-native-purchases';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { membershipImages } from '@/src/assets/app-images';
@@ -21,6 +21,7 @@ import {
   initializeRevenueCat,
   isRevenueCatAvailable,
   purchaseRevenueCatPackage,
+  restoreRevenueCatPurchases,
 } from '@/src/lib/revenuecat';
 import { theme } from '@/src/theme/theme';
 
@@ -118,6 +119,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
       privacyTitle: 'นโยบายความเป็นส่วนตัว',
       purchaseUnavailableTitle: 'ยังไม่พร้อมใช้งาน',
       purchaseUnavailableBody: 'เราไม่พบตัวเลือกการสมัครในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+      restoreCta: 'กู้คืนการซื้อ',
+      restoreLoading: 'กำลังกู้คืน...',
+      restoreNoPurchasesTitle: 'ไม่พบรายการซื้อ',
+      restoreNoPurchasesBody: 'เราไม่พบการซื้อเดิมที่สามารถกู้คืนได้สำหรับ Apple ID นี้',
+      restoreSuccessTitle: 'กู้คืนการซื้อสำเร็จ',
+      restoreSuccessBody: 'สิทธิ์สมาชิกของคุณได้รับการกู้คืนแล้ว',
       signInRequiredTitle: 'กรุณาเข้าสู่ระบบก่อน',
       signInRequiredBody: 'คุณต้องเข้าสู่ระบบก่อนจึงจะสมัครสมาชิกได้',
       alreadyMemberTitle: 'คุณเป็นสมาชิกอยู่แล้ว',
@@ -190,6 +197,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
     privacyTitle: 'Privacy Policy',
     purchaseUnavailableTitle: 'Products unavailable',
     purchaseUnavailableBody: "We couldn't load the membership products right now. Please try again.",
+    restoreCta: 'Restore Purchases',
+    restoreLoading: 'Restoring...',
+    restoreNoPurchasesTitle: 'No purchases found',
+    restoreNoPurchasesBody: "We couldn't find any previous purchases to restore for this Apple ID.",
+    restoreSuccessTitle: 'Purchases restored',
+    restoreSuccessBody: 'Your membership access has been restored.',
     signInRequiredTitle: 'Sign in required',
     signInRequiredBody: 'You need to sign in before purchasing membership.',
     alreadyMemberTitle: 'You already have full access',
@@ -452,6 +465,7 @@ export function MembershipScreen() {
   const [availablePackages, setAvailablePackages] = useState<Partial<Record<PlanId, PurchasesPackage>>>({});
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [purchaseInProgress, setPurchaseInProgress] = useState(false);
+  const [restoreInProgress, setRestoreInProgress] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -622,10 +636,53 @@ export function MembershipScreen() {
         params: { returnTo: '/(tabs)' },
       });
     } catch (error) {
+      const purchasesError = error as Partial<PurchasesError> | null;
+      const didUserCancel =
+        purchasesError?.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR || purchasesError?.userCancelled === true;
+
+      if (didUserCancel) {
+        return;
+      }
+
       const message = error instanceof Error ? error.message : copy.loadingErrorBody;
       Alert.alert(copy.loadingErrorTitle, message);
     } finally {
       setPurchaseInProgress(false);
+    }
+  };
+
+  const handleRestorePress = async () => {
+    if (Platform.OS !== 'ios' || !isRevenueCatAvailable()) {
+      Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
+      return;
+    }
+
+    try {
+      setRestoreInProgress(true);
+      const restoredCustomerInfo = await restoreRevenueCatPurchases();
+      setCustomerInfo(restoredCustomerInfo);
+      await refreshMembershipAccess();
+
+      if (!hasRevenueCatFullAccess(restoredCustomerInfo)) {
+        Alert.alert(copy.restoreNoPurchasesTitle, copy.restoreNoPurchasesBody);
+        return;
+      }
+
+      Alert.alert(copy.restoreSuccessTitle, copy.restoreSuccessBody, [
+        {
+          text: 'OK',
+          onPress: () =>
+            router.replace({
+              pathname: '/purchase-success',
+              params: { returnTo: '/(tabs)' },
+            }),
+        },
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : copy.loadingErrorBody;
+      Alert.alert(copy.loadingErrorTitle, message);
+    } finally {
+      setRestoreInProgress(false);
     }
   };
 
@@ -770,6 +827,14 @@ export function MembershipScreen() {
             </Stack>
           </Stack>
         </Card>
+
+        <View style={styles.legalFooter}>
+          <Pressable accessibilityRole="button" onPress={handleRestorePress} disabled={restoreInProgress} style={styles.restoreLinkButton}>
+            <AppText language={uiLanguage} variant="caption" style={styles.restoreLinkText}>
+              {restoreInProgress ? copy.restoreLoading : copy.restoreCta}
+            </AppText>
+          </Pressable>
+        </View>
 
         <View style={styles.legalFooter}>
           <Pressable accessibilityRole="button" onPress={() => router.push('/account/terms')}>
@@ -1224,11 +1289,20 @@ const styles = StyleSheet.create({
   featuresCard: {
     backgroundColor: '#FFFDF9',
   },
+  restoreLinkButton: {
+    paddingVertical: theme.spacing.xs,
+  },
+  restoreLinkText: {
+    color: '#3CA0FE',
+    fontWeight: theme.typography.weights.bold,
+    textDecorationLine: 'underline',
+  },
   legalFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.md,
+    flexWrap: 'wrap',
     paddingBottom: theme.spacing.lg,
   },
   legalFooterLink: {

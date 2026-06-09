@@ -52,7 +52,7 @@ const formatJoinedLabel = (value: string | null, uiLanguage: UiLanguage) => {
     return value;
   }
 
-  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH' : 'en-US', {
+  return date.toLocaleDateString(uiLanguage === 'th' ? 'th-TH-u-ca-gregory' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

@@ -88,7 +88,7 @@ export function ExerciseBankSectionScreen() {
 
   return (
     <View style={styles.screen}>
-      <ResponsivePageShell>
+      <ResponsivePageShell style={styles.shell}>
         {errorMessage ? (
           <View style={styles.centeredState}>
             <Card padding="lg" radius="lg" style={styles.errorCard}>
@@ -129,6 +129,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.xs,
+  },
+  shell: {
+    flex: 1,
   },
   centeredState: {
     flex: 1,

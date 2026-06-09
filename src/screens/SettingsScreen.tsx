@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { useRouter } from 'expo-router';
 
 import { getPricing, prefetchPricing } from '@/src/api/pricing';
-import { BillingInvoice, BillingPaymentMethod, cancelUserSubscription, deleteUserAccount, fetchBillingInvoices, fetchBillingPaymentMethod } from '@/src/api/user';
+import { BillingInvoice, BillingPaymentMethod, deleteUserAccount, fetchBillingInvoices, fetchBillingPaymentMethod } from '@/src/api/user';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -38,12 +38,10 @@ type SettingsCopy = {
   billingPaymentsLabel: string;
   billingNoCardOnFile: string;
   billingLoading: string;
-  cancelMembership: string;
+  manageMembership: string;
+  manageMembershipHint: string;
   deleteAccount: string;
   deleteAccountHint: string;
-  cancelMembershipConfirmTitle: string;
-  cancelMembershipConfirmBody: string;
-  keepMembership: string;
   deleteAccountConfirmTitle: string;
   deleteAccountConfirmBody: string;
   goBack: string;
@@ -51,10 +49,8 @@ type SettingsCopy = {
   requestInFlight: string;
   successTitle: string;
   errorTitle: string;
-  cancellationSuccess: string;
   deleteSuccess: string;
   genericError: string;
-  cancellationScheduledLabel: string;
 };
 
 const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
@@ -80,12 +76,10 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       billingPaymentsLabel: 'การชำระเงิน',
       billingNoCardOnFile: 'ไม่มีบัตรที่บันทึกไว้',
       billingLoading: 'กำลังโหลดข้อมูลการเรียกเก็บเงิน...',
-      cancelMembership: 'ยกเลิกสมาชิก',
+      manageMembership: 'จัดการการสมัครสมาชิกใน Apple',
+      manageMembershipHint: 'หากต้องการยกเลิกหรือเปลี่ยนการสมัครสมาชิก โปรดไปที่ Settings > Apple Account > Subscriptions บนอุปกรณ์ Apple ของคุณ',
       deleteAccount: 'ลบบัญชี',
       deleteAccountHint: 'การลบบัญชีจะลบข้อมูลและความคืบหน้าของคุณอย่างถาวร',
-      cancelMembershipConfirmTitle: 'ยกเลิกสมาชิก?',
-      cancelMembershipConfirmBody: 'คุณจะยังใช้งานได้จนจบรอบปัจจุบัน การกระทำนี้ไม่สามารถย้อนกลับได้',
-      keepMembership: 'คงสมาชิกไว้',
       deleteAccountConfirmTitle: 'ลบบัญชี?',
       deleteAccountConfirmBody: 'การกระทำนี้จะลบบัญชีและความคืบหน้าของคุณอย่างถาวร และไม่สามารถย้อนกลับได้',
       goBack: 'ย้อนกลับ',
@@ -93,10 +87,8 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       requestInFlight: 'กรุณารอสักครู่',
       successTitle: 'สำเร็จ',
       errorTitle: 'เกิดข้อผิดพลาด',
-      cancellationSuccess: 'ยกเลิกสมาชิกเรียบร้อยแล้ว คุณยังใช้งานได้จนกว่าจะสิ้นสุดรอบบิลปัจจุบัน',
       deleteSuccess: 'ลบบัญชีเรียบร้อยแล้ว',
       genericError: 'มีบางอย่างผิดพลาด กรุณาลองอีกครั้ง',
-      cancellationScheduledLabel: 'กำหนดยกเลิกแล้ว',
     };
   }
 
@@ -121,12 +113,10 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     billingPaymentsLabel: 'Payments',
     billingNoCardOnFile: 'No card on file',
     billingLoading: 'Loading billing details...',
-    cancelMembership: 'Cancel Membership',
+    manageMembership: 'Manage Subscription in Apple',
+    manageMembershipHint: 'To cancel or change your subscription, go to Settings > Apple Account > Subscriptions on your Apple device.',
     deleteAccount: 'Delete Account',
     deleteAccountHint: 'Deleting your account permanently removes your data and learning progress.',
-    cancelMembershipConfirmTitle: 'Cancel membership?',
-    cancelMembershipConfirmBody: 'You will keep access until the end of your current period. This action cannot be undone.',
-    keepMembership: 'Keep Membership',
     deleteAccountConfirmTitle: 'Delete account?',
     deleteAccountConfirmBody: 'This permanently deletes your account and progress. This action cannot be undone.',
     goBack: 'Go Back',
@@ -134,10 +124,8 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     requestInFlight: 'Please wait a moment.',
     successTitle: 'Success',
     errorTitle: 'Something went wrong',
-    cancellationSuccess: "Your subscription has been cancelled. You'll retain access until the end of your billing period.",
     deleteSuccess: 'Your account has been deleted successfully.',
     genericError: 'Something went wrong. Please try again.',
-    cancellationScheduledLabel: 'Cancellation scheduled',
   };
 };
 
@@ -223,12 +211,10 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number) => {
 export function SettingsScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership, profile, refreshProfile, signOut } = useAppSession();
+  const { hasMembership, profile, signOut } = useAppSession();
   const copy = getCopy(uiLanguage);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
-  const [isCancellingMembership, setIsCancellingMembership] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const hasPendingCancellation = profile?.cancel_at_period_end === true;
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfoState>({
     currentPlanId: null,
     priceText: null,
@@ -423,36 +409,6 @@ export function SettingsScreen() {
     router.push('/(tabs)/account/membership');
   };
 
-  const handleCancelMembership = () => {
-    Alert.alert(copy.cancelMembershipConfirmTitle, copy.cancelMembershipConfirmBody, [
-      { text: copy.keepMembership, style: 'cancel' },
-      {
-        text: copy.cancelMembership,
-        style: 'destructive',
-        onPress: () => {
-          if (isCancellingMembership) {
-            Alert.alert(copy.requestInFlight);
-            return;
-          }
-
-          void (async () => {
-            try {
-              setIsCancellingMembership(true);
-              const result = await cancelUserSubscription();
-              await refreshProfile();
-              Alert.alert(copy.successTitle, result.message ?? copy.cancellationSuccess);
-            } catch (error) {
-              const message = error instanceof Error ? error.message : copy.genericError;
-              Alert.alert(copy.errorTitle, message);
-            } finally {
-              setIsCancellingMembership(false);
-            }
-          })();
-        },
-      },
-    ]);
-  };
-
   const handleDeleteAccount = () => {
     Alert.alert(copy.deleteAccountConfirmTitle, copy.deleteAccountConfirmBody, [
       { text: copy.goBack, style: 'cancel' },
@@ -614,29 +570,18 @@ export function SettingsScreen() {
             {openSection === 'more' ? (
               <View style={styles.moreBody}>
                 {hasMembership ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={isCancellingMembership || hasPendingCancellation}
-                    style={[styles.dangerRow, styles.infoRowBorder, isCancellingMembership || hasPendingCancellation ? styles.disabledRow : null]}
-                    onPress={handleCancelMembership}>
+                  <View style={[styles.dangerRow, styles.infoRowBorder]}>
                     <View style={styles.dangerRowContent}>
                       <View style={styles.dangerTextBlock}>
                         <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
-                          {copy.cancelMembership}
+                          {copy.manageMembership}
                         </AppText>
-                        {hasPendingCancellation ? (
-                          <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
-                            {copy.cancellationScheduledLabel}
-                            {profile?.cancel_at ? ` • ${formatBillingDate(profile.cancel_at, uiLanguage)}` : ''}
-                          </AppText>
-                        ) : null}
+                        <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
+                          {copy.manageMembershipHint}
+                        </AppText>
                       </View>
-                      {isCancellingMembership ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
                     </View>
-                    <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
-                      ›
-                    </AppText>
-                  </Pressable>
+                  </View>
                 ) : null}
 
                 <Pressable

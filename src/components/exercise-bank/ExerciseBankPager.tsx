@@ -91,6 +91,8 @@ type PagerCopy = {
   contentToggle: string;
   emptyTitle: string;
   emptyBody: string;
+  unsupportedTitle: string;
+  unsupportedBody: string;
 };
 
 type FillBlankMeasureToken =
@@ -123,6 +125,8 @@ const getCopy = (language: UiLanguage): PagerCopy => {
       contentToggle: 'ไทย/EN',
       emptyTitle: 'ยังไม่มีแบบฝึกหัดในส่วนนี้',
       emptyBody: 'กลับไปหน้าก่อนหน้าแล้วเลือกหัวข้ออื่นได้เลย',
+      unsupportedTitle: 'แบบฝึกหัดนี้ยังไม่พร้อมในแอป',
+      unsupportedBody: 'หัวข้อนี้มีข้อมูลบางส่วน แต่ยังไม่มีรูปแบบแสดงผลที่รองรับในหน้านี้',
     };
   }
 
@@ -147,6 +151,8 @@ const getCopy = (language: UiLanguage): PagerCopy => {
     contentToggle: 'ไทย/EN',
     emptyTitle: 'There are no exercises in this section yet.',
     emptyBody: 'Go back and try another section from the exercise bank.',
+    unsupportedTitle: 'This exercise is not ready in the app yet.',
+    unsupportedBody: 'This section has some exercise data, but the app does not support rendering this format yet.',
   };
 };
 
@@ -310,6 +316,24 @@ const normalizeExerciseKind = (value: unknown) => {
   return null;
 };
 
+const hasVisibleText = (value: unknown) => cleanAudioTags(String(value ?? '')).trim().length > 0;
+
+const itemHasVisibleContent = (item: NormalizedItem) =>
+  hasVisibleText(item.text) ||
+  hasVisibleText(item.textTh) ||
+  hasVisibleText(item.prompt) ||
+  hasVisibleText(item.promptTh) ||
+  item.textJsonb.some((inline) => hasVisibleText(inline?.text)) ||
+  item.options.some((option) => hasVisibleText(option.text) || hasVisibleText(option.textTh)) ||
+  item.blanks.length > 0 ||
+  Boolean(item.imageUrl);
+
+const exerciseHasVisibleContent = (exercise: NormalizedExercise) =>
+  hasVisibleText(exercise.title) ||
+  hasVisibleText(exercise.prompt) ||
+  hasVisibleText(exercise.paragraph) ||
+  exercise.items.some(itemHasVisibleContent);
+
 const getImageUrl = (value: Record<string, unknown>) => {
   const candidates = [value.image_url, value.image, value.image_key];
   for (const candidate of candidates) {
@@ -412,7 +436,8 @@ const normalizeExercises = (exercises: ExerciseBankExercise[], contentLang: Cont
       const aSort = Number((exercises.find((exercise) => String(exercise.id ?? '') === a.id)?.sort_order ?? 0) || 0);
       const bSort = Number((exercises.find((exercise) => String(exercise.id ?? '') === b.id)?.sort_order ?? 0) || 0);
       return aSort - bSort;
-    });
+    })
+    .filter((exercise) => exercise.kind !== null || exerciseHasVisibleContent(exercise));
 
 const normalizeAnswerText = (value: string) => value.replace(/\s+/g, ' ').trim();
 
@@ -1412,10 +1437,51 @@ function renderExerciseBody(params: {
     );
   }
 
+  const fallbackItems = exercise.items.filter(itemHasVisibleContent);
+
   return (
-    <AppText language={language} variant="muted" style={styles.emptyBody}>
-      Unsupported exercise type.
-    </AppText>
+    <Stack gap="md">
+      <View style={styles.fallbackCard}>
+        <Stack gap="sm">
+          <AppText language={language} variant="body" style={styles.fallbackTitle}>
+            {copy.unsupportedTitle}
+          </AppText>
+          <AppText language={language} variant="muted" style={styles.emptyBody}>
+            {copy.unsupportedBody}
+          </AppText>
+        </Stack>
+      </View>
+
+      {fallbackItems.length ? (
+        <Stack gap="md">
+          {fallbackItems.map((item, itemIndex) => {
+            const promptPair = getDisplayPromptPair(item.prompt || item.text, item.promptTh || item.textTh);
+
+            return (
+              <View key={`${exercise.id}:${item.key}:fallback`} style={styles.questionBlock}>
+                <View style={styles.questionHeader}>
+                  <AppText language="en" variant="caption" style={styles.questionNumber}>
+                    {item.numberLabel || `${itemIndex + 1}`}
+                  </AppText>
+                  <View style={styles.questionTextWrap}>
+                    {promptPair.english ? (
+                      <AppText language="en" variant="body" style={styles.questionText}>
+                        {renderTextWithBlankRuns(promptPair.english, `${exercise.id}:${item.key}:fallback`)}
+                      </AppText>
+                    ) : null}
+                    {contentLang === 'th' && promptPair.thai ? (
+                      <AppText language="th" variant="body" style={styles.questionThaiText}>
+                        {promptPair.thai}
+                      </AppText>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </Stack>
+      ) : null}
+    </Stack>
   );
 }
 
@@ -1823,5 +1889,16 @@ const styles = StyleSheet.create({
   emptyBody: {
     color: theme.colors.mutedText,
     textAlign: 'center',
+  },
+  fallbackCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
+  fallbackTitle: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
   },
 });

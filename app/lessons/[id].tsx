@@ -1682,6 +1682,7 @@ const getRichInlineSegmentStyle = (
   inline: LessonRichInline,
   options?: {
     isSubheader?: boolean;
+    forceSemibold?: boolean;
     muted?: boolean;
     isLink?: boolean;
     shouldShowHighlight?: boolean;
@@ -1692,7 +1693,7 @@ const getRichInlineSegmentStyle = (
   styles.richInlineText,
   {
     fontFamily: getInlineFontFamily(scriptLanguage, {
-      bold: inline.bold === true,
+      bold: options?.forceSemibold === true || inline.bold === true,
       italic: inline.italic === true,
     }),
   },
@@ -1716,6 +1717,7 @@ const renderRichTextScriptSegments = (
   inline: LessonRichInline,
   options?: {
     isSubheader?: boolean;
+    forceSemibold?: boolean;
     muted?: boolean;
     isLink?: boolean;
     shouldShowHighlight?: boolean;
@@ -6295,23 +6297,7 @@ export default function LessonDetailShellScreen() {
 
             const globalPieceStart = spanOffset + pieceStart;
             const globalPieceEnd = spanOffset + pieceEnd;
-            const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
-            const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
-            const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
-            const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
-            const isWhitespaceOnly = /^\s+$/.test(piece);
-            const prevVisibleChar = getNearestVisibleChar(globalPieceStart - 1, -1);
-            const nextVisibleChar = getNearestVisibleChar(globalPieceEnd, 1);
-            const punctuationAttachedToThai =
-              THAI_TEXT_RE.test(prevVisibleChar) || (!prevVisibleChar && THAI_TEXT_RE.test(nextVisibleChar));
-            const shouldMutePunctuation = options?.isPhraseCard ? punctuationAttachedToThai : (prevHasThai || nextHasThai);
-            const shouldMutePiece =
-              isThaiLine &&
-              (
-                THAI_TEXT_RE.test(piece) ||
-                (isPunctuationOnly && shouldMutePunctuation) ||
-                ((isNumericOnly || isWhitespaceOnly) && (prevHasThai || nextHasThai))
-              );
+            const shouldMutePiece = isThaiLine;
             const pieceWithinSpeakerPrefix = speakerPrefixLength > 0 && globalPieceStart < speakerPrefixLength;
             const pieceCrossesSpeakerBoundary = speakerPrefixLength > 0 && globalPieceEnd > speakerPrefixLength;
 
@@ -6379,7 +6365,7 @@ export default function LessonDetailShellScreen() {
   const renderRichInlines = (
     inlines: LessonRichInline[] | null | undefined,
     keyPrefix: string,
-    options?: { enableHighlights?: boolean; muteThaiInAudioRow?: boolean; isSubheader?: boolean }
+    options?: { enableHighlights?: boolean; muteThaiInAudioRow?: boolean; isSubheader?: boolean; forceSemibold?: boolean }
   ) => {
     const mergedInlines = mergeAdjacentRichInlines(inlines, contentLang);
     if (!mergedInlines.length) {
@@ -6399,6 +6385,7 @@ export default function LessonDetailShellScreen() {
         if (options?.muteThaiInAudioRow !== true) {
           return renderRichTextScriptSegments(part, `${partKey}-plain`, inline, {
             isSubheader: options?.isSubheader,
+            forceSemibold: options?.forceSemibold,
             shouldShowHighlight,
             highlightColor,
             isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
@@ -6426,6 +6413,7 @@ export default function LessonDetailShellScreen() {
                       style={[
                         ...getRichInlineSegmentStyle('en', inline, {
                           isSubheader: options?.isSubheader,
+                          forceSemibold: options?.forceSemibold,
                           shouldShowHighlight,
                           highlightColor,
                           isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
@@ -6445,20 +6433,13 @@ export default function LessonDetailShellScreen() {
                   .filter(Boolean);
 
                 return pieces.map((piece, pieceIndex) => {
-                  const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
-                  const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
-                  const isWhitespaceOnly = /^\s+$/.test(piece);
-                  const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
-                  const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
-                  const adjacentThai = prevHasThai || nextHasThai;
-                  const shouldMutePiece =
-                    isThaiLine &&
-                    (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
+                  const shouldMutePiece = isThaiLine;
 
                   return (
                     <React.Fragment key={`${bodyKey}-${partIndex}-${pieceIndex}`}>
                       {renderRichTextScriptSegments(piece, `${bodyKey}-${partIndex}-${pieceIndex}`, inline, {
                         isSubheader: options?.isSubheader,
+                        forceSemibold: options?.forceSemibold,
                         muted: shouldMutePiece,
                         shouldShowHighlight,
                         highlightColor,
@@ -6475,20 +6456,13 @@ export default function LessonDetailShellScreen() {
             .filter(Boolean);
 
             return pieces.map((piece, pieceIndex) => {
-              const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
-              const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
-              const isWhitespaceOnly = /^\s+$/.test(piece);
-              const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
-              const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
-              const adjacentThai = prevHasThai || nextHasThai;
-              const shouldMutePiece =
-                isThaiLine &&
-                (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
+              const shouldMutePiece = isThaiLine;
 
               return (
                 <React.Fragment key={`${bodyKey}-${pieceIndex}`}>
                   {renderRichTextScriptSegments(piece, `${bodyKey}-${pieceIndex}`, inline, {
                     isSubheader: options?.isSubheader,
+                    forceSemibold: options?.forceSemibold,
                     muted: shouldMutePiece,
                     shouldShowHighlight,
                     highlightColor,
@@ -6509,6 +6483,7 @@ export default function LessonDetailShellScreen() {
                 style={[
                   ...getRichInlineSegmentStyle(isEnglishSpeaker ? 'en' : 'th', inline, {
                     isSubheader: options?.isSubheader,
+                    forceSemibold: options?.forceSemibold,
                     shouldShowHighlight,
                     highlightColor,
                     isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
@@ -6530,6 +6505,7 @@ export default function LessonDetailShellScreen() {
                 style={[
                   ...getRichInlineSegmentStyle('en', inline, {
                     isSubheader: options?.isSubheader,
+                    forceSemibold: options?.forceSemibold,
                     shouldShowHighlight,
                     highlightColor,
                     isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
@@ -6561,6 +6537,7 @@ export default function LessonDetailShellScreen() {
                   style={[
                     ...getRichInlineSegmentStyle('en', inline, {
                       isSubheader: options?.isSubheader,
+                      forceSemibold: options?.forceSemibold,
                       shouldShowHighlight,
                       highlightColor,
                       isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
@@ -7040,6 +7017,8 @@ export default function LessonDetailShellScreen() {
       phraseShowDivider?: boolean;
       phraseIsLeadAudio?: boolean;
       phraseTextIndented?: boolean;
+      paragraphStyle?: object | null;
+      forceSubheader?: boolean;
     }
   ) => {
     const nodeKey = `${options?.keyPrefix ?? 'rich-node'}-${index}`;
@@ -7072,7 +7051,11 @@ export default function LessonDetailShellScreen() {
             styles.richSubheader,
             options?.isPhraseCard ? styles.phraseHeading : null,
           ]}>
-          {renderRichInlines(node.inlines, nodeKey, options)}
+          {renderRichInlines(node.inlines, nodeKey, {
+            ...options,
+            isSubheader: true,
+            forceSemibold: true,
+          })}
         </AppText>
       );
     }
@@ -7178,7 +7161,7 @@ export default function LessonDetailShellScreen() {
         return renderPhraseDialogueParagraph(node, nodeKey, indentStyle, hasAccent, options);
       }
 
-      const isSubheader = isBoldParagraphNode(node);
+      const isSubheader = options?.forceSubheader === true || isBoldParagraphNode(node);
       return (
         <AppText
           key={nodeKey}
@@ -7193,8 +7176,13 @@ export default function LessonDetailShellScreen() {
             isSubheader ? styles.richSubheader : null,
             isSubheader && options?.isPhraseCard ? styles.phraseSubheader : null,
             hasAccent ? styles.applyAccentBlock : null,
+            options?.paragraphStyle ?? null,
           ]}>
-          {renderRichInlines(node.inlines, nodeKey, { ...options, isSubheader })}
+          {renderRichInlines(node.inlines, nodeKey, {
+            ...options,
+            isSubheader,
+            forceSemibold: options?.forceSubheader === true,
+          })}
         </AppText>
       );
     }
@@ -7291,13 +7279,33 @@ export default function LessonDetailShellScreen() {
             });
           }
 
-          return renderUnderstandNode(node, nodeIndex);
+          return renderRichNode(node, nodeIndex, {
+            keyPrefix: 'understand-node',
+            enableHighlights: true,
+          });
         })}
       </View>
     ));
   };
 
   const renderCommonMistakeGroupBody = (nodes: LessonRichNode[], keyPrefix: string) => {
+    const getNodeInlineText = (node: LessonRichNode) =>
+      Array.isArray(node.inlines)
+        ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join('')
+        : resolveNodeText(node, contentLang);
+    const nodeIncludesMarker = (node: LessonRichNode, markers: string[]) => {
+      const text = getNodeInlineText(node);
+      return markers.some((marker) => text.includes(marker));
+    };
+    const isAudioNode = (node: LessonRichNode) => Boolean(node.audio_key || node.audio_seq);
+    const shouldAlignCommonMistakeParagraph = (node: LessonRichNode, nextNode: LessonRichNode | undefined) =>
+      node.kind === 'paragraph' &&
+      !isAudioNode(node) &&
+      nodeIncludesMarker(node, ['[X]', '[x]']) &&
+      Boolean(nextNode) &&
+      isAudioNode(nextNode as LessonRichNode) &&
+      nodeIncludesMarker(nextNode as LessonRichNode, ['[✓]', '[√]', '[check]']);
+
     const zebraGroups: LessonRichNode[][] = [];
     let currentGroup: LessonRichNode[] = [];
 
@@ -7320,6 +7328,10 @@ export default function LessonDetailShellScreen() {
         key={`${keyPrefix}-group-${index}`}
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
+          const nextNode = group[nodeIndex + 1];
+          const paragraphStyle = shouldAlignCommonMistakeParagraph(node, nextNode)
+            ? styles.commonMistakeParagraphAlignedToAudio
+            : null;
           if (node.kind === 'numbered_item') {
             numberedIndex += 1;
             return renderRichNode(node, nodeIndex, {
@@ -7329,7 +7341,11 @@ export default function LessonDetailShellScreen() {
             });
           }
 
-          return renderRichNode(node, nodeIndex, { keyPrefix: 'common-mistake-node', enableHighlights: false });
+          return renderRichNode(node, nodeIndex, {
+            keyPrefix: 'common-mistake-node',
+            enableHighlights: false,
+            paragraphStyle,
+          });
         })}
       </View>
     ));
@@ -7367,23 +7383,72 @@ export default function LessonDetailShellScreen() {
             });
           }
 
-          return renderRichNode(node, nodeIndex, { keyPrefix: 'extra-tip-node', enableHighlights: true });
+          return renderRichNode(node, nodeIndex, {
+            keyPrefix: 'extra-tip-node',
+            enableHighlights: true,
+          });
         })}
       </View>
     ));
   };
 
-  const renderCultureNoteBody = (nodes: LessonRichNode[]) => (
-    <Stack gap="sm">
-      {nodes.map((node, index) =>
-        renderRichNode(node, index, {
-          keyPrefix: 'culture-note-node',
-          allowHeadings: true,
-          enableHighlights: false,
-        })
-      )}
-    </Stack>
-  );
+  const renderCultureNoteBody = (nodes: LessonRichNode[]) => {
+    let renderedLeadHeading = false;
+
+    const getCultureNoteLeadText = (node: LessonRichNode) => {
+      if (node.kind === 'heading') {
+        return getNodeHeadingText(node, contentLang).trim();
+      }
+
+      return Array.isArray(node.inlines)
+        ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join(' ').trim()
+        : resolveNodeText(node, contentLang).trim();
+    };
+
+    const isCultureNoteLeadHeading = (node: LessonRichNode) => {
+      if (renderedLeadHeading || node.audio_key || node.audio_seq) {
+        return false;
+      }
+
+      if (node.kind !== 'heading' && node.kind !== 'paragraph') {
+        return false;
+      }
+
+      const text = getCultureNoteLeadText(node);
+
+      if (!text) {
+        return false;
+      }
+
+      const lettersOnly = text.replace(/[^A-Za-z]/g, '');
+      if (!lettersOnly) {
+        return false;
+      }
+
+      return lettersOnly === lettersOnly.toUpperCase();
+    };
+
+    return (
+      <Stack gap="sm">
+        {nodes.map((node, index) => {
+          if (isCultureNoteLeadHeading(node)) {
+            renderedLeadHeading = true;
+            return (
+              <AppText key={`culture-note-lead-${index}`} language={contentLang} variant="body" style={styles.cultureNoteLeadHeading}>
+                {getCultureNoteLeadText(node)}
+              </AppText>
+            );
+          }
+
+          return renderRichNode(node, index, {
+            keyPrefix: 'culture-note-node',
+            allowHeadings: true,
+            enableHighlights: false,
+          });
+        })}
+      </Stack>
+    );
+  };
 
   const renderPhraseBody = (phrase: NormalizedLessonPhrase) => {
     const shouldShowVariantLabel = phraseVariantVisibilityById.get(phrase.id) ?? false;
@@ -9610,14 +9675,18 @@ export default function LessonDetailShellScreen() {
                   ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab ? (
                     (isPracticeTab ? activePracticeExercise : activePagerGroup) ? (
                       <GestureDetector gesture={richPagerGesture}>
-                        <View style={styles.richPagerShell}>
+                            <View style={styles.richPagerShell}>
                           <Animated.View
                             style={[
                               styles.richPagerCard,
                               windowHeight < 780 ? styles.richPagerCardCompact : null,
                               richPagerAnimatedStyle,
                             ]}>
-                            <View style={styles.richPagerMetaRow}>
+                            <View
+                              style={[
+                                styles.richPagerMetaRow,
+                                !isPracticeTab ? styles.richPagerMetaRowRichSection : null,
+                              ]}>
                               {(isPracticeTab ? activePracticeHeading : activePagerHeading) ? (
                                 <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
                                   {isPracticeTab ? activePracticeHeading : activePagerHeading}
@@ -10261,6 +10330,7 @@ const styles = StyleSheet.create({
   },
   sectionBodyBlockPager: {
     flex: 1,
+    marginTop: 14,
   },
   studyNavBar: {
     flexDirection: 'row',
@@ -10391,6 +10461,7 @@ const styles = StyleSheet.create({
   sectionDivider: {
     height: 1.5,
     backgroundColor: theme.colors.accentMuted,
+    marginTop: 6,
   },
   sectionMetaRow: {
     flexDirection: 'row',
@@ -10417,6 +10488,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.sm,
     flexWrap: 'wrap',
+  },
+  richPagerMetaRowRichSection: {
+    marginTop: theme.spacing.md,
   },
   richPagerCounterPill: {
     paddingHorizontal: 0,
@@ -10645,6 +10719,13 @@ const styles = StyleSheet.create({
   cultureNoteShell: {
     paddingVertical: theme.spacing.xs,
   },
+  cultureNoteLeadHeading: {
+    color: theme.colors.text,
+    fontSize: 21,
+    lineHeight: 25,
+    fontWeight: theme.typography.weights.semibold,
+    marginBottom: theme.spacing.sm,
+  },
   richGroupBand: {
     borderRadius: theme.radii.md,
     paddingHorizontal: theme.spacing.sm,
@@ -10749,15 +10830,24 @@ const styles = StyleSheet.create({
   },
   richAudioTextWrap: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  commonMistakeParagraphAlignedToAudio: {
+    paddingLeft: 52,
   },
   understandAudioText: {
     fontSize: 15,
     lineHeight: 18,
     paddingTop: 0,
+    flexShrink: 1,
+    minWidth: 0,
   },
   richAudioLineStack: {
     gap: 0,
     paddingTop: 1,
+    minWidth: 0,
+    flexShrink: 1,
   },
   richThaiTextCompact: {
     lineHeight: 22,

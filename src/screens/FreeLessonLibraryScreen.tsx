@@ -35,6 +35,20 @@ const pickText = (preferred: string | null, fallback: string | null, emptyFallba
   return emptyFallback;
 };
 
+const splitLessonFocusText = (focusText: string) => {
+  const trimmed = focusText.trim();
+  const match = /^(.*?)(\s*\([^)]+\))$/.exec(trimmed);
+
+  if (!match) {
+    return { main: trimmed, aside: '' };
+  }
+
+  return {
+    main: match[1]?.trim() ?? trimmed,
+    aside: match[2]?.trim() ?? '',
+  };
+};
+
 const getStageTitle = (stage: StageName, uiLanguage: 'en' | 'th') => {
   if (uiLanguage === 'th') {
     if (stage === 'Beginner') return 'ระดับเริ่มต้น';
@@ -218,6 +232,11 @@ export function FreeLessonLibraryScreen() {
                             uiLanguage === 'th'
                               ? pickText(lesson.title_th, lesson.title, 'ไม่มีชื่อบทเรียน')
                               : pickText(lesson.title, lesson.title_th, 'Untitled lesson');
+                          const focusText =
+                            uiLanguage === 'th'
+                              ? pickText(lesson.focus_th, lesson.focus, '')
+                              : pickText(lesson.focus, lesson.focus_th, '');
+                          const focusParts = splitLessonFocusText(focusText);
                           const lessonNumber =
                             typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
                               ? `${lesson.level}.${lesson.lesson_order}`
@@ -244,6 +263,20 @@ export function FreeLessonLibraryScreen() {
                                       style={styles.lessonTitle}>
                                       {titleText}
                                     </AppText>
+                                    {focusText ? (
+                                      <View style={styles.lessonSubtitleGroup}>
+                                        {focusParts.main ? (
+                                          <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitle}>
+                                            {focusParts.main}
+                                          </AppText>
+                                        ) : null}
+                                        {focusParts.aside ? (
+                                          <AppText language={uiLanguage} variant="muted" style={styles.lessonSubtitleAside}>
+                                            {focusParts.aside}
+                                          </AppText>
+                                        ) : null}
+                                      </View>
+                                    ) : null}
                                   </View>
                                 </View>
                                 <View style={styles.lessonRight}>
@@ -385,6 +418,15 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
     flexShrink: 1,
     lineHeight: 22,
+  },
+  lessonSubtitleGroup: {
+    marginTop: 2,
+  },
+  lessonSubtitle: {
+    color: theme.colors.mutedText,
+  },
+  lessonSubtitleAside: {
+    color: theme.colors.mutedText,
   },
   lessonRight: {
     minWidth: 48,
