@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { prefetchPricing } from '@/src/api/pricing';
-import { AuthScreen } from '@/src/screens/AuthScreen';
 import { AppText } from '@/src/components/ui/AppText';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -50,7 +49,7 @@ const actionIconMap: Record<MoreAction['key'], { icon: React.ComponentProps<type
 export function MoreScreen() {
   const router = useRouter();
   const { uiLanguage, setUiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode } = useAppSession();
   const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
 
   const copy =
@@ -60,9 +59,9 @@ export function MoreScreen() {
           membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
           actions: [
             { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },
-            { key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' },
             { key: 'about', label: 'เกี่ยวกับเรา', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'ติดต่อเรา', href: '/(tabs)/account/contact' },
+            ...(hasAccount ? ([{ key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' }] as const) : []),
           ] satisfies MoreAction[],
         }
       : {
@@ -70,14 +69,14 @@ export function MoreScreen() {
           membershipBody: 'Unlock all lessons and our full content library.',
           actions: [
             { key: 'profile', label: 'Profile', href: '/(tabs)/account/profile' },
-            { key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' },
             { key: 'about', label: 'About', href: '/(tabs)/account/about' },
             { key: 'contact', label: 'Contact', href: '/(tabs)/account/contact' },
+            ...(hasAccount ? ([{ key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' }] as const) : []),
           ] satisfies MoreAction[],
         };
 
-  if (!hasAccount) {
-    return <AuthScreen />;
+  if (!hasAccount && !isGuestMode) {
+    return null;
   }
 
   return (

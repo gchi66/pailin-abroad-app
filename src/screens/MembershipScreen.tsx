@@ -125,8 +125,6 @@ const getCopy = (uiLanguage: UiLanguage) => {
       restoreNoPurchasesBody: 'เราไม่พบการซื้อเดิมที่สามารถกู้คืนได้สำหรับ Apple ID นี้',
       restoreSuccessTitle: 'กู้คืนการซื้อสำเร็จ',
       restoreSuccessBody: 'สิทธิ์สมาชิกของคุณได้รับการกู้คืนแล้ว',
-      signInRequiredTitle: 'กรุณาเข้าสู่ระบบก่อน',
-      signInRequiredBody: 'คุณต้องเข้าสู่ระบบก่อนจึงจะสมัครสมาชิกได้',
       alreadyMemberTitle: 'คุณเป็นสมาชิกอยู่แล้ว',
       alreadyMemberBody: 'บัญชีนี้มีสิทธิ์เข้าถึงแบบเต็มรูปแบบอยู่แล้ว',
       purchaseSuccessTitle: 'การซื้อสำเร็จ',
@@ -203,8 +201,6 @@ const getCopy = (uiLanguage: UiLanguage) => {
     restoreNoPurchasesBody: "We couldn't find any previous purchases to restore for this Apple ID.",
     restoreSuccessTitle: 'Purchases restored',
     restoreSuccessBody: 'Your membership access has been restored.',
-    signInRequiredTitle: 'Sign in required',
-    signInRequiredBody: 'You need to sign in before purchasing membership.',
     alreadyMemberTitle: 'You already have full access',
     alreadyMemberBody: 'This account is already unlocked.',
     purchaseSuccessTitle: 'Purchase complete',
@@ -455,7 +451,7 @@ function MembershipPlanCard({
 export function MembershipScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ returnTo?: string }>();
-  const { hasAccount, refreshMembershipAccess } = useAppSession();
+  const { refreshMembershipAccess } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
@@ -530,7 +526,7 @@ export function MembershipScreen() {
     return () => {
       cancelled = true;
     };
-  }, [hasAccount]);
+  }, []);
 
   const allPlans = useMemo<MembershipCard[]>(() => {
     if (pricingState.loading || pricingState.error) {
@@ -606,11 +602,6 @@ export function MembershipScreen() {
   const handleJoinPress = async () => {
     if (!selectedPlan) {
       setShowPlanWarning(true);
-      return;
-    }
-
-    if (!hasAccount) {
-      Alert.alert(copy.signInRequiredTitle, copy.signInRequiredBody);
       return;
     }
 

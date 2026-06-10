@@ -6,13 +6,13 @@ import { AuthScreen } from './AuthScreen';
 import { MyPathwayScreen } from './MyPathwayScreen';
 
 export function PrimaryScreen() {
-  const { hasAccount, isLoading } = useAppSession();
+  const { hasAccount, isGuestMode, isLoading } = useAppSession();
 
   if (isLoading) {
     return <PageLoadingState animate={false} showImage={false} />;
   }
 
-  if (hasAccount) {
+  if (hasAccount || isGuestMode) {
     return <MyPathwayScreen />;
   }
 

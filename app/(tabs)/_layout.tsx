@@ -33,7 +33,7 @@ export default function TabLayout() {
   useColorScheme();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount } = useAppSession();
+  const { hasAccount, isGuestMode } = useAppSession();
 
   const styles = useMemo(() => createStyles(insets.top, insets.bottom), [insets.bottom, insets.top]);
   const text = labels[uiLanguage];
@@ -44,12 +44,13 @@ export default function TabLayout() {
       tabBarInactiveTintColor: theme.colors.mutedText,
       headerShown: false,
       tabBarButton: HapticTab,
-      sceneStyle: !hasAccount ? styles.sceneFullscreen : styles.scene,
-      tabBarStyle: !hasAccount ? styles.tabBarHidden : styles.tabBar,
+      sceneStyle: !hasAccount && !isGuestMode ? styles.sceneFullscreen : styles.scene,
+      tabBarStyle: !hasAccount && !isGuestMode ? styles.tabBarHidden : styles.tabBar,
       tabBarLabelStyle: [styles.tabBarLabel, uiLanguage === 'th' ? styles.tabBarLabelThai : styles.tabBarLabelEnglish],
     }),
     [
       hasAccount,
+      isGuestMode,
       styles.scene,
       styles.sceneFullscreen,
       styles.tabBar,
@@ -66,8 +67,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: hasAccount ? text.pathway : text.home,
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name={hasAccount ? 'flag.fill' : 'house.fill'} color={color} />,
+          title: hasAccount || isGuestMode ? text.pathway : text.home,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name={hasAccount || isGuestMode ? 'flag.fill' : 'house.fill'} color={color} />
+          ),
         }}
       />
       <Tabs.Screen

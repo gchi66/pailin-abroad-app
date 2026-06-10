@@ -1,20 +1,31 @@
-import React from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
-import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
 import { freeLessonImages } from '@/src/assets/app-images';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { homeMockData, pickText } from '@/src/mocks/home';
 import { theme } from '@/src/theme/theme';
+import { LessonListItem } from '@/src/types/lesson';
 import { FreeLessonCard, UiLanguage } from '@/src/types/home';
+
+type FreeLessonRouteMap = Partial<Record<'beginner' | 'intermediate' | 'advanced' | 'expert', string>>;
+
+const STATIC_FREE_LESSON_IDS: FreeLessonRouteMap = {
+  beginner: 'a34f5a4b-0729-430e-9b92-900dcad2f977',
+  intermediate: '5f9d09b4-ed35-40ac-b89f-50dbd7e96c0c',
+  advanced: '27e50504-7021-4a7b-b30d-0cae34a094bf',
+};
 
 const MEMBERSHIP_FEATURES: Record<UiLanguage, string[]> = {
   en: [
@@ -23,8 +34,6 @@ const MEMBERSHIP_FEATURES: Record<UiLanguage, string[]> = {
     'Common mistakes made by Thai speakers',
     'Our Phrases & Phrasal Verbs Bank',
     'Our ESL Topic Library',
-    'Cultural notes to help you understand English in context',
-    'Comment on any lesson and get feedback from us!',
   ],
   th: [
     'คลังบทเรียนทั้งหมดของเรา มากกว่า 200 บทเรียน!',
@@ -32,167 +41,225 @@ const MEMBERSHIP_FEATURES: Record<UiLanguage, string[]> = {
     'ข้อผิดพลาดที่คนไทยมักใช้ผิด',
     'คลังวลีและกริยาวลีของเรา',
     'คลังหัวข้อการเรียนรู้ภาษาอังกฤษของเรา',
-    'เกร็ดความรู้ทางวัฒนธรรมที่จะช่วยให้คุณเข้าใจบริบทการใช้ภาษาอังกฤษ',
-    'ทิ้งความคิดเห็นของคุณไว้ได้ในทุกบทเรียน พร้อมรับการตอบกลับจากเรา!',
   ],
+};
+
+const resolveExpertLessonId = (items: LessonListItem[]) => {
+  const directTitleMatch = items.find((lesson) => {
+    const title = lesson.title?.trim().toLowerCase();
+    const titleTh = lesson.title_th?.trim().toLowerCase();
+
+    return title === 'spaghetti sauce everywhere!' || titleTh === 'ซอสสปาเก็ตตี้เลอะเทอะไปหมด!';
+  });
+
+  if (directTitleMatch?.id) {
+    return directTitleMatch.id;
+  }
+
+  const firstExpertLesson = [...items]
+    .filter((lesson) => lesson.stage === 'Expert' && typeof lesson.level === 'number')
+    .sort((a, b) => {
+      const levelOrder = (a.level ?? 0) - (b.level ?? 0);
+      if (levelOrder !== 0) {
+        return levelOrder;
+      }
+
+      return (a.lesson_order ?? Number.MAX_SAFE_INTEGER) - (b.lesson_order ?? Number.MAX_SAFE_INTEGER);
+    })[0];
+
+  return firstExpertLesson?.id ?? null;
 };
 
 export function TryLessonsScreen() {
   const router = useRouter();
-  const { width: windowWidth } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership } = useAppSession();
-  const freeLessons = homeMockData.freeLessons;
-  const cardWidth = Math.min(280, Math.round(windowWidth * 0.68));
+  const { hasMembership, isGuestMode } = useAppSession();
+  const freeLessons = homeMockData.freeLessons.cards;
+  const [routeMap, setRouteMap] = useState<FreeLessonRouteMap>(STATIC_FREE_LESSON_IDS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleLessonPress = (card: FreeLessonCard) => {
-    if (card.comingSoon) {
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRoutes = async () => {
+      try {
+        const items = await getLessonsIndex();
+        if (!isMounted) {
+          return;
+        }
+
+        const expertLessonId = resolveExpertLessonId(items);
+        setRouteMap((current) => ({
+          ...current,
+          expert: expertLessonId ?? current.expert,
+        }));
+        setErrorMessage(null);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to load lessons.');
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadRoutes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const freeLessonCards = useMemo(
+    () =>
+      freeLessons.map((card) => ({
+        ...card,
+        lessonId: routeMap[card.id as keyof FreeLessonRouteMap] ?? null,
+      })),
+    [freeLessons, routeMap]
+  );
+
+  const handleLessonPress = (card: FreeLessonCard & { lessonId: string | null }) => {
+    if (!card.lessonId) {
       return;
     }
 
-    Alert.alert(
-      pickText(card.title, uiLanguage),
-      uiLanguage === 'th'
-        ? 'หน้าบทเรียนจริงจะเชื่อมในขั้นตอนถัดไป'
-        : 'The lesson page will be connected in a later step.'
-    );
+    router.push({
+      pathname: '/lessons/[id]',
+      params: {
+        id: card.lessonId,
+        locked: '0',
+      },
+    });
   };
 
-  const handlePlaceholderAction = (kind: 'signup' | 'membership') => {
-    if (kind === 'membership') {
-      prefetchPricing();
-      router.push('/(tabs)/account/membership');
-      return;
-    }
-
-    Alert.alert(
-      kind === 'signup' ? (uiLanguage === 'th' ? 'สมัครสมาชิกฟรี' : 'Sign up free') : uiLanguage === 'th' ? 'Membership' : 'Membership',
-      uiLanguage === 'th'
-        ? 'จะเชื่อม flow นี้ในขั้นตอนถัดไป'
-        : 'This flow will be connected in a later step.'
-    );
+  const handleMembershipPress = () => {
+    prefetchPricing();
+    router.push('/(tabs)/account/membership');
   };
+
+  if (isLoading) {
+    return <PageLoadingState language={uiLanguage} />;
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
-      <Stack gap="xl">
-        <View style={styles.headerBlock}>
-          <Stack gap="sm">
-            <AppText language={uiLanguage} variant="title" style={styles.title}>
-              {uiLanguage === 'th' ? 'ทดลองเรียน' : 'Try Our Lessons'}
-            </AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
+        <Stack gap="lg">
+          <StandardPageHeader
+            language={uiLanguage}
+            title={uiLanguage === 'th' ? '4 บทเรียนฟรี' : '4 Free Lessons'}
+            subtitle={
+              uiLanguage === 'th'
+                ? 'เริ่มเรียนได้ทันทีแบบไม่ต้องสมัครสมาชิก'
+                : 'Start learning right away with no account required.'
+            }
+          />
+
+          <View style={styles.introBlock}>
+            <AppText language={uiLanguage} variant="body" style={styles.introText}>
               {uiLanguage === 'th'
-                ? 'ลองเรียนฟรี 4 บทเรียน ไม่จำเป็นต้องสมัครสมาชิก!'
-                : '4 free lessons for you to try, no sign-up needed!'}
+                ? 'ลองเรียนบทแรกจากแต่ละระดับเพื่อสัมผัสวิธีการสอนแบบเล่าเรื่องของ Pailin Abroad ก่อนตัดสินใจสมัครสมาชิก'
+                : 'Try the first lesson from each level to get a feel for Pailin Abroad before deciding on membership.'}
             </AppText>
-          </Stack>
-        </View>
+          </View>
 
-        <View style={styles.introSection}>
-          <AppText language={uiLanguage} variant="body" style={styles.introText}>
-            {uiLanguage === 'th'
-              ? 'เรามั่นใจว่าคุณจะหลงรักวิธีการเรียนภาษาอังกฤษแบบเล่าเรื่องที่ไม่เหมือนใครแบบเราแน่นอน ลองสำรวจบทเรียนแรกจากแต่ละระดับการเรียนด้วยตัวคุณเองดูก่อนสิ'
-              : "We're confident you'll love our unique, narrative-driven method of learning English. Explore a lesson from each level to see for yourself."}
-          </AppText>
-        </View>
+          {errorMessage ? (
+            <Card padding="md" radius="md" style={styles.errorCard}>
+              <AppText language={uiLanguage} variant="body" style={styles.errorText}>
+                {errorMessage}
+              </AppText>
+            </Card>
+          ) : null}
 
-        <View style={styles.cardsSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardsContentContainer}>
-            {freeLessons.cards.map((card) => (
-              <Pressable
-                key={card.id}
-                accessibilityRole="button"
-                onPress={() => handleLessonPress(card)}
-                disabled={card.comingSoon}
-                style={[styles.cardPressable, { width: cardWidth }]}>
-                <Card
-                  padding="lg"
-                  radius="lg"
-                  style={[styles.lessonCard, card.comingSoon ? styles.lessonCardDisabled : null]}>
-                  <View style={styles.cardShell}>
-                    {card.comingSoon ? (
-                      <View style={styles.badgeWrap}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.comingSoonText}>
-                          {uiLanguage === 'th' ? 'เร็วๆ นี้!' : 'COMING SOON!'}
+          <Stack gap="md">
+            {freeLessonCards.map((card) => {
+              const isDisabled = !card.lessonId;
+
+              return (
+                <Pressable
+                  key={card.id}
+                  accessibilityRole="button"
+                  disabled={isDisabled}
+                  onPressIn={() => {
+                    if (card.lessonId) {
+                      prefetchResolvedLesson(card.lessonId, 'en');
+                    }
+                  }}
+                  onPress={() => handleLessonPress(card)}
+                  style={({ pressed }) => [pressed && !isDisabled ? styles.cardPressed : null]}>
+                  <Card padding="lg" radius="lg" style={[styles.lessonCard, isDisabled ? styles.lessonCardDisabled : null]}>
+                    <View style={styles.lessonCardRow}>
+                      <View style={styles.lessonCopy}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.lessonLevel}>
+                          {pickText(card.level, uiLanguage)}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
+                          {pickText(card.title, uiLanguage)}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="caption" style={styles.lessonFocusLabel}>
+                          {pickText(card.focusLabel, uiLanguage)}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="muted" style={styles.lessonDescription}>
+                          {pickText(card.description, uiLanguage)}
                         </AppText>
                       </View>
-                    ) : null}
-
-                    <Stack gap="sm">
-                      <AppText language={uiLanguage} variant="caption" style={styles.levelText}>
-                        {pickText(card.level, uiLanguage)}
-                      </AppText>
-
-                      <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
-                        {pickText(card.title, uiLanguage)}
-                      </AppText>
 
                       <Image source={getFreeLessonImage(card.id)} style={styles.lessonImage} resizeMode="contain" />
+                    </View>
+                  </Card>
+                </Pressable>
+              );
+            })}
+          </Stack>
 
-                      <AppText language={uiLanguage} variant="caption" style={styles.focusLabel}>
-                        {pickText(card.focusLabel, uiLanguage)}
-                      </AppText>
+          <Card padding="lg" radius="lg" style={styles.membershipCard}>
+            <Stack gap="md">
+              <AppText language={uiLanguage} variant="body" style={styles.membershipHeading}>
+                {uiLanguage === 'th' ? 'อยากเรียนต่อไหม?' : 'Ready for the full library?'}
+              </AppText>
 
-                      <AppText language={uiLanguage} variant="muted" style={styles.description}>
-                        {pickText(card.description, uiLanguage)}
-                      </AppText>
-                    </Stack>
+              <AppText language={uiLanguage} variant="muted" style={styles.membershipText}>
+                {hasMembership
+                  ? uiLanguage === 'th'
+                    ? 'คุณเป็นสมาชิกอยู่แล้วและเข้าถึงบทเรียนทั้งหมดได้'
+                    : 'You already have membership access to the full lesson library.'
+                  : isGuestMode
+                    ? uiLanguage === 'th'
+                      ? 'สมัครสมาชิกเพื่อปลดล็อกบทเรียนทั้งหมด แล้วค่อยสร้างบัญชีฟรีเพื่อซิงก์ความคืบหน้าของคุณ'
+                      : 'Become a member to unlock all lessons, then create a free account anytime to sync your progress.'
+                    : uiLanguage === 'th'
+                      ? 'สมัครสมาชิกเพื่อปลดล็อกบทเรียนทั้งหมด คลังแบบฝึกหัด และทรัพยากรการเรียนของเรา'
+                      : 'Unlock the full lesson library, exercise bank, and learning resources with membership.'}
+              </AppText>
+
+              <Stack gap="sm">
+                {MEMBERSHIP_FEATURES[uiLanguage].map((feature) => (
+                  <View key={feature} style={styles.featureRow}>
+                    <View style={styles.featureDot} />
+                    <AppText language={uiLanguage} variant="body" style={styles.featureText}>
+                      {feature}
+                    </AppText>
                   </View>
-                </Card>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+                ))}
+              </Stack>
 
-        <View style={styles.noticeSection}>
-          <Stack gap="md">
-            <AppText language={uiLanguage} variant="body" style={styles.noticeHeading}>
-              {uiLanguage === 'th' ? 'พร้อมเรียนแล้วหรือยัง?' : 'Ready to continue your journey?'}
-            </AppText>
-
-            <AppText language={uiLanguage} variant="muted" style={styles.noticeText}>
-              {hasMembership
-                ? uiLanguage === 'th'
-                  ? 'เข้าถึงบทเรียนมากกว่า 200 บททั้งหมด และพัฒนายกระดับภาษาอังกฤษของคุณขึ้นไปอีกขั้นด้วยการเป็นสมาชิก'
-                  : 'Get full access to all 150+ lessons and take your English to the next level with a full membership.'
-                : uiLanguage === 'th'
-                  ? 'คุณมีสิทธิ์เข้าถึงบทเรียนฟรีแล้ว และสามารถอัปเกรดเป็นสมาชิกเพื่อเข้าถึงบทเรียนทั้งหมด'
-                  : 'Your free plan already gives you access to free lessons. Upgrade to membership for the full library.'}
-            </AppText>
-
-            <Button
-              language={uiLanguage}
-              title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
-              onPress={() => handlePlaceholderAction('membership')}
-            />
-          </Stack>
-        </View>
-
-        <Card padding="lg" radius="lg" style={styles.featuresCard}>
-          <Stack gap="md">
-            <AppText language={uiLanguage} variant="body" style={styles.featuresTitle}>
-              {uiLanguage === 'th' ? 'สิทธิของสมาชิกที่สามารถเข้าถึงได้:' : 'Membership gives you full access to:'}
-            </AppText>
-
-            <Stack gap="sm">
-              {MEMBERSHIP_FEATURES[uiLanguage].map((feature) => (
-                <View key={feature} style={styles.featureRow}>
-                  <Image source={blueCheckmarkImage} style={styles.featureIcon} resizeMode="contain" />
-                  <AppText language={uiLanguage} variant="body" style={styles.featureText}>
-                    {feature}
-                  </AppText>
-                </View>
-              ))}
+              {!hasMembership ? (
+                <Button
+                  language={uiLanguage}
+                  title={uiLanguage === 'th' ? 'ดู Membership' : 'BECOME A MEMBER'}
+                  onPress={handleMembershipPress}
+                />
+              ) : null}
             </Stack>
-          </Stack>
-        </Card>
-      </Stack>
-          </ResponsivePageShell>
+          </Card>
+        </Stack>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -205,52 +272,34 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.xl,
   },
-  headerBlock: {
-    backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    color: theme.colors.text,
-    textAlign: 'center',
-    fontSize: 44,
-    lineHeight: 52,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
-    textAlign: 'center',
-    fontSize: 17,
-    lineHeight: 26,
-  },
-  introSection: {
-    paddingHorizontal: theme.spacing.lg,
+  introBlock: {
+    paddingHorizontal: theme.spacing.md,
   },
   introText: {
+    textAlign: 'center',
+    color: theme.colors.text,
+    lineHeight: 24,
+  },
+  errorCard: {
+    marginHorizontal: theme.spacing.md,
+    backgroundColor: '#FFF4F1',
+    borderWidth: 1,
+    borderColor: '#F2C4BC',
+  },
+  errorText: {
     color: theme.colors.text,
     textAlign: 'center',
-    lineHeight: 28,
   },
-  cardsSection: {
-    width: '100%',
-  },
-  cardsContentContainer: {
-    paddingHorizontal: theme.spacing.md,
-    gap: theme.spacing.md,
-  },
-  cardPressable: {
-    flexShrink: 0,
+  cardPressed: {
+    transform: [{ scale: 0.99 }],
   },
   lessonCard: {
+    marginHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     shadowColor: theme.colors.border,
-    shadowOpacity: 0.18,
+    shadowOpacity: 1,
     shadowRadius: 0,
     shadowOffset: {
       width: 3,
@@ -259,78 +308,66 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   lessonCardDisabled: {
-    backgroundColor: '#F3F3F3',
-    opacity: 0.7,
+    opacity: 0.65,
   },
-  cardShell: {
-    position: 'relative',
+  lessonCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
   },
-  badgeWrap: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 1,
+  lessonCopy: {
+    flex: 1,
+    gap: theme.spacing.xs,
   },
-  comingSoonText: {
-    color: theme.colors.primary,
+  lessonLevel: {
+    color: theme.colors.mutedText,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
     fontWeight: theme.typography.weights.bold,
   },
-  levelText: {
-    color: theme.colors.mutedText,
-    letterSpacing: 0.8,
-    fontWeight: theme.typography.weights.semibold,
-    textTransform: 'uppercase',
-  },
-  cardTitle: {
-    minHeight: 52,
-    fontWeight: theme.typography.weights.semibold,
+  lessonTitle: {
+    color: theme.colors.text,
     fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.md,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
+  },
+  lessonFocusLabel: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  lessonDescription: {
+    color: theme.colors.mutedText,
+    lineHeight: 22,
   },
   lessonImage: {
-    height: 110,
-    width: '100%',
-    alignSelf: 'center',
-    marginVertical: theme.spacing.sm,
+    width: 116,
+    height: 116,
   },
-  focusLabel: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  description: {
-    color: theme.colors.text,
-    minHeight: 48,
-  },
-  noticeSection: {
+  membershipCard: {
     marginHorizontal: theme.spacing.md,
+    backgroundColor: '#FFFDF9',
   },
-  noticeHeading: {
+  membershipHeading: {
     textAlign: 'center',
-    fontWeight: theme.typography.weights.semibold,
     fontSize: theme.typography.sizes.lg,
+    fontWeight: theme.typography.weights.bold,
   },
-  noticeText: {
+  membershipText: {
     color: theme.colors.mutedText,
     textAlign: 'center',
-  },
-  featuresCard: {
-    marginHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-  featuresTitle: {
-    textAlign: 'center',
-    fontWeight: theme.typography.weights.semibold,
-    fontSize: theme.typography.sizes.lg,
+    lineHeight: 22,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: theme.spacing.sm,
   },
-  featureIcon: {
-    width: 20,
-    height: 20,
-    marginTop: 2,
+  featureDot: {
+    width: 10,
+    height: 10,
+    marginTop: 7,
+    borderRadius: 999,
+    backgroundColor: '#3CA0FE',
   },
   featureText: {
     flex: 1,

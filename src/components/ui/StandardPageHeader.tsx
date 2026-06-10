@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, TextStyle, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '@/src/theme/theme';
@@ -10,6 +10,7 @@ type StandardPageHeaderProps = {
   language: 'en' | 'th';
   title: string;
   subtitle?: string;
+  titleStyle?: StyleProp<TextStyle>;
   onBackPress?: (() => void) | undefined;
   backLabel?: string;
   rightActionLabel?: string;
@@ -20,6 +21,7 @@ type StandardPageHeaderProps = {
 export function StandardPageHeader({
   language,
   title,
+  titleStyle,
   onBackPress,
   backLabel,
   rightActionLabel,
@@ -53,7 +55,7 @@ export function StandardPageHeader({
         )}
       </View>
 
-      <AppText language={language} variant="title" numberOfLines={1} style={styles.title}>
+      <AppText language={language} variant="title" numberOfLines={1} style={[styles.title, titleStyle]}>
         {title}
       </AppText>
     </View>

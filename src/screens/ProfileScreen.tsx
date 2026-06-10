@@ -84,8 +84,9 @@ const getCopy = (uiLanguage: UiLanguage) => {
       back: 'ย้อนกลับ',
       edit: 'แก้ไข',
       cancel: 'ยกเลิก',
-      guestTitle: 'ยังไม่ได้เข้าสู่ระบบ',
-      guestBody: 'กลับไปที่หน้า Account เพื่อเข้าสู่ระบบหรือสมัครสมาชิกก่อน',
+      guestTitle: 'หากต้องการดูเนื้อหาในโปรไฟล์ โปรดสร้างบัญชีฟรี',
+      guestBody: 'บัญชีฟรีช่วยให้คุณบันทึกความคืบหน้าและจัดการข้อมูลส่วนตัวของคุณได้',
+      guestCta: 'สร้างบัญชีฟรี',
       editCardTitle: 'แก้ไขโปรไฟล์',
       usernameLabel: 'ชื่อผู้ใช้',
       usernamePlaceholder: 'ตั้งชื่อผู้ใช้',
@@ -107,8 +108,9 @@ const getCopy = (uiLanguage: UiLanguage) => {
     back: 'Back',
     edit: 'Edit',
     cancel: 'Cancel',
-    guestTitle: 'You are not signed in',
-    guestBody: 'Go back to Account to sign in or create an account first.',
+    guestTitle: 'To access profile content, make a free account.',
+    guestBody: 'A free account lets you save progress and manage your personal details.',
+    guestCta: 'Create free account',
     editCardTitle: 'Edit Profile',
       usernameLabel: 'First Name/Nickname',
     usernamePlaceholder: 'Choose a username',
@@ -128,7 +130,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
 export function ProfileScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership, profile, refreshProfile, signOut, user } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode, profile, refreshProfile, signOut, user } = useAppSession();
   const copy = getCopy(uiLanguage);
   const [isEditing, setIsEditing] = useState(false);
   const [draftUsername, setDraftUsername] = useState('');
@@ -216,14 +218,17 @@ export function ProfileScreen() {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
-          <Card padding="lg" radius="lg" style={styles.neoCard}>
-            <Stack gap="sm">
-              <AppText language={uiLanguage} variant="title" style={styles.title}>
+          <Card padding="lg" radius="lg" style={[styles.neoCard, styles.guestCard]}>
+            <Stack gap="md">
+              <AppText language={uiLanguage} variant="title" style={styles.guestTitle}>
                 {copy.guestTitle}
               </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
+              <AppText language={uiLanguage} variant="body" style={styles.guestBody}>
                 {copy.guestBody}
               </AppText>
+              {isGuestMode ? (
+                <Button language={uiLanguage} title={copy.guestCta} onPress={() => router.push('/(tabs)/account')} />
+              ) : null}
             </Stack>
           </Card>
         </ResponsivePageShell>
@@ -420,6 +425,11 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
   },
+  guestCard: {
+    maxWidth: 420,
+    width: '100%',
+    alignSelf: 'center',
+  },
   sectionTitle: {
     fontWeight: theme.typography.weights.semibold,
   },
@@ -428,6 +438,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: theme.colors.mutedText,
+  },
+  guestTitle: {
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+  guestBody: {
+    color: theme.colors.mutedText,
+    textAlign: 'center',
   },
   profileHeaderRow: {
     flexDirection: 'row',

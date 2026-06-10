@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -22,6 +23,8 @@ import { supabase } from '@/src/lib/supabase';
 WebBrowser.maybeCompleteAuthSession();
 
 const APP_BOOTSTRAP_LABEL = '[app-bootstrap]';
+const GUEST_MODE_STORAGE_KEY = 'pailin-abroad.guest-mode';
+const GUEST_REVENUECAT_USER_ID_STORAGE_KEY = 'pailin-abroad.guest-revenuecat-user-id';
 
 const getBootstrapStartedAt = () =>
   (globalThis as typeof globalThis & { __pailinAppBootstrapStartedAt?: number }).__pailinAppBootstrapStartedAt ?? null;
@@ -69,12 +72,15 @@ type AppSessionContextValue = {
   isLoading: boolean;
   authError: string | null;
   hasAccount: boolean;
+  isGuestMode: boolean;
   hasMembership: boolean;
   hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
   signUp: (params: { email: string; password: string }) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
   signInWithApple: () => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
+  continueAsGuest: () => Promise<void>;
+  exitGuestMode: () => Promise<void>;
   signOut: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
   refreshMembershipAccess: () => Promise<void>;
@@ -108,6 +114,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [revenueCatCustomerInfo, setRevenueCatCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isGuestMode, setIsGuestMode] = useState(false);
+  const [guestRevenueCatUserId, setGuestRevenueCatUserId] = useState<string | null>(null);
   const hasIgnoredInitialSession = useRef(false);
 
   const redirectTo = makeRedirectUri({
@@ -118,6 +126,58 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const logAuth = (...args: unknown[]) => {
     console.log('[auth]', ...args);
   };
+
+  const persistGuestMode = useCallback(async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        await AsyncStorage.setItem(GUEST_MODE_STORAGE_KEY, 'true');
+        return;
+      }
+
+      await AsyncStorage.removeItem(GUEST_MODE_STORAGE_KEY);
+    } catch (error) {
+      console.warn('[guest-mode] failed to persist state', error);
+    }
+  }, []);
+
+  const persistGuestRevenueCatUserId = useCallback(async (nextGuestUserId: string | null) => {
+    try {
+      if (nextGuestUserId) {
+        await AsyncStorage.setItem(GUEST_REVENUECAT_USER_ID_STORAGE_KEY, nextGuestUserId);
+        return;
+      }
+
+      await AsyncStorage.removeItem(GUEST_REVENUECAT_USER_ID_STORAGE_KEY);
+    } catch (error) {
+      console.warn('[guest-mode] failed to persist RevenueCat guest user id', error);
+    }
+  }, []);
+
+  const ensureGuestRevenueCatUserId = useCallback(async () => {
+    if (guestRevenueCatUserId) {
+      return guestRevenueCatUserId;
+    }
+
+    try {
+      const storedGuestUserId = await AsyncStorage.getItem(GUEST_REVENUECAT_USER_ID_STORAGE_KEY);
+      if (storedGuestUserId) {
+        setGuestRevenueCatUserId(storedGuestUserId);
+        return storedGuestUserId;
+      }
+    } catch (error) {
+      console.warn('[guest-mode] failed to read RevenueCat guest user id', error);
+    }
+
+    const nextGuestUserId = `guest:${Crypto.randomUUID()}`;
+    setGuestRevenueCatUserId(nextGuestUserId);
+    await persistGuestRevenueCatUserId(nextGuestUserId);
+    return nextGuestUserId;
+  }, [guestRevenueCatUserId, persistGuestRevenueCatUserId]);
+
+  const clearGuestRevenueCatUserId = useCallback(async () => {
+    setGuestRevenueCatUserId(null);
+    await persistGuestRevenueCatUserId(null);
+  }, [persistGuestRevenueCatUserId]);
 
   const fetchUsersRow = useCallback(async (userId: string) => {
     return supabase
@@ -362,7 +422,11 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setIsLoading(true);
 
       const getSessionStartedAt = Date.now();
-      const { data, error } = await supabase.auth.getSession();
+      const [{ data, error }, storedGuestMode, storedGuestRevenueCatUserId] = await Promise.all([
+        supabase.auth.getSession(),
+        AsyncStorage.getItem(GUEST_MODE_STORAGE_KEY).catch(() => null),
+        AsyncStorage.getItem(GUEST_REVENUECAT_USER_ID_STORAGE_KEY).catch(() => null),
+      ]);
       logAuth('hydrate:getSession', {
         hasSession: Boolean(data.session),
         userId: data.session?.user?.id ?? null,
@@ -384,6 +448,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
       const nextSession = data.session ?? null;
       setSession(nextSession);
+      setIsGuestMode(nextSession ? false : storedGuestMode === 'true');
+      setGuestRevenueCatUserId(nextSession ? null : storedGuestRevenueCatUserId);
       await fetchProfile(nextSession?.user ?? null);
       if (isMounted) {
         setIsLoading(false);
@@ -496,11 +562,17 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   useEffect(() => {
     logBootstrap('revenuecat sync started', {
-      userId: session?.user?.id ?? null,
+      userId: session?.user?.id ?? (isGuestMode ? guestRevenueCatUserId : null),
+      isGuestMode,
     });
     void (async () => {
       try {
-        await syncRevenueCatUser(session?.user?.id ?? null);
+        if (isGuestMode && !session?.user?.id) {
+          const nextGuestUserId = await ensureGuestRevenueCatUserId();
+          await syncRevenueCatUser(nextGuestUserId);
+        } else {
+          await syncRevenueCatUser(session?.user?.id ?? null);
+        }
         const customerInfo = await getRevenueCatCustomerInfo();
         setRevenueCatCustomerInfo(customerInfo);
       } catch (error) {
@@ -508,7 +580,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         setRevenueCatCustomerInfo(null);
       }
     })();
-  }, [session?.user?.id]);
+  }, [ensureGuestRevenueCatUserId, guestRevenueCatUserId, isGuestMode, session?.user?.id]);
 
   useEffect(() => {
     const handleCustomerInfoUpdated = (nextCustomerInfo: CustomerInfo) => {
@@ -534,6 +606,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     setAuthError(null);
+    setIsGuestMode(false);
+    await persistGuestMode(false);
+    await clearGuestRevenueCatUserId();
     return { error: null };
   };
 
@@ -549,6 +624,11 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     setAuthError(null);
+    setIsGuestMode(false);
+    await persistGuestMode(false);
+    if (data.session) {
+      await clearGuestRevenueCatUserId();
+    }
     return {
       error: null,
       needsEmailConfirmation: data.session === null,
@@ -611,6 +691,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       }
 
       setAuthError(null);
+      setIsGuestMode(false);
+      await persistGuestMode(false);
+      await clearGuestRevenueCatUserId();
       return { error: null };
     } catch (error) {
       if (
@@ -636,6 +719,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     setAuthError(null);
+    setIsGuestMode(false);
+    await persistGuestMode(false);
+    await clearGuestRevenueCatUserId();
     setProfile(null);
     return { error: null };
   };
@@ -675,6 +761,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       try {
         await createSessionFromUrl(result.url);
         setAuthError(null);
+        setIsGuestMode(false);
+        await persistGuestMode(false);
+        await clearGuestRevenueCatUserId();
         logAuth('google:success');
         return { error: null };
       } catch (sessionError) {
@@ -694,6 +783,19 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     logAuth('google:incomplete');
     setAuthError(message);
     return { error: message };
+  };
+
+  const continueAsGuest = async () => {
+    setAuthError(null);
+    await ensureGuestRevenueCatUserId();
+    setIsGuestMode(true);
+    await persistGuestMode(true);
+  };
+
+  const exitGuestMode = async () => {
+    setIsGuestMode(false);
+    await persistGuestMode(false);
+    await clearGuestRevenueCatUserId();
   };
 
   const refreshProfile = async () => {
@@ -719,12 +821,15 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     isLoading,
     authError,
     hasAccount,
+    isGuestMode,
     hasMembership,
     hasCompletedOnboarding,
     signIn,
     signUp,
     signInWithApple,
     signInWithGoogle,
+    continueAsGuest,
+    exitGuestMode,
     signOut,
     refreshProfile,
     refreshMembershipAccess,

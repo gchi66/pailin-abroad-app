@@ -23,6 +23,7 @@ type UiLanguage = 'en' | 'th';
 
 type PathwayCopy = {
   welcomeBack: string;
+  guestWelcome: string;
   freePlanBadge: string;
   paidBadge: string;
   upgrade: string;
@@ -47,12 +48,16 @@ type PathwayCopy = {
   noResumeLesson: string;
   noUpcomingLessons: string;
   freePlanBody: string;
+  guestOverlayTitle: string;
+  guestOverlayBody: string;
+  guestOverlayCta: string;
 };
 
 const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
   if (uiLanguage === 'th') {
     return {
       welcomeBack: 'ยินดีต้อนรับกลับมา',
+      guestWelcome: 'เส้นทางการเรียนของคุณ',
       freePlanBadge: 'แพ็กเกจฟรี',
       paidBadge: 'สมาชิก',
       upgrade: 'อัปเกรด',
@@ -78,11 +83,15 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
       noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
       noUpcomingLessons: 'ยังไม่มีบทเรียนถัดไปเพิ่มเติมในตอนนี้',
       freePlanBody: 'แพ็กเกจฟรียังเรียนบทแรกของแต่ละเลเวลได้ และอัปเกรดเมื่อพร้อมเพื่อปลดล็อกบทเรียนทั้งหมด',
+      guestOverlayTitle: 'หากต้องการดูเนื้อหาใน My Pathway โปรดสร้างบัญชีฟรี',
+      guestOverlayBody: 'บัญชีฟรีช่วยให้คุณบันทึกความคืบหน้า และปลดล็อกประสบการณ์การเรียนส่วนตัวของคุณ',
+      guestOverlayCta: 'สร้างบัญชีฟรี',
     };
   }
 
   return {
     welcomeBack: 'Welcome back',
+    guestWelcome: 'Your learning pathway',
     freePlanBadge: 'Free plan',
     paidBadge: 'Member',
     upgrade: 'Upgrade',
@@ -108,6 +117,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     noResumeLesson: 'There is no next lesson right now.',
     noUpcomingLessons: 'There are no more upcoming lessons right now.',
     freePlanBody: 'Your free plan still includes the first lesson of each level. Upgrade whenever you are ready for full pathway access.',
+    guestOverlayTitle: 'To view My Pathway content, make a free account.',
+    guestOverlayBody: 'A free account lets you save progress and unlock your personal pathway experience.',
+    guestOverlayCta: 'Create free account',
   };
 };
 
@@ -221,7 +233,7 @@ export function MyPathwayScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { uiLanguage, setUiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership, profile, user } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode, profile, user } = useAppSession();
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
   const copy = getCopy(uiLanguage);
@@ -243,13 +255,14 @@ export function MyPathwayScreen() {
   });
 
   const displayName =
+    (isGuestMode ? copy.guestWelcome : '') ||
     profile?.name?.trim() ||
     profile?.username?.trim() ||
     (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '') ||
     (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
     user?.email ||
     'Pailin Abroad';
-  const firstName = getFirstName(displayName);
+  const firstName = isGuestMode ? copy.guestWelcome : getFirstName(displayName);
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
 
@@ -309,12 +322,15 @@ export function MyPathwayScreen() {
         isTabletScreen ? styles.contentContainerTablet : null,
       ]}>
       <ResponsivePageShell>
+      <View style={styles.pageFrame}>
+        <View pointerEvents={isGuestMode ? 'none' : 'auto'}>
       <Stack
         gap="md"
         style={[
           styles.pageShell,
           isTabletScreen ? styles.pageShellTablet : null,
           isLargeTabletScreen ? styles.pageShellLargeTablet : null,
+          isGuestMode ? styles.pageShellGuest : null,
         ]}>
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
@@ -338,10 +354,10 @@ export function MyPathwayScreen() {
                     variant="title"
                     numberOfLines={1}
                     style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
-                    {copy.welcomeBack},
+                    {isGuestMode ? (uiLanguage === 'th' ? 'เส้นทางการเรียน' : 'My Pathway') : `${copy.welcomeBack},`}
                   </AppText>
                   <AppText language={uiLanguage} variant="title" style={styles.headerName}>
-                    {firstName}.
+                    {isGuestMode ? firstName : `${firstName}.`}
                   </AppText>
                 </View>
 
@@ -594,6 +610,29 @@ export function MyPathwayScreen() {
           </Stack>
         </Stack>
       </Stack>
+        </View>
+
+        {isGuestMode ? (
+          <View style={styles.guestOverlay}>
+            <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
+              <Stack gap="md">
+                <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
+                  {copy.guestOverlayTitle}
+                </AppText>
+                <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
+                  {copy.guestOverlayBody}
+                </AppText>
+                <Button
+                  language={uiLanguage}
+                  title={copy.guestOverlayCta}
+                  onPress={() => router.push('/(tabs)/account')}
+                  style={styles.guestOverlayButton}
+                />
+              </Stack>
+            </Card>
+          </View>
+        ) : null}
+      </View>
           </ResponsivePageShell>
     </ScrollView>
   );
@@ -622,6 +661,12 @@ const styles = StyleSheet.create({
   },
   pageShellLargeTablet: {
     maxWidth: 920,
+  },
+  pageFrame: {
+    position: 'relative',
+  },
+  pageShellGuest: {
+    opacity: 0.35,
   },
   headerBlock: {
     marginHorizontal: -theme.spacing.md,
@@ -979,5 +1024,38 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: theme.colors.mutedText,
+  },
+  guestOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  guestOverlayCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  guestOverlayTitle: {
+    textAlign: 'center',
+    fontWeight: theme.typography.weights.bold,
+    fontSize: theme.typography.sizes.lg,
+    lineHeight: 28,
+    color: theme.colors.text,
+  },
+  guestOverlayBody: {
+    textAlign: 'center',
+    color: theme.colors.mutedText,
+    lineHeight: 22,
+  },
+  guestOverlayButton: {
+    marginTop: theme.spacing.xs,
   },
 });

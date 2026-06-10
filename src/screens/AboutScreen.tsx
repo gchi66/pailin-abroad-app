@@ -259,6 +259,7 @@ export function AboutScreen() {
         <StandardPageHeader
           language={uiLanguage}
           title={copy.title}
+          titleStyle={styles.pageTitle}
           onBackPress={() => router.push('/(tabs)/account')}
           backLabel={copy.back}
           topInsetOffset={52}
@@ -365,6 +366,10 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
+  },
+  pageTitle: {
+    fontSize: 29,
+    lineHeight: 33,
   },
   sectionTabs: {
     flexDirection: 'row',

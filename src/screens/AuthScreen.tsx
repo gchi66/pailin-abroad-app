@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -28,10 +29,11 @@ import { theme } from '@/src/theme/theme';
 type AuthMode = 'signup' | 'signin';
 
 export function AuthScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const { authError, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
+  const { authError, continueAsGuest, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -69,6 +71,7 @@ export function AuthScreen() {
             footerSignupAction: 'เข้าสู่ระบบ',
             footerSigninPrefix: 'ยังไม่ได้เป็นสมาชิก? ',
             footerSigninAction: 'สมัครสมาชิก',
+            continueGuest: 'หรือเข้าใช้งานแบบผู้เยี่ยมชม',
             passwordMismatch: 'รหัสผ่านไม่ตรงกัน',
             passwordShort: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
             passwordRuleOne: 'อย่างน้อย 8 ตัวอักษร',
@@ -105,6 +108,7 @@ export function AuthScreen() {
             footerSignupAction: 'Log in',
             footerSigninPrefix: 'Not a member yet? ',
             footerSigninAction: 'Sign up',
+            continueGuest: 'Or continue as guest',
             passwordMismatch: 'Passwords do not match.',
             passwordShort: 'Password must be at least 8 characters.',
             passwordRuleOne: 'At least 8 characters',
@@ -229,6 +233,11 @@ export function AuthScreen() {
     } finally {
       setIsAppleSubmitting(false);
     }
+  };
+
+  const handleContinueAsGuest = async () => {
+    await continueAsGuest();
+    router.replace('/(tabs)');
   };
 
   const switchMode = (nextMode: AuthMode) => {
@@ -607,6 +616,20 @@ export function AuthScreen() {
                   <AppText language={uiLanguage} variant="caption" style={styles.footerAction}>
                     {mode === 'signup' ? copy.footerSignupAction : copy.footerSigninAction}
                   </AppText>
+                </AppText>
+              </Pressable>
+
+              <Pressable accessibilityRole="button" onPress={handleContinueAsGuest}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[
+                    styles.guestLinkText,
+                    isCompactScreen ? styles.footerTextCompact : null,
+                    isTabletScreen ? styles.footerTextTablet : null,
+                    isLargeTabletScreen ? styles.footerTextLargeTablet : null,
+                  ]}>
+                  {copy.continueGuest}
                 </AppText>
               </Pressable>
 
@@ -1238,6 +1261,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     borderBottomWidth: 1,
     borderBottomColor: '#FF4545',
+  },
+  guestLinkText: {
+    textAlign: 'center',
+    color: '#7A8998',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   termsText: {
     textAlign: 'center',

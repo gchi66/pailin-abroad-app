@@ -43,7 +43,7 @@ function AppRouteGate() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useGlobalSearchParams<{ devtools?: string }>();
-  const { hasAccount, hasCompletedOnboarding, isLoading } = useAppSession();
+  const { hasAccount, hasCompletedOnboarding, isGuestMode, isLoading } = useAppSession();
 
   const isOnOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
   const isOnboardingDevtoolsMode = isOnOnboardingRoute && params.devtools === '1';
@@ -53,11 +53,12 @@ function AppRouteGate() {
   useEffect(() => {
     logBootstrap('route gate ready', {
       hasAccount,
+      isGuestMode,
       hasCompletedOnboarding,
       isLoading,
       pathname,
     });
-  }, [hasAccount, hasCompletedOnboarding, isLoading, pathname]);
+  }, [hasAccount, hasCompletedOnboarding, isGuestMode, isLoading, pathname]);
 
   useEffect(() => {
     if (isLoading || !hasAccount) {

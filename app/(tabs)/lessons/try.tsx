@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { TryLessonsScreen } from '@/src/screens/TryLessonsScreen';
+import { GuestLessonsHubScreen } from '@/src/screens/GuestLessonsHubScreen';
 
 export default function TryLessonsTabRoute() {
-  return <TryLessonsScreen />;
+  return <GuestLessonsHubScreen />;
 }
