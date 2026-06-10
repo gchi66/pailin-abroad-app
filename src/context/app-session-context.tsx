@@ -9,15 +9,17 @@ import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
-import { UserProfile, fetchUserProfile } from '@/src/api/user';
+import { UserProfile, fetchUserProfile, syncAppStoreMembership } from '@/src/api/user';
 import {
   addRevenueCatCustomerInfoUpdateListener,
   getRevenueCatCustomerInfo,
   hasRevenueCatFullAccess,
   invalidateRevenueCatCustomerInfoCache,
   removeRevenueCatCustomerInfoUpdateListener,
+  syncRevenueCatPurchases,
   syncRevenueCatUser,
 } from '@/src/lib/revenuecat';
+import { clearResolvedLessonCache } from '@/src/api/lessons';
 import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -73,6 +75,7 @@ type AppSessionContextValue = {
   authError: string | null;
   hasAccount: boolean;
   isGuestMode: boolean;
+  isGuestConversionPending: boolean;
   hasMembership: boolean;
   hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
@@ -116,7 +119,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [guestRevenueCatUserId, setGuestRevenueCatUserId] = useState<string | null>(null);
+  const [isGuestConversionPending, setIsGuestConversionPending] = useState(false);
   const hasIgnoredInitialSession = useRef(false);
+  const guestConversionPendingRef = useRef(false);
 
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',
@@ -413,6 +418,35 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
   }, [buildMinimalProfile, enrichProfile, fetchUsersRow]);
 
+  const syncMembershipForAuthenticatedUser = useCallback(async (source: string) => {
+    try {
+      const response = await syncAppStoreMembership(source);
+      logAuth('membership:sync:success', {
+        source,
+        hasAccess: response.has_access,
+        subscriptionStatus: response.subscription_status,
+        billingProvider: response.billing_provider,
+      });
+      return response;
+    } catch (error) {
+      logAuth('membership:sync:error', {
+        source,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }, []);
+
+  const finalizeGuestConversion = useCallback(async () => {
+    guestConversionPendingRef.current = false;
+    setIsGuestConversionPending(false);
+    setIsGuestMode(false);
+    await persistGuestMode(false);
+    await clearGuestRevenueCatUserId();
+  }, [clearGuestRevenueCatUserId, persistGuestMode]);
+
+  const delay = useCallback((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)), []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -527,6 +561,44 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setSession(nextSession);
       setIsLoading(true);
       void (async () => {
+        const shouldSyncMembership =
+          Boolean(nextSession?.user?.id) &&
+          (event === 'SIGNED_IN' || event === 'USER_UPDATED');
+        const isGuestConversion =
+          Boolean(nextSession?.user?.id) &&
+          (guestConversionPendingRef.current || (isGuestMode && Boolean(guestRevenueCatUserId)));
+
+        if (shouldSyncMembership) {
+          await syncRevenueCatUser(nextSession?.user?.id ?? null);
+          let syncedMembership = null;
+          let latestCustomerInfo: CustomerInfo | null = null;
+
+          for (let attempt = 0; attempt < (isGuestConversion ? 3 : 1); attempt += 1) {
+            if (isGuestConversion) {
+              latestCustomerInfo = await syncRevenueCatPurchases();
+            }
+
+            await invalidateRevenueCatCustomerInfoCache();
+            latestCustomerInfo = (await getRevenueCatCustomerInfo()) ?? latestCustomerInfo;
+            setRevenueCatCustomerInfo(latestCustomerInfo);
+            syncedMembership = await syncMembershipForAuthenticatedUser(`auth_state:${event.toLowerCase()}`);
+
+            const hasLocalAccess = hasRevenueCatFullAccess(latestCustomerInfo);
+            const hasBackendAccess = syncedMembership?.has_access === true;
+            if (hasLocalAccess || hasBackendAccess) {
+              break;
+            }
+
+            if (isGuestConversion && attempt < 2) {
+              await delay(1200);
+            }
+          }
+        }
+
+        if (isGuestConversion) {
+          await finalizeGuestConversion();
+        }
+
         await fetchProfile(nextSession?.user ?? null);
         if (isMounted) {
           setIsLoading(false);
@@ -558,7 +630,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       authListener.subscription.unsubscribe();
       linkingSubscription.remove();
     };
-  }, [createSessionFromUrl, fetchProfile]);
+  }, [createSessionFromUrl, delay, fetchProfile, finalizeGuestConversion, guestRevenueCatUserId, isGuestMode, syncMembershipForAuthenticatedUser]);
 
   useEffect(() => {
     logBootstrap('revenuecat sync started', {
@@ -595,6 +667,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, []);
 
   const signIn = async ({ email, password }: { email: string; password: string }) => {
+    guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+    setIsGuestConversionPending(guestConversionPendingRef.current);
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -606,13 +680,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     setAuthError(null);
-    setIsGuestMode(false);
-    await persistGuestMode(false);
-    await clearGuestRevenueCatUserId();
     return { error: null };
   };
 
   const signUp = async ({ email, password }: { email: string; password: string }) => {
+    guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+    setIsGuestConversionPending(guestConversionPendingRef.current);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
@@ -624,11 +697,6 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     setAuthError(null);
-    setIsGuestMode(false);
-    await persistGuestMode(false);
-    if (data.session) {
-      await clearGuestRevenueCatUserId();
-    }
     return {
       error: null,
       needsEmailConfirmation: data.session === null,
@@ -637,6 +705,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const signInWithApple = async () => {
     try {
+      guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+      setIsGuestConversionPending(guestConversionPendingRef.current);
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
         const message = 'Sign in with Apple is not available on this device.';
@@ -691,9 +761,6 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       }
 
       setAuthError(null);
-      setIsGuestMode(false);
-      await persistGuestMode(false);
-      await clearGuestRevenueCatUserId();
       return { error: null };
     } catch (error) {
       if (
@@ -712,6 +779,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const signOut = async () => {
+    guestConversionPendingRef.current = false;
+    setIsGuestConversionPending(false);
     const { error } = await supabase.auth.signOut();
     if (error) {
       setAuthError(error.message);
@@ -727,6 +796,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const signInWithGoogle = async () => {
+    guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+    setIsGuestConversionPending(guestConversionPendingRef.current);
     logAuth('google:start', { redirectTo });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -761,9 +832,6 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       try {
         await createSessionFromUrl(result.url);
         setAuthError(null);
-        setIsGuestMode(false);
-        await persistGuestMode(false);
-        await clearGuestRevenueCatUserId();
         logAuth('google:success');
         return { error: null };
       } catch (sessionError) {
@@ -787,12 +855,15 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const continueAsGuest = async () => {
     setAuthError(null);
+    setIsGuestConversionPending(false);
     await ensureGuestRevenueCatUserId();
     setIsGuestMode(true);
     await persistGuestMode(true);
   };
 
   const exitGuestMode = async () => {
+    guestConversionPendingRef.current = false;
+    setIsGuestConversionPending(false);
     setIsGuestMode(false);
     await persistGuestMode(false);
     await clearGuestRevenueCatUserId();
@@ -806,6 +877,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     await invalidateRevenueCatCustomerInfoCache();
     const customerInfo = await getRevenueCatCustomerInfo();
     setRevenueCatCustomerInfo(customerInfo);
+    clearResolvedLessonCache();
     await fetchProfile(session?.user ?? null, { background: true, waitForEnrichment: true });
   };
 
@@ -822,6 +894,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     authError,
     hasAccount,
     isGuestMode,
+    isGuestConversionPending,
     hasMembership,
     hasCompletedOnboarding,
     signIn,

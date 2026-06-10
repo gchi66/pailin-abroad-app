@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { env } from '../config/env';
 import { supabase } from '../lib/supabase';
 import { supabaseSelect } from '../lib/supabase-rest';
@@ -17,6 +19,8 @@ const lessonsIndexCache = new Map<string, { payload: LessonListItem[]; timestamp
 const inflightLessonsIndexRequests = new Map<string, Promise<LessonListItem[]>>();
 const resolvedLessonCache = new Map<string, { payload: ResolvedLessonPayload; timestamp: number }>();
 const inflightResolvedLessonRequests = new Map<string, Promise<ResolvedLessonPayload>>();
+const GUEST_MODE_STORAGE_KEY = 'pailin-abroad.guest-mode';
+const GUEST_REVENUECAT_USER_ID_STORAGE_KEY = 'pailin-abroad.guest-revenuecat-user-id';
 const TRY_LESSON_IDS = new Set([
   'a34f5a4b-0729-430e-9b92-900dcad2f977',
   '5f9d09b4-ed35-40ac-b89f-50dbd7e96c0c',
@@ -95,6 +99,20 @@ async function getLessonAuthHeaders() {
 
   if (currentSession?.access_token) {
     headers.Authorization = `Bearer ${currentSession.access_token}`;
+    return headers;
+  }
+
+  try {
+    const [storedGuestMode, guestRevenueCatUserId] = await Promise.all([
+      AsyncStorage.getItem(GUEST_MODE_STORAGE_KEY),
+      AsyncStorage.getItem(GUEST_REVENUECAT_USER_ID_STORAGE_KEY),
+    ]);
+
+    if (storedGuestMode === 'true' && guestRevenueCatUserId?.trim()) {
+      headers['X-Guest-RevenueCat-User-Id'] = guestRevenueCatUserId.trim();
+    }
+  } catch {
+    // Ignore guest header lookup failures and fall back to unauthenticated access.
   }
 
   return headers;
@@ -257,6 +275,11 @@ export async function fetchResolvedLesson(
 
 export function prefetchResolvedLesson(lessonId: string, lang: 'en' | 'th') {
   void fetchResolvedLesson(lessonId, lang).catch(() => undefined);
+}
+
+export function clearResolvedLessonCache() {
+  resolvedLessonCache.clear();
+  inflightResolvedLessonRequests.clear();
 }
 
 export function prefetchLessonsIndex() {

@@ -525,7 +525,7 @@ export function OnboardingScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { markOnboardingComplete } = useOnboarding();
-  const { isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
+  const { hasMembership, isGuestConversionPending, isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
 
   const copy = getCopy(uiLanguage);
   const scrollRef = useRef<ScrollView | null>(null);
@@ -537,9 +537,19 @@ export function OnboardingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const authProvider = typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null;
   const skipPasswordStep = Boolean(authProvider && authProvider !== 'email');
+  const skipBenefitsStep = hasMembership || isGuestConversionPending;
   const visibleStepIds = useMemo<StepId[]>(
-    () => (skipPasswordStep ? STEP_IDS.filter((stepId): stepId is Exclude<StepId, 1> => stepId !== 1) : [...STEP_IDS]),
-    [skipPasswordStep]
+    () =>
+      STEP_IDS.filter((stepId) => {
+        if (skipPasswordStep && stepId === 1) {
+          return false;
+        }
+        if (skipBenefitsStep && stepId === 3) {
+          return false;
+        }
+        return true;
+      }) as StepId[],
+    [skipBenefitsStep, skipPasswordStep]
   );
   const currentStepIndex = Math.max(0, visibleStepIds.indexOf(currentStep));
 
@@ -584,6 +594,12 @@ export function OnboardingScreen() {
       setCurrentStep(2);
     }
   }, [currentStep, skipPasswordStep]);
+
+  useEffect(() => {
+    if (skipBenefitsStep && currentStep === 3) {
+      setCurrentStep(4);
+    }
+  }, [currentStep, skipBenefitsStep]);
 
   const goToStep = useCallback(
     (nextStep: StepId) => {
@@ -649,13 +665,13 @@ export function OnboardingScreen() {
         avatarImage: selectedAvatarPath,
       });
       await refreshProfile();
-      goToStep(3);
+      goToStep(skipBenefitsStep ? 4 : 3);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to update profile.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [copy.profileAvatarError, copy.profileNameError, goToStep, refreshProfile, selectedAvatarPath, username]);
+  }, [copy.profileAvatarError, copy.profileNameError, goToStep, refreshProfile, selectedAvatarPath, skipBenefitsStep, username]);
 
   const handleFinishOnboarding = useCallback(async () => {
     setErrorMessage('');
@@ -711,89 +727,96 @@ export function OnboardingScreen() {
     }
   }, [currentStep, currentStepIndex, goToStep, handleCompleteProfile, handleFinishOnboarding, handleSetPassword, skipPasswordStep, visibleStepIds]);
 
-  const steps = useMemo(
-    () => [
-      <WelcomeStep
-        key="welcome"
-        copy={copy}
-        uiLanguage={uiLanguage}
-        cardWidth={shellInnerWidth}
-        compact={compact}
-        veryCompact={veryCompact}
-      />,
-      ...(skipPasswordStep
-        ? []
-        : [
-            <PasswordStep
-              key="password"
-              copy={copy}
-              uiLanguage={uiLanguage}
-              cardWidth={shellInnerWidth}
-              compact={compact}
-              veryCompact={veryCompact}
-              passwords={passwords}
-              onPasswordChange={handlePasswordChange}
-              errorMessage={currentStep === 1 ? errorMessage : ''}
-              meetsLength={meetsLength}
-              meetsNumberOrSymbol={meetsNumberOrSymbol}
-              meetsUppercase={meetsUppercase}
-            />,
-          ]),
-      <ProfileStep
-        key="profile"
-        copy={copy}
-        uiLanguage={uiLanguage}
-        cardWidth={shellInnerWidth}
-        compact={compact}
-        veryCompact={veryCompact}
-        username={username}
-        selectedAvatarPath={selectedAvatarPath}
-        onUsernameChange={setUsername}
-        onAvatarSelect={setSelectedAvatarPath}
-        errorMessage={currentStep === 2 ? errorMessage : ''}
-      />,
-      <BenefitsStep
-        key="benefits"
-        copy={copy}
-        uiLanguage={uiLanguage}
-        cardWidth={shellInnerWidth}
-        compact={compact}
-        veryCompact={veryCompact}
-        onContinueFree={() => goToStep(4)}
-        onUpgrade={() => {
-          prefetchPricing();
-          router.push('/(tabs)/account/membership');
-        }}
-      />,
-      <ConfirmationStep
-        key="confirmation"
-        copy={copy}
-        uiLanguage={uiLanguage}
-        cardWidth={shellInnerWidth}
-        compact={compact}
-        veryCompact={veryCompact}
-      />,
-    ],
-    [
-      compact,
-      copy,
-      currentStep,
-      errorMessage,
-      handlePasswordChange,
-      meetsLength,
-      meetsNumberOrSymbol,
-      meetsUppercase,
-      passwords,
-      router,
-      selectedAvatarPath,
-      shellInnerWidth,
-      skipPasswordStep,
-      uiLanguage,
-      username,
-      veryCompact,
-      goToStep,
-    ]
-  );
+  const steps = useMemo(() => {
+    const stepMap: Record<StepId, React.ReactNode> = {
+      0: (
+        <WelcomeStep
+          key="welcome"
+          copy={copy}
+          uiLanguage={uiLanguage}
+          cardWidth={shellInnerWidth}
+          compact={compact}
+          veryCompact={veryCompact}
+        />
+      ),
+      1: (
+        <PasswordStep
+          key="password"
+          copy={copy}
+          uiLanguage={uiLanguage}
+          cardWidth={shellInnerWidth}
+          compact={compact}
+          veryCompact={veryCompact}
+          passwords={passwords}
+          onPasswordChange={handlePasswordChange}
+          errorMessage={currentStep === 1 ? errorMessage : ''}
+          meetsLength={meetsLength}
+          meetsNumberOrSymbol={meetsNumberOrSymbol}
+          meetsUppercase={meetsUppercase}
+        />
+      ),
+      2: (
+        <ProfileStep
+          key="profile"
+          copy={copy}
+          uiLanguage={uiLanguage}
+          cardWidth={shellInnerWidth}
+          compact={compact}
+          veryCompact={veryCompact}
+          username={username}
+          selectedAvatarPath={selectedAvatarPath}
+          onUsernameChange={setUsername}
+          onAvatarSelect={setSelectedAvatarPath}
+          errorMessage={currentStep === 2 ? errorMessage : ''}
+        />
+      ),
+      3: (
+        <BenefitsStep
+          key="benefits"
+          copy={copy}
+          uiLanguage={uiLanguage}
+          cardWidth={shellInnerWidth}
+          compact={compact}
+          veryCompact={veryCompact}
+          onContinueFree={() => goToStep(4)}
+          onUpgrade={() => {
+            prefetchPricing();
+            router.push('/(tabs)/account/membership');
+          }}
+        />
+      ),
+      4: (
+        <ConfirmationStep
+          key="confirmation"
+          copy={copy}
+          uiLanguage={uiLanguage}
+          cardWidth={shellInnerWidth}
+          compact={compact}
+          veryCompact={veryCompact}
+        />
+      ),
+    };
+
+    return visibleStepIds.map((stepId) => stepMap[stepId]);
+  }, [
+    compact,
+    copy,
+    currentStep,
+    errorMessage,
+    handlePasswordChange,
+    meetsLength,
+    meetsNumberOrSymbol,
+    meetsUppercase,
+    passwords,
+    router,
+    selectedAvatarPath,
+    shellInnerWidth,
+    uiLanguage,
+    username,
+    veryCompact,
+    visibleStepIds,
+    goToStep,
+  ]);
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextIndex = Math.round(event.nativeEvent.contentOffset.x / shellInnerWidth);

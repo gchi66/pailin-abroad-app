@@ -196,6 +196,18 @@ type DeleteAccountResponse = {
   message?: string;
 };
 
+export type AppStoreMembershipSyncResponse = {
+  success: boolean;
+  user_id: string;
+  has_access: boolean;
+  subscription_status: string | null;
+  billing_provider: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  cancel_at: string | null;
+  message?: string;
+};
+
 export type BillingPaymentMethod = {
   id: string;
   brand: string;
@@ -258,6 +270,13 @@ export async function deleteUserAccount() {
   }
 
   return json as DeleteAccountResponse;
+}
+
+export async function syncAppStoreMembership(source?: string) {
+  return fetchAuthedJson<AppStoreMembershipSyncResponse>('/api/sync-app-store-membership', {
+    method: 'POST',
+    body: source ? { source } : {},
+  });
 }
 
 export async function upsertLessonCompletion(params: { lessonId: string; completed: boolean }) {

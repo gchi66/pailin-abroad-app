@@ -429,7 +429,7 @@ export function SettingsScreen() {
               Alert.alert(copy.successTitle, result.message ?? copy.deleteSuccess, [
                 {
                   text: 'OK',
-                  onPress: () => router.replace('/(tabs)/account'),
+                  onPress: () => router.replace('/account/auth'),
                 },
               ]);
             } catch (error) {

@@ -99,6 +99,16 @@ export async function invalidateRevenueCatCustomerInfoCache() {
   await Purchases.invalidateCustomerInfoCache();
 }
 
+export async function syncRevenueCatPurchases() {
+  const isReady = await initializeRevenueCat();
+  if (!isReady) {
+    return null;
+  }
+
+  const result = await Purchases.syncPurchasesForResult();
+  return result.customerInfo;
+}
+
 export function addRevenueCatCustomerInfoUpdateListener(listener: CustomerInfoUpdateListener) {
   Purchases.addCustomerInfoUpdateListener(listener);
 }
