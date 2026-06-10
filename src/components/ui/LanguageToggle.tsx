@@ -50,5 +50,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 15,
     includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: 1 }],
   },
 });

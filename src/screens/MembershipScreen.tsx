@@ -271,6 +271,26 @@ type MembershipPlanCardProps = {
   showInlineJoinButton?: boolean;
 };
 
+const getPlanPaymentLabel = (uiLanguage: UiLanguage, cardId: string) => {
+  if (uiLanguage === 'th') {
+    if (cardId === '6-month') {
+      return 'จ่ายทุก 6 เดือน';
+    }
+    if (cardId === '3-month') {
+      return 'จ่ายทุก 3 เดือน';
+    }
+    return 'จ่ายรายเดือน';
+  }
+
+  if (cardId === '6-month') {
+    return 'PAY EVERY 6 MONTHS';
+  }
+  if (cardId === '3-month') {
+    return 'PAY EVERY 3 MONTHS';
+  }
+  return 'PAY MONTHLY';
+};
+
 function MembershipPlanCard({
   card,
   uiLanguage,
@@ -281,7 +301,7 @@ function MembershipPlanCard({
   joinLabel,
   showInlineJoinButton = true,
 }: MembershipPlanCardProps) {
-  const payMonthlyLabel = uiLanguage === 'th' ? 'จ่ายรายเดือน' : 'PAY MONTHLY';
+  const paymentLabel = getPlanPaymentLabel(uiLanguage, card.id);
 
   if (card.isLifetime) {
     return (
@@ -390,7 +410,7 @@ function MembershipPlanCard({
                 <View />
               )}
               <AppText language={uiLanguage} variant="caption" style={styles.planPaymentLabel}>
-                {payMonthlyLabel}
+                {paymentLabel}
               </AppText>
             </View>
 
@@ -455,6 +475,7 @@ export function MembershipScreen() {
   const { uiLanguage } = useUiLanguage();
   const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
+  const isNativeApp = Platform.OS !== 'web';
   const [selectedPlanId, setSelectedPlanId] = useState<string>('lifetime');
   const [showPlanWarning, setShowPlanWarning] = useState(false);
   const [pricingState, setPricingState] = useState<PricingState>(INITIAL_PRICING_STATE);
@@ -703,6 +724,8 @@ export function MembershipScreen() {
     return <PageLoadingState language={uiLanguage} errorTitle={copy.loadingErrorTitle} errorBody={copy.loadingErrorBody} />;
   }
 
+  const visibleFeatures = isNativeApp ? copy.features.slice(0, -1) : copy.features;
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -805,7 +828,7 @@ export function MembershipScreen() {
               {copy.featuresTitle}
             </AppText>
             <Stack gap="sm">
-              {copy.features.map((feature) => (
+              {visibleFeatures.map((feature) => (
                 <View key={feature} style={styles.featureRow}>
                   <View style={styles.featureIcon}>
                     <View style={styles.featureIconInner} />
@@ -955,6 +978,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#9D9D9D',
     paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xs,
     shadowColor: '#9D9D9D',
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.35,
@@ -1020,8 +1044,8 @@ const styles = StyleSheet.create({
   paymentLabel: {
     color: '#676C74',
     textAlign: 'right',
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
   },
@@ -1108,12 +1132,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xl,
     backgroundColor: '#3CA0FE',
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: 6,
     marginTop: theme.spacing.sm,
   },
   bestValueText: {
     color: theme.colors.surface,
     fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   followupTextBlock: {
     gap: 2,
@@ -1124,6 +1150,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#1E1E1E',
     fontWeight: theme.typography.weights.semibold,
+    fontSize: 15,
+    lineHeight: 20,
   },
   planCardShell: {
     gap: theme.spacing.sm,
@@ -1151,10 +1179,11 @@ const styles = StyleSheet.create({
   planPaymentLabel: {
     color: '#676C74',
     textAlign: 'right',
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 10,
+    lineHeight: 13,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
+    maxWidth: 118,
   },
   planHeaderRow: {
     paddingTop: theme.spacing.sm,
@@ -1273,9 +1302,13 @@ const styles = StyleSheet.create({
   guaranteeText: {
     textAlign: 'center',
     color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 20,
   },
   guaranteeStrong: {
     fontWeight: theme.typography.weights.bold,
+    fontSize: 15,
+    lineHeight: 20,
   },
   featuresCard: {
     backgroundColor: '#FFFDF9',

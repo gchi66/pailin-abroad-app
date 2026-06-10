@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { theme } from '@/src/theme/theme';
 import { ExerciseBankExercise } from '@/src/types/exercise-bank';
@@ -76,6 +77,7 @@ type PagerCopy = {
   backToBank: string;
   checkAnswers: string;
   checking: string;
+  tryAgain: string;
   reset: string;
   answerAll: string;
   correct: string;
@@ -110,6 +112,7 @@ const getCopy = (language: UiLanguage): PagerCopy => {
       backToBank: 'กลับไปคลังแบบฝึกหัด',
       checkAnswers: 'ตรวจคำตอบ',
       checking: 'กำลังตรวจ...',
+      tryAgain: 'ลองอีกครั้ง',
       reset: 'เริ่มใหม่',
       answerAll: 'กรุณาตอบให้ครบก่อนตรวจคำตอบ',
       correct: 'ถูกต้อง',
@@ -136,6 +139,7 @@ const getCopy = (language: UiLanguage): PagerCopy => {
     backToBank: 'Back to exercise bank',
     checkAnswers: 'Check answers',
     checking: 'Checking...',
+    tryAgain: 'Try again',
     reset: 'Reset',
     answerAll: 'Please answer every item before checking.',
     correct: 'Correct',
@@ -440,9 +444,27 @@ const normalizeExercises = (exercises: ExerciseBankExercise[], contentLang: Cont
     .filter((exercise) => exercise.kind !== null || exerciseHasVisibleContent(exercise));
 
 const normalizeAnswerText = (value: string) => value.replace(/\s+/g, ' ').trim();
+const normalizeAnswerTextLoose = (value: string) => normalizeAnswerText(value).toLowerCase();
 
 const getItemStateKey = (exerciseId: string, itemKey: string) => `${exerciseId}:${itemKey}`;
 const getBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
+
+const areSelectionsCorrect = (selected: string[], answers: string[]) => {
+  const selectedSet = new Set(selected.map(normalizeOptionLetter));
+  const answerSet = new Set(answers.map(normalizeOptionLetter));
+  if (selectedSet.size !== answerSet.size) {
+    return false;
+  }
+  return Array.from(answerSet).every((answer) => selectedSet.has(answer));
+};
+
+const isBlankAnswerCorrect = (answer: string, acceptedAnswers: string[]) => {
+  const normalizedAnswer = normalizeAnswerTextLoose(answer);
+  if (!normalizedAnswer) {
+    return false;
+  }
+  return acceptedAnswers.some((accepted) => normalizeAnswerTextLoose(accepted) === normalizedAnswer);
+};
 
 const segmentPracticeTextWithBlanks = (text: string) => {
   const tokens: ({ type: 'text'; text: string } | { type: 'blank'; length: number } | { type: 'line_break' })[] = [];
@@ -652,8 +674,6 @@ export function ExerciseBankPager({
 
   const activeExercise = normalizedExercises[activeIndex] ?? null;
   const isLastExercise = activeIndex >= normalizedExercises.length - 1;
-  const contentToggleLabel = contentLang === 'th' ? 'Switch exercise text to English' : 'Switch exercise text to Thai';
-  const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
 
   useEffect(() => {
     contentScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -731,18 +751,6 @@ export function ExerciseBankPager({
 
     setExerciseErrors((previous) => ({ ...previous, [exercise.id]: '' }));
     setCheckedExercises((previous) => ({ ...previous, [exercise.id]: true }));
-  };
-
-  const handleResetMultipleChoice = (exercise: NormalizedExercise) => {
-    setMultipleChoiceSelections((previous) => {
-      const next = { ...previous };
-      exercise.items.forEach((item) => {
-        delete next[getItemStateKey(exercise.id, item.key)];
-      });
-      return next;
-    });
-    setCheckedExercises((previous) => ({ ...previous, [exercise.id]: false }));
-    setExerciseErrors((previous) => ({ ...previous, [exercise.id]: '' }));
   };
 
   const handleOpenAnswerChange = (exerciseId: string, itemKey: string, value: string) => {
@@ -845,27 +853,33 @@ export function ExerciseBankPager({
   };
 
   const handleCheckOpenExercise = async (exercise: NormalizedExercise) => {
-    const attemptedItems = exercise.items.filter((item) => {
+    const missingAnswer = exercise.items.some((item) => {
       if (item.isExample) {
         return false;
       }
+
       if (exercise.kind === 'fill_blank') {
-        return item.blanks.some((blank) => Boolean(normalizeAnswerText(blankAnswers[getBlankKey(exercise.id, item.key, blank.id)] ?? '')));
+        return item.blanks.some((blank) => !normalizeAnswerText(blankAnswers[getBlankKey(exercise.id, item.key, blank.id)] ?? ''));
       }
+
       const answerKey = getItemStateKey(exercise.id, item.key);
       const markState = markedCorrect[answerKey];
       if (exercise.kind === 'sentence_transform' && markState === true) {
-        return true;
+        return false;
       }
-      return Boolean(normalizeAnswerText(openAnswers[answerKey] ?? ''));
+
+      return !normalizeAnswerText(openAnswers[answerKey] ?? '');
     });
+
+    if (missingAnswer) {
+      setExerciseErrors((previous) => ({ ...previous, [exercise.id]: copy.answerAll }));
+      return;
+    }
+
+    const attemptedItems = exercise.items.filter((item) => !item.isExample);
 
     setExerciseErrors((previous) => ({ ...previous, [exercise.id]: '' }));
     setCheckedExercises((previous) => ({ ...previous, [exercise.id]: true }));
-
-    if (attemptedItems.length === 0) {
-      return;
-    }
 
     await Promise.all(
       attemptedItems.map(async (item) => {
@@ -889,6 +903,135 @@ export function ExerciseBankPager({
         });
       })
     );
+  };
+
+  const isActiveExerciseChecking = useMemo(() => {
+    if (!activeExercise) {
+      return false;
+    }
+
+    return activeExercise.items.some((item) => {
+      const evaluation = evaluations[getItemStateKey(activeExercise.id, item.key)];
+      return Boolean(evaluation?.loading);
+    });
+  }, [activeExercise, evaluations]);
+
+  const isActiveExerciseChecked = activeExercise ? Boolean(checkedExercises[activeExercise.id]) : false;
+
+  const isActiveExerciseFullyCorrect = useMemo(() => {
+    if (!activeExercise || !isActiveExerciseChecked) {
+      return false;
+    }
+
+    if (activeExercise.kind === 'multiple_choice') {
+      return activeExercise.items.every((item) => {
+        if (item.isExample) {
+          return true;
+        }
+        const selectionKey = getItemStateKey(activeExercise.id, item.key);
+        return areSelectionsCorrect(multipleChoiceSelections[selectionKey] ?? [], item.answerLetters);
+      });
+    }
+
+    if (activeExercise.kind === 'fill_blank' || activeExercise.kind === 'open' || activeExercise.kind === 'sentence_transform') {
+      return activeExercise.items.every((item) => {
+        if (item.isExample) {
+          return true;
+        }
+        return evaluations[getItemStateKey(activeExercise.id, item.key)]?.correct === true;
+      });
+    }
+
+    return true;
+  }, [activeExercise, evaluations, isActiveExerciseChecked, multipleChoiceSelections]);
+
+  const handleRetryExercise = () => {
+    if (!activeExercise) {
+      return;
+    }
+
+    setExerciseErrors((previous) => ({ ...previous, [activeExercise.id]: '' }));
+    setCheckedExercises((previous) => ({ ...previous, [activeExercise.id]: false }));
+
+    if (activeExercise.kind === 'multiple_choice') {
+      setMultipleChoiceSelections((previous) => {
+        const next = { ...previous };
+        activeExercise.items.forEach((item) => {
+          if (item.isExample) {
+            return;
+          }
+          const selectionKey = getItemStateKey(activeExercise.id, item.key);
+          const selections = previous[selectionKey] ?? [];
+          if (!areSelectionsCorrect(selections, item.answerLetters)) {
+            next[selectionKey] = [];
+          }
+        });
+        return next;
+      });
+      return;
+    }
+
+    if (activeExercise.kind === 'fill_blank') {
+      setBlankAnswers((previous) => {
+        const next = { ...previous };
+        activeExercise.items.forEach((item) => {
+          if (item.isExample) {
+            return;
+          }
+          item.blanks.forEach((blank, blankIndex) => {
+            const blankKey = getBlankKey(activeExercise.id, item.key, blank.id);
+            const currentAnswer = previous[blankKey] ?? '';
+            const acceptedAnswers = item.answersV2[blankIndex] ?? [];
+            if (!isBlankAnswerCorrect(currentAnswer, acceptedAnswers)) {
+              next[blankKey] = '';
+            }
+          });
+        });
+        return next;
+      });
+    } else {
+      setOpenAnswers((previous) => {
+        const next = { ...previous };
+        activeExercise.items.forEach((item) => {
+          if (item.isExample) {
+            return;
+          }
+          const itemKey = getItemStateKey(activeExercise.id, item.key);
+          if (evaluations[itemKey]?.correct !== true) {
+            next[itemKey] = '';
+          }
+        });
+        return next;
+      });
+    }
+
+    setMarkedCorrect((previous) => {
+      const next = { ...previous };
+      activeExercise.items.forEach((item) => {
+        if (item.isExample) {
+          return;
+        }
+        const itemKey = getItemStateKey(activeExercise.id, item.key);
+        if (evaluations[itemKey]?.correct !== true) {
+          next[itemKey] = null;
+        }
+      });
+      return next;
+    });
+
+    setEvaluations((previous) => {
+      const next = { ...previous };
+      activeExercise.items.forEach((item) => {
+        if (item.isExample) {
+          return;
+        }
+        const itemKey = getItemStateKey(activeExercise.id, item.key);
+        if (previous[itemKey]?.correct !== true) {
+          delete next[itemKey];
+        }
+      });
+      return next;
+    });
   };
 
   if (!activeExercise) {
@@ -916,17 +1059,7 @@ export function ExerciseBankPager({
           </AppText>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={contentToggleLabel}
-          onPress={() => onSetContentLang(contentLang === 'en' ? 'th' : 'en')}
-          style={styles.translatePill}>
-          <View style={styles.translatePillLabel}>
-            <AppText language="en" variant="caption" style={styles.translatePillText}>
-              {contentToggleText}
-            </AppText>
-          </View>
-        </Pressable>
+        <LanguageToggle style={styles.translatePill} />
       </View>
 
       <View style={styles.headerBlock}>
@@ -985,30 +1118,76 @@ export function ExerciseBankPager({
               exerciseErrors,
               markedCorrect,
               onChoice: handleChoice,
-              onCheckMultipleChoice: handleCheckMultipleChoice,
-              onResetMultipleChoice: handleResetMultipleChoice,
               onOpenAnswerChange: handleOpenAnswerChange,
               onBlankAnswerChange: handleBlankAnswerChange,
               onSentenceCorrectToggle: handleSentenceCorrectToggle,
-              onCheckOpenExercise: handleCheckOpenExercise,
             })}
           </Stack>
         </ScrollView>
       </View>
 
       <View style={styles.footer}>
-        <Button
-          language={language}
-          title={isLastExercise ? copy.backToBank : copy.nextExercise}
-          onPress={() => {
-            if (isLastExercise) {
-              onDone();
-              return;
-            }
-            setActiveIndex((previous) => Math.min(previous + 1, normalizedExercises.length - 1));
-          }}
-          style={styles.footerButton}
-        />
+        {!isActiveExerciseChecked ? (
+          <Button
+            language={language}
+            title={isActiveExerciseChecking ? copy.checking : copy.checkAnswers}
+            onPress={() => {
+              if (!activeExercise || isActiveExerciseChecking) {
+                return;
+              }
+
+              if (activeExercise.kind === 'multiple_choice') {
+                handleCheckMultipleChoice(activeExercise);
+                return;
+              }
+
+              if (
+                activeExercise.kind === 'open' ||
+                activeExercise.kind === 'fill_blank' ||
+                activeExercise.kind === 'sentence_transform'
+              ) {
+                void handleCheckOpenExercise(activeExercise);
+                return;
+              }
+            }}
+            style={styles.footerButtonPrimary}
+          />
+        ) : isActiveExerciseFullyCorrect ? (
+          <Button
+            language={language}
+            title={isLastExercise ? copy.backToBank : copy.nextExercise}
+            onPress={() => {
+              if (isLastExercise) {
+                onDone();
+                return;
+              }
+              setActiveIndex((previous) => Math.min(previous + 1, normalizedExercises.length - 1));
+            }}
+            style={styles.footerButtonPrimary}
+          />
+        ) : (
+          <View style={styles.footerSplitRow}>
+            <Button
+              language={language}
+              title={copy.tryAgain}
+              variant="outline"
+              onPress={handleRetryExercise}
+              style={[styles.footerButtonSplit, styles.footerButtonSecondary]}
+            />
+            <Button
+              language={language}
+              title={isLastExercise ? copy.backToBank : copy.nextExercise}
+              onPress={() => {
+                if (isLastExercise) {
+                  onDone();
+                  return;
+                }
+                setActiveIndex((previous) => Math.min(previous + 1, normalizedExercises.length - 1));
+              }}
+              style={[styles.footerButtonSplit, styles.footerButtonNext]}
+            />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -1038,12 +1217,9 @@ function renderExerciseBody(params: {
   exerciseErrors: Record<string, string>;
   markedCorrect: Record<string, boolean | null>;
   onChoice: (exerciseId: string, itemKey: string, optionLabel: string, isMulti: boolean) => void;
-  onCheckMultipleChoice: (exercise: NormalizedExercise) => void;
-  onResetMultipleChoice: (exercise: NormalizedExercise) => void;
   onOpenAnswerChange: (exerciseId: string, itemKey: string, value: string) => void;
   onBlankAnswerChange: (exerciseId: string, itemKey: string, blankId: string, value: string) => void;
   onSentenceCorrectToggle: (exerciseId: string, itemKey: string, isCorrect: boolean, sourceText: string) => void;
-  onCheckOpenExercise: (exercise: NormalizedExercise) => Promise<void>;
 }) {
   const {
     copy,
@@ -1058,12 +1234,9 @@ function renderExerciseBody(params: {
     exerciseErrors,
     markedCorrect,
     onChoice,
-    onCheckMultipleChoice,
-    onResetMultipleChoice,
     onOpenAnswerChange,
     onBlankAnswerChange,
     onSentenceCorrectToggle,
-    onCheckOpenExercise,
   } = params;
 
   const isChecked = Boolean(checkedExercises[exercise.id]);
@@ -1161,18 +1334,6 @@ function renderExerciseBody(params: {
           </AppText>
         ) : null}
 
-        <View style={styles.actionRow}>
-          <Button language={language} title={copy.checkAnswers} onPress={() => onCheckMultipleChoice(exercise)} style={styles.actionButton} />
-          {isChecked ? (
-            <Button
-              language={language}
-              title={copy.reset}
-              variant="outline"
-              onPress={() => onResetMultipleChoice(exercise)}
-              style={styles.actionButton}
-            />
-          ) : null}
-        </View>
       </Stack>
     );
   }
@@ -1266,7 +1427,12 @@ function renderExerciseBody(params: {
                     : item.placeholder || (contentLang === 'th' ? item.placeholderTh : item.placeholder) || copy.openPlaceholder
                 }
                 placeholderTextColor="#9C9EA4"
-                style={[styles.openInput, openInputStyle, item.isExample ? styles.exampleInput : null, markState === true ? styles.openInputDisabled : null]}
+                style={[
+                  styles.openInput,
+                  openInputStyle,
+                  item.isExample ? styles.exampleInput : null,
+                  markState === true || evaluation?.correct === true ? styles.openInputDisabled : null,
+                ]}
                 textAlignVertical="top"
                 value={item.isExample ? item.answer || item.text : answerValue}
                 onChangeText={(value) => onOpenAnswerChange(exercise.id, item.key, value)}
@@ -1281,7 +1447,7 @@ function renderExerciseBody(params: {
               {evaluation ? (
                 <View style={styles.feedbackBox}>
                   <AppText language={language} variant="body" style={styles.feedbackHeadline}>
-                    {evaluation.correct ? copy.correct : copy.needsWork}
+                    {evaluation.loading ? copy.checking : evaluation.correct ? copy.correct : copy.needsWork}
                   </AppText>
                   {(contentLang === 'th' ? evaluation.feedbackTh || evaluation.feedbackEn : evaluation.feedbackEn || evaluation.feedbackTh) ? (
                     <AppText language={contentLang} variant="muted" style={styles.feedbackBody}>
@@ -1305,14 +1471,6 @@ function renderExerciseBody(params: {
           </AppText>
         ) : null}
 
-        <Button
-          language={language}
-          title={Object.values(evaluations).some((state) => state.loading) ? copy.checking : copy.checkAnswers}
-          onPress={() => {
-            void onCheckOpenExercise(exercise);
-          }}
-          style={styles.singleActionButton}
-        />
       </Stack>
     );
   }
@@ -1384,7 +1542,7 @@ function renderExerciseBody(params: {
                         isExample={item.isExample}
                         exampleAnswer={item.answer}
                         blankAnswers={blankAnswers}
-                        editable={!evaluation?.loading}
+                        editable={!evaluation?.loading && evaluation?.correct !== true}
                         onBlankAnswerChange={onBlankAnswerChange}
                       />
                     ))}
@@ -1401,7 +1559,7 @@ function renderExerciseBody(params: {
               {!item.isExample && evaluation ? (
                 <View style={styles.feedbackBox}>
                   <AppText language={language} variant="body" style={styles.feedbackHeadline}>
-                    {evaluation.correct ? copy.correct : copy.needsWork}
+                    {evaluation.loading ? copy.checking : evaluation.correct ? copy.correct : copy.needsWork}
                   </AppText>
                   {(contentLang === 'th' ? evaluation.feedbackTh || evaluation.feedbackEn : evaluation.feedbackEn || evaluation.feedbackTh) ? (
                     <AppText language={contentLang} variant="muted" style={styles.feedbackBody}>
@@ -1425,14 +1583,6 @@ function renderExerciseBody(params: {
           </AppText>
         ) : null}
 
-        <Button
-          language={language}
-          title={Object.values(evaluations).some((state) => state.loading) ? copy.checking : copy.checkAnswers}
-          onPress={() => {
-            void onCheckOpenExercise(exercise);
-          }}
-          style={styles.singleActionButton}
-        />
       </Stack>
     );
   }
@@ -1507,31 +1657,8 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   translatePill: {
-    minWidth: 58,
+    minWidth: 78,
     minHeight: 38,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  translatePillLabel: {
-    minWidth: 24,
-    minHeight: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ translateY: 1 }],
-  },
-  translatePillText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 14,
-    fontWeight: theme.typography.weights.semibold,
-    includeFontPadding: false,
-    textAlign: 'center',
   },
   headerBlock: {
     marginBottom: theme.spacing.sm,
@@ -1551,6 +1678,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.warningSurface,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   categoryChipText: {
     color: theme.colors.text,
@@ -1575,8 +1704,8 @@ const styles = StyleSheet.create({
   },
   exerciseTitle: {
     color: theme.colors.text,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 21,
+    lineHeight: 25,
     fontWeight: theme.typography.weights.bold,
   },
   exercisePrompt: {
@@ -1742,16 +1871,6 @@ const styles = StyleSheet.create({
   inlineError: {
     color: theme.colors.primary,
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  singleActionButton: {
-    width: '100%',
-  },
   openInput: {
     minHeight: 84,
     borderWidth: 1,
@@ -1870,10 +1989,25 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.sm,
     backgroundColor: theme.colors.background,
   },
-  footerButton: {
+  footerSplitRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  footerButtonPrimary: {
     width: '100%',
-    backgroundColor: '#91CAFF',
+    minHeight: 54,
     borderColor: theme.colors.border,
+  },
+  footerButtonSplit: {
+    flex: 1,
+    minHeight: 54,
+    borderColor: theme.colors.border,
+  },
+  footerButtonSecondary: {
+    backgroundColor: theme.colors.surface,
+  },
+  footerButtonNext: {
+    backgroundColor: '#91CAFF',
   },
   emptyWrap: {
     flex: 1,

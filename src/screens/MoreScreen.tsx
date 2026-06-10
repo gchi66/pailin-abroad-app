@@ -55,7 +55,7 @@ export function MoreScreen() {
   const copy =
     uiLanguage === 'th'
       ? {
-          membershipTitle: 'Membership',
+          membershipTitle: 'สมาชิก',
           membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
           actions: [
             { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },

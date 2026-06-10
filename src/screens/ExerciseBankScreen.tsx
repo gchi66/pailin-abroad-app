@@ -8,6 +8,7 @@ import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -33,6 +34,36 @@ const CATEGORY_ORDER_INDEX = CATEGORY_ORDER.reduce<Record<string, number>>((acc,
   acc[slug] = index;
   return acc;
 }, {});
+
+const CATEGORY_LABELS: Record<string, { en: string; th: string }> = {
+  'verbs-and-tenses': { en: 'Verbs & Tenses', th: 'คำกริยา & รูปกาลกริยา' },
+  'nouns-and-articles': { en: 'Nouns & Articles', th: 'คำนาม & คำนำหน้านาม' },
+  pronouns: { en: 'Pronouns', th: 'คำสรรพนาม' },
+  adjectives: { en: 'Adjectives', th: 'คำคุณศัพท์' },
+  conjunctions: { en: 'Conjunctions', th: 'คำเชื่อม' },
+  prepositions: { en: 'Prepositions', th: 'คำบุพบท' },
+  'other-concepts': { en: 'Other Concepts', th: 'แนวคิดการเรียนอื่นๆ' },
+};
+
+const getCategoryLabel = ({
+  category,
+  categoryLabel,
+  categorySlug,
+  uiLanguage,
+}: {
+  category?: string | null;
+  categoryLabel?: string | null;
+  categorySlug?: string | null;
+  uiLanguage: UiLanguage;
+}) => {
+  const normalizedSlug = categorySlug?.trim() ?? '';
+  const mappedLabel = CATEGORY_LABELS[normalizedSlug];
+  if (mappedLabel) {
+    return uiLanguage === 'th' ? mappedLabel.th : mappedLabel.en;
+  }
+
+  return categoryLabel?.trim() || category?.trim() || '';
+};
 
 type Copy = {
   title: string;
@@ -136,7 +167,7 @@ export function ExerciseBankScreen() {
         setFeatured(featuredResponse);
       } catch (error) {
         if (isMounted) {
-          setErrorMessage(error instanceof Error ? error.message : copy.loadingFallback);
+          setErrorMessage(error instanceof Error ? error.message : 'Failed to load the exercise bank.');
         }
       } finally {
         if (isMounted) {
@@ -150,15 +181,29 @@ export function ExerciseBankScreen() {
     return () => {
       isMounted = false;
     };
-  }, [copy.loadingFallback]);
+  }, []);
 
   const visibleCategoryOptions = useMemo(() => {
     const normalized = categories
       .filter((category) => typeof category.category_slug === 'string' && category.category_slug.trim())
       .map((category) => ({
         slug: category.category_slug?.trim() ?? '',
-        label: category.category_label?.trim() || category.category?.trim() || '',
-      }));
+        label: getCategoryLabel({
+          category: category.category,
+          categoryLabel: category.category_label,
+          categorySlug: category.category_slug,
+          uiLanguage,
+        }),
+      }))
+      .sort((a, b) => {
+        const orderA = CATEGORY_ORDER_INDEX[a.slug] ?? Number.MAX_SAFE_INTEGER;
+        const orderB = CATEGORY_ORDER_INDEX[b.slug] ?? Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return a.label.localeCompare(b.label, uiLanguage === 'th' ? 'th' : 'en');
+      });
 
     return [{ slug: 'all', label: uiLanguage === 'th' ? 'ทั้งหมด' : 'All' }, ...normalized];
   }, [categories, uiLanguage]);
@@ -258,6 +303,7 @@ export function ExerciseBankScreen() {
           title={copy.title}
           onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
           backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
+          rightElement={<LanguageToggle style={styles.headerLanguageToggle} />}
         />
 
         <View style={styles.contentWrap}>
@@ -393,7 +439,12 @@ export function ExerciseBankScreen() {
                               <View style={styles.sectionChipRow}>
                                 <View style={styles.sectionChip}>
                                   <AppText language={uiLanguage} variant="caption" style={styles.sectionChipText}>
-                                    {section.category_label || section.category || ''}
+                                    {getCategoryLabel({
+                                      category: section.category,
+                                      categoryLabel: section.category_label,
+                                      categorySlug: section.category_slug,
+                                      uiLanguage,
+                                    })}
                                   </AppText>
                                 </View>
                                 {filterMode === 'featured' ? (
@@ -450,6 +501,10 @@ const styles = StyleSheet.create({
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
+  },
+  headerLanguageToggle: {
+    minWidth: 78,
+    minHeight: 38,
   },
   noticeCard: {
     backgroundColor: '#FFF4E8',

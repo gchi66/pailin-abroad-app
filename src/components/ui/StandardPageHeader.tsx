@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, TextStyle, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ type StandardPageHeaderProps = {
   backLabel?: string;
   rightActionLabel?: string;
   onRightActionPress?: (() => void) | undefined;
+  rightElement?: ReactNode;
   topInsetOffset?: number;
 };
 
@@ -26,6 +27,7 @@ export function StandardPageHeader({
   backLabel,
   rightActionLabel,
   onRightActionPress,
+  rightElement,
   topInsetOffset = 42,
 }: StandardPageHeaderProps) {
   const insets = useSafeAreaInsets();
@@ -44,7 +46,9 @@ export function StandardPageHeader({
           <View style={styles.actionSpacer} />
         )}
 
-        {rightActionLabel && onRightActionPress ? (
+        {rightElement ? (
+          <View style={styles.rightElementWrap}>{rightElement}</View>
+        ) : rightActionLabel && onRightActionPress ? (
           <Pressable accessibilityRole="button" style={styles.rightActionButton} onPress={onRightActionPress}>
             <AppText language={language} variant="caption" style={styles.actionText}>
               {rightActionLabel}
@@ -84,9 +88,15 @@ const styles = StyleSheet.create({
     minHeight: 28,
     alignItems: 'flex-start',
     justifyContent: 'center',
+    paddingLeft: theme.spacing.xs,
   },
   rightActionButton: {
     minWidth: 56,
+    minHeight: 28,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  rightElementWrap: {
     minHeight: 28,
     alignItems: 'flex-end',
     justifyContent: 'center',

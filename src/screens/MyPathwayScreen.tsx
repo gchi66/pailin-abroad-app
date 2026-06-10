@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   pageShellGuest: {
-    opacity: 0.35,
+    opacity: 0.22,
   },
   headerBlock: {
     marginHorizontal: -theme.spacing.md,
@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 28,
     lineHeight: 34,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.semibold,
   },
   statLabelGroup: {
     gap: 0,
@@ -1030,11 +1030,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255, 253, 249, 0.4)',
   },
   guestOverlayCard: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#FFF4E8',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     shadowColor: theme.colors.shadow,
@@ -1044,18 +1045,28 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   guestOverlayTitle: {
-    textAlign: 'center',
+    textAlign: 'left',
     fontWeight: theme.typography.weights.bold,
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: 28,
+    fontSize: 24,
+    lineHeight: 30,
     color: theme.colors.text,
   },
   guestOverlayBody: {
-    textAlign: 'center',
+    textAlign: 'left',
     color: theme.colors.mutedText,
     lineHeight: 22,
   },
   guestOverlayButton: {
     marginTop: theme.spacing.xs,
+    minHeight: 56,
+    borderWidth: 1.5,
+    borderRadius: 999,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
 });

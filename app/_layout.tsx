@@ -46,9 +46,14 @@ function AppRouteGate() {
   const { hasAccount, hasCompletedOnboarding, isGuestMode, isLoading } = useAppSession();
 
   const isOnOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
+  const isOnAuthRoute = pathname === '/account/auth';
+  const isOnProtectedAccountRoute = pathname === '/account' || (pathname.startsWith('/account/') && pathname !== '/account/auth');
   const isOnboardingDevtoolsMode = isOnOnboardingRoute && params.devtools === '1';
   const shouldRedirectToOnboarding = !isLoading && hasAccount && !hasCompletedOnboarding && !isOnOnboardingRoute;
   const shouldRedirectToApp = !isLoading && hasAccount && hasCompletedOnboarding && isOnOnboardingRoute && !isOnboardingDevtoolsMode;
+  const shouldRedirectAuthenticatedAuthRoute = !isLoading && hasAccount && isOnAuthRoute;
+  const shouldRedirectSignedOutUser =
+    !isLoading && !hasAccount && !isGuestMode && (isOnProtectedAccountRoute || isOnOnboardingRoute);
 
   useEffect(() => {
     logBootstrap('route gate ready', {
@@ -61,7 +66,17 @@ function AppRouteGate() {
   }, [hasAccount, hasCompletedOnboarding, isGuestMode, isLoading, pathname]);
 
   useEffect(() => {
-    if (isLoading || !hasAccount) {
+    if (isLoading) {
+      return;
+    }
+
+    if (shouldRedirectSignedOutUser) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    if (shouldRedirectAuthenticatedAuthRoute) {
+      router.replace(hasCompletedOnboarding ? '/(tabs)' : '/onboarding');
       return;
     }
 
@@ -73,9 +88,19 @@ function AppRouteGate() {
     if (shouldRedirectToApp) {
       router.replace('/(tabs)');
     }
-  }, [hasAccount, isLoading, router, shouldRedirectToApp, shouldRedirectToOnboarding]);
+  }, [
+    hasAccount,
+    hasCompletedOnboarding,
+    isGuestMode,
+    isLoading,
+    router,
+    shouldRedirectAuthenticatedAuthRoute,
+    shouldRedirectSignedOutUser,
+    shouldRedirectToApp,
+    shouldRedirectToOnboarding,
+  ]);
 
-  if (shouldRedirectToOnboarding || shouldRedirectToApp) {
+  if (shouldRedirectSignedOutUser || shouldRedirectAuthenticatedAuthRoute || shouldRedirectToOnboarding || shouldRedirectToApp) {
     return (
       <View pointerEvents="none" style={styles.routeGateOverlay}>
         <PageLoadingState animate={false} showImage={false} />

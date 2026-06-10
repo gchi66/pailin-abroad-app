@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -29,7 +29,6 @@ const labels: Record<UiLanguage, { home: string; pathway: string; lessons: strin
 };
 
 export default function TabLayout() {
-  const router = useRouter();
   useColorScheme();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
@@ -44,6 +43,7 @@ export default function TabLayout() {
       tabBarInactiveTintColor: theme.colors.mutedText,
       headerShown: false,
       tabBarButton: HapticTab,
+      tabBarItemStyle: styles.tabBarItem,
       sceneStyle: !hasAccount && !isGuestMode ? styles.sceneFullscreen : styles.scene,
       tabBarStyle: !hasAccount && !isGuestMode ? styles.tabBarHidden : styles.tabBar,
       tabBarLabelStyle: [styles.tabBarLabel, uiLanguage === 'th' ? styles.tabBarLabelThai : styles.tabBarLabelEnglish],
@@ -55,6 +55,7 @@ export default function TabLayout() {
       styles.sceneFullscreen,
       styles.tabBar,
       styles.tabBarHidden,
+      styles.tabBarItem,
       styles.tabBarLabel,
       styles.tabBarLabelEnglish,
       styles.tabBarLabelThai,
@@ -86,24 +87,12 @@ export default function TabLayout() {
           title: text.resources,
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="square.grid.2x2.fill" color={color} />,
         }}
-        listeners={{
-          tabPress: (event) => {
-            event.preventDefault();
-            router.push('/(tabs)/resources');
-          },
-        }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: text.more,
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="ellipsis.circle.fill" color={color} />,
-        }}
-        listeners={{
-          tabPress: (event) => {
-            event.preventDefault();
-            router.push('/(tabs)/account');
-          },
         }}
       />
       <Tabs.Screen
@@ -142,9 +131,16 @@ const createStyles = (insetTop: number, insetBottom: number) =>
     tabBarHidden: {
       display: 'none',
     },
+    tabBarItem: {
+      flex: 1,
+      maxWidth: '25%',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     tabBarLabel: {
       fontSize: 11,
       fontWeight: theme.typography.weights.semibold,
+      textAlign: 'center',
     },
     tabBarLabelEnglish: {
       fontFamily: theme.typography.fontFaces.en.semibold,

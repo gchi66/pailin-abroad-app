@@ -229,7 +229,13 @@ export function ProfileScreen() {
                     {copy.guestBody}
                   </AppText>
                   {isGuestMode ? (
-                    <Button language={uiLanguage} title={copy.guestCta} onPress={() => router.push('/account/auth')} />
+                    <Button
+                      language={uiLanguage}
+                      title={copy.guestCta}
+                      onPress={() => router.push('/account/auth')}
+                      style={styles.guestButton}
+                      textStyle={styles.guestButtonText}
+                    />
                   ) : null}
                 </Stack>
               </Card>
@@ -367,7 +373,7 @@ export function ProfileScreen() {
                 return;
               }
               Alert.alert(copy.signOut, copy.signOutSuccess);
-              router.replace('/(tabs)/account');
+              router.replace('/(tabs)');
             });
           }}>
           <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
@@ -433,6 +439,14 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
+    backgroundColor: '#FFF4E8',
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   sectionTitle: {
     fontWeight: theme.typography.weights.semibold,
@@ -445,11 +459,30 @@ const styles = StyleSheet.create({
   },
   guestTitle: {
     color: theme.colors.text,
-    textAlign: 'center',
+    textAlign: 'left',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: theme.typography.weights.bold,
   },
   guestBody: {
     color: theme.colors.mutedText,
-    textAlign: 'center',
+    textAlign: 'left',
+    lineHeight: 22,
+  },
+  guestButton: {
+    minHeight: 56,
+    borderWidth: 1.5,
+    borderRadius: 999,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  guestButtonText: {
+    fontWeight: theme.typography.weights.bold,
   },
   profileHeaderRow: {
     flexDirection: 'row',

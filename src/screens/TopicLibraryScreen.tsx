@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Animated, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
@@ -8,6 +8,7 @@ import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -125,6 +126,30 @@ const formatTopicTitle = (title = '') => {
     .join(' ');
 };
 
+function TopicCardSkeleton({ pulse }: { pulse: Animated.Value }) {
+  return (
+    <Animated.View style={{ opacity: pulse }}>
+      <Card padding="lg" radius="lg" style={styles.topicCard}>
+        <View style={styles.topicRow}>
+          <View style={styles.topicCopy}>
+            <View style={[styles.skeletonLine, styles.skeletonTitleLine]} />
+            <View style={[styles.skeletonLine, styles.skeletonBodyLine]} />
+            <View style={[styles.skeletonLine, styles.skeletonBodyLineShort]} />
+            <View style={styles.skeletonTagRow}>
+              <View style={[styles.skeletonChip, styles.skeletonChipWide]} />
+              <View style={styles.skeletonChip} />
+            </View>
+          </View>
+
+          <View style={styles.topicAside}>
+            <View style={styles.skeletonArrow} />
+          </View>
+        </View>
+      </Card>
+    </Animated.View>
+  );
+}
+
 export function TopicLibraryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
@@ -135,15 +160,44 @@ export function TopicLibraryScreen() {
   const copy = getCopy(uiLanguage);
   const [topics, setTopics] = useState<TopicLibraryTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshingTopics, setIsRefreshingTopics] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>('featured');
   const [searchTerm, setSearchTerm] = useState('');
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.45,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => {
+      animation.stop();
+    };
+  }, [pulseAnim]);
 
   useEffect(() => {
     let isMounted = true;
 
     const run = async () => {
-      setIsLoading(true);
+      const shouldShowLoadingState = topics.length === 0;
+      if (shouldShowLoadingState) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshingTopics(true);
+      }
       setErrorMessage(null);
       try {
         const rows = await fetchTopicLibraryTopics({ language: uiLanguage });
@@ -157,6 +211,7 @@ export function TopicLibraryScreen() {
       } finally {
         if (isMounted) {
           setIsLoading(false);
+          setIsRefreshingTopics(false);
         }
       }
     };
@@ -166,7 +221,7 @@ export function TopicLibraryScreen() {
     return () => {
       isMounted = false;
     };
-  }, [copy.loadingErrorFallback, uiLanguage]);
+  }, [copy.loadingErrorFallback, topics.length, uiLanguage]);
 
   const visibleTopics = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -184,7 +239,7 @@ export function TopicLibraryScreen() {
       });
   }, [filterMode, searchTerm, topics]);
 
-  if (isLoading) {
+  if (isLoading && topics.length === 0) {
     return <PageLoadingState language={uiLanguage} />;
   }
 
@@ -220,6 +275,7 @@ export function TopicLibraryScreen() {
           title={copy.title}
           onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
           backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
+          rightElement={<LanguageToggle style={styles.headerLanguageToggle} />}
         />
 
         <View style={styles.contentWrap}>
@@ -308,83 +364,87 @@ export function TopicLibraryScreen() {
               </Card>
             ) : null}
 
-            {!errorMessage ? (
-              <Stack gap="sm">
-                {visibleTopics.length > 0 ? (
-                  visibleTopics.map((topic) => {
-                    const isLocked = !hasMembership && !topic.is_featured;
-                    return (
-                      <Pressable
-                        key={topic.id}
-                        accessibilityRole="button"
-                        style={styles.topicPressable}
-                        onPress={() => handleTopicPress(topic)}>
-                        <Card
-                          padding="lg"
-                          radius="lg"
-                          style={[
-                            styles.topicCard,
-                            isLocked ? styles.topicCardLocked : null,
-                            isLocked ? styles.topicCardLockedAccent : null,
-                          ]}>
-                          <View style={styles.topicRow}>
-                            <View style={styles.topicCopy}>
-                              <AppText language={uiLanguage} variant="body" style={styles.topicTitle}>
-                                {formatTopicTitle(topic.name) || copy.untitledTopic}
+            <Stack gap="sm">
+              {isRefreshingTopics ? (
+                <>
+                  <TopicCardSkeleton pulse={pulseAnim} />
+                  <TopicCardSkeleton pulse={pulseAnim} />
+                  <TopicCardSkeleton pulse={pulseAnim} />
+                </>
+              ) : visibleTopics.length > 0 ? (
+                visibleTopics.map((topic) => {
+                  const isLocked = !hasMembership && !topic.is_featured;
+                  return (
+                    <Pressable
+                      key={topic.id}
+                      accessibilityRole="button"
+                      style={styles.topicPressable}
+                      onPress={() => handleTopicPress(topic)}>
+                      <Card
+                        padding="lg"
+                        radius="lg"
+                        style={[
+                          styles.topicCard,
+                          isLocked ? styles.topicCardLocked : null,
+                          isLocked ? styles.topicCardLockedAccent : null,
+                        ]}>
+                        <View style={styles.topicRow}>
+                          <View style={styles.topicCopy}>
+                            <AppText language={uiLanguage} variant="body" style={styles.topicTitle}>
+                              {formatTopicTitle(topic.name) || copy.untitledTopic}
+                            </AppText>
+                            {topic.subtitle ? (
+                              <AppText language={uiLanguage} variant="muted" style={styles.topicSubtitle}>
+                                {topic.subtitle}
                               </AppText>
-                              {topic.subtitle ? (
-                                <AppText language={uiLanguage} variant="muted" style={styles.topicSubtitle}>
-                                  {topic.subtitle}
-                                </AppText>
-                              ) : null}
-                              {topic.tags.length > 0 ? (
-                                <View style={styles.tagRow}>
-                                  {topic.tags.map((tag) => (
-                                    <View key={`${topic.id}-${tag}`} style={styles.tagChip}>
-                                      <AppText language={uiLanguage} variant="caption" style={styles.tagText}>
-                                        {tag}
-                                      </AppText>
-                                    </View>
-                                  ))}
-                                </View>
-                              ) : null}
-                            </View>
-
-                            <View style={styles.topicAside}>
-                              {isLocked ? (
-                                <View style={styles.lockBadge}>
-                                  <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" />
-                                </View>
-                              ) : null}
-                              <AppText language="en" variant="body" style={styles.topicArrow}>
-                                ▸
-                              </AppText>
-                            </View>
+                            ) : null}
+                            {topic.tags.length > 0 ? (
+                              <View style={styles.tagRow}>
+                                {topic.tags.map((tag) => (
+                                  <View key={`${topic.id}-${tag}`} style={styles.tagChip}>
+                                    <AppText language={uiLanguage} variant="caption" style={styles.tagText}>
+                                      {tag}
+                                    </AppText>
+                                  </View>
+                                ))}
+                              </View>
+                            ) : null}
                           </View>
 
-                          {isLocked ? (
-                            <AppText language={uiLanguage} variant="muted" style={styles.lockedBody}>
-                              {copy.lockedBody}
+                          <View style={styles.topicAside}>
+                            {isLocked ? (
+                              <View style={styles.lockBadge}>
+                                <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" />
+                              </View>
+                            ) : null}
+                            <AppText language="en" variant="body" style={styles.topicArrow}>
+                              ▸
                             </AppText>
-                          ) : null}
-                        </Card>
-                      </Pressable>
-                    );
-                  })
-                ) : (
-                  <Card padding="lg" radius="lg" style={styles.emptyCard}>
-                    <Stack gap="xs">
-                      <AppText language={uiLanguage} variant="body" style={styles.emptyTitle}>
-                        {copy.emptyTitle}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="muted" style={styles.emptyBody}>
-                        {copy.emptyBody}
-                      </AppText>
-                    </Stack>
-                  </Card>
-                )}
-              </Stack>
-            ) : null}
+                          </View>
+                        </View>
+
+                        {isLocked ? (
+                          <AppText language={uiLanguage} variant="muted" style={styles.lockedBody}>
+                            {copy.lockedBody}
+                          </AppText>
+                        ) : null}
+                      </Card>
+                    </Pressable>
+                  );
+                })
+              ) : !errorMessage ? (
+                <Card padding="lg" radius="lg" style={styles.emptyCard}>
+                  <Stack gap="xs">
+                    <AppText language={uiLanguage} variant="body" style={styles.emptyTitle}>
+                      {copy.emptyTitle}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.emptyBody}>
+                      {copy.emptyBody}
+                    </AppText>
+                  </Stack>
+                </Card>
+              ) : null}
+            </Stack>
           </Stack>
         </View>
       </Stack>
@@ -403,6 +463,10 @@ const styles = StyleSheet.create({
   },
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
+  },
+  headerLanguageToggle: {
+    minWidth: 78,
+    minHeight: 38,
   },
   noticeCard: {
     backgroundColor: '#FFF4E8',
@@ -594,6 +658,45 @@ const styles = StyleSheet.create({
   topicArrow: {
     fontSize: 24,
     lineHeight: 28,
+  },
+  skeletonLine: {
+    borderRadius: 999,
+    backgroundColor: '#D7E6F7',
+  },
+  skeletonTitleLine: {
+    width: '74%',
+    height: 20,
+    marginBottom: theme.spacing.sm,
+  },
+  skeletonBodyLine: {
+    width: '92%',
+    height: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  skeletonBodyLineShort: {
+    width: '64%',
+    height: 12,
+    marginBottom: theme.spacing.md,
+  },
+  skeletonTagRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+  },
+  skeletonChip: {
+    width: 72,
+    height: 24,
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#E8F1FB',
+  },
+  skeletonChipWide: {
+    width: 104,
+  },
+  skeletonArrow: {
+    width: 14,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: '#D7E6F7',
+    marginTop: 2,
   },
   lockedBody: {
     marginTop: theme.spacing.sm,
