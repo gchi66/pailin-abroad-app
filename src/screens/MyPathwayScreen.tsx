@@ -625,7 +625,7 @@ export function MyPathwayScreen() {
                 <Button
                   language={uiLanguage}
                   title={copy.guestOverlayCta}
-                  onPress={() => router.push('/(tabs)/account')}
+                  onPress={() => router.push('/account/auth')}
                   style={styles.guestOverlayButton}
                 />
               </Stack>

@@ -216,23 +216,27 @@ export function ProfileScreen() {
 
   if (!hasAccount) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-        <ResponsivePageShell>
-          <Card padding="lg" radius="lg" style={[styles.neoCard, styles.guestCard]}>
-            <Stack gap="md">
-              <AppText language={uiLanguage} variant="title" style={styles.guestTitle}>
-                {copy.guestTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.guestBody}>
-                {copy.guestBody}
-              </AppText>
-              {isGuestMode ? (
-                <Button language={uiLanguage} title={copy.guestCta} onPress={() => router.push('/(tabs)/account')} />
-              ) : null}
-            </Stack>
-          </Card>
-        </ResponsivePageShell>
-      </ScrollView>
+      <View style={styles.screen}>
+        <View style={styles.contentContainerStatic}>
+          <ResponsivePageShell style={styles.pageContent}>
+            <View style={styles.pageCenterGroup}>
+              <Card padding="lg" radius="lg" style={[styles.neoCard, styles.guestCard]}>
+                <Stack gap="md">
+                  <AppText language={uiLanguage} variant="title" style={styles.guestTitle}>
+                    {copy.guestTitle}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.guestBody}>
+                    {copy.guestBody}
+                  </AppText>
+                  {isGuestMode ? (
+                    <Button language={uiLanguage} title={copy.guestCta} onPress={() => router.push('/account/auth')} />
+                  ) : null}
+                </Stack>
+              </Card>
+            </View>
+          </ResponsivePageShell>
+        </View>
+      </View>
     );
   }
 
