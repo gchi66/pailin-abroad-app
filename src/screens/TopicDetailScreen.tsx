@@ -9,7 +9,6 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -19,8 +18,6 @@ type ContentLanguage = 'en' | 'th';
 type UiLanguage = 'en' | 'th';
 
 type TopicDetailCopy = {
-  title: string;
-  subtitle: string;
   backLabel: string;
   loadingBody: string;
   notFoundTitle: string;
@@ -33,8 +30,6 @@ type TopicDetailCopy = {
 const getCopy = (uiLanguage: UiLanguage): TopicDetailCopy => {
   if (uiLanguage === 'th') {
     return {
-      title: 'คลังหัวข้อการเรียนรู้',
-      subtitle: 'คำอธิบายเพิ่มเติมเกี่ยวกับหัวข้อการใช้ภาษาอังกฤษที่น่าสนใจ',
       backLabel: 'กลับไปคลังหัวข้อ',
       loadingBody: 'กำลังโหลดหัวข้อ...',
       notFoundTitle: 'ไม่พบหัวข้อ',
@@ -46,8 +41,6 @@ const getCopy = (uiLanguage: UiLanguage): TopicDetailCopy => {
   }
 
   return {
-    title: 'Topic Library',
-    subtitle: 'Further explanations on a range of interesting ESL topics',
     backLabel: 'Back to Topic Library',
     loadingBody: 'Loading topic...',
     notFoundTitle: 'Topic not found',
@@ -131,13 +124,10 @@ export function TopicDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <ResponsivePageShell>
-      <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} subtitle={copy.subtitle} />
-
-        <View style={styles.contentWrap}>
-          <Stack gap="md">
+    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer} stickyHeaderIndices={[0]}>
+      <View style={styles.topRowWrap}>
+        <ResponsivePageShell>
+          <View style={styles.topRowShell}>
             <View style={styles.topRow}>
               <Pressable
                 accessibilityRole="button"
@@ -161,23 +151,29 @@ export function TopicDetailScreen() {
                 </View>
               </Pressable>
             </View>
+          </View>
+        </ResponsivePageShell>
+      </View>
 
-            {!topic ? (
-              <Card padding="lg" radius="lg" style={styles.stateCard}>
-                <Stack gap="sm">
-                  <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>
-                    {copy.notFoundTitle}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
-                    {errorMessage || copy.notFoundBody}
-                  </AppText>
-                  <Button language={uiLanguage} title={copy.retry} onPress={() => setReloadKey((current) => current + 1)} />
-                </Stack>
-              </Card>
-            ) : null}
+      <ResponsivePageShell>
+        <Stack gap="md">
+          <View style={styles.contentWrap}>
+            <Stack gap="md">
+              {!topic ? (
+                <Card padding="lg" radius="lg" style={styles.stateCard}>
+                  <Stack gap="sm">
+                    <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>
+                      {copy.notFoundTitle}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.stateText}>
+                      {errorMessage || copy.notFoundBody}
+                    </AppText>
+                    <Button language={uiLanguage} title={copy.retry} onPress={() => setReloadKey((current) => current + 1)} />
+                  </Stack>
+                </Card>
+              ) : null}
 
-            {topic ? (
-              <>
+              {topic ? (
                 <View style={styles.topicContentBlock}>
                   <View style={styles.heroSection}>
                     <Stack gap="sm">
@@ -221,12 +217,11 @@ export function TopicDetailScreen() {
                     </Card>
                   )}
                 </View>
-              </>
-            ) : null}
-          </Stack>
-        </View>
-      </Stack>
-          </ResponsivePageShell>
+              ) : null}
+            </Stack>
+          </View>
+        </Stack>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -241,6 +236,7 @@ const styles = StyleSheet.create({
   },
   contentWrap: {
     paddingHorizontal: 0,
+    paddingTop: 0,
   },
   topRow: {
     flexDirection: 'row',
@@ -248,7 +244,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.md,
     minHeight: 36,
+    paddingVertical: theme.spacing.sm,
+  },
+  topRowShell: {
     paddingHorizontal: theme.spacing.md,
+  },
+  topRowWrap: {
+    backgroundColor: theme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   backButton: {
     flex: 1,
@@ -286,41 +290,47 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   heroTitle: {
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: 36,
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: theme.typography.weights.bold,
   },
   heroSubtitle: {
     color: theme.colors.mutedText,
   },
   translatePill: {
-    minWidth: 58,
-    minHeight: 38,
+    minWidth: 78,
+    minHeight: 42,
     borderRadius: 999,
+    backgroundColor: '#91CAFF',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md + 2,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   translatePillDisabled: {
     opacity: 0.7,
   },
   translatePillLabel: {
-    minWidth: 24,
-    minHeight: 16,
+    minWidth: 28,
+    minHeight: 18,
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ translateY: 1 }],
   },
   translatePillText: {
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 14,
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: 15,
+    lineHeight: 15,
+    fontWeight: theme.typography.weights.bold,
     includeFontPadding: false,
     textAlign: 'center',
+    textAlignVertical: 'center',
   },
   tagRow: {
     flexDirection: 'row',

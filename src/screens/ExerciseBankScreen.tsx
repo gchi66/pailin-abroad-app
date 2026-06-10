@@ -8,7 +8,6 @@ import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -303,7 +302,6 @@ export function ExerciseBankScreen() {
           title={copy.title}
           onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
           backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
-          rightElement={<LanguageToggle style={styles.headerLanguageToggle} />}
         />
 
         <View style={styles.contentWrap}>
@@ -501,10 +499,6 @@ const styles = StyleSheet.create({
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
-  },
-  headerLanguageToggle: {
-    minWidth: 78,
-    minHeight: 38,
   },
   noticeCard: {
     backgroundColor: '#FFF4E8',

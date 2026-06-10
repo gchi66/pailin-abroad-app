@@ -1062,24 +1062,6 @@ export function ExerciseBankPager({
         <LanguageToggle style={styles.translatePill} />
       </View>
 
-      <View style={styles.headerBlock}>
-        <View style={styles.headerTitleRow}>
-          <AppText language={contentLang} variant="title" style={styles.sectionTitle}>
-            {sectionTitle}
-          </AppText>
-
-          <AppText language={language} variant="muted" style={styles.sectionMeta}>
-            {`${activeIndex + 1} / ${normalizedExercises.length} ${copy.exercisesLabel}`}
-          </AppText>
-        </View>
-
-        <View style={styles.categoryChip}>
-          <AppText language={language} variant="caption" style={styles.categoryChipText}>
-            {categoryLabel}
-          </AppText>
-        </View>
-      </View>
-
       <View {...(normalizedExercises.length > 1 ? pagerPanResponder.panHandlers : {})} style={styles.pagerBody}>
         <ScrollView
           ref={contentScrollRef}
@@ -1087,6 +1069,24 @@ export function ExerciseBankPager({
           contentContainerStyle={styles.contentScrollContent}
           showsVerticalScrollIndicator={false}>
           <Stack gap="md">
+            <View style={styles.headerBlock}>
+              <View style={styles.headerTitleRow}>
+                <AppText language={contentLang} variant="title" style={styles.sectionTitle}>
+                  {sectionTitle}
+                </AppText>
+
+                <AppText language={language} variant="muted" style={styles.sectionMeta}>
+                  {`${activeIndex + 1} / ${normalizedExercises.length} ${copy.exercisesLabel}`}
+                </AppText>
+              </View>
+
+              <View style={styles.categoryChip}>
+                <AppText language={language} variant="caption" style={styles.categoryChipText}>
+                  {categoryLabel}
+                </AppText>
+              </View>
+            </View>
+
             {activeExercise.title ? (
               <AppText language={contentLang} variant="body" style={styles.exerciseTitle}>
                 {activeExercise.title}

@@ -28,6 +28,7 @@ const INLINE_MARKER_COLORS: Record<string, string> = {
   '[check]': '#3CA0FE',
   '[-]': '#28A265',
 };
+const TABLE_LINK_RE = /\[link:([^\]]+)\]([\s\S]*?)\[\/link\]/g;
 
 const cleanAudioTags = (text: string) =>
   text
@@ -36,9 +37,13 @@ const cleanAudioTags = (text: string) =>
     .replace(/\s*\n\s*/g, '\n');
 
 const getInlineText = (inline: LessonRichInline) => cleanAudioTags(String(inline?.text ?? ''));
+const hasRenderableInlines = (inlines: LessonRichInline[] | null | undefined) =>
+  Array.isArray(inlines) && inlines.some((inline) => getInlineText(inline).trim().length > 0);
+const isListLikeNode = (node: LessonRichNode | null | undefined) =>
+  node?.kind === 'numbered_item' || node?.kind === 'list_item' || node?.kind === 'misc_item';
 
 const getHeadingText = (node: LessonRichNode | null) => {
-  if (!node || !Array.isArray(node.inlines)) {
+  if (!node || !hasRenderableInlines(node.inlines)) {
     return '';
   }
 
@@ -90,6 +95,7 @@ const buildTopicImageUrl = (imageKey: string | null | undefined) => {
 
 export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) {
   const router = useRouter();
+  const [tableViewportWidths, setTableViewportWidths] = useState<Record<string, number>>({});
   const getInlineFontStyle = (language: ScriptLanguage, isBold: boolean) => {
     if (language === 'th') {
       return isBold ? styles.inlineBoldThai : styles.inlineTextThai;
@@ -247,35 +253,158 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
       return null;
     }
 
+    const normalizeCell = (cell: unknown) => {
+      if (cell && typeof cell === 'object') {
+        const record = cell as Record<string, unknown>;
+        return {
+          text: String(record.text ?? ''),
+          colspan: typeof record.colspan === 'number' ? record.colspan : undefined,
+          rowspan: typeof record.rowspan === 'number' ? record.rowspan : undefined,
+        };
+      }
+
+      return {
+        text: String(cell ?? ''),
+        colspan: undefined,
+        rowspan: undefined,
+      };
+    };
+
+    const tableRows = rows.map((row) => {
+      const cells = Array.isArray(row) ? row : [];
+      let columnStart = 0;
+
+      return cells.map((cell) => {
+        const normalized = normalizeCell(cell);
+        const colSpan = normalized.colspan && normalized.colspan > 1 ? normalized.colspan : 1;
+        const positionedCell = {
+          ...normalized,
+          columnStart,
+          colSpan,
+        };
+        columnStart += colSpan;
+        return positionedCell;
+      });
+    });
+
+    const maxColumnCount = tableRows.reduce((maxCount, row) => {
+      const rowWidth = row.reduce((width, cell) => Math.max(width, cell.columnStart + cell.colSpan), 0);
+      return Math.max(maxCount, rowWidth);
+    }, 0);
+
+    const columnsWithContent = Array.from({ length: maxColumnCount }, () => false);
+    tableRows.forEach((row) => {
+      row.forEach((cell) => {
+        if (!cell.text.trim()) {
+          return;
+        }
+        for (let columnIndex = cell.columnStart; columnIndex < cell.columnStart + cell.colSpan; columnIndex += 1) {
+          columnsWithContent[columnIndex] = true;
+        }
+      });
+    });
+
+    let visibleColumnCount = maxColumnCount;
+    while (visibleColumnCount > 0 && !columnsWithContent[visibleColumnCount - 1]) {
+      visibleColumnCount -= 1;
+    }
+    const tableMinWidth = Math.max(visibleColumnCount, 1) * 124;
+    const tableViewportWidth = tableViewportWidths[key] ?? 0;
+    const tableRenderWidth = Math.max(tableMinWidth, tableViewportWidth);
+
+    const renderTableCellTextWithLinks = (text: string, keyPrefix: string) => {
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      let linkIndex = 0;
+
+      TABLE_LINK_RE.lastIndex = 0;
+
+      while ((match = TABLE_LINK_RE.exec(text)) !== null) {
+        const [raw, hrefRaw, linkText] = match;
+        const start = match.index;
+        const end = start + raw.length;
+
+        if (start > lastIndex) {
+          parts.push(
+            <Text key={`${keyPrefix}-text-${linkIndex}`} style={styles.tableCellText}>
+              {text.slice(lastIndex, start)}
+            </Text>
+          );
+        }
+
+        const href = String(hrefRaw ?? '').trim();
+        parts.push(
+          <Text key={`${keyPrefix}-link-${linkIndex}`} onPress={() => handleOpenLink(href)} style={[styles.tableCellText, styles.inlineLink]}>
+            {linkText || href}
+          </Text>
+        );
+
+        lastIndex = end;
+        linkIndex += 1;
+      }
+
+      if (lastIndex < text.length) {
+        parts.push(
+          <Text key={`${keyPrefix}-tail`} style={styles.tableCellText}>
+            {text.slice(lastIndex)}
+          </Text>
+        );
+      }
+
+      return parts.length ? parts : <Text style={styles.tableCellText}>{text}</Text>;
+    };
+
+    const renderTableCellContent = (cellText: string, rowIndex: number, cellIndex: number, isHeaderRow: boolean) => {
+      const lines = String(cellText ?? '').split('\n');
+
+      return lines.map((line, lineIndex) => (
+        <Text
+          key={`${key}-cell-${rowIndex}-${cellIndex}-line-${lineIndex}`}
+          style={[
+            styles.tableCellText,
+            isHeaderRow ? styles.tableHeaderText : null,
+            lineIndex > 0 ? styles.tableCellLine : null,
+          ]}>
+          {renderTableCellTextWithLinks(line, `${key}-cell-${rowIndex}-${cellIndex}-line-${lineIndex}`)}
+        </Text>
+      ));
+    };
+
     return (
-      <ScrollView key={key} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tableScrollerContent}>
-        <View style={styles.tableWrap}>
-          {rows.map((row, rowIndex) => {
-            const cells = Array.isArray(row) ? row : [];
+      <ScrollView
+        key={key}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tableScrollerContent}
+        onLayout={(event) => {
+          const nextWidth = Math.round(event.nativeEvent.layout.width);
+          if (!nextWidth || tableViewportWidths[key] === nextWidth) {
+            return;
+          }
+          setTableViewportWidths((previous) => ({ ...previous, [key]: nextWidth }));
+        }}>
+        <View style={[styles.tableWrap, { width: tableRenderWidth }]}>
+          {tableRows.map((row, rowIndex) => {
             return (
               <View
                 key={`${key}-row-${rowIndex}`}
                 style={[styles.tableRow, rowIndex === 0 ? styles.tableHeaderRow : null, rowIndex % 2 === 1 ? styles.tableAltRow : null]}>
-                {cells.map((cell, cellIndex) => {
-                  const cellText =
-                    typeof cell === 'string'
-                      ? cell
-                      : cell && typeof cell === 'object' && 'text' in cell
-                        ? String(cell.text ?? '')
-                        : '';
-                  const colSpan =
-                    cell && typeof cell === 'object' && 'colspan' in cell && typeof cell.colspan === 'number' && cell.colspan > 1
-                      ? cell.colspan
-                      : 1;
+                {row.map((cell, cellIndex) => {
+                  if (cell.columnStart >= visibleColumnCount) {
+                    return null;
+                  }
+
+                  const adjustedColSpan = Math.min(cell.colSpan, visibleColumnCount - cell.columnStart);
+                  if (adjustedColSpan <= 0) {
+                    return null;
+                  }
 
                   return (
-                    <View key={`${key}-cell-${rowIndex}-${cellIndex}`} style={[styles.tableCell, { width: 124 * colSpan }]}>
-                      <AppText
-                        language={contentLang}
-                        variant="body"
-                        style={[styles.tableCellText, rowIndex === 0 ? styles.tableHeaderText : null]}>
-                        {cellText}
-                      </AppText>
+                    <View
+                      key={`${key}-cell-${rowIndex}-${cellIndex}`}
+                      style={[styles.tableCell, { width: (tableRenderWidth * adjustedColSpan) / Math.max(visibleColumnCount, 1) }]}>
+                      {renderTableCellContent(cell.text, rowIndex, cellIndex, rowIndex === 0)}
                     </View>
                   );
                 })}
@@ -321,6 +450,9 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     }
 
     if (node.kind === 'heading' && node.is_subheader) {
+      if (!hasRenderableInlines(node.inlines)) {
+        return null;
+      }
       return (
         <AppText key={nodeKey} language={contentLang} variant="body" style={[styles.subheader, indentStyle]}>
           {renderInlines(node.inlines, nodeKey)}
@@ -329,6 +461,9 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     }
 
     if (node.kind === 'numbered_item') {
+      if (!hasRenderableInlines(node.inlines)) {
+        return null;
+      }
       return (
         <View key={nodeKey} style={[styles.listRow, indentStyle]}>
           <View style={styles.numberBadge}>
@@ -344,6 +479,9 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     }
 
     if (node.kind === 'list_item' || node.kind === 'misc_item') {
+      if (!hasRenderableInlines(node.inlines)) {
+        return null;
+      }
       return (
         <View key={nodeKey} style={[styles.listRow, indentStyle]}>
           <View style={styles.bullet} />
@@ -355,6 +493,9 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     }
 
     if (node.kind === 'paragraph') {
+      if (!hasRenderableInlines(node.inlines)) {
+        return null;
+      }
       return (
         <AppText
           key={nodeKey}
@@ -390,6 +531,27 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
 
   const renderGroup = (group: LessonRichNode[], groupIndex: number, keyPrefix: string) => {
     let numberedCounter = 0;
+    let previousRenderedNode: LessonRichNode | null = null;
+
+    const getNodeSpacing = (
+      previousNode: LessonRichNode | null,
+      currentNode: LessonRichNode,
+      currentNumberedIndex?: number
+    ) => {
+      if (!previousNode) {
+        return 0;
+      }
+
+      if (currentNode.kind === 'numbered_item' && (currentNumberedIndex ?? 0) > 1) {
+        return previousNode.kind === 'numbered_item' ? 0 : theme.spacing.sm;
+      }
+
+      if (isListLikeNode(previousNode) || isListLikeNode(currentNode)) {
+        return 0;
+      }
+
+      return theme.spacing.sm;
+    };
 
     return (
       <View
@@ -400,16 +562,34 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
           groupIndex === 0 ? styles.zebraGroupFirst : null,
         ]}>
         {group.map((node, index) => {
+          let renderedNode: React.ReactNode = null;
+          let currentNumberedIndex: number | undefined;
+
           if (node.kind === 'numbered_item') {
             numberedCounter += 1;
-            return renderNode(node, index, `${keyPrefix}-node`, numberedCounter);
+            currentNumberedIndex = numberedCounter;
+            renderedNode = renderNode(node, index, `${keyPrefix}-node`, numberedCounter);
+          } else {
+            if (isSubheaderNode(node)) {
+              numberedCounter = 0;
+            }
+
+            renderedNode = renderNode(node, index, `${keyPrefix}-node`);
           }
 
-          if (isSubheaderNode(node)) {
-            numberedCounter = 0;
+          if (!renderedNode) {
+            return null;
           }
 
-          return renderNode(node, index, `${keyPrefix}-node`);
+          const nodeSpacing = getNodeSpacing(previousRenderedNode, node, currentNumberedIndex);
+
+          previousRenderedNode = node;
+
+          return (
+            <View key={`${keyPrefix}-wrap-${index}`} style={nodeSpacing > 0 ? { marginTop: nodeSpacing } : null}>
+              {renderedNode}
+            </View>
+          );
         })}
       </View>
     );
@@ -424,7 +604,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
       if (node.kind === 'image' || node.kind === 'table') {
         return true;
       }
-      return Array.isArray(node.inlines) && node.inlines.some((inline) => getInlineText(inline).trim().length > 0);
+      return hasRenderableInlines(node.inlines);
     });
 
   return (
@@ -515,7 +695,6 @@ const styles = StyleSheet.create({
   zebraGroup: {
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    gap: theme.spacing.sm,
     backgroundColor: theme.colors.surface,
   },
   zebraGroupFirst: {
@@ -608,9 +787,9 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
   },
   tableWrap: {
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minWidth: 360,
   },
   tableRow: {
     flexDirection: 'row',
@@ -632,6 +811,9 @@ const styles = StyleSheet.create({
   },
   tableCellText: {
     color: theme.colors.text,
+  },
+  tableCellLine: {
+    marginTop: 4,
   },
   tableHeaderText: {
     fontWeight: theme.typography.weights.semibold,
