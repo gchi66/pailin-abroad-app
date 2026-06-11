@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  InputAccessoryView,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -38,6 +40,7 @@ export function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSignUpCredentialsFocused, setIsSignUpCredentialsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,6 +48,7 @@ export function AuthScreen() {
   const [isAppleSubmitting, setIsAppleSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const modeAnim = useRef(new Animated.Value(1)).current;
+  const keyboardAccessoryId = 'auth-keyboard-accessory';
 
   const copy = useMemo(
     () =>
@@ -71,7 +75,8 @@ export function AuthScreen() {
             footerSignupAction: 'เข้าสู่ระบบ',
             footerSigninPrefix: 'ยังไม่ได้เป็นสมาชิก? ',
             footerSigninAction: 'สมัครสมาชิก',
-            continueGuest: 'หรือเข้าใช้งานแบบผู้เยี่ยมชม',
+            continueGuestPrefix: 'หรือ',
+            continueGuestAction: 'เข้าใช้งานแบบผู้เยี่ยมชม',
             passwordMismatch: 'รหัสผ่านไม่ตรงกัน',
             passwordShort: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
             passwordRuleOne: 'อย่างน้อย 8 ตัวอักษร',
@@ -108,7 +113,8 @@ export function AuthScreen() {
             footerSignupAction: 'Log in',
             footerSigninPrefix: 'Not a member yet? ',
             footerSigninAction: 'Sign up',
-            continueGuest: 'Or continue as guest',
+            continueGuestPrefix: 'Or ',
+            continueGuestAction: 'continue as guest',
             passwordMismatch: 'Passwords do not match.',
             passwordShort: 'Password must be at least 8 characters.',
             passwordRuleOne: 'At least 8 characters',
@@ -143,6 +149,7 @@ export function AuthScreen() {
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
   const showAppleButton = Platform.OS === 'ios' && isAppleAvailable;
+  const showExpandedSignUpFields = mode === 'signin' || isSignUpCredentialsFocused;
 
   useEffect(() => {
     let isMounted = true;
@@ -245,7 +252,23 @@ export function AuthScreen() {
       return;
     }
 
+    setIsSignUpCredentialsFocused(false);
     setMode(nextMode);
+  };
+
+  const handleSignUpFieldFocus = () => {
+    if (mode === 'signup') {
+      setIsSignUpCredentialsFocused(true);
+    }
+  };
+
+  const collapseSignUpFields = () => {
+    if (mode !== 'signup' || !isSignUpCredentialsFocused) {
+      return;
+    }
+
+    Keyboard.dismiss();
+    setIsSignUpCredentialsFocused(false);
   };
 
   const modeContentStyle = {
@@ -275,6 +298,8 @@ export function AuthScreen() {
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         bounces={false}>
         <View style={[styles.centerShell, isCompactScreen ? styles.centerShellCompact : null]}>
           <View
@@ -284,122 +309,126 @@ export function AuthScreen() {
               isTabletScreen ? styles.panelTablet : null,
               isLargeTabletScreen ? styles.panelLargeTablet : null,
             ]}>
-            <View style={[styles.topRow, isCompactScreen ? styles.topRowCompact : null]}>
-              <Image
-                source={fullLogoImage}
-                style={[
-                  styles.wordmarkLogo,
-                  isCompactScreen ? styles.wordmarkLogoCompact : null,
-                  isTabletScreen ? styles.wordmarkLogoTablet : null,
-                  isLargeTabletScreen ? styles.wordmarkLogoLargeTablet : null,
-                ]}
-                contentFit="contain"
-              />
-              <LanguageToggle />
-            </View>
+            <Pressable onPress={collapseSignUpFields}>
+              <View style={[styles.topRow, isCompactScreen ? styles.topRowCompact : null]}>
+                <Image
+                  source={fullLogoImage}
+                  style={[
+                    styles.wordmarkLogo,
+                    isCompactScreen ? styles.wordmarkLogoCompact : null,
+                    isTabletScreen ? styles.wordmarkLogoTablet : null,
+                    isLargeTabletScreen ? styles.wordmarkLogoLargeTablet : null,
+                  ]}
+                  contentFit="contain"
+                />
+                <LanguageToggle />
+              </View>
+            </Pressable>
 
-            <Animated.View
-              style={[
-                styles.headerBlock,
-                isCompactScreen ? styles.headerBlockCompact : null,
-                isTabletScreen ? styles.headerBlockTablet : null,
-                isLargeTabletScreen ? styles.headerBlockLargeTablet : null,
-                modeContentStyle,
-              ]}>
-              {mode === 'signup' ? (
-                <>
-                  <AppText
-                    language={uiLanguage}
-                    variant="title"
-                    style={[
-                      styles.headlineLine,
-                      isCompactScreen ? styles.headlineLineCompact : null,
-                      isTabletScreen ? styles.headlineLineTablet : null,
-                      isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
-                    ]}>
-                    {copy.signUpTitleLineOne}
-                  </AppText>
-                  <AppText
-                    language={uiLanguage}
-                    variant="title"
-                    style={[
-                      styles.headlineLine,
-                      isCompactScreen ? styles.headlineLineCompact : null,
-                      isTabletScreen ? styles.headlineLineTablet : null,
-                    ]}>
+            <Pressable onPress={collapseSignUpFields}>
+              <Animated.View
+                style={[
+                  styles.headerBlock,
+                  isCompactScreen ? styles.headerBlockCompact : null,
+                  isTabletScreen ? styles.headerBlockTablet : null,
+                  isLargeTabletScreen ? styles.headerBlockLargeTablet : null,
+                  modeContentStyle,
+                ]}>
+                {mode === 'signup' ? (
+                  <>
                     <AppText
                       language={uiLanguage}
                       variant="title"
                       style={[
-                        styles.headlineAccent,
+                        styles.headlineLine,
                         isCompactScreen ? styles.headlineLineCompact : null,
                         isTabletScreen ? styles.headlineLineTablet : null,
                         isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                       ]}>
-                      {copy.signUpTitleAccent}
+                      {copy.signUpTitleLineOne}
                     </AppText>
-                    {copy.signUpTitleTail ? ` ${copy.signUpTitleTail}` : ''}
-                  </AppText>
-                  <AppText
-                    language={uiLanguage}
-                    variant="caption"
-                    style={[
-                      styles.subtitle,
-                      isCompactScreen ? styles.subtitleCompact : null,
-                      isTabletScreen ? styles.subtitleTablet : null,
-                      isLargeTabletScreen ? styles.subtitleLargeTablet : null,
-                    ]}>
-                    {copy.signUpSubtitle}
-                  </AppText>
-                </>
-              ) : (
-                <>
-                  <AppText
-                    language={uiLanguage}
-                    variant="title"
-                    style={[
-                      styles.headlineLine,
-                      isCompactScreen ? styles.headlineLineCompact : null,
-                      isTabletScreen ? styles.headlineLineTablet : null,
-                      isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
-                    ]}>
-                    {copy.signInTitleLineOne}
-                  </AppText>
-                  <AppText
-                    language={uiLanguage}
-                    variant="title"
-                    style={[
-                      styles.headlineLine,
-                      isCompactScreen ? styles.headlineLineCompact : null,
-                      isTabletScreen ? styles.headlineLineTablet : null,
-                    ]}>
                     <AppText
                       language={uiLanguage}
                       variant="title"
                       style={[
-                        styles.headlineAccent,
+                        styles.headlineLine,
+                        isCompactScreen ? styles.headlineLineCompact : null,
+                        isTabletScreen ? styles.headlineLineTablet : null,
+                      ]}>
+                      <AppText
+                        language={uiLanguage}
+                        variant="title"
+                        style={[
+                          styles.headlineAccent,
+                          isCompactScreen ? styles.headlineLineCompact : null,
+                          isTabletScreen ? styles.headlineLineTablet : null,
+                          isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
+                        ]}>
+                        {copy.signUpTitleAccent}
+                      </AppText>
+                      {copy.signUpTitleTail ? ` ${copy.signUpTitleTail}` : ''}
+                    </AppText>
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.subtitle,
+                        isCompactScreen ? styles.subtitleCompact : null,
+                        isTabletScreen ? styles.subtitleTablet : null,
+                        isLargeTabletScreen ? styles.subtitleLargeTablet : null,
+                      ]}>
+                      {copy.signUpSubtitle}
+                    </AppText>
+                  </>
+                ) : (
+                  <>
+                    <AppText
+                      language={uiLanguage}
+                      variant="title"
+                      style={[
+                        styles.headlineLine,
                         isCompactScreen ? styles.headlineLineCompact : null,
                         isTabletScreen ? styles.headlineLineTablet : null,
                         isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                       ]}>
-                      {copy.signInTitleAccent}
+                      {copy.signInTitleLineOne}
                     </AppText>
-                    {copy.signInTitleTail ? ` ${copy.signInTitleTail}` : ''}
-                  </AppText>
-                  <AppText
-                    language={uiLanguage}
-                    variant="caption"
-                    style={[
-                      styles.subtitle,
-                      isCompactScreen ? styles.subtitleCompact : null,
-                      isTabletScreen ? styles.subtitleTablet : null,
-                      isLargeTabletScreen ? styles.subtitleLargeTablet : null,
-                    ]}>
-                    {copy.signInSubtitle}
-                  </AppText>
-                </>
-              )}
-            </Animated.View>
+                    <AppText
+                      language={uiLanguage}
+                      variant="title"
+                      style={[
+                        styles.headlineLine,
+                        isCompactScreen ? styles.headlineLineCompact : null,
+                        isTabletScreen ? styles.headlineLineTablet : null,
+                      ]}>
+                      <AppText
+                        language={uiLanguage}
+                        variant="title"
+                        style={[
+                          styles.headlineAccent,
+                          isCompactScreen ? styles.headlineLineCompact : null,
+                          isTabletScreen ? styles.headlineLineTablet : null,
+                          isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
+                        ]}>
+                        {copy.signInTitleAccent}
+                      </AppText>
+                      {copy.signInTitleTail ? ` ${copy.signInTitleTail}` : ''}
+                    </AppText>
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.subtitle,
+                        isCompactScreen ? styles.subtitleCompact : null,
+                        isTabletScreen ? styles.subtitleTablet : null,
+                        isLargeTabletScreen ? styles.subtitleLargeTablet : null,
+                      ]}>
+                      {copy.signInSubtitle}
+                    </AppText>
+                  </>
+                )}
+              </Animated.View>
+            </Pressable>
 
             <View
               style={[
@@ -408,255 +437,286 @@ export function AuthScreen() {
                 isTabletScreen ? styles.formShellTablet : null,
                 isLargeTabletScreen ? styles.formShellLargeTablet : null,
               ]}>
-              <View style={styles.socialButtons}>
-                {showAppleButton ? (
-                  <View
-                    style={[
-                      styles.appleButtonShell,
-                      isCompactScreen ? styles.appleButtonShellCompact : null,
-                      isTabletScreen ? styles.appleButtonShellTablet : null,
-                      isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
-                      isAppleSubmitting ? styles.buttonDisabled : null,
-                    ]}>
-                    {isAppleSubmitting ? (
-                      <View style={styles.appleButtonLoadingState}>
-                        <ActivityIndicator color="#FFFFFF" />
-                        <AppText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
-                          {copy.appleLoading}
-                        </AppText>
-                      </View>
-                    ) : (
-                      <AppleAuthentication.AppleAuthenticationButton
-                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                        cornerRadius={isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14}
-                        onPress={handleApple}
-                        style={styles.appleButton}
-                      />
-                    )}
-                  </View>
-                ) : null}
+              <Pressable onPress={collapseSignUpFields}>
+                <View style={styles.socialButtons}>
+                  {showAppleButton ? (
+                    <View
+                      style={[
+                        styles.appleButtonShell,
+                        isCompactScreen ? styles.appleButtonShellCompact : null,
+                        isTabletScreen ? styles.appleButtonShellTablet : null,
+                        isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
+                        isAppleSubmitting ? styles.buttonDisabled : null,
+                      ]}>
+                      {isAppleSubmitting ? (
+                        <View style={styles.appleButtonLoadingState}>
+                          <ActivityIndicator color="#FFFFFF" />
+                          <AppText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
+                            {copy.appleLoading}
+                          </AppText>
+                        </View>
+                      ) : (
+                        <AppleAuthentication.AppleAuthenticationButton
+                          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                          cornerRadius={isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14}
+                          onPress={handleApple}
+                          style={styles.appleButton}
+                        />
+                      )}
+                    </View>
+                  ) : null}
 
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.googleButton,
-                    isCompactScreen ? styles.googleButtonCompact : null,
-                    isTabletScreen ? styles.googleButtonTablet : null,
-                    isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
-                    pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
-                    isGoogleSubmitting ? styles.buttonDisabled : null,
-                  ]}
-                  onPress={handleGoogle}
-                  disabled={isGoogleSubmitting}>
-                  <GoogleBadge />
-                  <AppText
-                    language={uiLanguage}
-                    variant="caption"
-                    style={[
-                      styles.googleButtonText,
-                      isCompactScreen ? styles.googleButtonTextCompact : null,
-                      isTabletScreen ? styles.googleButtonTextTablet : null,
-                      isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
-                    ]}>
-                    {isGoogleSubmitting ? copy.googleLoading : copy.google}
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.googleButton,
+                      isCompactScreen ? styles.googleButtonCompact : null,
+                      isTabletScreen ? styles.googleButtonTablet : null,
+                      isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
+                      pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
+                      isGoogleSubmitting ? styles.buttonDisabled : null,
+                    ]}
+                    onPress={handleGoogle}
+                    disabled={isGoogleSubmitting}>
+                    <GoogleBadge />
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.googleButtonText,
+                        isCompactScreen ? styles.googleButtonTextCompact : null,
+                        isTabletScreen ? styles.googleButtonTextTablet : null,
+                        isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
+                      ]}>
+                      {isGoogleSubmitting ? copy.googleLoading : copy.google}
+                    </AppText>
+                  </Pressable>
+                </View>
+              </Pressable>
+
+              <Pressable onPress={collapseSignUpFields}>
+                <View style={[styles.dividerRow, isCompactScreen ? styles.dividerRowCompact : null]}>
+                  <View style={styles.dividerLine} />
+                  <AppText language={uiLanguage} variant="caption" style={styles.dividerText}>
+                    {copy.divider}
                   </AppText>
-                </Pressable>
-              </View>
-
-              <View style={[styles.dividerRow, isCompactScreen ? styles.dividerRowCompact : null]}>
-                <View style={styles.dividerLine} />
-                <AppText language={uiLanguage} variant="caption" style={styles.dividerText}>
-                  {copy.divider}
-                </AppText>
-                <View style={styles.dividerLine} />
-              </View>
+                  <View style={styles.dividerLine} />
+                </View>
+              </Pressable>
 
               <Animated.View style={modeContentStyle}>
                 <FormField
                   uiLanguage={uiLanguage}
                   value={email}
                   onChangeText={setEmail}
+                  onFocus={handleSignUpFieldFocus}
                   placeholder={copy.email}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   textContentType="emailAddress"
                   autoComplete="email"
+                  inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
                   isCompact={isCompactScreen}
                   isTablet={isTabletScreen}
                   isLargeTablet={isLargeTabletScreen}
                 />
 
-                <FormField
-                  uiLanguage={uiLanguage}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder={copy.password}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="password"
-                  autoComplete="password"
-                  style={styles.fieldSpacing}
-                  isCompact={isCompactScreen}
-                  isTablet={isTabletScreen}
-                  isLargeTablet={isLargeTabletScreen}
-                  trailingAccessory={
-                    <PasswordVisibilityButton
-                      isVisible={showPassword}
-                      onPress={() => setShowPassword((current) => !current)}
-                    />
-                  }
-                />
-
-                {mode === 'signup' ? (
+                {showExpandedSignUpFields ? (
                   <>
                     <FormField
                       uiLanguage={uiLanguage}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder={copy.confirmPassword}
-                      secureTextEntry={!showConfirmPassword}
+                      value={password}
+                      onChangeText={setPassword}
+                      onFocus={handleSignUpFieldFocus}
+                      placeholder={copy.password}
+                      secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      textContentType="password"
-                      autoComplete="password"
+                      textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+                      autoComplete={mode === 'signup' ? 'new-password' : 'password'}
+                      inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
                       style={styles.fieldSpacing}
                       isCompact={isCompactScreen}
                       isTablet={isTabletScreen}
                       isLargeTablet={isLargeTabletScreen}
                       trailingAccessory={
                         <PasswordVisibilityButton
-                          isVisible={showConfirmPassword}
-                          onPress={() => setShowConfirmPassword((current) => !current)}
+                          isVisible={showPassword}
+                          onPress={() => setShowPassword((current) => !current)}
                         />
                       }
                     />
 
-                    <View
-                      style={[
-                        styles.rulesCard,
-                        isCompactScreen ? styles.rulesCardCompact : null,
-                        isTabletScreen ? styles.rulesCardTablet : null,
-                        isLargeTabletScreen ? styles.rulesCardLargeTablet : null,
-                      ]}>
-                      <PasswordRule
-                        language={uiLanguage}
-                        text={copy.passwordRuleOne}
-                        isMet={meetsLength}
-                        isCompact={isCompactScreen}
-                        isTablet={isTabletScreen}
-                        isLargeTablet={isLargeTabletScreen}
-                      />
-                      <PasswordRule
-                        language={uiLanguage}
-                        text={copy.passwordRuleTwo}
-                        isMet={meetsUppercase}
-                        isCompact={isCompactScreen}
-                        isTablet={isTabletScreen}
-                        isLargeTablet={isLargeTabletScreen}
-                      />
-                      <PasswordRule
-                        language={uiLanguage}
-                        text={copy.passwordRuleThree}
-                        isMet={meetsNumberOrSymbol}
-                        isCompact={isCompactScreen}
-                        isTablet={isTabletScreen}
-                        isLargeTablet={isLargeTabletScreen}
-                      />
-                    </View>
+                    {mode === 'signup' ? (
+                      <>
+                        <FormField
+                          uiLanguage={uiLanguage}
+                          value={confirmPassword}
+                          onChangeText={setConfirmPassword}
+                          onFocus={handleSignUpFieldFocus}
+                          placeholder={copy.confirmPassword}
+                          secureTextEntry={!showConfirmPassword}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          textContentType="newPassword"
+                          autoComplete="new-password"
+                          inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
+                          style={styles.fieldSpacing}
+                          isCompact={isCompactScreen}
+                          isTablet={isTabletScreen}
+                          isLargeTablet={isLargeTabletScreen}
+                          trailingAccessory={
+                            <PasswordVisibilityButton
+                              isVisible={showConfirmPassword}
+                              onPress={() => setShowConfirmPassword((current) => !current)}
+                            />
+                          }
+                        />
+
+                      <View
+                        style={[
+                          styles.rulesCard,
+                          isCompactScreen ? styles.rulesCardCompact : null,
+                          isTabletScreen ? styles.rulesCardTablet : null,
+                          isLargeTabletScreen ? styles.rulesCardLargeTablet : null,
+                        ]}>
+                        <PasswordRule
+                          language={uiLanguage}
+                          text={copy.passwordRuleOne}
+                          isMet={meetsLength}
+                          isCompact={isCompactScreen}
+                          isTablet={isTabletScreen}
+                          isLargeTablet={isLargeTabletScreen}
+                        />
+                        <PasswordRule
+                          language={uiLanguage}
+                          text={copy.passwordRuleTwo}
+                          isMet={meetsUppercase}
+                          isCompact={isCompactScreen}
+                          isTablet={isTabletScreen}
+                          isLargeTablet={isLargeTabletScreen}
+                        />
+                        <PasswordRule
+                          language={uiLanguage}
+                          text={copy.passwordRuleThree}
+                          isMet={meetsNumberOrSymbol}
+                          isCompact={isCompactScreen}
+                          isTablet={isTabletScreen}
+                          isLargeTablet={isLargeTabletScreen}
+                        />
+                      </View>
+                      </>
+                    ) : null}
                   </>
                 ) : null}
               </Animated.View>
 
-              {authError ? (
-                <AppText language={uiLanguage} variant="caption" style={styles.errorText}>
-                  {authError}
-                </AppText>
-              ) : null}
+              <Pressable onPress={collapseSignUpFields}>
+                <View style={styles.footerStack}>
+                  {authError ? (
+                    <AppText language={uiLanguage} variant="caption" style={styles.errorText}>
+                      {authError}
+                    </AppText>
+                  ) : null}
 
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.ctaButton,
-                  isCompactScreen ? styles.ctaButtonCompact : null,
-                  isTabletScreen ? styles.ctaButtonTablet : null,
-                  isLargeTabletScreen ? styles.ctaButtonLargeTablet : null,
-                  pressed && !isBusy ? styles.buttonPressed : null,
-                  isBusy ? styles.buttonDisabled : null,
-                ]}
-                onPress={handleSubmit}
-                disabled={isBusy}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[
-                    styles.ctaText,
-                    isCompactScreen ? styles.ctaTextCompact : null,
-                    isTabletScreen ? styles.ctaTextTablet : null,
-                    isLargeTabletScreen ? styles.ctaTextLargeTablet : null,
-                  ]}>
-                  {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
-                </AppText>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.ctaButton,
+                      isCompactScreen ? styles.ctaButtonCompact : null,
+                      isTabletScreen ? styles.ctaButtonTablet : null,
+                      isLargeTabletScreen ? styles.ctaButtonLargeTablet : null,
+                      pressed && !isBusy ? styles.buttonPressed : null,
+                      isBusy ? styles.buttonDisabled : null,
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={isBusy}>
+                    {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.ctaText,
+                        isCompactScreen ? styles.ctaTextCompact : null,
+                        isTabletScreen ? styles.ctaTextTablet : null,
+                        isLargeTabletScreen ? styles.ctaTextLargeTablet : null,
+                      ]}>
+                      {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
+                    </AppText>
+                  </Pressable>
+
+                  <Pressable accessibilityRole="button" onPress={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}>
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.footerText,
+                        isCompactScreen ? styles.footerTextCompact : null,
+                        isTabletScreen ? styles.footerTextTablet : null,
+                        isLargeTabletScreen ? styles.footerTextLargeTablet : null,
+                      ]}>
+                      {mode === 'signup' ? copy.footerSignupPrefix : copy.footerSigninPrefix}
+                      <AppText language={uiLanguage} variant="caption" style={styles.footerAction}>
+                        {mode === 'signup' ? copy.footerSignupAction : copy.footerSigninAction}
+                      </AppText>
+                    </AppText>
+                  </Pressable>
+
+                  <Pressable accessibilityRole="button" onPress={handleContinueAsGuest}>
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.guestLinkText,
+                        isCompactScreen ? styles.footerTextCompact : null,
+                        isTabletScreen ? styles.footerTextTablet : null,
+                        isLargeTabletScreen ? styles.footerTextLargeTablet : null,
+                      ]}>
+                      {copy.continueGuestPrefix}
+                      <AppText language={uiLanguage} variant="caption" style={styles.guestLinkUnderline}>
+                        {copy.continueGuestAction}
+                      </AppText>
+                    </AppText>
+                  </Pressable>
+
+                  {mode === 'signup' ? (
+                    <AppText
+                      language={uiLanguage}
+                      variant="caption"
+                      style={[
+                        styles.termsText,
+                        isCompactScreen ? styles.termsTextCompact : null,
+                        isTabletScreen ? styles.termsTextTablet : null,
+                        isLargeTabletScreen ? styles.termsTextLargeTablet : null,
+                      ]}>
+                      {copy.termsPrefix}
+                      <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
+                        {copy.termsTerms}
+                      </AppText>
+                      {copy.termsMiddle}
+                      <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
+                        {copy.termsPrivacy}
+                      </AppText>
+                    </AppText>
+                  ) : null}
+                </View>
               </Pressable>
-
-              <Pressable accessibilityRole="button" onPress={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}>
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[
-                    styles.footerText,
-                    isCompactScreen ? styles.footerTextCompact : null,
-                    isTabletScreen ? styles.footerTextTablet : null,
-                    isLargeTabletScreen ? styles.footerTextLargeTablet : null,
-                  ]}>
-                  {mode === 'signup' ? copy.footerSignupPrefix : copy.footerSigninPrefix}
-                  <AppText language={uiLanguage} variant="caption" style={styles.footerAction}>
-                    {mode === 'signup' ? copy.footerSignupAction : copy.footerSigninAction}
-                  </AppText>
-                </AppText>
-              </Pressable>
-
-              <Pressable accessibilityRole="button" onPress={handleContinueAsGuest}>
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[
-                    styles.guestLinkText,
-                    isCompactScreen ? styles.footerTextCompact : null,
-                    isTabletScreen ? styles.footerTextTablet : null,
-                    isLargeTabletScreen ? styles.footerTextLargeTablet : null,
-                  ]}>
-                  {copy.continueGuest}
-                </AppText>
-              </Pressable>
-
-              {mode === 'signup' ? (
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[
-                    styles.termsText,
-                    isCompactScreen ? styles.termsTextCompact : null,
-                    isTabletScreen ? styles.termsTextTablet : null,
-                    isLargeTabletScreen ? styles.termsTextLargeTablet : null,
-                  ]}>
-                  {copy.termsPrefix}
-                  <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
-                    {copy.termsTerms}
-                  </AppText>
-                  {copy.termsMiddle}
-                  <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
-                    {copy.termsPrivacy}
-                  </AppText>
-                </AppText>
-              ) : null}
             </View>
           </View>
         </View>
       </ScrollView>
+      {Platform.OS === 'ios' ? (
+        <InputAccessoryView nativeID={keyboardAccessoryId}>
+          <View style={styles.keyboardAccessoryBar}>
+            <View style={styles.keyboardAccessorySpacer} />
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={Keyboard.dismiss} style={styles.keyboardAccessoryButton}>
+              <MaterialIcons name="check" size={20} color="#1A2332" />
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -667,8 +727,11 @@ function FormField({
   autoCorrect,
   keyboardType,
   onChangeText,
+  onFocus,
+  onTouchStart,
   placeholder,
   secureTextEntry,
+  inputAccessoryViewID,
   isCompact,
   isTablet,
   isLargeTablet,
@@ -679,14 +742,16 @@ function FormField({
   value,
 }: {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  autoComplete?: 'email' | 'password';
+  autoComplete?: 'email' | 'password' | 'new-password';
   autoCorrect?: boolean;
   keyboardType?: 'default' | 'email-address';
   onChangeText: (value: string) => void;
+  onFocus?: () => void;
   placeholder: string;
   secureTextEntry?: boolean;
+  inputAccessoryViewID?: string;
   style?: object;
-  textContentType?: 'emailAddress' | 'password';
+  textContentType?: 'emailAddress' | 'password' | 'newPassword';
   trailingAccessory?: React.ReactNode;
   isCompact?: boolean;
   isTablet?: boolean;
@@ -711,6 +776,7 @@ function FormField({
         keyboardType={keyboardType}
         placeholder={placeholder}
         placeholderTextColor="#B0BFCC"
+        inputAccessoryViewID={inputAccessoryViewID}
         secureTextEntry={secureTextEntry}
         selectionColor={theme.colors.text}
         style={[
@@ -723,13 +789,20 @@ function FormField({
         textContentType={textContentType}
         value={value}
         onChangeText={onChangeText}
+        onFocus={onFocus}
       />
       {trailingAccessory ? <View style={styles.inputAccessory}>{trailingAccessory}</View> : null}
     </View>
   );
 }
 
-function PasswordVisibilityButton({ isVisible, onPress }: { isVisible: boolean; onPress: () => void }) {
+function PasswordVisibilityButton({
+  isVisible,
+  onPress,
+}: {
+  isVisible: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable accessibilityRole="button" hitSlop={8} onPress={onPress} style={styles.iconButton}>
       <MaterialIcons name={isVisible ? 'visibility-off' : 'visibility'} size={20} color="#8899AA" />
@@ -1187,6 +1260,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
+  footerStack: {
+    gap: 14,
+  },
   ctaButton: {
     minHeight: 56,
     marginTop: 2,
@@ -1266,6 +1342,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#7A8998',
     fontWeight: '700',
+  },
+  guestLinkUnderline: {
+    color: '#7A8998',
     textDecorationLine: 'underline',
   },
   termsText: {
@@ -1303,5 +1382,24 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.72,
+  },
+  keyboardAccessoryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#D7E0E8',
+    backgroundColor: '#F7FAFD',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  keyboardAccessorySpacer: {
+    flex: 1,
+  },
+  keyboardAccessoryButton: {
+    minWidth: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
   },
 });

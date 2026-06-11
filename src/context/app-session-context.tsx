@@ -46,6 +46,27 @@ const logBootstrap = (message: string, metadata?: Record<string, unknown>) => {
   });
 };
 
+const decodeJwtPayload = (token: string) => {
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const decoded = globalThis.atob ? globalThis.atob(padded) : null;
+
+    if (!decoded) {
+      return null;
+    }
+
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
 type AppProfile = UserProfile & {
   is_paid: boolean;
   onboarding_completed: boolean;
@@ -849,9 +870,18 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           return { error: message };
         }
 
+        const tokenPayload = decodeJwtPayload(idToken);
+        const nonceClaim =
+          typeof tokenPayload?.nonce === 'string' && tokenPayload.nonce.trim().length > 0
+            ? tokenPayload.nonce
+            : undefined;
+        const tokens = await GoogleSignin.getTokens().catch(() => null);
+
         const { error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
           token: idToken,
+          access_token: tokens?.accessToken,
+          nonce: nonceClaim,
         });
 
         if (error) {

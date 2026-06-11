@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  InputAccessoryView,
+  Keyboard,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -104,6 +107,7 @@ type ProfileStepProps = StepBaseProps & {
   onUsernameChange: (value: string) => void;
   onAvatarSelect: (value: string) => void;
   errorMessage: string;
+  keyboardAccessoryViewID?: string;
 };
 
 type BenefitsStepProps = StepBaseProps & {
@@ -351,6 +355,7 @@ function ProfileStep({
   onUsernameChange,
   onAvatarSelect,
   errorMessage,
+  keyboardAccessoryViewID,
 }: ProfileStepProps) {
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
@@ -367,6 +372,7 @@ function ProfileStep({
               placeholder={copy.namePlaceholder}
               placeholderTextColor={theme.colors.mutedText}
               style={styles.simpleTextInput}
+              inputAccessoryViewID={keyboardAccessoryViewID}
               value={username}
               onChangeText={onUsernameChange}
             />
@@ -526,6 +532,7 @@ export function OnboardingScreen() {
   const { uiLanguage } = useUiLanguage();
   const { markOnboardingComplete } = useOnboarding();
   const { hasMembership, isGuestConversionPending, isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
+  const keyboardAccessoryId = 'onboarding-keyboard-accessory';
 
   const copy = getCopy(uiLanguage);
   const scrollRef = useRef<ScrollView | null>(null);
@@ -768,6 +775,7 @@ export function OnboardingScreen() {
           onUsernameChange={setUsername}
           onAvatarSelect={setSelectedAvatarPath}
           errorMessage={currentStep === 2 ? errorMessage : ''}
+          keyboardAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
         />
       ),
       3: (
@@ -891,6 +899,18 @@ export function OnboardingScreen() {
           ) : null}
         </Stack>
       </View>
+      {Platform.OS === 'ios' ? (
+        <InputAccessoryView nativeID={keyboardAccessoryId}>
+          <View style={styles.keyboardAccessoryBar}>
+            <View style={styles.keyboardAccessorySpacer} />
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={Keyboard.dismiss} style={styles.keyboardAccessoryButton}>
+              <AppText language="en" variant="body" style={styles.keyboardAccessoryCheck}>
+                ✓
+              </AppText>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </View>
   );
 }
@@ -1336,6 +1356,31 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontSize: 12,
     lineHeight: 16,
+  },
+  keyboardAccessoryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#D7E0E8',
+    backgroundColor: '#F7FAFD',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  keyboardAccessorySpacer: {
+    flex: 1,
+  },
+  keyboardAccessoryButton: {
+    minWidth: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  keyboardAccessoryCheck: {
+    color: '#1A2332',
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: '900',
   },
   profileTitle: {
     marginTop: -10,
