@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isErrorWithCode, isSuccessResponse, statusCodes, GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -8,8 +9,10 @@ import * as Crypto from 'expo-crypto';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 import { UserProfile, fetchUserProfile, syncAppStoreMembership } from '@/src/api/user';
+import { env } from '@/src/config/env';
 import {
   addRevenueCatCustomerInfoUpdateListener,
   getRevenueCatCustomerInfo,
@@ -448,6 +451,17 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const delay = useCallback((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)), []);
 
   useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    GoogleSignin.configure({
+      iosClientId: env.googleIosClientId || undefined,
+      webClientId: env.googleWebClientId || undefined,
+    });
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     const hydrate = async () => {
@@ -792,12 +806,84 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     await persistGuestMode(false);
     await clearGuestRevenueCatUserId();
     setProfile(null);
+
+    if (Platform.OS === 'ios') {
+      try {
+        if (GoogleSignin.hasPreviousSignIn()) {
+          await GoogleSignin.signOut();
+        }
+      } catch (googleSignOutError) {
+        logAuth(
+          'google:signOut:error',
+          googleSignOutError instanceof Error ? googleSignOutError.message : 'Unknown error'
+        );
+      }
+    }
+
     return { error: null };
   };
 
   const signInWithGoogle = async () => {
     guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
     setIsGuestConversionPending(guestConversionPendingRef.current);
+
+    if (Platform.OS === 'ios') {
+      if (!env.googleIosClientId || !env.googleWebClientId) {
+        const message = 'Google sign-in is not configured for iOS.';
+        setAuthError(message);
+        return { error: message };
+      }
+
+      try {
+        const response = await GoogleSignin.signIn();
+        if (!isSuccessResponse(response)) {
+          logAuth('google:native:cancelled');
+          return { error: null };
+        }
+
+        const idToken = response.data.idToken;
+        if (!idToken) {
+          const message = 'Missing Google identity token.';
+          logAuth('google:native:missingIdToken');
+          setAuthError(message);
+          return { error: message };
+        }
+
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+
+        if (error) {
+          logAuth('google:native:signInWithIdToken:error', error.message);
+          setAuthError(error.message);
+          return { error: error.message };
+        }
+
+        setAuthError(null);
+        logAuth('google:native:success');
+        return { error: null };
+      } catch (error) {
+        if (isErrorWithCode(error)) {
+          if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+            const message = 'Google Play Services are not available on this device.';
+            setAuthError(message);
+            return { error: message };
+          }
+
+          if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+            logAuth('google:native:cancelled');
+            return { error: null };
+          }
+        }
+
+        const message = error instanceof Error ? error.message : 'Google sign-in did not complete.';
+        logAuth('google:native:error', message);
+        setAuthError(message);
+        return { error: message };
+      }
+    }
+
     logAuth('google:start', { redirectTo });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
