@@ -42,6 +42,14 @@ const isPrivateRelayEmail = (value: string | null | undefined) => {
   return value.trim().toLowerCase().endsWith('@privaterelay.appleid.com');
 };
 
+const isEmailLike = (value: string | null | undefined) => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return /\S+@\S+\.\S+/.test(value.trim());
+};
+
 const formatJoinedLabel = (value: string | null, uiLanguage: UiLanguage) => {
   if (!value) {
     return uiLanguage === 'th' ? 'เพิ่งเชื่อมต่อบัญชีในแอป' : 'Recently connected in the app';
@@ -137,11 +145,10 @@ export function ProfileScreen() {
   const [draftAvatarPath, setDraftAvatarPath] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const displayName =
-    profile?.name?.trim() ||
-    profile?.username?.trim() ||
-    (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '') ||
-    (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
-    user?.email ||
+    (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
+    (!isEmailLike(profile?.username) ? profile?.username?.trim() || '' : '') ||
+    (typeof user?.user_metadata?.name === 'string' && !isEmailLike(user.user_metadata.name) ? user.user_metadata.name.trim() : '') ||
+    (typeof user?.user_metadata?.username === 'string' && !isEmailLike(user.user_metadata.username) ? user.user_metadata.username.trim() : '') ||
     'Pailin Abroad';
   const resolvedEmail = profile?.email?.trim() || user?.email || '—';
   const email = isPrivateRelayEmail(resolvedEmail) ? null : resolvedEmail;

@@ -2,9 +2,9 @@ import { Platform } from 'react-native';
 import Purchases, {
   CustomerInfo,
   CustomerInfoUpdateListener,
+  LOG_LEVEL,
   PurchasesOffering,
   PurchasesPackage,
-  LOG_LEVEL,
 } from 'react-native-purchases';
 
 import { env } from '@/src/config/env';
@@ -38,10 +38,7 @@ export async function initializeRevenueCat() {
     return true;
   }
 
-  if (__DEV__) {
-    Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-  }
-
+  Purchases.setLogLevel(LOG_LEVEL.ERROR);
   Purchases.configure({
     apiKey: getTrimmedApiKey(),
   });

@@ -53,6 +53,7 @@ type OnboardingCopy = {
   passwordRule3: string;
   whatToCallYou: string;
   firstNameLabel: string;
+  optionalLabel: string;
   chooseAvatar: string;
   namePlaceholder: string;
   profileNameError: string;
@@ -108,6 +109,7 @@ type ProfileStepProps = StepBaseProps & {
   onAvatarSelect: (value: string) => void;
   errorMessage: string;
   keyboardAccessoryViewID?: string;
+  isUsernameOptional?: boolean;
 };
 
 type BenefitsStepProps = StepBaseProps & {
@@ -153,7 +155,8 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
       passwordRule2: 'มีตัวเลขหรือตัวอักษรพิเศษอย่างน้อย 1 ตัว',
       passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่อย่างน้อย 1 ตัว',
       whatToCallYou: 'อยากให้เราเรียกคุณว่าอะไรดีล่ะ?',
-      firstNameLabel: 'ชื่อจริง หรือ ชื่อเล่น',
+      firstNameLabel: 'ชื่อผู้ใช้',
+      optionalLabel: 'ไม่บังคับ',
       chooseAvatar: 'เลือกรูปโปรไฟล์ของคุณกัน',
       namePlaceholder: 'พิมพ์ชื่อของคุณ',
       profileNameError: 'กรุณาใส่ชื่อของคุณ',
@@ -196,7 +199,8 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
     passwordRule2: 'At least 1 number or special character',
     passwordRule3: 'At least 1 uppercase letter',
     whatToCallYou: 'What should we call you?',
-    firstNameLabel: 'First Name or Nickname',
+    firstNameLabel: 'Username',
+    optionalLabel: 'Optional',
     chooseAvatar: 'Choose an avatar',
     namePlaceholder: 'Enter your name',
     profileNameError: 'Please enter your name.',
@@ -356,6 +360,7 @@ function ProfileStep({
   onAvatarSelect,
   errorMessage,
   keyboardAccessoryViewID,
+  isUsernameOptional,
 }: ProfileStepProps) {
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
@@ -366,6 +371,7 @@ function ProfileStep({
           </AppText>
           <AppText language={uiLanguage} variant="caption" style={[styles.fieldLabel, compact ? styles.fieldLabelCompact : null]}>
             {copy.firstNameLabel}
+            {isUsernameOptional ? ` (${copy.optionalLabel})` : ''}
           </AppText>
           <View style={[styles.simpleInputShell, compact ? styles.simpleInputShellCompact : null]}>
             <TextInput
@@ -543,6 +549,7 @@ export function OnboardingScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const authProvider = typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null;
+  const isAppleAuthProvider = authProvider === 'apple';
   const skipPasswordStep = Boolean(authProvider && authProvider !== 'email');
   const skipBenefitsStep = hasMembership || isGuestConversionPending;
   const visibleStepIds = useMemo<StepId[]>(
@@ -654,7 +661,16 @@ export function OnboardingScreen() {
   const handleCompleteProfile = useCallback(async () => {
     setErrorMessage('');
 
-    if (!username.trim()) {
+    const resolvedUsername = (
+      username ||
+      profile?.username ||
+      profile?.name ||
+      (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username : '') ||
+      (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name : '') ||
+      (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '')
+    ).trim();
+
+    if (!isAppleAuthProvider && !resolvedUsername) {
       setErrorMessage(copy.profileNameError);
       return;
     }
@@ -668,7 +684,7 @@ export function OnboardingScreen() {
     try {
       await ensureOnboardingUserRecord();
       await updateOnboardingProfile({
-        username,
+        username: resolvedUsername,
         avatarImage: selectedAvatarPath,
       });
       await refreshProfile();
@@ -678,7 +694,21 @@ export function OnboardingScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [copy.profileAvatarError, copy.profileNameError, goToStep, refreshProfile, selectedAvatarPath, skipBenefitsStep, username]);
+  }, [
+    copy.profileAvatarError,
+    copy.profileNameError,
+    goToStep,
+    isAppleAuthProvider,
+    profile?.name,
+    profile?.username,
+    refreshProfile,
+    selectedAvatarPath,
+    skipBenefitsStep,
+    user?.user_metadata?.full_name,
+    user?.user_metadata?.name,
+    user?.user_metadata?.username,
+    username,
+  ]);
 
   const handleFinishOnboarding = useCallback(async () => {
     setErrorMessage('');
@@ -776,6 +806,7 @@ export function OnboardingScreen() {
           onAvatarSelect={setSelectedAvatarPath}
           errorMessage={currentStep === 2 ? errorMessage : ''}
           keyboardAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
+          isUsernameOptional={isAppleAuthProvider}
         />
       ),
       3: (
@@ -819,6 +850,7 @@ export function OnboardingScreen() {
     router,
     selectedAvatarPath,
     shellInnerWidth,
+    isAppleAuthProvider,
     uiLanguage,
     username,
     veryCompact,

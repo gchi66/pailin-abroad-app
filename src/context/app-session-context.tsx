@@ -67,6 +67,37 @@ const decodeJwtPayload = (token: string) => {
   }
 };
 
+const isEmailLike = (value: string | null | undefined) => {
+  if (!value) {
+    return false;
+  }
+
+  return /\S+@\S+\.\S+/.test(value.trim());
+};
+
+const isPrivateRelayEmail = (value: string | null | undefined) => {
+  if (!value) {
+    return false;
+  }
+
+  return value.trim().toLowerCase().endsWith('@privaterelay.appleid.com');
+};
+
+const getPreferredMetadataName = (currentUser: User) => {
+  const givenName = typeof currentUser.user_metadata?.given_name === 'string' ? currentUser.user_metadata.given_name.trim() : '';
+  const familyName = typeof currentUser.user_metadata?.family_name === 'string' ? currentUser.user_metadata.family_name.trim() : '';
+  const combinedName = [givenName, familyName].filter(Boolean).join(' ').trim();
+
+  const candidates = [
+    combinedName,
+    typeof currentUser.user_metadata?.full_name === 'string' ? currentUser.user_metadata.full_name.trim() : '',
+    typeof currentUser.user_metadata?.name === 'string' ? currentUser.user_metadata.name.trim() : '',
+    typeof currentUser.user_metadata?.username === 'string' ? currentUser.user_metadata.username.trim() : '',
+  ];
+
+  return candidates.find((value) => value && !isEmailLike(value)) ?? null;
+};
+
 type AppProfile = UserProfile & {
   is_paid: boolean;
   onboarding_completed: boolean;
@@ -146,6 +177,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [isGuestConversionPending, setIsGuestConversionPending] = useState(false);
   const hasIgnoredInitialSession = useRef(false);
   const guestConversionPendingRef = useRef(false);
+  const guestConversionShouldCarryMembershipRef = useRef(false);
 
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',
@@ -218,11 +250,64 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       .maybeSingle<AppUserRow>();
   }, []);
 
+  const persistAppleDisplayName = useCallback(
+    async (displayName: NonNullable<ReturnType<typeof getAppleDisplayName>>) => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      if (!currentUser) {
+        return;
+      }
+
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: displayName.fullName,
+            name: displayName.fullName,
+            username: displayName.fullName,
+            given_name: displayName.givenName,
+            family_name: displayName.familyName,
+          },
+        });
+      } catch (updateError) {
+        logAuth('apple:updateUser:error', updateError instanceof Error ? updateError.message : 'Unknown error');
+      }
+
+      try {
+        const { data: userRow } = await fetchUsersRow(currentUser.id);
+        const currentUsername = userRow?.username?.trim() ?? '';
+        const shouldReplaceUsername = !currentUsername || isEmailLike(currentUsername) || isPrivateRelayEmail(currentUsername);
+
+        const updatePayload: Partial<AppUserRow> & { avatar_image?: string | null } = {};
+
+        if (shouldReplaceUsername) {
+          updatePayload.username = displayName.fullName;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: usersUpdateError } = await supabase.from('users').update(updatePayload).eq('id', currentUser.id);
+          if (usersUpdateError) {
+            logAuth('apple:updateUsersRow:error', usersUpdateError.message);
+          }
+        }
+      } catch (usersRowError) {
+        logAuth('apple:updateUsersRow:error', usersRowError instanceof Error ? usersRowError.message : 'Unknown error');
+      }
+
+      await fetchProfile(currentUser, { waitForEnrichment: true });
+    },
+    [fetchProfile, fetchUsersRow]
+  );
+
   const buildMinimalProfile = useCallback((currentUser: User, userRow: AppUserRow | null): AppProfile => {
+    const preferredMetadataName = getPreferredMetadataName(currentUser);
+    const rowUsername = userRow?.username?.trim() ?? null;
+
     return {
       id: userRow?.id ?? currentUser.id,
-      name: userRow?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
-      username: userRow?.username ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+      name: preferredMetadataName ?? rowUsername ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+      username: rowUsername ?? preferredMetadataName ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
       email: userRow?.email ?? currentUser.email ?? null,
       avatar_image:
         userRow?.avatar_image ??
@@ -240,17 +325,27 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, []);
 
   const mergeEnrichedProfile = useCallback((currentUser: User, userRow: AppUserRow | null, backendProfile: UserProfile): AppProfile => {
+    const preferredMetadataName = getPreferredMetadataName(currentUser);
+    const rowUsername = userRow?.username?.trim() ?? null;
+    const backendName = backendProfile.name?.trim() ?? null;
+    const backendUsername = backendProfile.username?.trim() ?? null;
+
     return {
       id: userRow?.id ?? backendProfile.id ?? currentUser.id,
       name:
-        backendProfile.name ??
-        userRow?.username ??
+        (backendName && !isEmailLike(backendName) ? backendName : null) ??
+        preferredMetadataName ??
+        (rowUsername && !isEmailLike(rowUsername) ? rowUsername : null) ??
+        backendName ??
+        rowUsername ??
+        backendUsername ??
         currentUser.user_metadata?.username ??
         currentUser.user_metadata?.name ??
         null,
       username:
-        userRow?.username ??
-        backendProfile.username ??
+        rowUsername ??
+        backendUsername ??
+        preferredMetadataName ??
         currentUser.user_metadata?.username ??
         currentUser.user_metadata?.name ??
         null,
@@ -403,10 +498,11 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
       if (usersError) {
         setAuthError(error instanceof Error ? error.message : usersError.message);
+        const preferredMetadataName = getPreferredMetadataName(currentUser);
         setProfile({
           id: currentUser.id,
-          name: currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
-          username: currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+          name: preferredMetadataName ?? currentUser.user_metadata?.username ?? currentUser.user_metadata?.name ?? null,
+          username: currentUser.user_metadata?.username ?? preferredMetadataName ?? currentUser.user_metadata?.name ?? null,
           email: currentUser.email ?? null,
           avatar_image: null,
           is_admin: false,
@@ -602,14 +698,15 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         const isGuestConversion =
           Boolean(nextSession?.user?.id) &&
           (guestConversionPendingRef.current || (isGuestMode && Boolean(guestRevenueCatUserId)));
+        const shouldCarryGuestMembership = isGuestConversion && guestConversionShouldCarryMembershipRef.current;
 
         if (shouldSyncMembership) {
           await syncRevenueCatUser(nextSession?.user?.id ?? null);
           let syncedMembership = null;
           let latestCustomerInfo: CustomerInfo | null = null;
 
-          for (let attempt = 0; attempt < (isGuestConversion ? 3 : 1); attempt += 1) {
-            if (isGuestConversion) {
+          for (let attempt = 0; attempt < (shouldCarryGuestMembership ? 3 : 1); attempt += 1) {
+            if (shouldCarryGuestMembership) {
               latestCustomerInfo = await syncRevenueCatPurchases();
             }
 
@@ -624,7 +721,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
               break;
             }
 
-            if (isGuestConversion && attempt < 2) {
+            if (shouldCarryGuestMembership && attempt < 2) {
               await delay(1200);
             }
           }
@@ -703,6 +800,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const signIn = async ({ email, password }: { email: string; password: string }) => {
     guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+    guestConversionShouldCarryMembershipRef.current =
+      guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
     setIsGuestConversionPending(guestConversionPendingRef.current);
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -720,6 +819,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const signUp = async ({ email, password }: { email: string; password: string }) => {
     guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+    guestConversionShouldCarryMembershipRef.current =
+      guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
     setIsGuestConversionPending(guestConversionPendingRef.current);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -741,6 +842,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const signInWithApple = async () => {
     try {
       guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+      guestConversionShouldCarryMembershipRef.current =
+        guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
       setIsGuestConversionPending(guestConversionPendingRef.current);
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
@@ -757,6 +860,19 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
         nonce: hashedNonce,
+      });
+
+      logAuth('apple:credential', {
+        user: credential.user ?? null,
+        email: credential.email ?? null,
+        fullName: credential.fullName
+          ? {
+              givenName: credential.fullName.givenName ?? null,
+              middleName: credential.fullName.middleName ?? null,
+              familyName: credential.fullName.familyName ?? null,
+              nickname: credential.fullName.nickname ?? null,
+            }
+          : null,
       });
 
       if (!credential.identityToken) {
@@ -778,21 +894,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
       const displayName = getAppleDisplayName(credential);
       if (displayName) {
-        try {
-          await supabase.auth.updateUser({
-            data: {
-              name: displayName.fullName,
-              username: displayName.fullName,
-              given_name: displayName.givenName,
-              family_name: displayName.familyName,
-            },
-          });
-        } catch (updateError) {
-          logAuth(
-            'apple:updateUser:error',
-            updateError instanceof Error ? updateError.message : 'Unknown error'
-          );
-        }
+        await persistAppleDisplayName(displayName);
       }
 
       setAuthError(null);
@@ -815,6 +917,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const signOut = async () => {
     guestConversionPendingRef.current = false;
+    guestConversionShouldCarryMembershipRef.current = false;
     setIsGuestConversionPending(false);
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -846,6 +949,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const signInWithGoogle = async () => {
     guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
+    guestConversionShouldCarryMembershipRef.current =
+      guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
     setIsGuestConversionPending(guestConversionPendingRef.current);
 
     if (Platform.OS === 'ios') {
@@ -971,6 +1076,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const continueAsGuest = async () => {
     setAuthError(null);
+    guestConversionPendingRef.current = false;
+    guestConversionShouldCarryMembershipRef.current = false;
     setIsGuestConversionPending(false);
     await ensureGuestRevenueCatUserId();
     setIsGuestMode(true);
@@ -979,6 +1086,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const exitGuestMode = async () => {
     guestConversionPendingRef.current = false;
+    guestConversionShouldCarryMembershipRef.current = false;
     setIsGuestConversionPending(false);
     setIsGuestMode(false);
     await persistGuestMode(false);

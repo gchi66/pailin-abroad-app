@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { getPricing, prefetchPricing } from '@/src/api/pricing';
 import { BillingInvoice, BillingPaymentMethod, deleteUserAccount, fetchBillingInvoices, fetchBillingPaymentMethod } from '@/src/api/user';
@@ -68,7 +69,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       changePlan: 'เปลี่ยนแผน',
       termsTitle: 'ข้อกำหนดและเงื่อนไข',
       privacyTitle: 'นโยบายความเป็นส่วนตัว',
-      moreTitle: 'เพิ่มเติม',
+      moreTitle: 'บัญชี',
       billingHistoryTitle: 'ประวัติการเรียกเก็บเงิน',
       billingManagedByApple: 'การชำระเงินนี้จัดการผ่าน Apple โปรดตรวจสอบการสมัครสมาชิกและประวัติการซื้อในบัญชี Apple ของคุณ',
       billingNoChargeHistory: 'ยังไม่มีประวัติการชำระเงิน',
@@ -105,7 +106,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     changePlan: 'Change Plan',
     termsTitle: 'Terms & Conditions',
     privacyTitle: 'Privacy Policy',
-    moreTitle: 'More',
+    moreTitle: 'Account',
     billingHistoryTitle: 'Billing History',
     billingManagedByApple: 'This subscription is managed through Apple. Check your Apple account for payment method and purchase history.',
     billingNoChargeHistory: 'No payments yet.',
@@ -488,9 +489,13 @@ export function SettingsScreen() {
               <AppText language={uiLanguage} variant="body" style={styles.moreTitle}>
                 {copy.billingHistoryTitle}
               </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.collapsibleChevron}>
-                {openSection === 'billing-history' ? '−' : '+'}
-              </AppText>
+              <View style={styles.collapsibleChevronBox}>
+                <MaterialIcons
+                  name={openSection === 'billing-history' ? 'remove' : 'add'}
+                  size={20}
+                  color={theme.colors.text}
+                />
+              </View>
             </Pressable>
 
             {openSection === 'billing-history' ? (
@@ -562,9 +567,13 @@ export function SettingsScreen() {
               <AppText language={uiLanguage} variant="body" style={styles.moreTitle}>
                 {copy.moreTitle}
               </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.collapsibleChevron}>
-                {openSection === 'more' ? '−' : '+'}
-              </AppText>
+              <View style={styles.collapsibleChevronBox}>
+                <MaterialIcons
+                  name={openSection === 'more' ? 'remove' : 'add'}
+                  size={20}
+                  color={theme.colors.text}
+                />
+              </View>
             </Pressable>
 
             {openSection === 'more' ? (
@@ -600,9 +609,6 @@ export function SettingsScreen() {
                     </View>
                     {isDeletingAccount ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
                   </View>
-                  <AppText language={uiLanguage} variant="body" style={styles.dangerChevron}>
-                    ›
-                  </AppText>
                 </Pressable>
               </View>
             ) : null}
@@ -670,14 +676,12 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.bold,
   },
-  collapsibleChevron: {
+  collapsibleChevronBox: {
     width: 24,
     minWidth: 24,
-    textAlign: 'center',
-    color: theme.colors.text,
-    fontSize: 22,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.regular,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   moreTrigger: {
     minHeight: 44,
@@ -792,10 +796,5 @@ const styles = StyleSheet.create({
   },
   dangerHint: {
     color: theme.colors.mutedText,
-  },
-  dangerChevron: {
-    color: theme.colors.mutedText,
-    fontSize: 28,
-    lineHeight: 24,
   },
 });

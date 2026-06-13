@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -23,6 +24,8 @@ type UiLanguage = 'en' | 'th';
 
 type PathwayCopy = {
   welcomeBack: string;
+  welcome: string;
+  welcomeTo: string;
   guestWelcome: string;
   freePlanBadge: string;
   paidBadge: string;
@@ -57,6 +60,8 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
   if (uiLanguage === 'th') {
     return {
       welcomeBack: 'ยินดีต้อนรับกลับมา',
+      welcome: 'ยินดีต้อนรับ!',
+      welcomeTo: 'ยินดีต้อนรับสู่',
       guestWelcome: 'เส้นทางการเรียนของคุณ',
       freePlanBadge: 'แพ็กเกจฟรี',
       paidBadge: 'สมาชิก',
@@ -91,6 +96,8 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
 
   return {
     welcomeBack: 'Welcome back',
+    welcome: 'Welcome!',
+    welcomeTo: 'Welcome to',
     guestWelcome: 'Your learning pathway',
     freePlanBadge: 'Free plan',
     paidBadge: 'Member',
@@ -160,10 +167,18 @@ const getLessonNumber = (lesson: LessonListItem) => {
   return '–';
 };
 
+const isEmailLike = (value: string | null | undefined) => {
+  if (!value) {
+    return false;
+  }
+
+  return /\S+@\S+\.\S+/.test(value.trim());
+};
+
 const getFirstName = (displayName: string) => {
   const trimmed = displayName.trim();
   if (!trimmed) {
-    return 'Pailin Abroad';
+    return '';
   }
 
   const [firstToken] = trimmed.split(/\s+/);
@@ -200,6 +215,8 @@ const renderStatLabel = (label: string, uiLanguage: UiLanguage) => {
     </AppText>
   ));
 };
+
+const getNoNameWelcomeSeenKey = (userId: string) => `pailin-abroad.no-name-welcome-seen.${userId}`;
 
 const getProgressContext = (
   pathwayRows: PathwayLessonRow[],
@@ -256,13 +273,15 @@ export function MyPathwayScreen() {
 
   const displayName =
     (isGuestMode ? copy.guestWelcome : '') ||
-    profile?.name?.trim() ||
-    profile?.username?.trim() ||
-    (typeof user?.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '') ||
-    (typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username.trim() : '') ||
-    user?.email ||
-    'Pailin Abroad';
+    (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
+    (!isEmailLike(profile?.username) ? profile?.username?.trim() || '' : '') ||
+    (typeof user?.user_metadata?.name === 'string' && !isEmailLike(user.user_metadata.name) ? user.user_metadata.name.trim() : '') ||
+    (typeof user?.user_metadata?.username === 'string' && !isEmailLike(user.user_metadata.username) ? user.user_metadata.username.trim() : '') ||
+    '';
   const firstName = isGuestMode ? copy.guestWelcome : getFirstName(displayName);
+  const hasDisplayName = Boolean(firstName);
+  const [hasSeenNoNameWelcome, setHasSeenNoNameWelcome] = React.useState(false);
+  const shouldShowFirstNoNameWelcome = !isGuestMode && !hasDisplayName && !hasSeenNoNameWelcome;
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
 
@@ -290,6 +309,44 @@ export function MyPathwayScreen() {
       hasMembership,
     });
   }, [hasAccount, hasMembership]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadNoNameWelcomeState = async () => {
+      if (!user?.id || isGuestMode || hasDisplayName) {
+        if (isMounted) {
+          setHasSeenNoNameWelcome(true);
+        }
+        return;
+      }
+
+      try {
+        const storedValue = await AsyncStorage.getItem(getNoNameWelcomeSeenKey(user.id));
+        if (isMounted) {
+          setHasSeenNoNameWelcome(storedValue === 'true');
+        }
+      } catch {
+        if (isMounted) {
+          setHasSeenNoNameWelcome(true);
+        }
+      }
+    };
+
+    void loadNoNameWelcomeState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasDisplayName, isGuestMode, user?.id]);
+
+  useEffect(() => {
+    if (!shouldShowFirstNoNameWelcome || !user?.id) {
+      return;
+    }
+
+    void AsyncStorage.setItem(getNoNameWelcomeSeenKey(user.id), 'true').catch(() => {});
+  }, [shouldShowFirstNoNameWelcome, user?.id]);
 
   if (isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -349,16 +406,50 @@ export function MyPathwayScreen() {
             <View style={styles.headerCopy}>
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTextGroup}>
-                  <AppText
-                    language={uiLanguage}
-                    variant="title"
-                    numberOfLines={1}
-                    style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
-                    {isGuestMode ? (uiLanguage === 'th' ? 'เส้นทางการเรียน' : 'My Pathway') : `${copy.welcomeBack},`}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="title" style={styles.headerName}>
-                    {isGuestMode ? firstName : `${firstName}.`}
-                  </AppText>
+                  {isGuestMode ? (
+                    <>
+                      <AppText
+                        language={uiLanguage}
+                        variant="title"
+                        numberOfLines={1}
+                        style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                        {uiLanguage === 'th' ? 'เส้นทางการเรียน' : 'My Pathway'}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="title" style={styles.headerName}>
+                        {firstName}
+                      </AppText>
+                    </>
+                  ) : hasDisplayName ? (
+                    <>
+                      <AppText
+                        language={uiLanguage}
+                        variant="title"
+                        numberOfLines={1}
+                        style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                        {`${copy.welcomeBack},`}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="title" style={styles.headerName}>
+                        {`${firstName}.`}
+                      </AppText>
+                    </>
+                  ) : shouldShowFirstNoNameWelcome ? (
+                    <>
+                      <AppText
+                        language={uiLanguage}
+                        variant="title"
+                        numberOfLines={1}
+                        style={[styles.headerTitle, styles.headerNoNameTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                        {copy.welcomeTo}
+                      </AppText>
+                      <AppText language="en" variant="title" style={styles.headerName}>
+                        Pailin Abroad
+                      </AppText>
+                    </>
+                  ) : (
+                    <AppText language={uiLanguage} variant="title" style={styles.headerNoNameReturning}>
+                      {copy.welcomeBack}
+                    </AppText>
+                  )}
                 </View>
 
                 <View style={styles.planMeta}>
@@ -725,6 +816,16 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.accent,
+  },
+  headerNoNameTitle: {
+    marginTop: 2,
+  },
+  headerNoNameReturning: {
+    marginTop: 6,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
   },
   planMeta: {
     alignItems: 'flex-start',
