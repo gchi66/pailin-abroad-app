@@ -3282,13 +3282,22 @@ export default function LessonDetailShellScreen() {
     () => groupRichSectionNodes(selectNodesForTableVisibility(extraTipNodes, isCompactLayout), contentLang),
     [contentLang, extraTipNodes, isCompactLayout]
   );
-  const visibleCultureNoteNodes = useMemo(
-    () => selectNodesForTableVisibility(cultureNoteNodes, isCompactLayout),
-    [cultureNoteNodes, isCompactLayout]
+  const cultureNoteGroups = useMemo(
+    () => groupRichSectionNodes(selectNodesForTableVisibility(cultureNoteNodes, isCompactLayout), contentLang),
+    [contentLang, cultureNoteNodes, isCompactLayout]
   );
   const activePagerGroups = useMemo(
-    () => (isUnderstandTab ? understandGroups : isExtraTipTab ? extraTipGroups : isCommonMistakeTab ? commonMistakeGroups : []),
-    [commonMistakeGroups, extraTipGroups, isCommonMistakeTab, isExtraTipTab, isUnderstandTab, understandGroups]
+    () =>
+      isUnderstandTab
+        ? understandGroups
+        : isExtraTipTab
+          ? extraTipGroups
+          : isCommonMistakeTab
+            ? commonMistakeGroups
+            : isCultureNoteTab
+              ? cultureNoteGroups
+              : [],
+    [commonMistakeGroups, cultureNoteGroups, extraTipGroups, isCommonMistakeTab, isCultureNoteTab, isExtraTipTab, isUnderstandTab, understandGroups]
   );
   const activeExpectedCardUnits = useMemo(
     () =>
@@ -3309,7 +3318,7 @@ export default function LessonDetailShellScreen() {
   const activePracticeExercise = isPracticeTab ? normalizedPracticeExercises[activePracticeCardIndex] ?? null : null;
   const sectionCount = lessonTabs.length;
   const isLastSection = activeSectionIndex >= sectionCount - 1;
-  const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab;
+  const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
   const hasPracticePagerCards = isPracticeTab && normalizedPracticeExercises.length > 0;
   const isInnerPagerTab = isRichPagerTab || hasPracticePagerCards;
   const activeInnerCardIndex = isPracticeTab
@@ -8685,7 +8694,8 @@ export default function LessonDetailShellScreen() {
   const shouldStackPagerDots = pagerDotKeys.length > 10;
   const shouldShowBottomPagerDock =
     hasMultiplePagerCards &&
-    (isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab) &&
+    !isFullscreen &&
+    (isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab) &&
     Boolean(isPracticeTab ? activePracticeExercise : activePagerGroup);
 
   const renderRichPagerControls = () => (
@@ -8706,9 +8716,7 @@ export default function LessonDetailShellScreen() {
             styles.richPagerArrowButton,
             activeInnerCardIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
           ]}>
-          <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-            ←
-          </AppText>
+          <MaterialIcons name="arrow-back-ios-new" size={18} color={theme.colors.text} />
         </Pressable>
 
         {!shouldStackPagerDots ? (
@@ -8735,9 +8743,7 @@ export default function LessonDetailShellScreen() {
             accessibilityLabel={pageLanguage === 'th' ? 'การ์ดถัดไป' : 'Next card'}
             onPress={() => handleSetActiveInnerCardIndex(activeInnerCardIndex + 1)}
             style={styles.richPagerArrowButton}>
-            <AppText language="en" variant="body" style={styles.richPagerArrowText}>
-              →
-            </AppText>
+            <MaterialIcons name="arrow-forward-ios" size={18} color={theme.colors.text} />
           </Pressable>
         )}
       </View>
@@ -9671,7 +9677,7 @@ export default function LessonDetailShellScreen() {
                         {pageCopy.phrasesEmpty}
                       </AppText>
                     )
-                  ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab ? (
+                  ) : isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab ? (
                     (isPracticeTab ? activePracticeExercise : activePagerGroup) ? (
                       <GestureDetector gesture={richPagerGesture}>
                             <View style={styles.richPagerShell}>
@@ -9701,12 +9707,16 @@ export default function LessonDetailShellScreen() {
 
                             <View style={styles.richPagerBody}>
                               <View style={styles.richPagerScrollContent}>
-                                {isPracticeTab && activePracticeExercise
+                              {isPracticeTab && activePracticeExercise
                                   ? renderPracticeExerciseBody(activePracticeExercise)
                                   : activePagerGroup && isUnderstandTab
                                       ? renderUnderstandGroupBody(activePagerGroup.body, activePagerGroup.key)
                                       : activePagerGroup && isExtraTipTab
                                         ? renderExtraTipGroupBody(activePagerGroup.body, activePagerGroup.key)
+                                      : activePagerGroup && isCultureNoteTab
+                                        ? (
+                                          <View style={styles.cultureNoteShell}>{renderCultureNoteBody(activePagerGroup.body)}</View>
+                                        )
                                       : activePagerGroup
                                         ? renderCommonMistakeGroupBody(activePagerGroup.body, activePagerGroup.key)
                                         : null}
@@ -9734,7 +9744,13 @@ export default function LessonDetailShellScreen() {
                               {pageCopy.rendererReady(
                                 getLessonSectionLabel(
                                   pageLanguage,
-                                  isUnderstandTab ? 'understand' : isExtraTipTab ? 'extra_tip' : 'common_mistake'
+                                  isUnderstandTab
+                                    ? 'understand'
+                                    : isExtraTipTab
+                                      ? 'extra_tip'
+                                      : isCultureNoteTab
+                                        ? 'culture_note'
+                                        : 'common_mistake'
                                 )
                               )}
                             </AppText>
@@ -9744,24 +9760,6 @@ export default function LessonDetailShellScreen() {
                           </Stack>
                         </View>
                       )
-                    )
-                  ) : isCultureNoteTab ? (
-                    cultureNoteNodes.length ? (
-                      <View style={styles.cultureNoteShell}>{renderCultureNoteBody(visibleCultureNoteNodes)}</View>
-                    ) : (
-                      <View style={styles.placeholderBox}>
-                        <Stack gap="xs">
-                          <AppText language={pageLanguage} variant="caption" style={styles.placeholderEyebrow}>
-                            {pageCopy.rendererNext}
-                          </AppText>
-                          <AppText language={pageLanguage} variant="body" style={styles.placeholderTitle}>
-                            {pageCopy.rendererReady(getLessonSectionLabel(pageLanguage, 'culture_note'))}
-                          </AppText>
-                          <AppText language={pageLanguage} variant="muted" style={styles.placeholderBody}>
-                            {pageCopy.richNodesLoaded(richContentBlockCount)}
-                          </AppText>
-                        </Stack>
-                      </View>
                     )
                   ) : (
                     <Stack gap="md">
@@ -10527,9 +10525,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   richPagerControlsBottom: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   bottomPagerDock: {
     borderTopWidth: 1,
@@ -10543,27 +10541,18 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   richPagerArrowButton: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow,
   },
   richPagerArrowButtonDisabled: {
-    opacity: 0.4,
+    opacity: 0.28,
   },
   richPagerArrowSpacer: {
-    width: 48,
-    height: 48,
-  },
-  richPagerArrowText: {
-    fontSize: 24,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.semibold,
+    width: 44,
+    height: 44,
   },
   richPagerDots: {
     flexDirection: 'row',
