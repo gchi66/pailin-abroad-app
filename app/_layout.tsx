@@ -103,7 +103,7 @@ function AppRouteGate() {
   if (shouldRedirectSignedOutUser || shouldRedirectAuthenticatedAuthRoute || shouldRedirectToOnboarding || shouldRedirectToApp) {
     return (
       <View pointerEvents="none" style={styles.routeGateOverlay}>
-        <PageLoadingState animate={false} showImage={false} />
+        <PageLoadingState />
       </View>
     );
   }
@@ -156,7 +156,13 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return null;
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <View style={styles.fontsLoadingScreen}>
+          <PageLoadingState />
+        </View>
+      </GestureHandlerRootView>
+    );
   }
 
   return (
@@ -190,6 +196,10 @@ const styles = StyleSheet.create({
     zIndex: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.background,
+  },
+  fontsLoadingScreen: {
+    flex: 1,
     backgroundColor: theme.colors.background,
   },
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -229,6 +230,13 @@ export function ProfileScreen() {
             <View style={styles.pageCenterGroup}>
               <Card padding="lg" radius="lg" style={[styles.neoCard, styles.guestCard]}>
                 <Stack gap="md">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
+                    onPress={() => router.push('/(tabs)/account')}
+                    style={styles.guestCardCloseButton}>
+                    <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
+                  </Pressable>
                   <AppText language={uiLanguage} variant="title" style={styles.guestTitle}>
                     {copy.guestTitle}
                   </AppText>
@@ -236,13 +244,16 @@ export function ProfileScreen() {
                     {copy.guestBody}
                   </AppText>
                   {isGuestMode ? (
-                    <Button
-                      language={uiLanguage}
-                      title={copy.guestCta}
-                      onPress={() => router.push('/account/auth')}
-                      style={styles.guestButton}
-                      textStyle={styles.guestButtonText}
-                    />
+                    <View style={styles.guestButtonWrap}>
+                      <View pointerEvents="none" style={styles.guestButtonShadow} />
+                      <Button
+                        language={uiLanguage}
+                        title={copy.guestCta}
+                        onPress={() => router.push('/account/auth')}
+                        style={styles.guestButton}
+                        textStyle={styles.guestButtonText}
+                      />
+                    </View>
                   ) : null}
                 </Stack>
               </Card>
@@ -455,6 +466,11 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 3,
   },
+  guestCardCloseButton: {
+    alignSelf: 'flex-end',
+    marginBottom: -theme.spacing.xs,
+    padding: 2,
+  },
   sectionTitle: {
     fontWeight: theme.typography.weights.semibold,
   },
@@ -478,15 +494,23 @@ const styles = StyleSheet.create({
   },
   guestButton: {
     minHeight: 56,
-    borderWidth: 1.5,
-    borderRadius: 999,
+    borderWidth: 2,
+    borderRadius: 28,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    overflow: 'hidden',
+  },
+  guestButtonWrap: {
+    position: 'relative',
+  },
+  guestButtonShadow: {
+    position: 'absolute',
+    top: 3,
+    right: -3,
+    bottom: -3,
+    left: 3,
+    borderRadius: 28,
+    backgroundColor: theme.colors.shadow,
   },
   guestButtonText: {
     fontWeight: theme.typography.weights.bold,

@@ -46,6 +46,8 @@ const logBootstrap = (message: string, metadata?: Record<string, unknown>) => {
   });
 };
 
+const getElapsedMs = (startedAt: number) => Date.now() - startedAt;
+
 const decodeJwtPayload = (token: string) => {
   const parts = token.split('.');
   if (parts.length < 2) {
@@ -187,6 +189,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const logAuth = (...args: unknown[]) => {
     console.log('[auth]', ...args);
   };
+
+  const logAuthTiming = useCallback((message: string, startedAt: number, metadata?: Record<string, unknown>) => {
+    logAuth(message, {
+      elapsedMs: getElapsedMs(startedAt),
+      ...(metadata ?? {}),
+    });
+  }, []);
 
   const persistGuestMode = useCallback(async (enabled: boolean) => {
     try {
@@ -400,6 +409,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, [buildMinimalProfile, mergeEnrichedProfile]);
 
   const createSessionFromUrl = useCallback(async (url: string) => {
+    const sessionFromUrlStartedAt = Date.now();
     logAuth('createSessionFromUrl:start');
     const { params, errorCode } = QueryParams.getQueryParams(url);
 
@@ -429,8 +439,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       throw error;
     }
 
-    logAuth('createSessionFromUrl:success');
-  }, []);
+    logAuthTiming('createSessionFromUrl:success', sessionFromUrlStartedAt);
+  }, [logAuthTiming]);
 
   const fetchProfile = useCallback(async (
     currentUser: User | null,
@@ -539,9 +549,10 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, [buildMinimalProfile, enrichProfile, fetchUsersRow]);
 
   const syncMembershipForAuthenticatedUser = useCallback(async (source: string) => {
+    const syncStartedAt = Date.now();
     try {
       const response = await syncAppStoreMembership(source);
-      logAuth('membership:sync:success', {
+      logAuthTiming('membership:sync:success', syncStartedAt, {
         source,
         hasAccess: response.has_access,
         subscriptionStatus: response.subscription_status,
@@ -549,13 +560,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       });
       return response;
     } catch (error) {
-      logAuth('membership:sync:error', {
+      logAuthTiming('membership:sync:error', syncStartedAt, {
         source,
         message: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
-  }, []);
+  }, [logAuthTiming]);
 
   const finalizeGuestConversion = useCallback(async () => {
     guestConversionPendingRef.current = false;
@@ -684,6 +695,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         userId: nextSession?.user?.id ?? null,
       });
       const authStateStartedAt = Date.now();
+      const authenticatedUser = nextSession?.user ?? null;
       logBootstrap('auth state change started', {
         event,
         hasSession: Boolean(nextSession),
@@ -692,28 +704,70 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setSession(nextSession);
       setIsLoading(true);
       void (async () => {
+        const primaryLoadStartedAt = Date.now();
+        await fetchProfile(authenticatedUser);
+        if (isMounted) {
+          setIsLoading(false);
+          logBootstrap('auth state change primary load completed', {
+            event,
+            stepElapsedMs: Date.now() - authStateStartedAt,
+            primaryLoadElapsedMs: getElapsedMs(primaryLoadStartedAt),
+            hasSession: Boolean(nextSession),
+            userId: authenticatedUser?.id ?? null,
+          });
+        }
+
         const shouldSyncMembership =
-          Boolean(nextSession?.user?.id) &&
+          Boolean(authenticatedUser?.id) &&
           (event === 'SIGNED_IN' || event === 'USER_UPDATED');
         const isGuestConversion =
-          Boolean(nextSession?.user?.id) &&
+          Boolean(authenticatedUser?.id) &&
           (guestConversionPendingRef.current || (isGuestMode && Boolean(guestRevenueCatUserId)));
         const shouldCarryGuestMembership = isGuestConversion && guestConversionShouldCarryMembershipRef.current;
 
         if (shouldSyncMembership) {
-          await syncRevenueCatUser(nextSession?.user?.id ?? null);
+          const revenueCatLoginStartedAt = Date.now();
+          await syncRevenueCatUser(authenticatedUser?.id ?? null);
+          logAuthTiming('revenuecat:loginSync:success', revenueCatLoginStartedAt, {
+            event,
+            userId: authenticatedUser?.id ?? null,
+          });
           let syncedMembership = null;
           let latestCustomerInfo: CustomerInfo | null = null;
 
           for (let attempt = 0; attempt < (shouldCarryGuestMembership ? 3 : 1); attempt += 1) {
+            const membershipAttemptStartedAt = Date.now();
             if (shouldCarryGuestMembership) {
+              const purchaseSyncStartedAt = Date.now();
               latestCustomerInfo = await syncRevenueCatPurchases();
+              logAuthTiming('revenuecat:purchaseSync:success', purchaseSyncStartedAt, {
+                event,
+                attempt: attempt + 1,
+              });
             }
 
+            const invalidateCacheStartedAt = Date.now();
             await invalidateRevenueCatCustomerInfoCache();
+            logAuthTiming('revenuecat:cacheInvalidated', invalidateCacheStartedAt, {
+              event,
+              attempt: attempt + 1,
+            });
+
+            const customerInfoStartedAt = Date.now();
             latestCustomerInfo = (await getRevenueCatCustomerInfo()) ?? latestCustomerInfo;
+            logAuthTiming('revenuecat:customerInfoLoaded', customerInfoStartedAt, {
+              event,
+              attempt: attempt + 1,
+              hasCustomerInfo: Boolean(latestCustomerInfo),
+            });
             setRevenueCatCustomerInfo(latestCustomerInfo);
             syncedMembership = await syncMembershipForAuthenticatedUser(`auth_state:${event.toLowerCase()}`);
+            logAuthTiming('auth_state:membershipAttempt:completed', membershipAttemptStartedAt, {
+              event,
+              attempt: attempt + 1,
+              hasLocalAccess: hasRevenueCatFullAccess(latestCustomerInfo),
+              hasBackendAccess: syncedMembership?.has_access === true,
+            });
 
             const hasLocalAccess = hasRevenueCatFullAccess(latestCustomerInfo);
             const hasBackendAccess = syncedMembership?.has_access === true;
@@ -728,17 +782,23 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         }
 
         if (isGuestConversion) {
+          const guestConversionStartedAt = Date.now();
           await finalizeGuestConversion();
+          logAuthTiming('guestConversion:finalized', guestConversionStartedAt, {
+            event,
+            userId: authenticatedUser?.id ?? null,
+          });
         }
 
-        await fetchProfile(nextSession?.user ?? null);
+        const backgroundRefreshStartedAt = Date.now();
+        await fetchProfile(authenticatedUser, { background: true, waitForEnrichment: true });
         if (isMounted) {
-          setIsLoading(false);
-          logBootstrap('auth state change completed', {
+          logBootstrap('auth state change background sync completed', {
             event,
             stepElapsedMs: Date.now() - authStateStartedAt,
+            backgroundRefreshElapsedMs: getElapsedMs(backgroundRefreshStartedAt),
             hasSession: Boolean(nextSession),
-            userId: nextSession?.user?.id ?? null,
+            userId: authenticatedUser?.id ?? null,
           });
         }
       })();
@@ -762,7 +822,16 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       authListener.subscription.unsubscribe();
       linkingSubscription.remove();
     };
-  }, [createSessionFromUrl, delay, fetchProfile, finalizeGuestConversion, guestRevenueCatUserId, isGuestMode, syncMembershipForAuthenticatedUser]);
+  }, [
+    createSessionFromUrl,
+    delay,
+    fetchProfile,
+    finalizeGuestConversion,
+    guestRevenueCatUserId,
+    isGuestMode,
+    logAuthTiming,
+    syncMembershipForAuthenticatedUser,
+  ]);
 
   useEffect(() => {
     logBootstrap('revenuecat sync started', {
@@ -770,6 +839,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       isGuestMode,
     });
     void (async () => {
+      const revenueCatSyncStartedAt = Date.now();
       try {
         if (isGuestMode && !session?.user?.id) {
           const nextGuestUserId = await ensureGuestRevenueCatUserId();
@@ -779,12 +849,21 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         }
         const customerInfo = await getRevenueCatCustomerInfo();
         setRevenueCatCustomerInfo(customerInfo);
+        logAuthTiming('revenuecat:sessionSync:success', revenueCatSyncStartedAt, {
+          userId: session?.user?.id ?? (isGuestMode ? guestRevenueCatUserId : null),
+          isGuestMode,
+          hasCustomerInfo: Boolean(customerInfo),
+        });
       } catch (error) {
-        logAuth('revenuecat:sync:error', error instanceof Error ? error.message : 'Unknown error');
+        logAuthTiming('revenuecat:sessionSync:error', revenueCatSyncStartedAt, {
+          userId: session?.user?.id ?? (isGuestMode ? guestRevenueCatUserId : null),
+          isGuestMode,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
         setRevenueCatCustomerInfo(null);
       }
     })();
-  }, [ensureGuestRevenueCatUserId, guestRevenueCatUserId, isGuestMode, session?.user?.id]);
+  }, [ensureGuestRevenueCatUserId, guestRevenueCatUserId, isGuestMode, logAuthTiming, session?.user?.id]);
 
   useEffect(() => {
     const handleCustomerInfoUpdated = (nextCustomerInfo: CustomerInfo) => {
@@ -840,12 +919,15 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const signInWithApple = async () => {
+    const appleSignInStartedAt = Date.now();
     try {
       guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
       guestConversionShouldCarryMembershipRef.current =
         guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
       setIsGuestConversionPending(guestConversionPendingRef.current);
+      const availabilityStartedAt = Date.now();
       const isAvailable = await AppleAuthentication.isAvailableAsync();
+      logAuthTiming('apple:isAvailableAsync:completed', availabilityStartedAt, { isAvailable });
       if (!isAvailable) {
         const message = 'Sign in with Apple is not available on this device.';
         setAuthError(message);
@@ -853,13 +935,21 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       }
 
       const rawNonce = Crypto.randomUUID();
+      const nonceStartedAt = Date.now();
       const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
+      logAuthTiming('apple:nonceHashed', nonceStartedAt);
+
+      const credentialStartedAt = Date.now();
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
         nonce: hashedNonce,
+      });
+      logAuthTiming('apple:signInAsync:completed', credentialStartedAt, {
+        hasEmail: Boolean(credential.email),
+        hasFullName: Boolean(credential.fullName),
       });
 
       logAuth('apple:credential', {
@@ -881,10 +971,14 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         return { error: message };
       }
 
+      const idTokenSignInStartedAt = Date.now();
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
         nonce: rawNonce,
+      });
+      logAuthTiming('apple:signInWithIdToken:completed', idTokenSignInStartedAt, {
+        hasError: Boolean(error),
       });
 
       if (error) {
@@ -894,10 +988,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
       const displayName = getAppleDisplayName(credential);
       if (displayName) {
+        const persistNameStartedAt = Date.now();
         await persistAppleDisplayName(displayName);
+        logAuthTiming('apple:persistDisplayName:completed', persistNameStartedAt);
       }
 
       setAuthError(null);
+      logAuthTiming('apple:flow:success', appleSignInStartedAt);
       return { error: null };
     } catch (error) {
       if (
@@ -911,6 +1008,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
       const message = error instanceof Error ? error.message : 'Apple sign-in did not complete.';
       setAuthError(message);
+      logAuthTiming('apple:flow:error', appleSignInStartedAt, { message });
       return { error: message };
     }
   };
@@ -948,6 +1046,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const signInWithGoogle = async () => {
+    const googleSignInStartedAt = Date.now();
     guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
     guestConversionShouldCarryMembershipRef.current =
       guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
@@ -961,7 +1060,11 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       }
 
       try {
+        const nativePromptStartedAt = Date.now();
         const response = await GoogleSignin.signIn();
+        logAuthTiming('google:native:signIn:completed', nativePromptStartedAt, {
+          successResponse: isSuccessResponse(response),
+        });
         if (!isSuccessResponse(response)) {
           logAuth('google:native:cancelled');
           return { error: null };
@@ -980,13 +1083,21 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           typeof tokenPayload?.nonce === 'string' && tokenPayload.nonce.trim().length > 0
             ? tokenPayload.nonce
             : undefined;
+        const getTokensStartedAt = Date.now();
         const tokens = await GoogleSignin.getTokens().catch(() => null);
+        logAuthTiming('google:native:getTokens:completed', getTokensStartedAt, {
+          hasAccessToken: Boolean(tokens?.accessToken),
+        });
 
+        const idTokenSignInStartedAt = Date.now();
         const { error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
           token: idToken,
           access_token: tokens?.accessToken,
           nonce: nonceClaim,
+        });
+        logAuthTiming('google:native:signInWithIdToken:completed', idTokenSignInStartedAt, {
+          hasError: Boolean(error),
         });
 
         if (error) {
@@ -997,6 +1108,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
         setAuthError(null);
         logAuth('google:native:success');
+        logAuthTiming('google:native:flow:success', googleSignInStartedAt);
         return { error: null };
       } catch (error) {
         if (isErrorWithCode(error)) {
@@ -1015,11 +1127,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         const message = error instanceof Error ? error.message : 'Google sign-in did not complete.';
         logAuth('google:native:error', message);
         setAuthError(message);
+        logAuthTiming('google:native:flow:error', googleSignInStartedAt, { message });
         return { error: message };
       }
     }
 
     logAuth('google:start', { redirectTo });
+    const oauthUrlStartedAt = Date.now();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -1030,6 +1144,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           prompt: 'consent',
         },
       },
+    });
+    logAuthTiming('google:signInWithOAuth:completed', oauthUrlStartedAt, {
+      hasError: Boolean(error),
     });
 
     if (error) {
@@ -1047,18 +1164,26 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       return { error: message };
     }
 
+    const browserAuthStartedAt = Date.now();
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
-    logAuth('google:openAuthSessionAsync:result', { type: result.type });
+    logAuth('google:openAuthSessionAsync:result', {
+      type: result.type,
+      elapsedMs: getElapsedMs(browserAuthStartedAt),
+    });
     if (result.type === 'success') {
       try {
+        const sessionCreationStartedAt = Date.now();
         await createSessionFromUrl(result.url);
+        logAuthTiming('google:createSessionFromUrl:completed', sessionCreationStartedAt);
         setAuthError(null);
         logAuth('google:success');
+        logAuthTiming('google:web:flow:success', googleSignInStartedAt);
         return { error: null };
       } catch (sessionError) {
         const message = sessionError instanceof Error ? sessionError.message : 'Could not establish session.';
         logAuth('google:sessionError', message);
         setAuthError(message);
+        logAuthTiming('google:web:flow:error', googleSignInStartedAt, { message });
         return { error: message };
       }
     }
@@ -1071,6 +1196,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     const message = 'Google sign-in did not complete.';
     logAuth('google:incomplete');
     setAuthError(message);
+    logAuthTiming('google:web:flow:error', googleSignInStartedAt, { message });
     return { error: message };
   };
 

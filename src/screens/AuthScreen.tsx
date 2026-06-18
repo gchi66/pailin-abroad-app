@@ -35,7 +35,7 @@ export function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const { authError, continueAsGuest, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
+  const { authError, continueAsGuest, isGuestMode, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +47,7 @@ export function AuthScreen() {
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [isAppleSubmitting, setIsAppleSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const [isGuestSubmitting, setIsGuestSubmitting] = useState(false);
   const modeAnim = useRef(new Animated.Value(1)).current;
   const keyboardAccessoryId = 'auth-keyboard-accessory';
 
@@ -144,7 +145,7 @@ export function AuthScreen() {
   const meetsLength = password.length >= 8;
   const meetsUppercase = /[A-Z]/.test(password);
   const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]/.test(password);
-  const isBusy = isSubmitting || isLoading || isAppleSubmitting || isGoogleSubmitting;
+  const isBusy = isSubmitting || isLoading || isAppleSubmitting || isGoogleSubmitting || isGuestSubmitting;
   const isCompactScreen = height <= 720 || width <= 350;
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
@@ -177,6 +178,13 @@ export function AuthScreen() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isGuestSubmitting && isGuestMode) {
+      setIsGuestSubmitting(false);
+      router.replace('/(tabs)');
+    }
+  }, [isGuestMode, isGuestSubmitting, router]);
 
   const handleSubmit = async () => {
     if (mode === 'signup') {
@@ -243,8 +251,12 @@ export function AuthScreen() {
   };
 
   const handleContinueAsGuest = async () => {
-    await continueAsGuest();
-    router.replace('/(tabs)');
+    setIsGuestSubmitting(true);
+    try {
+      await continueAsGuest();
+    } catch {
+      setIsGuestSubmitting(false);
+    }
   };
 
   const switchMode = (nextMode: AuthMode) => {

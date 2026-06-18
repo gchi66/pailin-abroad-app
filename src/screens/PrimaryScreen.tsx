@@ -9,7 +9,7 @@ export function PrimaryScreen() {
   const { hasAccount, isGuestMode, isLoading } = useAppSession();
 
   if (isLoading) {
-    return <PageLoadingState animate={false} showImage={false} />;
+    return <PageLoadingState />;
   }
 
   if (hasAccount || isGuestMode) {

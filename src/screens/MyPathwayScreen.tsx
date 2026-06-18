@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import lockImage from '@/assets/images/lock.webp';
+import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
@@ -33,6 +35,9 @@ type PathwayCopy = {
   upgradeBannerTitle: string;
   upgradeBannerBody: string;
   upgradeBannerCta: string;
+  guestBannerTitle: string;
+  guestBannerBody: string;
+  guestBannerCta: string;
   progressTitle: string;
   progressLoading: string;
   viewDetails: string;
@@ -69,6 +74,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
       upgradeBannerTitle: 'ปลดล็อกการเข้าถึงทั้งหมด',
       upgradeBannerBody: 'ทุกบทเรียน ทุกเส้นทาง',
       upgradeBannerCta: 'อัปเกรด →',
+      guestBannerTitle: 'ติดตามความคืบหน้า',
+      guestBannerBody: 'สร้างบัญชีฟรีเพื่อบันทึกความคืบหน้าของคุณ',
+      guestBannerCta: 'สมัครฟรี →',
       progressTitle: 'ความคืบหน้าของฉัน',
       progressLoading: 'กำลังโหลดรายละเอียดความคืบหน้า...',
       viewDetails: 'ดูรายละเอียด →',
@@ -105,6 +113,9 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
     upgradeBannerTitle: 'Unlock full access',
     upgradeBannerBody: 'All lessons · full pathway',
     upgradeBannerCta: 'Upgrade →',
+    guestBannerTitle: 'Track your progress',
+    guestBannerBody: 'Create a free account to save your progress.',
+    guestBannerCta: 'Sign up free →',
     progressTitle: 'My Progress',
     progressLoading: 'Loading progress details...',
     viewDetails: 'View details →',
@@ -281,6 +292,7 @@ export function MyPathwayScreen() {
   const firstName = isGuestMode ? copy.guestWelcome : getFirstName(displayName);
   const hasDisplayName = Boolean(firstName);
   const [hasSeenNoNameWelcome, setHasSeenNoNameWelcome] = React.useState(false);
+  const [isGuestOverlayDismissed, setIsGuestOverlayDismissed] = useState(false);
   const shouldShowFirstNoNameWelcome = !isGuestMode && !hasDisplayName && !hasSeenNoNameWelcome;
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
@@ -341,6 +353,12 @@ export function MyPathwayScreen() {
   }, [hasDisplayName, isGuestMode, user?.id]);
 
   useEffect(() => {
+    if (!isGuestMode) {
+      setIsGuestOverlayDismissed(false);
+    }
+  }, [isGuestMode]);
+
+  useEffect(() => {
     if (!shouldShowFirstNoNameWelcome || !user?.id) {
       return;
     }
@@ -351,6 +369,8 @@ export function MyPathwayScreen() {
   if (isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading) {
     return <PageLoadingState language={uiLanguage} />;
   }
+
+  const showGuestOverlay = isGuestMode && !isGuestOverlayDismissed;
 
   const handleOpenLesson = (lesson: LessonListItem | null) => {
     const lessonId = lesson?.id ?? null;
@@ -380,19 +400,21 @@ export function MyPathwayScreen() {
       ]}>
       <ResponsivePageShell>
       <View style={styles.pageFrame}>
-        <View pointerEvents={isGuestMode ? 'none' : 'auto'}>
+        <View pointerEvents={showGuestOverlay ? 'none' : 'auto'}>
       <Stack
         gap="md"
         style={[
           styles.pageShell,
           isTabletScreen ? styles.pageShellTablet : null,
           isLargeTabletScreen ? styles.pageShellLargeTablet : null,
-          isGuestMode ? styles.pageShellGuest : null,
+          showGuestOverlay ? styles.pageShellGuest : null,
         ]}>
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
             <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
-              {avatarSource ? (
+              {isGuestMode ? (
+                <Image source={pailinBlueCircleRight} style={styles.avatar} resizeMode="cover" />
+              ) : avatarSource ? (
                 <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
               ) : (
                 <View style={[styles.avatar, styles.avatarFallback]}>
@@ -413,10 +435,10 @@ export function MyPathwayScreen() {
                         variant="title"
                         numberOfLines={1}
                         style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
-                        {uiLanguage === 'th' ? 'เส้นทางการเรียน' : 'My Pathway'}
+                        {copy.welcomeTo}
                       </AppText>
-                      <AppText language={uiLanguage} variant="title" style={styles.headerName}>
-                        {firstName}
+                      <AppText language="en" variant="title" style={styles.headerName}>
+                        Pailin Abroad
                       </AppText>
                     </>
                   ) : hasDisplayName ? (
@@ -471,7 +493,27 @@ export function MyPathwayScreen() {
           </View>
         </View>
 
-        {!hasMembership ? (
+        {isGuestMode && !showGuestOverlay ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.upgradeBanner}
+            onPress={() => router.push('/account/auth')}>
+            <View style={styles.upgradeBannerCopy}>
+              <AppText language={uiLanguage} variant="body" style={styles.upgradeBannerTitle}>
+                {copy.guestBannerTitle}
+              </AppText>
+              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerBody}>
+                {copy.guestBannerBody}
+              </AppText>
+            </View>
+
+            <View style={styles.upgradeBannerButton}>
+              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerButtonText}>
+                {copy.guestBannerCta}
+              </AppText>
+            </View>
+          </Pressable>
+        ) : !hasMembership ? (
           <Pressable
             accessibilityRole="button"
             style={styles.upgradeBanner}
@@ -512,9 +554,9 @@ export function MyPathwayScreen() {
             <View style={styles.progressMetrics}>
               <View style={styles.progressMetricPrimary}>
                 <AppText language={uiLanguage} variant="body" style={styles.stageText}>
-                  {getStageLabel(progressContext.stage, uiLanguage)}
+                  {isGuestMode ? `${copy.levelShort} -` : getStageLabel(progressContext.stage, uiLanguage)}
                 </AppText>
-                {typeof progressContext.level === 'number' ? (
+                {!isGuestMode && typeof progressContext.level === 'number' ? (
                   <View style={styles.levelPill}>
                     <AppText language={uiLanguage} variant="caption" style={styles.levelPillText}>
                       {copy.levelShort} {progressContext.level}
@@ -526,20 +568,20 @@ export function MyPathwayScreen() {
               <View style={styles.statsGrid}>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {stats?.lessons_completed ?? completedLessons.length}
+                    {isGuestMode ? '-' : (stats?.lessons_completed ?? completedLessons.length)}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.lessonsDone, uiLanguage)}</View>
                 </View>
 
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {stats?.levels_completed ?? 0}
+                    {isGuestMode ? '-' : (stats?.levels_completed ?? 0)}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.levelsDone, uiLanguage)}</View>
                 </View>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {stats?.daily_streak ?? 0}
+                    {isGuestMode ? '-' : (stats?.daily_streak ?? 0)}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.dailyStreak, uiLanguage)}</View>
                 </View>
@@ -703,22 +745,32 @@ export function MyPathwayScreen() {
       </Stack>
         </View>
 
-        {isGuestMode ? (
+        {showGuestOverlay ? (
           <View style={styles.guestOverlay}>
             <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
               <Stack gap="md">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
+                  onPress={() => setIsGuestOverlayDismissed(true)}
+                  style={styles.guestOverlayCloseButton}>
+                  <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
+                </Pressable>
                 <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
                   {copy.guestOverlayTitle}
                 </AppText>
                 <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
                   {copy.guestOverlayBody}
                 </AppText>
-                <Button
-                  language={uiLanguage}
-                  title={copy.guestOverlayCta}
-                  onPress={() => router.push('/account/auth')}
-                  style={styles.guestOverlayButton}
-                />
+                <View style={styles.guestOverlayButtonWrap}>
+                  <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
+                  <Button
+                    language={uiLanguage}
+                    title={copy.guestOverlayCta}
+                    onPress={() => router.push('/account/auth')}
+                    style={styles.guestOverlayButton}
+                  />
+                </View>
               </Stack>
             </Card>
           </View>
@@ -1145,6 +1197,11 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 3,
   },
+  guestOverlayCloseButton: {
+    alignSelf: 'flex-end',
+    marginBottom: -theme.spacing.xs,
+    padding: 2,
+  },
   guestOverlayTitle: {
     textAlign: 'left',
     fontWeight: theme.typography.weights.bold,
@@ -1158,16 +1215,24 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   guestOverlayButton: {
-    marginTop: theme.spacing.xs,
     minHeight: 56,
-    borderWidth: 1.5,
-    borderRadius: 999,
+    borderWidth: 2,
+    borderRadius: 28,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    overflow: 'hidden',
+  },
+  guestOverlayButtonWrap: {
+    position: 'relative',
+    marginTop: theme.spacing.xs,
+  },
+  guestOverlayButtonShadow: {
+    position: 'absolute',
+    top: 3,
+    right: -3,
+    bottom: -3,
+    left: 3,
+    borderRadius: 28,
+    backgroundColor: theme.colors.shadow,
   },
 });
