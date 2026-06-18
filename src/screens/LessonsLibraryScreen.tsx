@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
-import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
+import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
 import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
@@ -387,9 +387,10 @@ export function LessonsLibraryScreen() {
                   ? pickText(lesson.focus_th, lesson.focus, '')
                   : pickText(lesson.focus, lesson.focus_th, '');
               const focusParts = splitLessonFocusText(focusText);
+              const isCheckpoint = isCheckpointLesson(lesson);
               const lessonNumber =
                 typeof lesson.level === 'number'
-                  ? isCheckpointLesson(lesson)
+                  ? isCheckpoint
                     ? `${lesson.level}.chp`
                     : typeof lesson.lesson_order === 'number'
                       ? `${lesson.level}.${lesson.lesson_order}`
@@ -413,9 +414,17 @@ export function LessonsLibraryScreen() {
                   <Card padding="md" radius="md" style={styles.lessonCard}>
                     <View style={styles.lessonRow}>
                       <View style={styles.lessonLeft}>
-                        <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
-                          {lessonNumber}
-                        </AppText>
+                        {isCheckpoint ? (
+                          <Image
+                            source={blueCheckmarkImage}
+                            style={styles.lessonNumberCheckmark}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <AppText language={uiLanguage} variant="body" style={styles.lessonNumber}>
+                            {lessonNumber}
+                          </AppText>
+                        )}
                         <View style={styles.lessonTextGroup}>
                           <AppText language={uiLanguage} variant="body" style={styles.lessonTitle}>
                             {titleText}
@@ -633,6 +642,12 @@ const styles = StyleSheet.create({
     minWidth: 36,
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.text,
+  },
+  lessonNumberCheckmark: {
+    width: 22,
+    height: 22,
+    marginLeft: 6,
+    marginRight: 8,
   },
   lessonTextGroup: {
     flex: 1,
