@@ -6654,11 +6654,9 @@ export default function LessonDetailShellScreen() {
       phraseVariant?: number | null;
       isPhraseCard?: boolean;
       phraseIsLeadAudio?: boolean;
-      phraseTextIndented?: boolean;
+      alignToAudioText?: boolean;
     }
   ) => {
-    const phraseContinuationStyle =
-      options?.isPhraseCard && options.phraseTextIndented ? styles.phraseContinuationIndent : null;
     const dialogueText = getApplyNodeText(node, contentLang);
     const firstDialogueLine = dialogueText.split('\n')[0]?.trim() ?? '';
     const startsEnglishDialogueTurn = isEnglishSpeakerLineText(firstDialogueLine);
@@ -6672,7 +6670,7 @@ export default function LessonDetailShellScreen() {
           startsEnglishDialogueTurn ? styles.phraseDialogueEnglishTurn : null,
           isThaiDialogueTurn ? styles.phraseDialogueThaiTurn : null,
           indentStyle,
-          phraseContinuationStyle,
+          options?.alignToAudioText ? styles.adjacentAudioTextIndent : null,
           hasAccent ? styles.applyAccentBlock : null,
         ]}>
         {renderRichAudioBulletLines(node.inlines, nodeKey, {
@@ -7016,14 +7014,12 @@ export default function LessonDetailShellScreen() {
       isPhraseCard?: boolean;
       phraseShowDivider?: boolean;
       phraseIsLeadAudio?: boolean;
-      phraseTextIndented?: boolean;
-      paragraphStyle?: object | null;
+      alignToAudioText?: boolean;
       forceSubheader?: boolean;
     }
   ) => {
     const nodeKey = `${options?.keyPrefix ?? 'rich-node'}-${index}`;
     const indentStyle = getRichIndentStyle(node);
-    const phraseContinuationStyle = options?.isPhraseCard && options.phraseTextIndented ? styles.phraseContinuationIndent : null;
     const hasAccent = applyNodeHasAccent(node);
     const hasAudio = Boolean(node.audio_key || node.audio_seq);
 
@@ -7100,7 +7096,6 @@ export default function LessonDetailShellScreen() {
             styles.richListRow,
             options?.isPhraseCard ? styles.phraseListRow : null,
             indentStyle,
-            phraseContinuationStyle,
           ]}>
           <View style={styles.richNumberBadge}>
             <AppText language="en" variant="caption" style={styles.richNumberBadgeText}>
@@ -7134,7 +7129,6 @@ export default function LessonDetailShellScreen() {
             styles.richListRow,
             options?.isPhraseCard ? styles.phraseListRow : null,
             indentStyle,
-            phraseContinuationStyle,
           ]}>
           <View style={styles.richBullet} />
           <AppText
@@ -7171,12 +7165,11 @@ export default function LessonDetailShellScreen() {
             styles.richParagraph,
             contentLang === 'th' ? styles.richThaiTextCompact : null,
             indentStyle,
-            phraseContinuationStyle,
+            options?.alignToAudioText ? styles.adjacentAudioTextIndent : null,
             options?.isPhraseCard ? styles.phraseBodyText : null,
             isSubheader ? styles.richSubheader : null,
             isSubheader && options?.isPhraseCard ? styles.phraseSubheader : null,
             hasAccent ? styles.applyAccentBlock : null,
-            options?.paragraphStyle ?? null,
           ]}>
           {renderRichInlines(node.inlines, nodeKey, {
             ...options,
@@ -7247,6 +7240,18 @@ export default function LessonDetailShellScreen() {
   const renderUnderstandNode = (node: LessonRichNode, index: number) =>
     renderRichNode(node, index, { keyPrefix: 'understand-node', enableHighlights: true });
 
+  const isAudioRichNode = (node: LessonRichNode | undefined) => Boolean(node && (node.audio_key || node.audio_seq));
+
+  const shouldAlignNodeToAdjacentAudioText = (
+    previousNode: LessonRichNode | undefined,
+    node: LessonRichNode,
+    nextNode: LessonRichNode | undefined
+  ) =>
+    node.kind === 'paragraph' &&
+    !isAudioRichNode(node) &&
+    !isBoldParagraphNode(node) &&
+    (isAudioRichNode(previousNode) || isAudioRichNode(nextNode));
+
   const renderUnderstandGroupBody = (nodes: LessonRichNode[], keyPrefix: string) => {
     const zebraGroups: LessonRichNode[][] = [];
     let currentGroup: LessonRichNode[] = [];
@@ -7270,18 +7275,23 @@ export default function LessonDetailShellScreen() {
         key={`${keyPrefix}-group-${index}`}
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
+          const previousNode = group[nodeIndex - 1];
+          const nextNode = group[nodeIndex + 1];
+          const alignToAudioText = shouldAlignNodeToAdjacentAudioText(previousNode, node, nextNode);
           if (node.kind === 'numbered_item') {
             numberedIndex += 1;
             return renderRichNode(node, nodeIndex, {
               keyPrefix: 'understand-node',
               enableHighlights: true,
               numberedLabel: `${numberedIndex}.`,
+              alignToAudioText,
             });
           }
 
           return renderRichNode(node, nodeIndex, {
             keyPrefix: 'understand-node',
             enableHighlights: true,
+            alignToAudioText,
           });
         })}
       </View>
@@ -7289,23 +7299,6 @@ export default function LessonDetailShellScreen() {
   };
 
   const renderCommonMistakeGroupBody = (nodes: LessonRichNode[], keyPrefix: string) => {
-    const getNodeInlineText = (node: LessonRichNode) =>
-      Array.isArray(node.inlines)
-        ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join('')
-        : resolveNodeText(node, contentLang);
-    const nodeIncludesMarker = (node: LessonRichNode, markers: string[]) => {
-      const text = getNodeInlineText(node);
-      return markers.some((marker) => text.includes(marker));
-    };
-    const isAudioNode = (node: LessonRichNode) => Boolean(node.audio_key || node.audio_seq);
-    const shouldAlignCommonMistakeParagraph = (node: LessonRichNode, nextNode: LessonRichNode | undefined) =>
-      node.kind === 'paragraph' &&
-      !isAudioNode(node) &&
-      nodeIncludesMarker(node, ['[X]', '[x]']) &&
-      Boolean(nextNode) &&
-      isAudioNode(nextNode as LessonRichNode) &&
-      nodeIncludesMarker(nextNode as LessonRichNode, ['[✓]', '[√]', '[check]']);
-
     const zebraGroups: LessonRichNode[][] = [];
     let currentGroup: LessonRichNode[] = [];
 
@@ -7328,23 +7321,23 @@ export default function LessonDetailShellScreen() {
         key={`${keyPrefix}-group-${index}`}
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
+          const previousNode = group[nodeIndex - 1];
           const nextNode = group[nodeIndex + 1];
-          const paragraphStyle = shouldAlignCommonMistakeParagraph(node, nextNode)
-            ? styles.commonMistakeParagraphAlignedToAudio
-            : null;
+          const alignToAudioText = shouldAlignNodeToAdjacentAudioText(previousNode, node, nextNode);
           if (node.kind === 'numbered_item') {
             numberedIndex += 1;
             return renderRichNode(node, nodeIndex, {
               keyPrefix: 'common-mistake-node',
               enableHighlights: false,
               numberedLabel: `${numberedIndex}.`,
+              alignToAudioText,
             });
           }
 
           return renderRichNode(node, nodeIndex, {
             keyPrefix: 'common-mistake-node',
             enableHighlights: false,
-            paragraphStyle,
+            alignToAudioText,
           });
         })}
       </View>
@@ -7374,18 +7367,23 @@ export default function LessonDetailShellScreen() {
         key={`${keyPrefix}-group-${index}`}
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
+          const previousNode = group[nodeIndex - 1];
+          const nextNode = group[nodeIndex + 1];
+          const alignToAudioText = shouldAlignNodeToAdjacentAudioText(previousNode, node, nextNode);
           if (node.kind === 'numbered_item') {
             numberedIndex += 1;
             return renderRichNode(node, nodeIndex, {
               keyPrefix: 'extra-tip-node',
               enableHighlights: true,
               numberedLabel: `${numberedIndex}.`,
+              alignToAudioText,
             });
           }
 
           return renderRichNode(node, nodeIndex, {
             keyPrefix: 'extra-tip-node',
             enableHighlights: true,
+            alignToAudioText,
           });
         })}
       </View>
@@ -7431,6 +7429,9 @@ export default function LessonDetailShellScreen() {
     return (
       <Stack gap="sm">
         {nodes.map((node, index) => {
+          const previousNode = nodes[index - 1];
+          const nextNode = nodes[index + 1];
+          const alignToAudioText = shouldAlignNodeToAdjacentAudioText(previousNode, node, nextNode);
           if (isCultureNoteLeadHeading(node)) {
             renderedLeadHeading = true;
             return (
@@ -7444,6 +7445,7 @@ export default function LessonDetailShellScreen() {
             keyPrefix: 'culture-note-node',
             allowHeadings: true,
             enableHighlights: false,
+            alignToAudioText,
           });
         })}
       </Stack>
@@ -7453,7 +7455,6 @@ export default function LessonDetailShellScreen() {
   const renderPhraseBody = (phrase: NormalizedLessonPhrase) => {
     const shouldShowVariantLabel = phraseVariantVisibilityById.get(phrase.id) ?? false;
     let audioSeen = 0;
-    let indentFollowingLine = false;
     let skippedDuplicateHeading = false;
 
     const phraseRows = phrase.nodes.map((node, index) => {
@@ -7467,14 +7468,12 @@ export default function LessonDetailShellScreen() {
       }
 
       const hasAudio = Boolean(node.audio_key || node.audio_seq);
-      const shouldIndent = indentFollowingLine && !hasAudio && node.kind !== 'spacer' && node.kind !== 'heading';
-
       if (hasAudio) {
         audioSeen += 1;
-        indentFollowingLine = true;
-      } else if (node.kind === 'spacer' || node.kind === 'heading' || node.kind === 'image' || node.kind === 'table') {
-        indentFollowingLine = false;
       }
+      const previousNode = phrase.nodes[index - 1];
+      const nextNode = phrase.nodes[index + 1];
+      const alignToAudioText = shouldAlignNodeToAdjacentAudioText(previousNode, node, nextNode);
 
       return renderRichNode(node, index, {
         keyPrefix: `phrase-${phrase.id}`,
@@ -7485,7 +7484,7 @@ export default function LessonDetailShellScreen() {
         isPhraseCard: true,
         phraseShowDivider: hasAudio && audioSeen === 2,
         phraseIsLeadAudio: hasAudio && audioSeen === 1,
-        phraseTextIndented: shouldIndent,
+        alignToAudioText,
       });
     }).filter(Boolean);
 
@@ -10707,8 +10706,8 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.xs,
   },
-  phraseContinuationIndent: {
-    paddingLeft: 50,
+  adjacentAudioTextIndent: {
+    paddingLeft: 52,
   },
   phraseDialogueEnglishTurn: {
     marginTop: 4,
@@ -10832,9 +10831,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     flexShrink: 1,
-  },
-  commonMistakeParagraphAlignedToAudio: {
-    paddingLeft: 52,
   },
   understandAudioText: {
     fontSize: 15,
