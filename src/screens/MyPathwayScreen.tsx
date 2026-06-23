@@ -281,19 +281,20 @@ export function MyPathwayScreen() {
     enabled: hasAccount,
     hasMembership,
   });
+  const showGuestUi = isGuestMode && !user?.id;
 
   const displayName =
-    (isGuestMode ? copy.guestWelcome : '') ||
+    (showGuestUi ? copy.guestWelcome : '') ||
     (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
     (!isEmailLike(profile?.username) ? profile?.username?.trim() || '' : '') ||
     (typeof user?.user_metadata?.name === 'string' && !isEmailLike(user.user_metadata.name) ? user.user_metadata.name.trim() : '') ||
     (typeof user?.user_metadata?.username === 'string' && !isEmailLike(user.user_metadata.username) ? user.user_metadata.username.trim() : '') ||
     '';
-  const firstName = isGuestMode ? copy.guestWelcome : getFirstName(displayName);
+  const firstName = showGuestUi ? copy.guestWelcome : getFirstName(displayName);
   const hasDisplayName = Boolean(firstName);
   const [hasSeenNoNameWelcome, setHasSeenNoNameWelcome] = React.useState(false);
   const [isGuestOverlayDismissed, setIsGuestOverlayDismissed] = useState(false);
-  const shouldShowFirstNoNameWelcome = !isGuestMode && !hasDisplayName && !hasSeenNoNameWelcome;
+  const shouldShowFirstNoNameWelcome = !showGuestUi && !hasDisplayName && !hasSeenNoNameWelcome;
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
 
@@ -326,7 +327,7 @@ export function MyPathwayScreen() {
     let isMounted = true;
 
     const loadNoNameWelcomeState = async () => {
-      if (!user?.id || isGuestMode || hasDisplayName) {
+      if (!user?.id || showGuestUi || hasDisplayName) {
         if (isMounted) {
           setHasSeenNoNameWelcome(true);
         }
@@ -350,13 +351,13 @@ export function MyPathwayScreen() {
     return () => {
       isMounted = false;
     };
-  }, [hasDisplayName, isGuestMode, user?.id]);
+  }, [hasDisplayName, showGuestUi, user?.id]);
 
   useEffect(() => {
-    if (!isGuestMode) {
+    if (!showGuestUi) {
       setIsGuestOverlayDismissed(false);
     }
-  }, [isGuestMode]);
+  }, [showGuestUi]);
 
   useEffect(() => {
     if (!shouldShowFirstNoNameWelcome || !user?.id) {
@@ -370,7 +371,7 @@ export function MyPathwayScreen() {
     return <PageLoadingState language={uiLanguage} />;
   }
 
-  const showGuestOverlay = isGuestMode && !isGuestOverlayDismissed;
+  const showGuestOverlay = showGuestUi && !isGuestOverlayDismissed;
 
   const handleOpenLesson = (lesson: LessonListItem | null) => {
     const lessonId = lesson?.id ?? null;
@@ -412,7 +413,7 @@ export function MyPathwayScreen() {
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
             <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
-              {isGuestMode ? (
+              {showGuestUi ? (
                 <Image source={pailinBlueCircleRight} style={styles.avatar} resizeMode="cover" />
               ) : avatarSource ? (
                 <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
@@ -428,7 +429,7 @@ export function MyPathwayScreen() {
             <View style={styles.headerCopy}>
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTextGroup}>
-                  {isGuestMode ? (
+                  {showGuestUi ? (
                     <>
                       <AppText
                         language={uiLanguage}
@@ -493,7 +494,7 @@ export function MyPathwayScreen() {
           </View>
         </View>
 
-        {isGuestMode && !showGuestOverlay ? (
+        {showGuestUi && !showGuestOverlay ? (
           <Pressable
             accessibilityRole="button"
             style={styles.upgradeBanner}
@@ -554,9 +555,9 @@ export function MyPathwayScreen() {
             <View style={styles.progressMetrics}>
               <View style={styles.progressMetricPrimary}>
                 <AppText language={uiLanguage} variant="body" style={styles.stageText}>
-                  {isGuestMode ? `${copy.levelShort} -` : getStageLabel(progressContext.stage, uiLanguage)}
+                  {showGuestUi ? `${copy.levelShort} -` : getStageLabel(progressContext.stage, uiLanguage)}
                 </AppText>
-                {!isGuestMode && typeof progressContext.level === 'number' ? (
+                {!showGuestUi && typeof progressContext.level === 'number' ? (
                   <View style={styles.levelPill}>
                     <AppText language={uiLanguage} variant="caption" style={styles.levelPillText}>
                       {copy.levelShort} {progressContext.level}
@@ -568,20 +569,20 @@ export function MyPathwayScreen() {
               <View style={styles.statsGrid}>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {isGuestMode ? '-' : (stats?.lessons_completed ?? completedLessons.length)}
+                    {showGuestUi ? '-' : (stats?.lessons_completed ?? completedLessons.length)}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.lessonsDone, uiLanguage)}</View>
                 </View>
 
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {isGuestMode ? '-' : (stats?.levels_completed ?? 0)}
+                    {showGuestUi ? '-' : (stats?.levels_completed ?? 0)}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.levelsDone, uiLanguage)}</View>
                 </View>
                 <View style={styles.statBox}>
                   <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {isGuestMode ? '-' : (stats?.daily_streak ?? 0)}
+                    {showGuestUi ? '-' : (stats?.daily_streak ?? 0)}
                   </AppText>
                   <View style={styles.statLabelGroup}>{renderStatLabel(copy.dailyStreak, uiLanguage)}</View>
                 </View>

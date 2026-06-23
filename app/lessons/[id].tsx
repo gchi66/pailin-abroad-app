@@ -191,7 +191,7 @@ const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
 const PRACTICE_INPUT_RECHECK_DELAY = 120;
 const PRACTICE_INPUT_MAX_VISIBILITY_CHECKS = 4;
 const PRACTICE_FILL_BLANK_SHORT_MEASURE = ' MMMMMMMM ';
-const PRACTICE_FILL_BLANK_LONG_MEASURE = ' MMMMMMMMMMMMMM ';
+const PRACTICE_FILL_BLANK_LONG_MEASURE = ' MMMMMMMMMMMMM ';
 const PRACTICE_FILL_BLANK_SHORT_MEASURE_COMPACT = ' MMMMMM ';
 const PRACTICE_FILL_BLANK_LONG_MEASURE_COMPACT = ' MMMMMMMMMM ';
 const SECTION_SWIPE_ACTIVE_OFFSET_X: [number, number] = [-10, 10];
@@ -353,6 +353,12 @@ type PracticeFillBlankMeasureToken =
   | { id: string; type: 'text'; text: string; measureText: string; style?: LessonRichInline | null }
   | { id: string; type: 'blank'; blankId: string; minLen: number; measureText: string };
 
+type PracticeFillBlankMirrorLayout = {
+  x: number;
+  y: number;
+  height: number;
+};
+
 const getPracticeInlineTextStyle = (inline: LessonRichInline | null | undefined, compact = false) => [
   styles.practiceInlineText,
   compact ? styles.practiceInlineTextCompact : null,
@@ -428,6 +434,14 @@ const splitPracticeMeasureTextTokens = (text: string) => {
   return matches ?? [text];
 };
 
+const computePracticeBlankWidth = (containerWidth: number, minLen: number, compact: boolean) => {
+  const isShort = minLen <= 4;
+  const responsive = containerWidth * (compact ? (isShort ? 0.22 : 0.28) : isShort ? 0.22 : 0.32);
+  const floor = compact ? (isShort ? 64 : 72) : isShort ? 72 : 80;
+  const ceiling = compact ? (isShort ? 96 : 112) : isShort ? 120 : 160;
+  return Math.round(Math.max(floor, Math.min(ceiling, responsive)));
+};
+
 const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
 
 function PracticeFillBlankMeasuredRows(props: {
@@ -463,8 +477,14 @@ function PracticeFillBlankMeasuredRows(props: {
     onDismissKeyboard,
   } = props;
   const [lineTokens, setLineTokens] = useState<PracticeFillBlankMeasureToken[][]>([]);
+  const [rawContainerWidth, setRawContainerWidth] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
-  const lastMeasuredLayoutRef = useRef('');
+  const [measurementState, setMeasurementState] = useState<'measuring' | 'stable'>('measuring');
+  const [measureVersion, setMeasureVersion] = useState(0);
+  const mirrorLayoutsRef = useRef<Record<string, PracticeFillBlankMirrorLayout>>({});
+  const measureVersionRef = useRef(0);
+  const measurementStateRef = useRef<'measuring' | 'stable'>('measuring');
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const measureTokens = useMemo<PracticeFillBlankMeasureToken[]>(() => {
     return rowTokens.reduce<PracticeFillBlankMeasureToken[]>((tokens, token, index) => {
@@ -500,92 +520,174 @@ function PracticeFillBlankMeasuredRows(props: {
     }, []);
   }, [compact, rowTokens]);
 
-  const measurementText = useMemo(() => measureTokens.map((token) => token.measureText).join(''), [measureTokens]);
+  const measureTokenSignature = useMemo(
+    () =>
+      measureTokens
+        .map((token) => (token.type === 'text' ? `t:${token.text}` : `b:${token.blankId}:${token.minLen}`))
+        .join('|'),
+    [measureTokens]
+  );
 
-  const handleTextLayout = (event: { nativeEvent: { lines: { text: string }[] } }) => {
-    const measuredLines = event.nativeEvent.lines ?? [];
-    if (!measuredLines.length) {
-      const fallbackLines = measureTokens.length ? [measureTokens] : [];
-      const fallbackSignature = fallbackLines.map((line) => line.map((token) => token.id).join('|')).join('||');
-      if (lastMeasuredLayoutRef.current !== fallbackSignature) {
-        lastMeasuredLayoutRef.current = fallbackSignature;
-        setLineTokens(fallbackLines);
-      }
+  const blankWidths = useMemo(
+    () =>
+      measureTokens.reduce<Record<string, number>>((acc, token) => {
+        if (token.type === 'blank' && containerWidth > 0) {
+          acc[token.id] = computePracticeBlankWidth(containerWidth, token.minLen, compact);
+        }
+        return acc;
+      }, {}),
+    [compact, containerWidth, measureTokens]
+  );
+
+  useEffect(() => {
+    measureVersionRef.current = measureVersion;
+  }, [measureVersion]);
+
+  useEffect(() => {
+    measurementStateRef.current = measurementState;
+  }, [measurementState]);
+
+  useEffect(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    if (!rawContainerWidth || !measureTokens.length) {
       return;
     }
 
-    const nextLines: PracticeFillBlankMeasureToken[][] = [];
-    let tokenIndex = 0;
+    debounceTimeoutRef.current = setTimeout(() => {
+      mirrorLayoutsRef.current = {};
+      setLineTokens([]);
+      setContainerWidth(rawContainerWidth);
+      measurementStateRef.current = 'measuring';
+      setMeasurementState('measuring');
+      const nextVersion = measureVersionRef.current + 1;
+      measureVersionRef.current = nextVersion;
+      setMeasureVersion(nextVersion);
+    }, 50);
 
-    measuredLines.forEach((line) => {
-      const targetComparable = line.text.replace(/\s+/g, '');
-      const bucket: PracticeFillBlankMeasureToken[] = [];
-      let bucketComparable = '';
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [rawContainerWidth, measureTokenSignature]);
 
-      while (tokenIndex < measureTokens.length) {
-        const candidate = measureTokens[tokenIndex];
-        if (!candidate) {
-          break;
-        }
+  const finalizeMeasuredLines = (layouts: Record<string, PracticeFillBlankMirrorLayout>) => {
+    const groupedLines: PracticeFillBlankMeasureToken[][] = [];
+    let currentLine: PracticeFillBlankMeasureToken[] = [];
+    let currentY: number | null = null;
 
-        bucket.push(candidate);
-        bucketComparable += candidate.measureText.replace(/\s+/g, '');
-        tokenIndex += 1;
-
-        if (bucketComparable === targetComparable) {
-          break;
-        }
+    measureTokens.forEach((token) => {
+      const layout = layouts[token.id];
+      if (!layout) {
+        return;
       }
 
-      const trimmedBucket = bucket.filter((token, index) => {
-        if (token.type !== 'text' || token.text.replace(/\s+/g, '').length > 0) {
-          return true;
-        }
-        const isLeading = index === 0;
-        const isTrailing = index === bucket.length - 1;
-        return !isLeading && !isTrailing;
-      });
+      const layoutCenterY = layout.y + layout.height / 2;
+      if (currentY === null || Math.abs(layoutCenterY - currentY) <= 6) {
+        currentLine.push(token);
+        currentY = currentY ?? layoutCenterY;
+        return;
+      }
 
-      nextLines.push(trimmedBucket);
+      groupedLines.push(currentLine);
+      currentLine = [token];
+      currentY = layoutCenterY;
     });
 
-    if (tokenIndex < measureTokens.length) {
-      nextLines.push(measureTokens.slice(tokenIndex));
+    if (currentLine.length) {
+      groupedLines.push(currentLine);
     }
 
-    const resolvedLines = nextLines.length ? nextLines : [measureTokens];
-    const nextSignature = resolvedLines.map((line) => line.map((token) => token.id).join('|')).join('||');
+    const resolved = groupedLines.length
+      ? groupedLines.map((line) =>
+          line.filter((token, index) => {
+            if (token.type !== 'text' || token.text.replace(/\s+/g, '').length > 0) {
+              return true;
+            }
+            const isLeading = index === 0;
+            const isTrailing = index === line.length - 1;
+            return !isLeading && !isTrailing;
+          })
+        )
+      : [measureTokens];
 
-    if (lastMeasuredLayoutRef.current !== nextSignature) {
-      lastMeasuredLayoutRef.current = nextSignature;
-      setLineTokens(resolvedLines);
+    setLineTokens(resolved);
+    measurementStateRef.current = 'stable';
+    setMeasurementState('stable');
+  };
+
+  const handleMirrorTokenLayout = (tokenId: string, version: number) => (event: { nativeEvent: { layout: { x: number; y: number } } }) => {
+    if (version !== measureVersionRef.current || measurementStateRef.current !== 'measuring') {
+      return;
+    }
+
+    const nextLayout = {
+      x: Math.round(event.nativeEvent.layout.x),
+      y: Math.round(event.nativeEvent.layout.y),
+      height: Math.round(event.nativeEvent.layout.height),
+    };
+    const current = mirrorLayoutsRef.current[tokenId];
+    if (current && current.x === nextLayout.x && current.y === nextLayout.y && current.height === nextLayout.height) {
+      return;
+    }
+
+    const nextLayouts = {
+      ...mirrorLayoutsRef.current,
+      [tokenId]: nextLayout,
+    };
+    mirrorLayoutsRef.current = nextLayouts;
+
+    if (Object.keys(nextLayouts).length === measureTokens.length) {
+      finalizeMeasuredLines(nextLayouts);
     }
   };
+
+  const visibleLines = lineTokens.length ? lineTokens : [measureTokens];
 
   return (
     <View
       style={styles.practiceFillBlankMeasuredShell}
       onLayout={(event) => {
         const width = Math.round(event.nativeEvent.layout.width);
-        if (width && width !== containerWidth) {
-          setContainerWidth(width);
+        if (width && width !== rawContainerWidth) {
+          setRawContainerWidth(width);
         }
       }}>
-      {containerWidth > 0 ? (
-        <Text
-          onTextLayout={handleTextLayout}
-          style={[
-            styles.practiceFillBlankMeasureText,
-            compact ? styles.practiceInlineTextCompact : null,
-            { width: containerWidth },
-          ]}
-          numberOfLines={0}>
-          {measurementText}
-        </Text>
+      {containerWidth > 0 && measurementState === 'measuring' ? (
+        <View key={`mirror-${answerKey}-${measureVersion}`} pointerEvents="none" style={styles.practiceFillBlankMirrorShell}>
+          <View style={styles.practiceFillBlankMirrorRow}>
+            {measureTokens.map((token) =>
+              token.type === 'text' ? (
+                <Text
+                  key={`${answerKey}:mirror:${measureVersion}:${token.id}`}
+                  onLayout={handleMirrorTokenLayout(token.id, measureVersion)}
+                  style={getPracticeInlineTextStyle(token.style, compact)}>
+                  {token.text}
+                </Text>
+              ) : (
+                <View
+                  key={`${answerKey}:mirror:${measureVersion}:${token.id}`}
+                  onLayout={handleMirrorTokenLayout(token.id, measureVersion)}
+                  style={[
+                    styles.practiceFillBlankMirrorBlank,
+                    compact ? styles.practiceFillBlankMirrorBlankCompact : null,
+                    {
+                      width: blankWidths[token.id] ?? computePracticeBlankWidth(containerWidth, token.minLen, compact),
+                    },
+                  ]}
+                />
+              )
+            )}
+          </View>
+        </View>
       ) : null}
 
-      <Stack gap="xs">
-        {(lineTokens.length ? lineTokens : [measureTokens]).map((line, lineIndex) => (
+      {measurementState === 'stable' ? (
+        <Stack gap="xs">
+          {visibleLines.map((line, lineIndex) => (
           <View key={`${answerKey}:line-${lineIndex}`} style={styles.practiceFillBlankMeasuredRow}>
             {line.map((token) =>
               token.type === 'text' ? (
@@ -610,20 +712,17 @@ function PracticeFillBlankMeasuredRows(props: {
                   style={[
                     styles.practiceFillBlankInput,
                     compact ? styles.practiceFillBlankInputCompact : null,
-                    compact
-                      ? token.minLen <= 4
-                        ? styles.practiceFillBlankInputShortCompact
-                        : styles.practiceFillBlankInputLongCompact
-                      : token.minLen <= 4
-                        ? styles.practiceFillBlankInputShort
-                        : styles.practiceFillBlankInputLong,
+                    {
+                      width: blankWidths[token.id] ?? computePracticeBlankWidth(containerWidth || rawContainerWidth, token.minLen, compact),
+                    },
                   ]}
                 />
               )
             )}
           </View>
-        ))}
-      </Stack>
+          ))}
+        </Stack>
+      ) : null}
     </View>
   );
 }
@@ -1005,6 +1104,25 @@ const getPracticeFieldByLang = (
   return english || base || thai;
 };
 
+const getPracticeExactLocalizedField = (
+  value: Record<string, unknown>,
+  field: string,
+  language: UiLanguage
+) => {
+  const suffix = language === 'th' ? 'th' : 'en';
+  const camelSuffix = language === 'th' ? 'Th' : 'En';
+  const snake = typeof value[`${field}_${suffix}`] === 'string' ? String(value[`${field}_${suffix}`]).trim() : '';
+  const camel = typeof value[`${field}${camelSuffix}`] === 'string' ? String(value[`${field}${camelSuffix}`]).trim() : '';
+  return snake || camel;
+};
+
+const hasMeaningfulRichInlineFormatting = (inline: LessonRichInline) =>
+  inline.bold === true ||
+  inline.italic === true ||
+  inline.underline === true ||
+  (typeof inline.highlight === 'string' && inline.highlight.trim().length > 0) ||
+  (typeof inline.link === 'string' && inline.link.trim().length > 0);
+
 const safeParseObjectArray = (value: unknown): Record<string, unknown>[] => {
   const parsed = safeParseArray<Record<string, unknown>>(value);
   return parsed.filter((item) => item && typeof item === 'object');
@@ -1215,14 +1333,34 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
           : {};
 
     const text = stripInlineMediaTags(getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en'));
-    const textTh = stripInlineMediaTags(getPracticeFieldByLang(thaiFallback, 'text', 'th') || getPracticeFieldByLang(current, 'text', 'th'));
+    const textTh = stripInlineMediaTags(
+      getPracticeFieldByLang(thaiFallback, 'text', 'th') || getPracticeExactLocalizedField(current, 'text', 'th')
+    );
     const prompt = stripInlineMediaTags(getPracticeFieldByLang(current, 'prompt', 'en') || getPracticeFieldByLang(current, 'question', 'en'));
-    const promptTh = stripInlineMediaTags(getPracticeFieldByLang(thaiFallback, 'prompt', 'th') || getPracticeFieldByLang(thaiFallback, 'question', 'th') || getPracticeFieldByLang(current, 'prompt', 'th') || getPracticeFieldByLang(current, 'question', 'th'));
+    const promptTh = stripInlineMediaTags(
+      getPracticeFieldByLang(thaiFallback, 'prompt', 'th') ||
+        getPracticeFieldByLang(thaiFallback, 'question', 'th') ||
+        getPracticeExactLocalizedField(current, 'prompt', 'th') ||
+        getPracticeExactLocalizedField(current, 'question', 'th')
+    );
     const placeholder =
       getPracticeFieldByLang(current, 'placeholder', 'en') || getPracticeFieldByLang(englishFallback, 'placeholder', 'en');
     const placeholderTh =
-      getPracticeFieldByLang(current, 'placeholder', 'th') || getPracticeFieldByLang(thaiFallback, 'placeholder', 'th');
+      getPracticeFieldByLang(thaiFallback, 'placeholder', 'th') || getPracticeExactLocalizedField(current, 'placeholder', 'th');
     const answer = getPracticeAnswerValue(current, englishFallback, thaiFallback);
+    const currentTextJsonb = safeParseArray<LessonRichInline>(current.text_jsonb);
+    const currentTextJsonbTh = safeParseArray<LessonRichInline>(current.text_jsonb_th);
+    const thaiFallbackTextJsonb = safeParseArray<LessonRichInline>(thaiFallback.text_jsonb);
+    const thaiFallbackTextJsonbTh = safeParseArray<LessonRichInline>(thaiFallback.text_jsonb_th);
+    const shouldUsePrimaryTextJsonb =
+      kind === 'multiple_choice' || currentTextJsonb.some((inline) => hasMeaningfulRichInlineFormatting(inline));
+    const resolvedTextJsonbTh = currentTextJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''))
+      ? currentTextJsonbTh
+      : thaiFallbackTextJsonb.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''))
+        ? thaiFallbackTextJsonb
+        : thaiFallbackTextJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''))
+          ? thaiFallbackTextJsonbTh
+          : [];
     const keywords =
       typeof current.keywords === 'string' && current.keywords.trim()
         ? current.keywords.trim()
@@ -1351,11 +1489,8 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       numberLabel: String(numberValue),
       text,
       textTh,
-      textJsonb: safeParseArray<LessonRichInline>(current.text_jsonb),
-      textJsonbTh:
-        safeParseArray<LessonRichInline>(current.text_jsonb_th).length > 0
-          ? safeParseArray<LessonRichInline>(current.text_jsonb_th)
-          : safeParseArray<LessonRichInline>(thaiFallback.text_jsonb),
+      textJsonb: shouldUsePrimaryTextJsonb ? currentTextJsonb : [],
+      textJsonbTh: resolvedTextJsonbTh,
       prompt,
       promptTh,
       placeholder,
@@ -1826,6 +1961,13 @@ const getApplyNodeText = (node: LessonRichNode, contentLang: UiLanguage) => {
 
   return (inlineText || directText).replace(/\s+/g, ' ').trim();
 };
+
+const normalizeForcedSubheaderText = (value: string) =>
+  value
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
 
 const richNodeHasSpeakerPrefix = (node: LessonRichNode, contentLang: UiLanguage) => {
   const inlineText = Array.isArray(node.inlines)
@@ -3770,6 +3912,11 @@ export default function LessonDetailShellScreen() {
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
       : lessonCover?.lesson_order?.toString() ?? '-';
+  const activeLessonNumber =
+    lesson?.lesson_external_id ??
+    (typeof lesson?.level === 'number' && typeof lesson?.lesson_order === 'number'
+      ? `${lesson.level}.${lesson.lesson_order}`
+      : coverLessonNumber);
   const studyLessonLabel = `${uiCopy.lessonLabel} ${coverLessonNumber}`;
   const sectionMenuLabel = pageCopy.sectionMenuLabel;
   const startLessonLabel = isLessonReady ? uiCopy.startLesson : uiCopy.loadingLessonCta;
@@ -7031,6 +7178,12 @@ export default function LessonDetailShellScreen() {
     const indentStyle = getRichIndentStyle(node);
     const hasAccent = applyNodeHasAccent(node);
     const hasAudio = Boolean(node.audio_key || node.audio_seq);
+    const normalizedNodeHeadingText = normalizeForcedSubheaderText(getNodeHeadingText(node, 'en'));
+    const isLesson153 = activeLessonNumber === '15.3' || coverLessonNumber === '15.3';
+    const forceSubheaderByLessonOverride =
+      node.kind === 'paragraph' &&
+      isLesson153 &&
+      (normalizedNodeHeadingText === 'UND -Y' || normalizedNodeHeadingText === '-Y');
 
     if (options?.isPhraseCard && isPhraseLinkPlaceholderNode(node, contentLang)) {
       return null;
@@ -7164,7 +7317,8 @@ export default function LessonDetailShellScreen() {
         return renderPhraseDialogueParagraph(node, nodeKey, indentStyle, hasAccent, options);
       }
 
-      const isSubheader = options?.forceSubheader === true || isBoldParagraphNode(node);
+      const isSubheader =
+        options?.forceSubheader === true || forceSubheaderByLessonOverride || isBoldParagraphNode(node);
       return (
         <AppText
           key={nodeKey}
@@ -7183,7 +7337,7 @@ export default function LessonDetailShellScreen() {
           {renderRichInlines(node.inlines, nodeKey, {
             ...options,
             isSubheader,
-            forceSemibold: options?.forceSubheader === true,
+            forceSemibold: options?.forceSubheader === true || forceSubheaderByLessonOverride,
           })}
         </AppText>
       );
@@ -8414,6 +8568,7 @@ export default function LessonDetailShellScreen() {
               const thaiOnlyInlineText = splitThaiText(textJsonbToString(item.textJsonbTh)).th;
               const thaiInlineHasVisibleThai = item.textJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''));
               const thaiCompanionText = thaiOnlyInlineText.trim() || thaiOnlyText.trim();
+              const thaiCompanionHasVisibleThai = THAI_TEXT_RE.test(thaiCompanionText);
               const englishSourceTokens = item.textJsonb.length
                 ? segmentPracticeInlinesWithBlanks(item.textJsonb)
                 : segmentPracticeTextWithBlanks(item.text);
@@ -8421,7 +8576,7 @@ export default function LessonDetailShellScreen() {
               const shouldShowThaiCompanion =
                 contentLang === 'th' &&
                 !abPromptLayout &&
-                (thaiInlineHasVisibleThai || Boolean(thaiCompanionText)) &&
+                (thaiInlineHasVisibleThai || thaiCompanionHasVisibleThai) &&
                 normalizePracticeAnswerText(thaiOnlyText) !== normalizePracticeAnswerText(item.text);
               const rows: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; length: number; blankId: string; minLen: number })[][] = [[]];
               let blankCursor = 0;
@@ -11560,7 +11715,7 @@ const styles = StyleSheet.create({
   },
   practiceFillBlankContentWrap: {
     gap: theme.spacing.md,
-    paddingRight: theme.spacing.sm + 4,
+    paddingRight: theme.spacing.sm,
   },
   practiceFillBlankExampleContentWrap: {
     width: '100%',
@@ -11611,6 +11766,7 @@ const styles = StyleSheet.create({
   },
   practiceQuestionTextWrap: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   practiceMultipleChoicePromptImageShell: {
@@ -11630,6 +11786,7 @@ const styles = StyleSheet.create({
   practiceQuestionText: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
+    flexShrink: 1,
   },
   comprehensionQuestionText: {
     color: theme.colors.text,
@@ -11695,6 +11852,25 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
   },
+  practiceFillBlankMirrorShell: {
+    opacity: 0,
+    width: '100%',
+  },
+  practiceFillBlankMirrorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 0,
+    rowGap: 1,
+  },
+  practiceFillBlankMirrorBlank: {
+    height: 30,
+    minHeight: 30,
+  },
+  practiceFillBlankMirrorBlankCompact: {
+    height: 26,
+    minHeight: 26,
+  },
   practiceFillBlankMeasureText: {
     position: 'absolute',
     opacity: 0,
@@ -11751,10 +11927,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   practiceFillBlankInputShort: {
-    minWidth: 150,
+    minWidth: 80,
   },
   practiceFillBlankInputLong: {
-    minWidth: 140,
+    minWidth: 120,
   },
   practiceFillBlankInputShortCompact: {
     minWidth: 96,

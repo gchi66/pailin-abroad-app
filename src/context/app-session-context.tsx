@@ -702,6 +702,9 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         userId: nextSession?.user?.id ?? null,
       });
       setSession(nextSession);
+      if (authenticatedUser) {
+        setIsGuestMode(false);
+      }
       setIsLoading(true);
       void (async () => {
         const primaryLoadStartedAt = Date.now();
