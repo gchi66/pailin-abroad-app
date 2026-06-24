@@ -371,21 +371,24 @@ export function LessonAudioTray({
 const styles = StyleSheet.create({
   shell: {
     backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
     paddingTop: 8,
-    paddingHorizontal: 10,
-    paddingBottom: 6,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
   },
   handleHitArea: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 2,
-    paddingBottom: 8,
-    minHeight: 22,
+    paddingTop: 1,
+    paddingBottom: 6,
+    minHeight: 18,
   },
   handlePressable: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 22,
+    minHeight: 18,
     alignSelf: 'stretch',
   },
   handle: {
@@ -396,6 +399,10 @@ const styles = StyleSheet.create({
   },
   expandedWrap: {
     gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 6,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
   expandedTopRow: {
     flexDirection: 'row',
@@ -420,6 +427,10 @@ const styles = StyleSheet.create({
   },
   collapsedRow: {
     width: '100%',
+    paddingHorizontal: 10,
+    paddingBottom: 6,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
   collapsedRowPressable: {
     flexDirection: 'row',
@@ -432,7 +443,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 999,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.accent,
   },
   collapsedTitle: {
     flex: 1,

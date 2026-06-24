@@ -44,6 +44,8 @@ export const theme = {
         semibold: 'Poppins-SemiBold',
         semiboldItalic: 'Poppins-SemiBoldItalic',
         bold: 'Poppins-Bold',
+        extraBold: 'Poppins-ExtraBold',
+        black: 'Poppins-Black',
         boldItalic: 'Poppins-BoldItalic',
       },
       th: {

@@ -135,6 +135,8 @@ export default function RootLayout() {
     'Poppins-SemiBoldItalic': require('@/assets/fonts/Poppins-SemiBoldItalic.ttf'),
     'Poppins-Bold': require('@/assets/fonts/Poppins-Bold.ttf'),
     'Poppins-BoldItalic': require('@/assets/fonts/Poppins-BoldItalic.ttf'),
+    'Poppins-ExtraBold': require('@/assets/fonts/Poppins-ExtraBold.ttf'),
+    'Poppins-Black': require('@/assets/fonts/Poppins-Black.ttf'),
     Anuphan: require('@/assets/fonts/Anuphan-Regular.ttf'),
     'Anuphan-Medium': require('@/assets/fonts/Anuphan-Medium.ttf'),
     'Anuphan-SemiBold': require('@/assets/fonts/Anuphan-SemiBold.ttf'),

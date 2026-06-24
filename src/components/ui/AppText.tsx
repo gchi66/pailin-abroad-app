@@ -50,9 +50,12 @@ export function AppText({
   children,
   ...rest
 }: AppTextProps) {
+  const flattenedStyle = StyleSheet.flatten(style);
+  const explicitFontFamily = flattenedStyle?.fontFamily;
   const resolvedLanguage = language ?? (containsThaiGlyphs(children) ? 'th' : 'en');
-  const resolvedFontFamily = theme.typography.fontFaces[resolvedLanguage][variantWeights[variant]];
-  const getSegmentFontFamily = (segmentLanguage: ScriptLanguage) => theme.typography.fontFaces[segmentLanguage][variantWeights[variant]];
+  const resolvedFontFamily = explicitFontFamily ?? theme.typography.fontFaces[resolvedLanguage][variantWeights[variant]];
+  const getSegmentFontFamily = (segmentLanguage: ScriptLanguage) =>
+    explicitFontFamily ?? theme.typography.fontFaces[segmentLanguage][variantWeights[variant]];
 
   const renderStringWithBlankRuns = (value: string, keyPrefix: string) => {
     const parts = value.split(/(_{2,})/g).filter((part) => part.length > 0);

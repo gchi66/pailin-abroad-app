@@ -3327,7 +3327,6 @@ export default function LessonDetailShellScreen() {
     [activeTab, pageLanguage]
   );
   const isPrepareTab = activeTab?.type === 'prepare';
-  const useTwoColumnPrepareLayout = windowWidth >= 360;
   const isComprehensionTab = activeTab?.type === 'comprehension';
   const isTranscriptTab = activeTab?.type === 'transcript';
   const isApplyTab = activeTab?.type === 'apply';
@@ -3374,14 +3373,6 @@ export default function LessonDetailShellScreen() {
         return left.originalIndex - right.originalIndex;
       });
   }, [contentLang, isPrepareTab, prepareNodes, snippetIndex]);
-  const prepareItemsLeftColumn = useMemo(
-    () => prepareItems.filter((_, index) => index % 2 === 0),
-    [prepareItems]
-  );
-  const prepareItemsRightColumn = useMemo(
-    () => prepareItems.filter((_, index) => index % 2 === 1),
-    [prepareItems]
-  );
   const understandNodes = useMemo(
     () =>
       hasStartedLesson
@@ -7346,7 +7337,35 @@ export default function LessonDetailShellScreen() {
     return null;
   };
 
-  const renderPrepareItem = (item: PrepareItem) => {
+  const renderPrepareItemText = (node: PrepareItem['node'], nodeKey: string) => {
+    const inlineText = Array.isArray(node.inlines)
+      ? node.inlines.map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang))).join('')
+      : '';
+    const visibleText = (inlineText || resolveNodeText(node, contentLang)).trim();
+    const leadMatch = visibleText.match(/^([^:\n]+:\s*)(.*)$/);
+    const leadText = leadMatch?.[1] ?? null;
+    const remainderText = leadMatch?.[2] ?? null;
+    const shouldBoldLead = Boolean(leadText && /[A-Za-z]/.test(leadText));
+
+    if (shouldBoldLead) {
+      return (
+        <Text style={styles.prepareItemText}>
+          <Text style={styles.prepareItemLeadText}>{leadText}</Text>
+          {splitTextByScript(remainderText ?? '').map((segment, segmentIndex) => (
+            <Text
+              key={`${nodeKey}-remainder-${segmentIndex}`}
+              style={segment.language === 'th' ? styles.prepareItemTextThai : styles.prepareItemTextEnglish}>
+              {segment.text}
+            </Text>
+          ))}
+        </Text>
+      );
+    }
+
+    return visibleText;
+  };
+
+  const renderPrepareItem = (item: PrepareItem, isLast: boolean) => {
     const { node, originalIndex } = item;
     const nodeKey = `prepare-item-${originalIndex}`;
     const indentStyle = getRichIndentStyle(node);
@@ -7360,7 +7379,6 @@ export default function LessonDetailShellScreen() {
         key={nodeKey}
         style={[
           styles.prepareItemRow,
-          useTwoColumnPrepareLayout ? styles.prepareItemRowTwoColumn : null,
           indentStyle,
         ]}>
         <View style={styles.prepareAudioSlot}>
@@ -7389,12 +7407,19 @@ export default function LessonDetailShellScreen() {
           )}
         </View>
 
-        <View style={styles.prepareTextWrap}>
-          <AppText language={contentLang} variant="body" style={styles.prepareItemText}>
-            {Array.isArray(node.inlines) && node.inlines.length
-              ? renderRichInlines(node.inlines, `${nodeKey}-inline`)
-              : resolveNodeText(node, contentLang)}
-          </AppText>
+        <View style={[styles.prepareTextWrap, !isLast ? styles.prepareTextWrapWithDivider : null]}>
+          {(() => {
+            const renderedText = renderPrepareItemText(node, nodeKey);
+            if (React.isValidElement(renderedText) && renderedText.type === Text) {
+              return renderedText;
+            }
+
+            return (
+              <AppText language={contentLang} variant="body" style={styles.prepareItemText}>
+                {renderedText}
+              </AppText>
+            );
+          })()}
         </View>
       </View>
     );
@@ -9462,7 +9487,13 @@ export default function LessonDetailShellScreen() {
                     style={styles.contentScroll}>
                     <View style={[styles.lessonContentShell, shouldContainLessonContent ? styles.lessonContentShellTablet : null]}>
                   <View style={styles.sectionHeaderRow}>
-                    <AppText language={pageLanguage} variant="title" style={styles.studySectionTitle}>
+                    <AppText
+                      language={pageLanguage}
+                      variant="title"
+                      style={[
+                        styles.studySectionTitle,
+                        pageLanguage === 'th' ? styles.studySectionTitleThai : styles.studySectionTitleEnglish,
+                      ]}>
                       {activeSectionTitle ?? pageCopy.noSectionAvailable}
                     </AppText>
 
@@ -9517,20 +9548,11 @@ export default function LessonDetailShellScreen() {
                         </View>
 
                         {prepareItems.length ? (
-                          useTwoColumnPrepareLayout ? (
-                            <View style={[styles.prepareList, styles.prepareListTwoColumn]}>
-                              <View style={[styles.prepareColumn, styles.prepareColumnLeft]}>
-                                {prepareItemsLeftColumn.map((item) => renderPrepareItem(item))}
-                              </View>
-                              <View style={[styles.prepareColumn, styles.prepareColumnRight]}>
-                                {prepareItemsRightColumn.map((item) => renderPrepareItem(item))}
-                              </View>
-                            </View>
-                          ) : (
-                            <View style={styles.prepareList}>
-                              {prepareItems.map((item) => renderPrepareItem(item))}
-                            </View>
-                          )
+                          <View style={styles.prepareList}>
+                            {prepareItems.map((item, index) =>
+                              renderPrepareItem(item, index === prepareItems.length - 1)
+                            )}
+                          </View>
                         ) : (
                           <AppText language={pageLanguage} variant="muted" style={styles.prepareEmptyText}>
                             {pageCopy.prepareEmpty}
@@ -9986,11 +10008,12 @@ export default function LessonDetailShellScreen() {
                     </View>
                   ) : null}
 
-                  <View
-                    style={[
-                      styles.stickyFooter,
-                      { paddingBottom: Math.max(insets.bottom, 10) },
-                    ]}>
+                  <View style={styles.stickyFooter}>
+                    <View
+                      style={[
+                        styles.stickyFooterShell,
+                        { paddingBottom: Math.max(insets.bottom, 10) },
+                      ]}>
                     {shouldShowAudioTray ? (
                       <LessonAudioTray
                         language={pageLanguage}
@@ -10075,6 +10098,7 @@ export default function LessonDetailShellScreen() {
                           {isSavingLessonCompletion ? pageCopy.practiceChecking : nextSectionButtonLabel}
                         </AppText>
                       </Pressable>
+                    </View>
                     </View>
                   </View>
                 </View>
@@ -10461,7 +10485,7 @@ const styles = StyleSheet.create({
   contentScrollContent: {
     flexGrow: 1,
     paddingHorizontal: 14,
-    paddingTop: 22,
+    paddingTop: 16,
     paddingBottom: 28,
     gap: 14,
   },
@@ -10493,33 +10517,31 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   studyMenuButton: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#DCEEFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   studyMenuButtonText: {
-    color: theme.colors.text,
-    fontSize: 18,
-    lineHeight: 18,
+    color: '#2E8FF1',
+    fontSize: 16,
+    lineHeight: 16,
     fontWeight: theme.typography.weights.semibold,
   },
   studyCounterText: {
     textAlign: 'center',
     color: theme.colors.text,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: theme.typography.weights.semibold,
   },
   studyTitleBlock: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 7,
     paddingTop: 2,
   },
   studyNavActions: {
@@ -10534,13 +10556,11 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   translatePill: {
-    minWidth: 58,
-    minHeight: 38,
+    minWidth: 52,
+    minHeight: 34,
     borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
+    backgroundColor: '#DCEEFF',
+    paddingHorizontal: 12,
     paddingVertical: 0,
     alignItems: 'center',
     justifyContent: 'center',
@@ -10556,9 +10576,9 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 1 }],
   },
   translatePillText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 14,
+    color: '#2E8FF1',
+    fontSize: 13,
+    lineHeight: 13,
     fontWeight: theme.typography.weights.semibold,
     includeFontPadding: false,
     textAlign: 'center',
@@ -10568,11 +10588,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 7,
   },
   sectionDot: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     borderRadius: 999,
     backgroundColor: '#BDD1E6',
   },
@@ -10580,7 +10600,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF4B4B',
   },
   sectionDotActive: {
-    width: 26,
+    width: 20,
     backgroundColor: '#FF4B4B',
   },
   sectionHeaderRow: {
@@ -10588,6 +10608,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
+    marginBottom: 11,
   },
   sectionHeaderActions: {
     flexDirection: 'row',
@@ -10598,10 +10619,15 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     color: theme.colors.text,
-    fontSize: 29,
-    lineHeight: 36,
+    fontSize: 24,
+    lineHeight: 30,
     paddingTop: 2,
-    fontWeight: theme.typography.weights.bold,
+  },
+  studySectionTitleEnglish: {
+    fontFamily: theme.typography.fontFaces.en.bold,
+  },
+  studySectionTitleThai: {
+    fontFamily: theme.typography.fontFaces.th.bold,
   },
   fullscreenButton: {
     width: 36,
@@ -10612,8 +10638,7 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     height: 1.5,
-    backgroundColor: theme.colors.accentMuted,
-    marginTop: 6,
+    backgroundColor: '#C7DCF0',
   },
   sectionMetaRow: {
     flexDirection: 'row',
@@ -11133,50 +11158,35 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     backgroundColor: theme.colors.surface,
     gap: theme.spacing.md,
+    paddingTop: theme.spacing.lg,
     ...brutalShadow,
   },
   prepareCardHeader: {
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
   prepareCardEyebrow: {
-    color: theme.colors.primary,
-    fontWeight: theme.typography.weights.bold,
+    color: '#9A9A9A',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.semibold,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
   },
   prepareCardSubtitle: {
     color: theme.colors.mutedText,
-    fontSize: theme.typography.sizes.sm,
-    lineHeight: theme.typography.lineHeights.sm,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
   },
   prepareList: {
     gap: theme.spacing.sm,
     marginLeft: -12,
-  },
-  prepareListTwoColumn: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  prepareColumn: {
-    flex: 1,
-    gap: theme.spacing.sm,
-  },
-  prepareColumnLeft: {
-    flex: 1.12,
-  },
-  prepareColumnRight: {
-    flex: 0.88,
   },
   prepareItemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: theme.spacing.sm,
     paddingVertical: 2,
-  },
-  prepareItemRowTwoColumn: {
-    width: '100%',
   },
   prepareAudioSlot: {
     width: 28,
@@ -11201,12 +11211,28 @@ const styles = StyleSheet.create({
   },
   prepareTextWrap: {
     flex: 1,
-    paddingTop: 1,
+    paddingTop: 0,
+    marginTop: -1,
+  },
+  prepareTextWrapWithDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E1E1',
+    paddingBottom: theme.spacing.sm,
   },
   prepareItemText: {
     color: theme.colors.text,
     fontSize: theme.typography.sizes.md,
     lineHeight: theme.typography.lineHeights.lg,
+    letterSpacing: 0.15,
+  },
+  prepareItemTextEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  prepareItemTextThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
+  },
+  prepareItemLeadText: {
+    fontFamily: theme.typography.fontFaces.en.semibold,
   },
   prepareEmptyText: {
     color: theme.colors.mutedText,
@@ -12298,7 +12324,9 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
   },
   sectionTitle: {
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: theme.typography.weights.bold,
   },
   sectionBody: {
     color: theme.colors.text,
@@ -12341,9 +12369,18 @@ const styles = StyleSheet.create({
   },
   stickyFooter: {
     position: 'relative',
-    borderTopWidth: 1.5,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'transparent',
+  },
+  stickyFooterShell: {
+    marginTop: -28,
+    paddingTop: 6,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   completionModalBackdrop: {
     flex: 1,
@@ -12561,7 +12598,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 3,
     paddingBottom: 16,
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'transparent',
   },
   nextSectionHintOverlay: {
     position: 'absolute',
