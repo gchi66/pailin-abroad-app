@@ -4624,7 +4624,7 @@ export default function LessonDetailShellScreen() {
   }, [contentLang, isExpertTranslationComingSoonLesson, thaiLessonCopy.translationComingSoonBody, thaiLessonCopy.translationComingSoonTitle]);
 
   const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
-    if (lockedComprehensionQuestions[questionId]) {
+    if (allComprehensionQuestionsAnswered && lockedComprehensionQuestions[questionId]) {
       return;
     }
 
@@ -4646,22 +4646,23 @@ export default function LessonDetailShellScreen() {
   };
 
   const handleSubmitComprehensionAnswers = useCallback(async () => {
-    if (!allComprehensionQuestionsAnswered) {
-      setComprehensionError(pageCopy.practiceAnswerAll);
-      return;
-    }
-
     setComprehensionError('');
     await saveAnswerStateForUnit(buildComprehensionAnswerStateUnitKey(), {
       selected: selectedAnswers,
     });
-    setLockedComprehensionQuestions((previous) => {
-      const next = { ...previous };
-      normalizedQuestions.forEach((question) => {
-        next[question.id] = areChoiceSetsEqual(selectedAnswers[question.id] ?? [], question.answerKey);
+    if (allComprehensionQuestionsAnswered) {
+      setLockedComprehensionQuestions((previous) => {
+        const next = { ...previous };
+        normalizedQuestions.forEach((question) => {
+          const currentSelection = selectedAnswers[question.id] ?? [];
+          if (currentSelection.length === 0) {
+            return;
+          }
+          next[question.id] = areChoiceSetsEqual(currentSelection, question.answerKey);
+        });
+        return next;
       });
-      return next;
-    });
+    }
     setHasSubmittedComprehensionAnswers(true);
     if (lessonId) {
       void writeProgressUnit('exercise', buildAppComprehensionExerciseKey(), buildAppPageKey('comprehension'));
@@ -4670,7 +4671,6 @@ export default function LessonDetailShellScreen() {
     allComprehensionQuestionsAnswered,
     lessonId,
     normalizedQuestions,
-    pageCopy.practiceAnswerAll,
     saveAnswerStateForUnit,
     selectedAnswers,
     writeProgressUnit,
@@ -4820,12 +4820,20 @@ export default function LessonDetailShellScreen() {
           : {};
       setSelectedAnswers(nextSelected);
       setHasSubmittedComprehensionAnswers(Object.keys(nextSelected).length > 0);
-      const nextLockedComprehensionQuestions: Record<string, boolean> = {};
-      normalizedQuestions.forEach((question) => {
-        nextLockedComprehensionQuestions[question.id] = areChoiceSetsEqual(nextSelected[question.id] ?? [], question.answerKey);
-      });
-      if (Object.keys(nextLockedComprehensionQuestions).length) {
-        setLockedComprehensionQuestions(nextLockedComprehensionQuestions);
+      const answeredEveryComprehensionQuestion =
+        normalizedQuestions.length > 0 &&
+        normalizedQuestions.every((question) => (nextSelected[question.id] ?? []).length > 0);
+      if (answeredEveryComprehensionQuestion) {
+        const nextLockedComprehensionQuestions: Record<string, boolean> = {};
+        normalizedQuestions.forEach((question) => {
+          nextLockedComprehensionQuestions[question.id] = areChoiceSetsEqual(
+            nextSelected[question.id] ?? [],
+            question.answerKey
+          );
+        });
+        if (Object.keys(nextLockedComprehensionQuestions).length) {
+          setLockedComprehensionQuestions(nextLockedComprehensionQuestions);
+        }
       }
     }
 
@@ -5766,32 +5774,16 @@ export default function LessonDetailShellScreen() {
       ];
 
       const renderApplyLinePieces = (text: string, lineKey: string, isThaiLine: boolean) => {
-        const pieces = text
-          .split(/([\u0E00-\u0E7F]+|\d+(?:[.,]\d+)?|[.,!?;:'"(){}\[\]<>\\/\-–—…]+)/)
-          .filter(Boolean);
-
-        return pieces.map((piece, pieceIndex) => {
-          const isPunctuationOnly = /^[.,!?;:'"(){}\[\]<>\\/\-–—…]+$/.test(piece);
-          const isNumericOnly = /^\d+(?:[.,]\d+)?$/.test(piece);
-          const isWhitespaceOnly = /^\s+$/.test(piece);
-          const prevHasThai = pieces.slice(0, pieceIndex).some((segment) => THAI_TEXT_RE.test(segment));
-          const nextHasThai = pieces.slice(pieceIndex + 1).some((segment) => THAI_TEXT_RE.test(segment));
-          const adjacentThai = prevHasThai || nextHasThai;
-          const shouldMutePiece =
-            isThaiLine &&
-            (THAI_TEXT_RE.test(piece) || ((isPunctuationOnly || isNumericOnly || isWhitespaceOnly) && adjacentThai));
-
-          return (
-            <Text
-              key={`${lineKey}-${pieceIndex}`}
-              style={[
-                baseApplyTextStyle,
-                shouldMutePiece ? styles.richInlineThaiMuted : null,
-              ]}>
-              {piece}
-            </Text>
-          );
-        });
+        return splitTextByScript(text).map((segment, pieceIndex) => (
+          <Text
+            key={`${lineKey}-${pieceIndex}`}
+            style={[
+              baseApplyTextStyle,
+              isThaiLine ? styles.richInlineThaiMuted : null,
+            ]}>
+            {segment.text}
+          </Text>
+        ));
       };
 
       const renderDialogueText = (text: string, keyPrefix: string) => {
@@ -6495,6 +6487,7 @@ export default function LessonDetailShellScreen() {
             style={[
               styles.understandAudioText,
               contentLang === 'th' ? styles.richThaiTextCompact : null,
+              options?.compactBody ? styles.richBodyTextCompact : null,
               options?.isPhraseCard ? styles.phraseAudioText : null,
               styles.richAudioTextCompact,
               options?.isPhraseCard ? styles.phraseAudioTextCompact : null,
@@ -7163,6 +7156,7 @@ export default function LessonDetailShellScreen() {
       phraseIsLeadAudio?: boolean;
       alignToAudioText?: boolean;
       forceSubheader?: boolean;
+      compactBody?: boolean;
     }
   ) => {
     const nodeKey = `${options?.keyPrefix ?? 'rich-node'}-${index}`;
@@ -7261,6 +7255,7 @@ export default function LessonDetailShellScreen() {
             style={[
               styles.richListText,
               contentLang === 'th' ? styles.richThaiTextCompact : null,
+              options?.compactBody ? styles.richBodyTextCompact : null,
               options?.isPhraseCard ? styles.phraseBodyText : null,
               hasAccent ? styles.applyAccentBlock : null,
             ]}>
@@ -7290,6 +7285,7 @@ export default function LessonDetailShellScreen() {
             style={[
               styles.richListText,
               contentLang === 'th' ? styles.richThaiTextCompact : null,
+              options?.compactBody ? styles.richBodyTextCompact : null,
               options?.isPhraseCard ? styles.phraseBodyText : null,
               hasAccent ? styles.applyAccentBlock : null,
             ]}>
@@ -7318,6 +7314,7 @@ export default function LessonDetailShellScreen() {
           style={[
             styles.richParagraph,
             contentLang === 'th' ? styles.richThaiTextCompact : null,
+            options?.compactBody ? styles.richBodyTextCompact : null,
             indentStyle,
             options?.alignToAudioText ? styles.adjacentAudioTextIndent : null,
             options?.isPhraseCard ? styles.phraseBodyText : null,
@@ -7426,7 +7423,7 @@ export default function LessonDetailShellScreen() {
   };
 
   const renderUnderstandNode = (node: LessonRichNode, index: number) =>
-    renderRichNode(node, index, { keyPrefix: 'understand-node', enableHighlights: true });
+    renderRichNode(node, index, { keyPrefix: 'understand-node', enableHighlights: true, compactBody: true });
 
   const isAudioRichNode = (node: LessonRichNode | undefined) => Boolean(node && (node.audio_key || node.audio_seq));
 
@@ -7473,6 +7470,7 @@ export default function LessonDetailShellScreen() {
               enableHighlights: true,
               numberedLabel: `${numberedIndex}.`,
               alignToAudioText,
+              compactBody: true,
             });
           }
 
@@ -7480,6 +7478,7 @@ export default function LessonDetailShellScreen() {
             keyPrefix: 'understand-node',
             enableHighlights: true,
             alignToAudioText,
+            compactBody: true,
           });
         })}
       </View>
@@ -9569,7 +9568,8 @@ export default function LessonDetailShellScreen() {
                           const selectedSet = new Set(selectedLabels.map(normalizeOptionLetter));
                           const answerSet = new Set(question.answerKey.map(normalizeOptionLetter));
                           const isMulti = question.answerKey.length > 1;
-                          const isLockedCorrect = Boolean(lockedComprehensionQuestions[selectionKey]);
+                          const isLockedCorrect =
+                            allComprehensionQuestionsAnswered && Boolean(lockedComprehensionQuestions[selectionKey]);
                           const isQuestionCorrect =
                             selectedSet.size === answerSet.size &&
                             Array.from(answerSet).every((label) => selectedSet.has(label));
@@ -9631,6 +9631,8 @@ export default function LessonDetailShellScreen() {
                                   const isWrongSelection = hasSubmittedComprehensionAnswers && isSelected && !isCorrectOption;
                                   const showSelectedOptionOutcome =
                                     isSelected && (isLockedCorrect || (hasSubmittedComprehensionAnswers && (isCorrectOption || isWrongSelection)));
+                                  const isCorrectSelectionOutcome = showSelectedOptionOutcome && (isLockedCorrect || isCorrectOption);
+                                  const isWrongSelectionOutcome = showSelectedOptionOutcome && !isCorrectSelectionOutcome;
                                   const optionImageUrl = resolveLessonImageUrl(
                                     option.imageKey ? lesson?.images?.[option.imageKey] : null,
                                     option.imageKey
@@ -9650,19 +9652,31 @@ export default function LessonDetailShellScreen() {
                                       onPress={() => handleToggleAnswer(selectionKey, option.label, isMulti)}
                                       style={[
                                         styles.comprehensionOptionButton,
-                                        isSelected ? styles.comprehensionOptionButtonSelected : null,
+                                        isWrongSelectionOutcome
+                                          ? styles.comprehensionOptionButtonSelectedWrong
+                                          : isCorrectSelectionOutcome
+                                            ? styles.comprehensionOptionButtonSelectedCorrect
+                                            : isSelected
+                                              ? styles.comprehensionOptionButtonSelected
+                                              : null,
                                       ]}>
                                       <View
                                         style={[
                                           styles.comprehensionOptionLetter,
-                                          isSelected ? styles.practiceOptionLetterSelected : null,
+                                          isWrongSelectionOutcome
+                                            ? styles.comprehensionOptionLetterWrong
+                                            : isCorrectSelectionOutcome
+                                              ? styles.comprehensionOptionLetterCorrect
+                                              : isSelected
+                                                ? styles.comprehensionOptionLetterSelected
+                                                : null,
                                         ]}>
                                         <Text
                                           style={[
                                             styles.comprehensionOptionLetterText,
-                                            isSelected ? styles.practiceOptionLetterTextInverse : null,
+                                            showSelectedOptionOutcome ? styles.practiceOptionLetterTextInverse : null,
                                           ]}>
-                                          {option.label}
+                                          {isWrongSelectionOutcome ? 'X' : isCorrectSelectionOutcome ? '✓' : option.label}
                                         </Text>
                                       </View>
 
@@ -9690,24 +9704,11 @@ export default function LessonDetailShellScreen() {
                                           </AppText>
                                         ) : null}
                                       </View>
-                                      {showSelectedOptionOutcome ? (
-                                        <AppText
-                                          language="en"
-                                          variant="caption"
-                                          style={[
-                                            styles.practiceOptionOutcomeMark,
-                                            isLockedCorrect || isCorrectOption
-                                              ? styles.comprehensionOutcomeMarkCorrect
-                                              : styles.comprehensionOutcomeMarkWrong,
-                                          ]}>
-                                          {isLockedCorrect || isCorrectOption ? '✓' : '✗'}
-                                        </AppText>
-                                      ) : null}
                                     </Pressable>
                                   );
                                 })}
                               </Stack>
-                              {questionIndex < normalizedQuestions.length - 1 ? (
+                              {questionIndex < normalizedQuestions.length - 1 || questionIndex === normalizedQuestions.length - 1 ? (
                                 <View style={styles.comprehensionQuestionDivider} />
                               ) : null}
                             </View>
@@ -9720,27 +9721,27 @@ export default function LessonDetailShellScreen() {
                           </AppText>
                         ) : null}
 
-                        <View style={styles.practiceActionsRow}>
+                        <View style={[styles.practiceActionsRow, styles.comprehensionActionsRow]}>
                           <Pressable
                             accessibilityRole="button"
                             onPress={() => {
-                              if (hasSubmittedComprehensionAnswers) {
+                              if (hasSubmittedComprehensionAnswers && allComprehensionQuestionsAnswered) {
                                 handleResetComprehensionReview();
                                 return;
                               }
                               void handleSubmitComprehensionAnswers();
                             }}
                             style={({ pressed }) => [
-                              styles.practiceActionButton,
-                              styles.practiceCheckButton,
+                              styles.ctaButton,
+                              styles.comprehensionCheckButton,
                               pressed ? styles.ctaButtonPressed : null,
                             ]}>
-                            <AppText language={pageLanguage} variant="caption" style={styles.practiceActionButtonText}>
-                              {hasSubmittedComprehensionAnswers
+                            <AppText language="en" variant="caption" style={styles.comprehensionCheckButtonText}>
+                              {hasSubmittedComprehensionAnswers && allComprehensionQuestionsAnswered
                                 ? hasPerfectComprehensionScore
-                                  ? (pageLanguage === 'th' ? 'เก่งมาก!' : 'GREAT WORK!')
-                                  : (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
-                                : pageCopy.checkAnswers}
+                                  ? 'great work!'
+                                  : 'Try again'
+                                : 'Check answers'}
                             </AppText>
                           </Pressable>
                         </View>
@@ -9818,20 +9819,27 @@ export default function LessonDetailShellScreen() {
                       </View>
 
                       {!showApplyResponse ? (
-                        <Button
-                          language={pageLanguage}
-                          title={pageCopy.applySubmit}
-                          onPress={() => {
-                            setShowApplyResponse(true);
-                            void writeProgressUnit(
-                              'example_reveal',
-                              buildAppExampleRevealKey('apply'),
-                              buildAppPageKey('apply')
-                            );
-                          }}
-                          style={styles.applySubmitButton}
-                          textStyle={styles.applySubmitButtonText}
-                        />
+                        <View style={styles.applyActionsRow}>
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => {
+                              setShowApplyResponse(true);
+                              void writeProgressUnit(
+                                'example_reveal',
+                                buildAppExampleRevealKey('apply'),
+                                buildAppPageKey('apply')
+                              );
+                            }}
+                            style={({ pressed }) => [
+                              styles.ctaButton,
+                              styles.comprehensionCheckButton,
+                              pressed ? styles.ctaButtonPressed : null,
+                            ]}>
+                            <AppText language="en" variant="caption" style={styles.comprehensionCheckButtonText}>
+                              {pageCopy.applySubmit}
+                            </AppText>
+                          </Pressable>
+                        </View>
                       ) : null}
 
                       {showApplyResponse && (normalizedApply.responseNodes.length || normalizedApply.responseText) ? (
@@ -10495,7 +10503,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 14,
     paddingTop: 16,
-    paddingBottom: 28,
+    paddingBottom: 60,
     gap: 14,
   },
   contentScrollContentTablet: {
@@ -10618,7 +10626,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 11,
+    marginBottom: 7,
   },
   sectionHeaderActions: {
     flexDirection: 'row',
@@ -10649,6 +10657,8 @@ const styles = StyleSheet.create({
   sectionDivider: {
     height: 1.5,
     backgroundColor: '#C7DCF0',
+    marginTop: 2,
+    marginBottom: 4,
   },
   sectionMetaRow: {
     flexDirection: 'row',
@@ -10677,14 +10687,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   richPagerMetaRowRichSection: {
-    marginTop: theme.spacing.md,
+    marginTop: 0,
   },
   richPagerCounterPill: {
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
   richPagerCounterText: {
-    color: theme.colors.mutedText,
+    color: '#787B82',
     fontWeight: theme.typography.weights.medium,
   },
   richPagerHeadingLabel: {
@@ -10715,14 +10725,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   richPagerControlsBottom: {
+    position: 'relative',
+    zIndex: 2,
+    transform: [{ translateY: -30 }],
     paddingHorizontal: theme.spacing.sm,
     paddingTop: 4,
     paddingBottom: 4,
   },
   bottomPagerDock: {
-    borderTopWidth: 1,
-    borderTopColor: '#DDE6F0',
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'transparent',
   },
   richPagerArrowRow: {
     flexDirection: 'row',
@@ -10905,8 +10916,9 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   richGroupBand: {
-    borderRadius: theme.radii.md,
-    paddingHorizontal: theme.spacing.sm,
+    marginHorizontal: -14,
+    borderRadius: 0,
+    paddingHorizontal: 24,
     paddingVertical: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
@@ -10919,6 +10931,10 @@ const styles = StyleSheet.create({
   richParagraph: {
     fontSize: 15,
     lineHeight: 25,
+  },
+  richBodyTextCompact: {
+    fontSize: 14,
+    lineHeight: 23,
   },
   richSubheader: {
     color: theme.colors.text,
@@ -11454,12 +11470,14 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   applyHeading: {
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: theme.typography.weights.medium,
     marginBottom: theme.spacing.xs,
   },
   applyPromptText: {
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 24,
   },
   applyParagraphRow: {
     marginBottom: theme.spacing.sm,
@@ -11471,15 +11489,15 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   applyParagraphText: {
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 24,
   },
   applyInstructionText: {
     fontWeight: theme.typography.weights.semibold,
   },
   applyInlineText: {
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 24,
     color: theme.colors.text,
   },
   applyInlineTextEnglish: {
@@ -11513,8 +11531,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    fontSize: 15,
+    lineHeight: 22,
     color: theme.colors.text,
     backgroundColor: theme.colors.surface,
   },
@@ -11527,14 +11545,8 @@ const styles = StyleSheet.create({
   applyInputDisabled: {
     opacity: 0.7,
   },
-  applySubmitButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: theme.spacing.xl,
-    backgroundColor: '#91CAFF',
-    ...brutalShadow,
-  },
-  applySubmitButtonText: {
-    color: theme.colors.text,
+  applyActionsRow: {
+    marginTop: theme.spacing.xs,
   },
   comprehensionInlineButton: {
     alignSelf: 'flex-start',
@@ -11557,7 +11569,9 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
   },
   applyResponseNote: {
-    color: theme.colors.mutedText,
+    color: '#767676',
+    fontSize: 13,
+    lineHeight: 18,
     fontStyle: 'italic',
   },
   practiceExerciseCard: {
@@ -12096,6 +12110,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     backgroundColor: '#EFF6FF',
   },
+  comprehensionOptionButtonSelectedCorrect: {
+    borderRadius: theme.radii.md,
+    backgroundColor: '#3CA0FE40',
+  },
+  comprehensionOptionButtonSelectedWrong: {
+    borderRadius: theme.radii.md,
+    backgroundColor: '#FD69694D',
+  },
   practiceOptionButtonSelected: {},
   practiceOptionButtonCorrect: {},
   practiceOptionButtonWrong: {},
@@ -12120,6 +12142,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+  },
+  comprehensionOptionLetterSelected: {
+    backgroundColor: '#3CA0FE',
+    borderColor: theme.colors.border,
+  },
+  comprehensionOptionLetterCorrect: {
+    backgroundColor: '#3CA0FE',
+    borderColor: theme.colors.border,
+  },
+  comprehensionOptionLetterWrong: {
+    backgroundColor: '#F65555',
+    borderColor: theme.colors.border,
   },
   practiceOptionLetterSelected: {
     backgroundColor: theme.colors.accent,
@@ -12243,6 +12277,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     flexWrap: 'wrap',
   },
+  comprehensionActionsRow: {
+    marginBottom: 0,
+  },
   practiceActionButton: {
     minHeight: 40,
     borderRadius: 22,
@@ -12260,6 +12297,17 @@ const styles = StyleSheet.create({
   practiceActionButtonText: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semibold,
+  },
+  comprehensionCheckButtonText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  comprehensionCheckButton: {
+    flex: 1,
+    backgroundColor: '#91CAFF',
+    ...brutalShadow,
   },
   practiceFeedbackBox: {
     marginLeft: 14,
@@ -12402,6 +12450,7 @@ const styles = StyleSheet.create({
   },
   stickyFooter: {
     position: 'relative',
+    zIndex: 1,
     backgroundColor: 'transparent',
   },
   stickyFooterShell: {
