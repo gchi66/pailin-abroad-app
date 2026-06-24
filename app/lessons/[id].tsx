@@ -753,6 +753,14 @@ const INLINE_MARKER_COLORS: Record<string, string> = {
   '[check]': '#3CA0FE',
   '[-]': '#28A265',
 };
+const INLINE_MARKER_DISPLAY: Record<string, string> = {
+  '[X]': 'x',
+  '[x]': 'x',
+  '[✓]': '✓',
+  '[√]': '✓',
+  '[check]': '✓',
+  '[-]': '-',
+};
 const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
   byKey: {},
   bySection: {},
@@ -6223,8 +6231,9 @@ export default function LessonDetailShellScreen() {
 
       const parts = textValue.split('\n');
       parts.forEach((part, partIndex) => {
-        if (part) {
-          normalizedSpans.push({ ...inline, text: part });
+        const normalizedPart = options?.isPhraseCard && partIndex > 0 ? part.replace(/^\s+/, '') : part;
+        if (normalizedPart) {
+          normalizedSpans.push({ ...inline, text: normalizedPart });
         }
         if (partIndex < parts.length - 1) {
           normalizedSpans.push({ text: '\n', isBreak: true });
@@ -6336,6 +6345,39 @@ export default function LessonDetailShellScreen() {
       });
     }
 
+    if (options?.isPhraseCard) {
+      lines = lines.map((lineSpans, lineIndex) => {
+        if (lineIndex === 0) {
+          return lineSpans;
+        }
+
+        let trimmedLeadingWhitespace = false;
+
+        return lineSpans
+          .map((span) => {
+            if (trimmedLeadingWhitespace) {
+              return span;
+            }
+
+            const rawText = String(span.text ?? '');
+            const trimmedText = rawText.replace(/^\s+/, '');
+
+            if (trimmedText.length === rawText.length) {
+              trimmedLeadingWhitespace = true;
+              return span;
+            }
+
+            if (!trimmedText) {
+              return null;
+            }
+
+            trimmedLeadingWhitespace = true;
+            return { ...span, text: trimmedText };
+          })
+          .filter((span): span is LessonRichInline => Boolean(span));
+      });
+    }
+
     const lineMetadata = lines.map((lineSpans) => {
       const lineText = lineSpans.map((span) => String(span.text ?? '')).join('');
       const speakerPrefixMatch = lineText.match(SPEAKER_PREFIX_RE);
@@ -6418,7 +6460,7 @@ export default function LessonDetailShellScreen() {
                   markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                   markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
                 ]}>
-                {part}
+                {INLINE_MARKER_DISPLAY[part] ?? part}
               </Text>
             );
             consumedChars += part.length;
@@ -6563,7 +6605,7 @@ export default function LessonDetailShellScreen() {
                         markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                         markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
                       ]}>
-                      {part}
+                      {INLINE_MARKER_DISPLAY[part] ?? part}
                     </Text>
                   );
                 }
@@ -6687,7 +6729,7 @@ export default function LessonDetailShellScreen() {
                     markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                     markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
                   ]}>
-                  {part}
+                  {INLINE_MARKER_DISPLAY[part] ?? part}
                 </Text>
               );
             })}
@@ -7707,7 +7749,7 @@ export default function LessonDetailShellScreen() {
 
   const renderPhrasesSection = () => (
     <View style={styles.phraseSectionShell}>
-      <Stack gap="sm">
+      <View>
         {normalizedLessonPhrases.map((phrase, index) => {
           const isExpanded = expandedPhraseIds[phrase.id] ?? false;
           const phraseLabel = phrase.phrase.trim() || phrase.phraseTh.trim() || `Phrase ${index + 1}`;
@@ -7748,7 +7790,7 @@ export default function LessonDetailShellScreen() {
             </View>
           );
         })}
-      </Stack>
+      </View>
     </View>
   );
 
@@ -10779,15 +10821,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   phraseSectionShell: {
+    marginTop: -10,
     gap: theme.spacing.sm,
   },
   phraseAccordionItem: {
     borderTopWidth: 1,
     borderTopColor: '#D9E4EE',
-    paddingVertical: theme.spacing.sm,
+    paddingTop: 28,
+    paddingBottom: 28,
   },
   phraseAccordionItemFirst: {
-    paddingTop: 0,
     borderTopWidth: 0,
   },
   phraseAccordionItemLast: {
@@ -10806,6 +10849,8 @@ const styles = StyleSheet.create({
   },
   phraseAccordionTitle: {
     color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: theme.typography.weights.semibold,
   },
   phraseAccordionMeta: {
@@ -10813,14 +10858,14 @@ const styles = StyleSheet.create({
   },
   phraseAccordionChevron: {
     color: theme.colors.mutedText,
-    fontSize: 18,
-    lineHeight: 18,
+    fontSize: 36,
+    lineHeight: 36,
   },
   phraseAccordionChevronExpanded: {
     transform: [{ rotate: '180deg' }],
   },
   phraseAccordionBody: {
-    paddingTop: theme.spacing.sm + 4,
+    paddingTop: theme.spacing.md + 4,
   },
   phraseMetaRow: {
     flexDirection: 'row',
@@ -10897,7 +10942,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   adjacentAudioTextIndent: {
-    paddingLeft: 52,
+    paddingLeft: 49,
   },
   phraseDialogueEnglishTurn: {
     marginTop: 4,
@@ -11066,17 +11111,17 @@ const styles = StyleSheet.create({
     lineHeight: 25,
   },
   richNumberBadge: {
-    minWidth: 26,
-    height: 26,
-    borderRadius: 13,
+    minWidth: 24,
+    height: 28,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingHorizontal: 8,
+    backgroundColor: '#F0F0F0',
     marginTop: 2,
   },
   richNumberBadgeText: {
+    color: '#666A73',
     fontWeight: theme.typography.weights.semibold,
   },
   richSpacer: {
