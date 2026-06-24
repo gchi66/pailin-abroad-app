@@ -9520,7 +9520,7 @@ export default function LessonDetailShellScreen() {
                         style={styles.fullscreenButton}>
                         <MaterialIcons
                           name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'}
-                          size={18}
+                          size={24}
                           color={theme.colors.text}
                         />
                       </Pressable>
@@ -9575,7 +9575,13 @@ export default function LessonDetailShellScreen() {
                             Array.from(answerSet).every((label) => selectedSet.has(label));
 
                           return (
-                            <View key={selectionKey} style={styles.practiceQuestionCard}>
+                            <View
+                              key={selectionKey}
+                              style={[
+                                styles.practiceQuestionCard,
+                                styles.comprehensionQuestionCard,
+                                questionIndex === 0 ? styles.comprehensionFirstQuestionCard : null,
+                              ]}>
                               <View style={styles.comprehensionQuestionHeader}>
                                 <AppText language="en" variant="caption" style={styles.comprehensionQuestionNumber}>
                                   {`${question.sortOrder || questionIndex + 1}`}
@@ -9617,7 +9623,7 @@ export default function LessonDetailShellScreen() {
                                 </View>
                               </View>
 
-                              <Stack gap="sm">
+                              <Stack gap="sm" style={[styles.comprehensionOptionsList, { marginTop: 4 }]}>
                                 {question.options.map((option, optionIndex) => {
                                   const normalizedOptionLabel = normalizeOptionLetter(option.label);
                                   const isSelected = selectedSet.has(normalizedOptionLabel);
@@ -9644,7 +9650,7 @@ export default function LessonDetailShellScreen() {
                                       onPress={() => handleToggleAnswer(selectionKey, option.label, isMulti)}
                                       style={[
                                         styles.comprehensionOptionButton,
-                                        isSelected ? styles.practiceOptionButtonSelected : null,
+                                        isSelected ? styles.comprehensionOptionButtonSelected : null,
                                       ]}>
                                       <View
                                         style={[
@@ -9701,6 +9707,9 @@ export default function LessonDetailShellScreen() {
                                   );
                                 })}
                               </Stack>
+                              {questionIndex < normalizedQuestions.length - 1 ? (
+                                <View style={styles.comprehensionQuestionDivider} />
+                              ) : null}
                             </View>
                           );
                         })}
@@ -10541,8 +10550,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: 6,
     paddingTop: 2,
+    paddingBottom: 4,
   },
   studyNavActions: {
     flexDirection: 'row',
@@ -10591,16 +10601,16 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   sectionDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 999,
-    backgroundColor: '#BDD1E6',
+    backgroundColor: '#C9DBEE',
   },
   sectionDotVisited: {
     backgroundColor: '#FF4B4B',
   },
   sectionDotActive: {
-    width: 20,
+    width: 18,
     backgroundColor: '#FF4B4B',
   },
   sectionHeaderRow: {
@@ -11221,8 +11231,8 @@ const styles = StyleSheet.create({
   },
   prepareItemText: {
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 15,
+    lineHeight: 26,
     letterSpacing: 0.15,
   },
   prepareItemTextEnglish: {
@@ -11287,7 +11297,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   comprehensionOptionsList: {
-    paddingHorizontal: 2,
+    marginLeft: 4,
   },
   quizOptionButton: {
     flexDirection: 'row',
@@ -11643,6 +11653,20 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
   },
+  comprehensionQuestionCard: {
+    paddingLeft: 10,
+  },
+  comprehensionFirstQuestionCard: {
+    marginTop: 10,
+  },
+  comprehensionQuestionDivider: {
+    height: 1,
+    backgroundColor: '#E1E1E1',
+    marginLeft: theme.spacing.xs,
+    marginRight: theme.spacing.sm,
+    marginTop: 12,
+    marginBottom: 2,
+  },
   practiceExampleCard: {
     borderWidth: 1.5,
     borderColor: '#D7DFF3',
@@ -11709,8 +11733,9 @@ const styles = StyleSheet.create({
   },
   comprehensionQuestionHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: theme.spacing.xs,
+    alignItems: 'flex-start',
+    gap: 0,
+    marginLeft: -8,
     marginBottom: theme.spacing.xs,
   },
   practiceMultipleChoiceQuestionTextWrap: {
@@ -11783,9 +11808,9 @@ const styles = StyleSheet.create({
   comprehensionQuestionNumber: {
     minWidth: 16,
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 13,
+    lineHeight: 16,
+    fontFamily: theme.typography.fontFaces.en.extraBold,
   },
   practiceFillBlankExampleNumber: {
     minWidth: 72,
@@ -11817,6 +11842,8 @@ const styles = StyleSheet.create({
   comprehensionQuestionText: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
+    fontSize: 12.5,
+    lineHeight: 16,
     flexShrink: 1,
   },
   practiceQuestionTextCompact: {
@@ -11828,6 +11855,8 @@ const styles = StyleSheet.create({
   },
   comprehensionQuestionThaiText: {
     color: theme.colors.mutedText,
+    fontSize: 12.5,
+    lineHeight: 16,
     flexShrink: 1,
   },
   practiceQuestionThaiTextCompact: {
@@ -12063,6 +12092,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: theme.spacing.xs,
   },
+  comprehensionOptionButtonSelected: {
+    borderRadius: theme.radii.md,
+    backgroundColor: '#EFF6FF',
+  },
   practiceOptionButtonSelected: {},
   practiceOptionButtonCorrect: {},
   practiceOptionButtonWrong: {},
@@ -12180,8 +12213,8 @@ const styles = StyleSheet.create({
   },
   comprehensionOptionText: {
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.sm,
-    lineHeight: theme.typography.lineHeights.sm,
+    fontSize: 13,
+    lineHeight: 17,
     flexShrink: 1,
   },
   practiceOptionTextCompact: {
@@ -12196,8 +12229,8 @@ const styles = StyleSheet.create({
   },
   comprehensionOptionThaiText: {
     color: theme.colors.mutedText,
-    fontSize: theme.typography.sizes.sm,
-    lineHeight: theme.typography.lineHeights.sm,
+    fontSize: 13,
+    lineHeight: 17,
     flexShrink: 1,
   },
   practiceOptionThaiTextCompact: {
