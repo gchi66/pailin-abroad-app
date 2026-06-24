@@ -3932,7 +3932,7 @@ export default function LessonDetailShellScreen() {
   const contentToggleLabel = contentLang === 'th' ? translateToEnglishLabel : translateToThaiLabel;
   const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
   const isExpertTranslationComingSoonLesson =
-    typeof lessonCover?.level === 'number' && lessonCover.level >= 13 && lessonCover.level <= 16;
+    typeof lessonCover?.level === 'number' && lessonCover.level >= 14 && lessonCover.level <= 16;
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
   const audioTraySubtitle =
