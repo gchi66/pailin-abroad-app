@@ -68,6 +68,17 @@ export type LessonSectionText = {
   th?: string | null;
 };
 
+export type ResolvedLessonSectionItem = {
+  title?: string | null;
+  title_en?: string | null;
+  title_th?: string | null;
+  header?: string | null;
+  header_en?: string | null;
+  header_th?: string | null;
+  scm?: boolean | null;
+  [key: string]: unknown;
+};
+
 export type ResolvedLessonSection = {
   id?: string | null;
   type?: string | null;
@@ -80,6 +91,7 @@ export type ResolvedLessonSection = {
   text?: LessonSectionText | null;
   content_jsonb?: LessonRichNode[] | LessonApplyContent | null;
   content_jsonb_th?: LessonRichNode[] | LessonApplyContent | null;
+  items?: ResolvedLessonSectionItem[] | null;
   audio_url?: string | null;
   conversation_audio_url?: string | null;
   [key: string]: unknown;

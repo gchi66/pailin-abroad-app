@@ -84,6 +84,7 @@ import {
   LessonRichInline,
   LessonRichNode,
   LessonQuestionOption,
+  ResolvedLessonSectionItem,
   ResolvedLessonExercise,
   ResolvedLessonPayload,
   ResolvedLessonPhrase,
@@ -1926,6 +1927,24 @@ const getRichNodesForLanguage = (
     };
   });
 };
+
+const normalizeCommonMistakeHeadingText = (value: string | null | undefined) =>
+  String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+const getCommonMistakeItemTitles = (item: ResolvedLessonSectionItem) =>
+  [item.title, item.title_en, item.title_th, item.header, item.header_en, item.header_th]
+    .map(normalizeCommonMistakeHeadingText)
+    .filter(Boolean);
+
+const COMMON_MISTAKE_SCM_HEADING_KEYS = new Set([
+  normalizeCommonMistakeHeadingText('SUPER COMMON MISTAKE!'),
+  normalizeCommonMistakeHeadingText('SUPER COMMON MISTAKE! 🚨'),
+  normalizeCommonMistakeHeadingText('ข้อผิดพลาดที่พบบ่อยมาก!'),
+  normalizeCommonMistakeHeadingText('ข้อผิดพลาดที่พบบ่อยมาก! 🚨'),
+]);
 
 const INLINE_LINK_ARTIFACT_RE = /\(\s*link\s*\)/gi;
 
@@ -7550,6 +7569,11 @@ export default function LessonDetailShellScreen() {
         key={`${keyPrefix}-group-${index}`}
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
+          const normalizedVisibleText = normalizeCommonMistakeHeadingText(getNodeHeadingText(node, contentLang));
+          if (COMMON_MISTAKE_SCM_HEADING_KEYS.has(normalizedVisibleText)) {
+            return null;
+          }
+
           const previousNode = group[nodeIndex - 1];
           const nextNode = group[nodeIndex + 1];
           const alignToAudioText = shouldAlignNodeToAdjacentAudioText(previousNode, node, nextNode);
@@ -8908,6 +8932,25 @@ export default function LessonDetailShellScreen() {
   const activePagerHeading = activePagerGroup?.heading
     ? getNodeHeadingText(activePagerGroup.heading, contentLang)
     : '';
+  const activeCommonMistakeScm = useMemo(() => {
+    if (!isCommonMistakeTab || !activeSection || !activePagerGroup) {
+      return false;
+    }
+
+    const items = Array.isArray(activeSection.items) ? activeSection.items : [];
+    if (!items.length) {
+      return false;
+    }
+
+    const normalizedHeading = normalizeCommonMistakeHeadingText(activePagerHeading);
+    const matchedItem =
+      items.find((item) => normalizedHeading && getCommonMistakeItemTitles(item).includes(normalizedHeading)) ??
+      items[activeUnderstandGroupIndex] ??
+      null;
+
+    return matchedItem?.scm === true;
+  }, [activePagerGroup, activePagerHeading, activeSection, activeUnderstandGroupIndex, isCommonMistakeTab]);
+  const commonMistakeScmLabel = pageLanguage === 'th' ? 'ข้อผิดพลาดที่พบบ่อยมาก! 🚨' : 'SUPER COMMON MISTAKE! 🚨';
   const activePracticeHeading = activePracticeExercise?.title || activePracticeExercise?.prompt || '';
   const pagerDotKeys = isPracticeTab
     ? normalizedPracticeExercises.map((exercise) => exercise.id)
@@ -9923,15 +9966,22 @@ export default function LessonDetailShellScreen() {
                               windowHeight < 780 ? styles.richPagerCardCompact : null,
                               richPagerAnimatedStyle,
                             ]}>
-                            <View
-                              style={[
-                                styles.richPagerMetaRow,
-                                !isPracticeTab ? styles.richPagerMetaRowRichSection : null,
-                              ]}>
+                              <View
+                                style={[
+                                  styles.richPagerMetaRow,
+                                  !isPracticeTab ? styles.richPagerMetaRowRichSection : null,
+                                ]}>
                               {(isPracticeTab ? activePracticeHeading : activePagerHeading) ? (
-                                <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
-                                  {isPracticeTab ? activePracticeHeading : activePagerHeading}
-                                </AppText>
+                                <View style={styles.richPagerHeadingWrap}>
+                                  <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
+                                    {isPracticeTab ? activePracticeHeading : activePagerHeading}
+                                  </AppText>
+                                  {!isPracticeTab && isCommonMistakeTab && activeCommonMistakeScm ? (
+                                    <AppText language={pageLanguage} variant="caption" style={styles.commonMistakeScmLabel}>
+                                      {commonMistakeScmLabel}
+                                    </AppText>
+                                  ) : null}
+                                </View>
                               ) : null}
 
                               <View style={styles.richPagerCounterPill}>
@@ -10739,12 +10789,19 @@ const styles = StyleSheet.create({
     color: '#787B82',
     fontWeight: theme.typography.weights.medium,
   },
-  richPagerHeadingLabel: {
+  richPagerHeadingWrap: {
     flex: 1,
     flexShrink: 1,
+    gap: 6,
+  },
+  richPagerHeadingLabel: {
     color: theme.colors.text,
     fontSize: 21,
     lineHeight: 25,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  commonMistakeScmLabel: {
+    color: '#FF4545',
     fontWeight: theme.typography.weights.semibold,
   },
   richPagerBody: {
