@@ -20,6 +20,7 @@ export type LessonRichInline = {
   italic?: boolean | null;
   underline?: boolean | null;
   highlight?: string | null;
+  link?: string | null;
   [key: string]: unknown;
 };
 

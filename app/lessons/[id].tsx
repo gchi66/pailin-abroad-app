@@ -2374,7 +2374,7 @@ const parseAudioTaggedText = (text: string) => {
   }
 
   return {
-    cleanText: text.replace(audioRegex, '').trim(),
+    cleanText: text.replace(audioRegex, ''),
     audioKeys,
   };
 };
@@ -6948,7 +6948,7 @@ export default function LessonDetailShellScreen() {
   };
 
   const renderRichTableCellText = (
-    cellText: string,
+    cell: unknown,
     cellKey: string,
     options?: {
       phraseId?: string;
@@ -6956,17 +6956,68 @@ export default function LessonDetailShellScreen() {
       isHeaderRow?: boolean;
     }
   ) => {
-    const lines = cellText.split('\n');
+    const normalizedCell = (() => {
+      if (cell && typeof cell === 'object') {
+        const record = cell as Record<string, unknown>;
+        return {
+          text: String(record.text ?? ''),
+          inlines: Array.isArray(record.inlines) ? (record.inlines as LessonRichInline[]) : null,
+        };
+      }
+
+      return {
+        text: String(cell ?? ''),
+        inlines: null,
+      };
+    })();
+
+    const sourceInlines =
+      Array.isArray(normalizedCell.inlines) && normalizedCell.inlines.length > 0
+        ? normalizedCell.inlines
+        : [{ text: normalizedCell.text, bold: false, italic: false, underline: false, link: null }];
+
+    const lines: { inlines: LessonRichInline[]; audioKeys: string[] }[] = [];
+    let currentLine: { inlines: LessonRichInline[]; audioKeys: string[] } = { inlines: [], audioKeys: [] };
+
+    const pushCurrentLine = () => {
+      lines.push(currentLine);
+      currentLine = { inlines: [], audioKeys: [] };
+    };
+
+    sourceInlines.forEach((inline) => {
+      const rawText = typeof inline?.text === 'string' ? inline.text : '';
+      const parts = rawText.split('\n');
+
+      parts.forEach((part, partIndex) => {
+        const { cleanText, audioKeys } = parseAudioTaggedText(part);
+        if (audioKeys.length > 0) {
+          currentLine.audioKeys.push(...audioKeys);
+        }
+        if (cleanText) {
+          currentLine.inlines.push({
+            ...inline,
+            text: cleanText,
+          });
+        }
+        if (partIndex < parts.length - 1) {
+          pushCurrentLine();
+        }
+      });
+    });
+
+    if (currentLine.inlines.length > 0 || currentLine.audioKeys.length > 0 || lines.length === 0) {
+      lines.push(currentLine);
+    }
 
     return lines.map((line, lineIndex) => {
-      const { cleanText, audioKeys } = parseAudioTaggedText(line);
-      const snippet = audioKeys.length ? getSnippetForAudioKey(audioKeys[0]) : null;
-      const audioKey = snippet?.audio_key?.trim() || audioKeys[0]?.trim() || null;
+      const snippet = line.audioKeys.length ? getSnippetForAudioKey(line.audioKeys[0]) : null;
+      const audioKey = snippet?.audio_key?.trim() || line.audioKeys[0]?.trim() || null;
       const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
       const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
-      const textValue = cleanText || (audioKeys.length ? '' : line.trim());
+      const hasText = line.inlines.some((inline) => String(inline.text ?? '').length > 0);
+      const textValue = hasText ? null : line.audioKeys.length ? '' : normalizedCell.text.trim();
 
-      if (audioKeys.length) {
+      if (line.audioKeys.length) {
         return (
           <View key={`${cellKey}-line-${lineIndex}`} style={styles.richTableAudioLine}>
             <LessonSnippetAudioButton
@@ -6988,13 +7039,17 @@ export default function LessonDetailShellScreen() {
               language={contentLang}
               variant="body"
               style={[styles.richTableAudioText, contentLang === 'th' ? styles.richThaiTableTextCompact : null]}>
-              {textValue || ' '}
+              {hasText
+                ? renderRichInlines(line.inlines, `${cellKey}-audio-line-${lineIndex}`, {
+                    forceSemibold: options?.isHeaderRow,
+                  })
+                : textValue || ' '}
             </AppText>
           </View>
         );
       }
 
-      if (!textValue) {
+      if (!hasText) {
         return null;
       }
 
@@ -7008,7 +7063,9 @@ export default function LessonDetailShellScreen() {
             contentLang === 'th' ? styles.richThaiTableTextCompact : null,
             options?.isHeaderRow ? styles.richTableHeaderText : null,
           ]}>
-          {textValue}
+          {renderRichInlines(line.inlines, `${cellKey}-line-${lineIndex}`, {
+            forceSemibold: options?.isHeaderRow,
+          })}
         </AppText>
       );
     });
@@ -7089,69 +7146,61 @@ export default function LessonDetailShellScreen() {
 
       return Math.max(1, headerColumns || columnCount || 1);
     })();
+    const shouldConstrainToViewport = !isTabletLessonLayout;
     const minTableWidth = Math.max(340, preferredColumnCount * 116);
     const columnPixelWidth = minTableWidth / preferredColumnCount;
+    const tableContent = (
+      <View
+        style={[
+          styles.richTableWrap,
+          shouldConstrainToViewport ? styles.richTableWrapConstrained : null,
+          shouldConstrainToViewport ? { width: '100%' } : { minWidth: minTableWidth },
+        ]}>
+        {normalizedRows.map((row, rowIndex) => {
+          const isHeaderRow = rowIndex === 0;
+          let normalizedRow = [...row];
 
-    return (
-      <ScrollView
-        key={nodeKey}
-        horizontal
-        bounces={false}
-        contentContainerStyle={styles.richTableScrollerContent}
-        showsHorizontalScrollIndicator={false}
-        style={styles.richTableScroller}>
-        <View style={[styles.richTableWrap, { minWidth: minTableWidth }]}>
-          {normalizedRows.map((row, rowIndex) => {
-            const isHeaderRow = rowIndex === 0;
-            let normalizedRow = [...row];
+          if (normalizedRow.length === 1 && preferredColumnCount > 1) {
+            const onlyCell = normalizedRow[0];
+            const nextColspan =
+              onlyCell && typeof onlyCell === 'object'
+                ? ('colspan' in onlyCell && typeof onlyCell.colspan === 'number' && onlyCell.colspan > 1
+                    ? Math.max(onlyCell.colspan, preferredColumnCount)
+                    : preferredColumnCount)
+                : preferredColumnCount;
 
-            if (normalizedRow.length === 1 && preferredColumnCount > 1) {
-              const onlyCell = normalizedRow[0];
-              const nextColspan =
-                onlyCell && typeof onlyCell === 'object'
-                  ? ('colspan' in onlyCell && typeof onlyCell.colspan === 'number' && onlyCell.colspan > 1
-                      ? Math.max(onlyCell.colspan, preferredColumnCount)
-                      : preferredColumnCount)
-                  : preferredColumnCount;
+            normalizedRow = [
+              onlyCell && typeof onlyCell === 'object'
+                ? { ...onlyCell, colspan: nextColspan }
+                : { text: getRawCellText(onlyCell), colspan: nextColspan },
+            ];
+          }
 
-              normalizedRow = [
-                onlyCell && typeof onlyCell === 'object'
-                  ? { ...onlyCell, colspan: nextColspan }
-                  : { text: getRawCellText(onlyCell), colspan: nextColspan },
-              ];
-            }
+          return (
+            <View
+              key={`${nodeKey}-row-${rowIndex}`}
+              style={[
+                styles.richTableRow,
+                isHeaderRow ? styles.richTableHeaderRow : null,
+                !isHeaderRow && rowIndex % 2 === 0 ? styles.richTableAltRow : null,
+              ]}>
+              {(() => {
+                let consumedColumns = 0;
+                const shouldForceUniformColumns =
+                  normalizedRow.length > 1 &&
+                  normalizedRow.length === preferredColumnCount &&
+                  normalizedRow.every(
+                    (cell) =>
+                      !(
+                        cell &&
+                        typeof cell === 'object' &&
+                        'colspan' in cell &&
+                        typeof cell.colspan === 'number' &&
+                        cell.colspan > 1
+                      )
+                  );
 
-            return (
-              <View
-                key={`${nodeKey}-row-${rowIndex}`}
-                style={[
-                  styles.richTableRow,
-                  isHeaderRow ? styles.richTableHeaderRow : null,
-                  !isHeaderRow && rowIndex % 2 === 0 ? styles.richTableAltRow : null,
-                ]}>
-                {(() => {
-                  let consumedColumns = 0;
-                  const shouldForceUniformColumns =
-                    normalizedRow.length > 1 &&
-                    normalizedRow.length === preferredColumnCount &&
-                    normalizedRow.every(
-                      (cell) =>
-                        !(
-                          cell &&
-                          typeof cell === 'object' &&
-                          'colspan' in cell &&
-                          typeof cell.colspan === 'number' &&
-                          cell.colspan > 1
-                        )
-                    );
-
-                  return normalizedRow.map((cell, cellIndex) => {
-                  const cellText =
-                    typeof cell === 'string'
-                      ? cell
-                      : cell && typeof cell === 'object' && 'text' in cell
-                        ? String(cell.text ?? '')
-                        : '';
+                return normalizedRow.map((cell, cellIndex) => {
                   const cellBackground =
                     cell && typeof cell === 'object' && 'background' in cell && typeof cell.background === 'string'
                       ? cell.background.trim().toLowerCase()
@@ -7167,8 +7216,8 @@ export default function LessonDetailShellScreen() {
                     shouldForceUniformColumns
                       ? 1
                       : cellIndex === normalizedRow.length - 1
-                      ? remainingColumns
-                      : Math.min(colSpan, maxAllowedColSpan);
+                        ? remainingColumns
+                        : Math.min(colSpan, maxAllowedColSpan);
 
                   consumedColumns += effectiveColSpan;
 
@@ -7177,7 +7226,9 @@ export default function LessonDetailShellScreen() {
                       key={`${nodeKey}-cell-${rowIndex}-${cellIndex}`}
                       style={[
                         styles.richTableCell,
-                        { width: columnPixelWidth * effectiveColSpan },
+                        shouldConstrainToViewport
+                          ? { width: `${(100 * effectiveColSpan) / Math.max(preferredColumnCount, 1)}%` }
+                          : { width: columnPixelWidth * effectiveColSpan },
                         cellIndex === normalizedRow.length - 1 ? styles.richTableCellLast : null,
                         isHeaderRow ? styles.richTableHeaderCell : null,
                         options?.enableHighlights && cellBackground === '#f4cccc' ? styles.richTableCellPink : null,
@@ -7186,18 +7237,37 @@ export default function LessonDetailShellScreen() {
                           ? styles.richTableCellBlue
                           : null,
                       ]}>
-                      {renderRichTableCellText(cellText, `${nodeKey}-cell-${rowIndex}-${cellIndex}`, {
+                      {renderRichTableCellText(cell, `${nodeKey}-cell-${rowIndex}-${cellIndex}`, {
                         ...options,
                         isHeaderRow,
                       })}
                     </View>
                   );
-                  });
-                })()}
-              </View>
-            );
-          })}
+                });
+              })()}
+            </View>
+          );
+        })}
+      </View>
+    );
+
+    if (shouldConstrainToViewport) {
+      return (
+        <View key={nodeKey} style={styles.richTableInlineContainer}>
+          {tableContent}
         </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        key={nodeKey}
+        horizontal
+        bounces={false}
+        contentContainerStyle={styles.richTableScrollerContent}
+        showsHorizontalScrollIndicator={false}
+        style={styles.richTableScroller}>
+        {tableContent}
       </ScrollView>
     );
   };
@@ -11247,6 +11317,10 @@ const styles = StyleSheet.create({
     marginVertical: theme.spacing.sm,
     marginHorizontal: -14,
   },
+  richTableInlineContainer: {
+    marginVertical: theme.spacing.sm,
+    width: '100%',
+  },
   richTableScrollerContent: {
     paddingHorizontal: theme.spacing.xs,
     flexGrow: 1,
@@ -11259,6 +11333,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: theme.colors.surface,
     alignSelf: 'center',
+  },
+  richTableWrapConstrained: {
+    alignSelf: 'stretch',
   },
   richTableRow: {
     flexDirection: 'row',

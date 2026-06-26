@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { supabase } from '@/src/lib/supabase';
 import { env } from '@/src/config/env';
 import { LessonListItem } from '@/src/types/lesson';
@@ -13,6 +15,8 @@ export type UserProfile = {
   created_at: string | null;
   lessons_complete: number;
   subscription_status?: string | null;
+  billing_provider?: string | null;
+  membership_source?: string | null;
   current_period_end?: string | null;
   cancel_at_period_end?: boolean | null;
   cancel_at?: string | null;
@@ -276,6 +280,9 @@ export async function syncAppStoreMembership(source?: string) {
   return fetchAuthedJson<AppStoreMembershipSyncResponse>('/api/sync-app-store-membership', {
     method: 'POST',
     body: source ? { source } : {},
+    headers: {
+      'X-Platform': Platform.OS,
+    },
   });
 }
 

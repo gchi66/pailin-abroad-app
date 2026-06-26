@@ -104,6 +104,8 @@ type AppProfile = UserProfile & {
   is_paid: boolean;
   onboarding_completed: boolean;
   subscription_status: string | null;
+  billing_provider: string | null;
+  membership_source: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
   cancel_at: string | null;
@@ -119,6 +121,8 @@ type AppUserRow = {
   is_paid: boolean | null;
   onboarding_completed: boolean | null;
   subscription_status: string | null;
+  billing_provider: string | null;
+  membership_source: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean | null;
   cancel_at: string | null;
@@ -253,7 +257,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     return supabase
       .from('users')
       .select(
-        'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, current_period_end, cancel_at_period_end, cancel_at'
+        'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, billing_provider, membership_source, current_period_end, cancel_at_period_end, cancel_at'
       )
       .eq('id', userId)
       .maybeSingle<AppUserRow>();
@@ -327,6 +331,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       onboarding_completed: userRow?.onboarding_completed === true,
       lessons_complete: 0,
       subscription_status: userRow?.subscription_status ?? null,
+      billing_provider: userRow?.billing_provider ?? null,
+      membership_source: userRow?.membership_source ?? null,
       current_period_end: userRow?.current_period_end ?? null,
       cancel_at_period_end: userRow?.cancel_at_period_end === true,
       cancel_at: userRow?.cancel_at ?? null,
@@ -369,6 +375,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       onboarding_completed: userRow?.onboarding_completed === true,
       lessons_complete: backendProfile.lessons_complete ?? 0,
       subscription_status: userRow?.subscription_status ?? backendProfile.subscription_status ?? null,
+      billing_provider: userRow?.billing_provider ?? backendProfile.billing_provider ?? null,
+      membership_source: userRow?.membership_source ?? backendProfile.membership_source ?? null,
       current_period_end: userRow?.current_period_end ?? backendProfile.current_period_end ?? null,
       cancel_at_period_end: userRow?.cancel_at_period_end === true || backendProfile.cancel_at_period_end === true,
       cancel_at: userRow?.cancel_at ?? backendProfile.cancel_at ?? null,
@@ -521,6 +529,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
           onboarding_completed: false,
           lessons_complete: 0,
           subscription_status: null,
+          billing_provider: null,
+          membership_source: null,
           current_period_end: null,
           cancel_at_period_end: false,
           cancel_at: null,
