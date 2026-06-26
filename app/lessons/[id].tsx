@@ -451,7 +451,7 @@ function PracticeFillBlankMeasuredRows(props: {
   exerciseId: string;
   itemKey: string;
   isExample: boolean;
-  exampleAnswer: string;
+  exampleAnswersByBlank: Record<string, string>;
   editable: boolean;
   compact: boolean;
   practiceBlankAnswers: Record<string, string>;
@@ -467,7 +467,7 @@ function PracticeFillBlankMeasuredRows(props: {
     exerciseId,
     itemKey,
     isExample,
-    exampleAnswer,
+    exampleAnswersByBlank,
     editable,
     compact,
     practiceBlankAnswers,
@@ -701,7 +701,7 @@ function PracticeFillBlankMeasuredRows(props: {
                   }}
                   value={
                     isExample
-                      ? exampleAnswer
+                      ? exampleAnswersByBlank[token.blankId] ?? ''
                       : practiceBlankAnswers[getPracticeBlankKey(exerciseId, itemKey, token.blankId)] ?? ''
                   }
                   onChangeText={(value) => onBlankAnswerChange(exerciseId, itemKey, token.blankId, value)}
@@ -1296,21 +1296,41 @@ const parsePracticePromptBlocks = (value: unknown): NormalizedPracticePromptBloc
 
 const normalizePracticeExerciseKind = (value: unknown) => {
   const kind = String(value ?? '').trim().toLowerCase();
+  if (!kind) {
+    return null;
+  }
+
+  if (kind === 'multiple_choice' || kind === 'multiple choice' || kind === 'mcq') {
+    return 'multiple_choice';
+  }
+  if (kind === 'open' || kind === 'open_ended' || kind === 'open ended' || kind === 'short_answer' || kind === 'short answer') {
+    return 'open';
+  }
   if (
-    kind === 'multiple_choice' ||
-    kind === 'open' ||
-    kind === 'open_ended' ||
     kind === 'fill_blank' ||
-    kind === 'sentence_transform'
+    kind === 'fill in the blank' ||
+    kind === 'fill in the blanks' ||
+    kind === 'fill-in-the-blank' ||
+    kind === 'fill-in-the-blanks' ||
+    kind.includes('fill') && kind.includes('blank')
   ) {
-    return kind === 'open_ended' ? 'open' : kind;
+    return 'fill_blank';
+  }
+  if (
+    kind === 'sentence_transform' ||
+    kind === 'sentence transformation' ||
+    kind === 'sentence_transformations' ||
+    kind === 'sentence transformation exercise' ||
+    kind.includes('sentence') && kind.includes('transform')
+  ) {
+    return 'sentence_transform';
   }
   return null;
 };
 
 const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang: UiLanguage): NormalizedPracticeExercise => {
   const raw = exercise as Record<string, unknown>;
-  const kind = normalizePracticeExerciseKind(raw.kind ?? raw.exercise_type);
+  const kind = normalizePracticeExerciseKind(raw.kind ?? raw.exercise_type ?? raw.type);
   const englishItemsSource = Array.isArray(raw.items_en) && raw.items_en.length
     ? raw.items_en
     : Array.isArray(raw.items)
@@ -1583,11 +1603,7 @@ const isQuickPracticeExercise = (exercise: ResolvedLessonExercise) => {
     typeof raw.title_th === 'string' ? raw.title_th : '',
   ].filter(Boolean);
 
-  return titleCandidates.some((title) => {
-    const value = String(title);
-    const lower = value.toLowerCase();
-    return lower.includes('quick practice') || value.includes('แบบฝึกหัด') || value.includes('ฝึกหัด');
-  });
+  return titleCandidates.some(isQuickPracticeLabel);
 };
 
 const parseQuestionOption = (option: string | LessonQuestionOption) => {
@@ -2116,6 +2132,20 @@ const collectQuickPracticeTexts = (exercise: NormalizedPracticeExercise) => {
   return textSet;
 };
 
+const isQuickPracticeLabel = (value: unknown) => {
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return false;
+  }
+
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('quick practice') ||
+    text.includes('แบบฝึกหัดอย่างสั้น') ||
+    text.includes('ฝึกหัดอย่างสั้น')
+  );
+};
+
 const nodeIsQuickPracticeHeading = (node: LessonRichNode, contentLang: UiLanguage) => {
   if (node.kind !== 'heading') {
     return false;
@@ -2131,11 +2161,7 @@ const nodeIsQuickPracticeHeading = (node: LessonRichNode, contentLang: UiLanguag
     typeof node.text_th === 'string' ? node.text_th : '',
   ].filter(Boolean);
 
-  return pieces.some((piece) => {
-    const value = String(piece);
-    const lower = value.toLowerCase();
-    return lower.includes('quick practice') || value.includes('แบบฝึกหัด') || value.includes('ฝึกหัด');
-  });
+  return pieces.some(isQuickPracticeLabel);
 };
 
 const injectQuickPracticeNodes = (
@@ -2521,7 +2547,6 @@ export default function LessonDetailShellScreen() {
   const insets = useSafeAreaInsets();
   const menuOverlayBottomInset = APP_TAB_BAR_HEIGHT + insets.bottom;
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
-  const thaiLessonCopy = useMemo(() => getLessonDetailCopy('th'), []);
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
   const [coverLesson, setCoverLesson] = useState<LessonListItem | null>(null);
@@ -3146,6 +3171,16 @@ export default function LessonDetailShellScreen() {
     return lessonCover.title_th?.trim() || null;
   }, [lessonCover]);
 
+  const isCheckpointCoverLesson = useMemo(() => {
+    if (!lessonCover) {
+      return false;
+    }
+
+    return [lessonCover.title, lessonCover.title_th].some((value) =>
+      String(value ?? '').toLowerCase().includes('checkpoint')
+    );
+  }, [lessonCover]);
+
   const resolvedFocus = useMemo(() => {
     if (uiLanguage === 'th') {
       return (
@@ -3167,6 +3202,20 @@ export default function LessonDetailShellScreen() {
       null
     );
   }, [coverLesson, lesson, uiLanguage]);
+
+  const checkpointFocusText = useMemo(() => {
+    if (!isCheckpointCoverLesson) {
+      return null;
+    }
+
+    if (uiLanguage === 'th') {
+      return 'บทสนทนาในจุดตรวจสอบนี้มีหลายแนวคิดที่คุณได้เรียนมาในเลเวลนี้แล้ว ลองดูว่าตอนนี้คุณเข้าใจสิ่งเหล่านั้นในบทสนทนาได้ไหม';
+    }
+
+    return "The checkpoint conversation has lots of the concepts you've learned in this level! See if you can understand them now in the conversation.";
+  }, [isCheckpointCoverLesson, uiLanguage]);
+
+  const coverFocusText = checkpointFocusText || resolvedFocus;
 
   const resolvedBackstory = useMemo(() => {
     if (uiLanguage === 'th') {
@@ -3950,8 +3999,6 @@ export default function LessonDetailShellScreen() {
     : 0;
   const contentToggleLabel = contentLang === 'th' ? translateToEnglishLabel : translateToThaiLabel;
   const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
-  const isExpertTranslationComingSoonLesson =
-    typeof lessonCover?.level === 'number' && lessonCover.level >= 14 && lessonCover.level <= 16;
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
   const audioTraySubtitle =
@@ -4642,13 +4689,8 @@ export default function LessonDetailShellScreen() {
   ]);
 
   const handleContentTogglePress = useCallback(() => {
-    if (contentLang === 'en' && isExpertTranslationComingSoonLesson) {
-      Alert.alert(thaiLessonCopy.translationComingSoonTitle, thaiLessonCopy.translationComingSoonBody);
-      return;
-    }
-
     setContentLang((previous) => (previous === 'en' ? 'th' : 'en'));
-  }, [contentLang, isExpertTranslationComingSoonLesson, thaiLessonCopy.translationComingSoonBody, thaiLessonCopy.translationComingSoonTitle]);
+  }, []);
 
   const handleToggleAnswer = (questionId: string, optionLabel: string, isMulti: boolean) => {
     if (allComprehensionQuestionsAnswered && lockedComprehensionQuestions[questionId]) {
@@ -6566,7 +6608,13 @@ export default function LessonDetailShellScreen() {
   const renderRichInlines = (
     inlines: LessonRichInline[] | null | undefined,
     keyPrefix: string,
-    options?: { enableHighlights?: boolean; muteThaiInAudioRow?: boolean; isSubheader?: boolean; forceSemibold?: boolean }
+    options?: {
+      enableHighlights?: boolean;
+      muteThaiInAudioRow?: boolean;
+      lineIsThaiOverride?: boolean;
+      isSubheader?: boolean;
+      forceSemibold?: boolean;
+    }
   ) => {
     const mergedInlines = mergeAdjacentRichInlines(inlines, contentLang);
     if (!mergedInlines.length) {
@@ -6583,7 +6631,7 @@ export default function LessonDetailShellScreen() {
         typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
       const shouldShowHighlight = options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
       const renderThaiSegments = (part: string, partKey: string) => {
-        if (options?.muteThaiInAudioRow !== true) {
+        if (options?.muteThaiInAudioRow !== true && options?.lineIsThaiOverride !== true) {
           return renderRichTextScriptSegments(part, `${partKey}-plain`, inline, {
             isSubheader: options?.isSubheader,
             forceSemibold: options?.forceSemibold,
@@ -6597,7 +6645,8 @@ export default function LessonDetailShellScreen() {
 
         return lines.flatMap((line, lineIndex) => {
           const lineKey = `${partKey}-line-${lineIndex}`;
-          const isThaiLine = contentLang === 'th' && THAI_TEXT_RE.test(line);
+          const isThaiLine =
+            options?.lineIsThaiOverride === true || (contentLang === 'th' && THAI_TEXT_RE.test(line));
           const speakerPrefixMatch = line.match(SPEAKER_PREFIX_RE);
           const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
           const bodyText = speakerPrefix ? line.slice(speakerPrefix.length) : line;
@@ -7016,6 +7065,10 @@ export default function LessonDetailShellScreen() {
       const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
       const hasText = line.inlines.some((inline) => String(inline.text ?? '').length > 0);
       const textValue = hasText ? null : line.audioKeys.length ? '' : normalizedCell.text.trim();
+      const lineText = line.inlines.map((inline) => String(inline.text ?? '')).join('');
+      const previousLineHasAudio = lineIndex > 0 && (lines[lineIndex - 1]?.audioKeys.length ?? 0) > 0;
+      const lineIsThaiOnly = THAI_TEXT_RE.test(lineText) && !/[A-Za-z]/.test(lineText);
+      const lineIsThaiOverride = lineIsThaiOnly && line.audioKeys.length === 0 && previousLineHasAudio;
 
       if (line.audioKeys.length) {
         return (
@@ -7065,6 +7118,7 @@ export default function LessonDetailShellScreen() {
           ]}>
           {renderRichInlines(line.inlines, `${cellKey}-line-${lineIndex}`, {
             forceSemibold: options?.isHeaderRow,
+            lineIsThaiOverride,
           })}
         </AppText>
       );
@@ -7567,6 +7621,9 @@ export default function LessonDetailShellScreen() {
 
   const isAudioRichNode = (node: LessonRichNode | undefined) => Boolean(node && (node.audio_key || node.audio_seq));
 
+  const isLeadSectionTextNodeForAudioAlignment = (previousNode: LessonRichNode | undefined) =>
+    !previousNode || previousNode.kind === 'heading';
+
   const shouldAlignNodeToAdjacentAudioText = (
     previousNode: LessonRichNode | undefined,
     node: LessonRichNode,
@@ -7574,6 +7631,7 @@ export default function LessonDetailShellScreen() {
   ) => {
     return (
       node.kind === 'paragraph' &&
+      !isLeadSectionTextNodeForAudioAlignment(previousNode) &&
       !isAudioRichNode(node) &&
       !isBoldParagraphNode(node) &&
       (isAudioRichNode(previousNode) || isAudioRichNode(nextNode))
@@ -8155,7 +8213,7 @@ export default function LessonDetailShellScreen() {
 
     return (
       <Stack gap="md">
-        {!isInlineQuickPractice && !hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
+        {!hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
           <AppText
             language={contentLang === 'th' ? 'th' : 'en'}
             variant="muted"
@@ -8164,7 +8222,7 @@ export default function LessonDetailShellScreen() {
           </AppText>
         ) : null}
 
-        {!isInlineQuickPractice ? renderPracticePromptBlocks(exercise) : null}
+        {renderPracticePromptBlocks(exercise)}
 
         {isMultipleChoiceExercise ? (
           <Stack gap="md">
@@ -8766,20 +8824,22 @@ export default function LessonDetailShellScreen() {
                     ? item.answer
                     : practiceBlankAnswers[getPracticeBlankKey(exercise.id, item.key, abBlank.id)] ?? ''
                   : '';
-              const thaiOnlyText = splitThaiText(item.textTh).th || item.textTh;
+              const englishDisplayText = item.text || item.prompt;
+              const thaiDisplayText = item.textTh || item.promptTh;
+              const thaiOnlyText = splitThaiText(thaiDisplayText).th || thaiDisplayText;
               const thaiOnlyInlineText = splitThaiText(textJsonbToString(item.textJsonbTh)).th;
               const thaiInlineHasVisibleThai = item.textJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''));
               const thaiCompanionText = thaiOnlyInlineText.trim() || thaiOnlyText.trim();
               const thaiCompanionHasVisibleThai = THAI_TEXT_RE.test(thaiCompanionText);
               const englishSourceTokens = item.textJsonb.length
                 ? segmentPracticeInlinesWithBlanks(item.textJsonb)
-                : segmentPracticeTextWithBlanks(item.text);
+                : segmentPracticeTextWithBlanks(englishDisplayText);
               const sourceTokens = englishSourceTokens;
               const shouldShowThaiCompanion =
                 contentLang === 'th' &&
                 !abPromptLayout &&
                 (thaiInlineHasVisibleThai || thaiCompanionHasVisibleThai) &&
-                normalizePracticeAnswerText(thaiOnlyText) !== normalizePracticeAnswerText(item.text);
+                normalizePracticeAnswerText(thaiOnlyText) !== normalizePracticeAnswerText(englishDisplayText);
               const rows: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; length: number; blankId: string; minLen: number })[][] = [[]];
               let blankCursor = 0;
 
@@ -8829,6 +8889,15 @@ export default function LessonDetailShellScreen() {
 
                 blankCursor += 1;
               });
+
+              const exampleAnswersByBlank = item.blanks.reduce<Record<string, string>>((acc, blank, blankIndex) => {
+                const structuredAnswer = item.answersV2[blankIndex]?.[0];
+                acc[blank.id] =
+                  typeof structuredAnswer === 'string' && structuredAnswer.trim().length > 0
+                    ? structuredAnswer.trim()
+                    : item.answer;
+                return acc;
+              }, {});
 
               return (
                 <View key={answerKey} style={item.isExample ? styles.practiceExampleCard : styles.practiceQuestionCard}>
@@ -8935,7 +9004,7 @@ export default function LessonDetailShellScreen() {
                                   ) : (
                                     <TextInput
                                       key={`${answerKey}-blank-${rowIndex}-${tokenIndex}`}
-                                      value={item.answer}
+                                      value={exampleAnswersByBlank[token.blankId] ?? ''}
                                       editable={false}
                                       style={[
                                         styles.practiceFillBlankInput,
@@ -8960,7 +9029,7 @@ export default function LessonDetailShellScreen() {
                                 exerciseId={exercise.id}
                                 itemKey={item.key}
                                 isExample={item.isExample}
-                                exampleAnswer={item.answer}
+                                exampleAnswersByBlank={exampleAnswersByBlank}
                                 editable={!evaluation?.loading}
                                 compact={isInlineQuickPractice}
                                 practiceBlankAnswers={practiceBlankAnswers}
@@ -9487,13 +9556,13 @@ export default function LessonDetailShellScreen() {
                         ) : null}
                       </Stack>
 
-                      {resolvedFocus ? (
+                      {coverFocusText ? (
                         <View style={styles.coverFocusBlock}>
                           <AppText language={uiLanguage} variant="caption" style={styles.coverFocusEyebrow}>
                             {uiCopy.lessonFocus}
                           </AppText>
                           <AppText language={uiLanguage} variant="body" style={styles.coverFocusText}>
-                            {resolvedFocus}
+                            {coverFocusText}
                           </AppText>
                         </View>
                       ) : null}
@@ -11829,10 +11898,12 @@ const styles = StyleSheet.create({
   },
   practiceExercisePrompt: {
     color: theme.colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
   },
   practiceExercisePromptCompact: {
-    fontSize: theme.typography.sizes.sm,
-    lineHeight: theme.typography.lineHeights.sm,
+    fontSize: 14,
+    lineHeight: 20,
   },
   quickPracticeInlineWrap: {
     width: '100%',
@@ -11843,9 +11914,13 @@ const styles = StyleSheet.create({
   },
   practicePromptBlockText: {
     color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   practicePromptBlockThaiText: {
     color: theme.colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
   },
   practicePromptListRow: {
     flexDirection: 'row',
@@ -11863,6 +11938,8 @@ const styles = StyleSheet.create({
   practicePromptListText: {
     flex: 1,
     color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   practicePromptBlockImageShell: {
     width: '100%',

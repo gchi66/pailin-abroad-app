@@ -83,6 +83,7 @@ export function AuthScreen() {
             passwordRuleOne: 'อย่างน้อย 8 ตัวอักษร',
             passwordRuleTwo: 'ตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว',
             passwordRuleThree: 'ตัวเลขหรือสัญลักษณ์อย่างน้อย 1 ตัว',
+            authSuccessTitle: 'สำเร็จ',
             authSuccess: 'เข้าสู่ระบบสำเร็จ',
             signupSuccess: 'สร้างบัญชีสำเร็จ',
             signupConfirm: 'สร้างบัญชีสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อน',
@@ -121,6 +122,7 @@ export function AuthScreen() {
             passwordRuleOne: 'At least 8 characters',
             passwordRuleTwo: 'At least 1 uppercase letter',
             passwordRuleThree: 'At least 1 number or symbol',
+            authSuccessTitle: 'Success',
             authSuccess: 'Signed in successfully.',
             signupSuccess: 'Account created successfully.',
             signupConfirm: 'Account created. Check your email to confirm before signing in.',
@@ -207,7 +209,7 @@ export function AuthScreen() {
           Alert.alert(copy.authErrorTitle, error);
           return;
         }
-        Alert.alert(copy.authErrorTitle, copy.authSuccess);
+        Alert.alert(copy.authSuccessTitle, copy.authSuccess);
         return;
       }
 
@@ -217,7 +219,7 @@ export function AuthScreen() {
         return;
       }
 
-      Alert.alert(copy.authErrorTitle, needsEmailConfirmation ? copy.signupConfirm : copy.signupSuccess);
+      Alert.alert(copy.authSuccessTitle, needsEmailConfirmation ? copy.signupConfirm : copy.signupSuccess);
       if (needsEmailConfirmation) {
         setMode('signin');
       }

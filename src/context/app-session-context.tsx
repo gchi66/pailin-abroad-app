@@ -100,6 +100,16 @@ const getPreferredMetadataName = (currentUser: User) => {
   return candidates.find((value) => value && !isEmailLike(value)) ?? null;
 };
 
+const isSilentAuthTransportError = (value: unknown) => {
+  const message = String(value ?? '');
+  return (
+    message.includes('ConnectionTerminated') ||
+    message.includes('PROTOCOL_ERROR') ||
+    message.includes('COMPRESSION_ERROR') ||
+    message.includes('last_stream_id:')
+  );
+};
+
 type AppProfile = UserProfile & {
   is_paid: boolean;
   onboarding_completed: boolean;
@@ -1114,6 +1124,11 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         });
 
         if (error) {
+          if (isSilentAuthTransportError(error.message)) {
+            logAuth('google:native:signInWithIdToken:silentTransportError', error.message);
+            setAuthError(null);
+            return { error: null };
+          }
           logAuth('google:native:signInWithIdToken:error', error.message);
           setAuthError(error.message);
           return { error: error.message };
@@ -1138,6 +1153,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         }
 
         const message = error instanceof Error ? error.message : 'Google sign-in did not complete.';
+        if (isSilentAuthTransportError(message)) {
+          logAuth('google:native:silentTransportError', message);
+          setAuthError(null);
+          logAuthTiming('google:native:flow:silentTransportError', googleSignInStartedAt, { message });
+          return { error: null };
+        }
         logAuth('google:native:error', message);
         setAuthError(message);
         logAuthTiming('google:native:flow:error', googleSignInStartedAt, { message });
@@ -1163,6 +1184,11 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     });
 
     if (error) {
+      if (isSilentAuthTransportError(error.message)) {
+        logAuth('google:signInWithOAuth:silentTransportError', error.message);
+        setAuthError(null);
+        return { error: null };
+      }
       logAuth('google:signInWithOAuth:error', error.message);
       setAuthError(error.message);
       return { error: error.message };
@@ -1194,6 +1220,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         return { error: null };
       } catch (sessionError) {
         const message = sessionError instanceof Error ? sessionError.message : 'Could not establish session.';
+        if (isSilentAuthTransportError(message)) {
+          logAuth('google:sessionError:silentTransportError', message);
+          setAuthError(null);
+          logAuthTiming('google:web:flow:silentTransportError', googleSignInStartedAt, { message });
+          return { error: null };
+        }
         logAuth('google:sessionError', message);
         setAuthError(message);
         logAuthTiming('google:web:flow:error', googleSignInStartedAt, { message });

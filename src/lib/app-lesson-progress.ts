@@ -104,8 +104,17 @@ const isAllCapsHeadingNode = (node: LessonRichNode) => {
 };
 
 const isQuickPracticeHeading = (text: string) => {
-  const normalized = cleanText(text).toLowerCase();
-  return normalized.includes('quick practice') || text.includes('แบบฝึกหัด') || text.includes('ฝึกหัด');
+  const value = cleanText(text);
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.toLowerCase();
+  return (
+    normalized.includes('quick practice') ||
+    value.includes('แบบฝึกหัดอย่างสั้น') ||
+    value.includes('ฝึกหัดอย่างสั้น')
+  );
 };
 
 export const buildAppPageKey = (pageName: string) => `${APP_PROGRESS_PREFIX}page:${pageName}`;

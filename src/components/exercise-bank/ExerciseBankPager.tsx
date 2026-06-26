@@ -352,7 +352,7 @@ const normalizeExercises = (exercises: ExerciseBankExercise[], contentLang: Cont
   exercises
     .map((exercise, exerciseIndex) => {
       const raw = exercise as Record<string, unknown>;
-      const kind = normalizeExerciseKind(raw.exercise_type ?? raw.kind);
+      const kind = normalizeExerciseKind(raw.exercise_type ?? raw.kind ?? raw.type);
       const englishItems = Array.isArray(raw.items) ? raw.items : [];
       const thaiItems = Array.isArray(raw.items_th) ? raw.items_th : [];
       const sourceItems =
