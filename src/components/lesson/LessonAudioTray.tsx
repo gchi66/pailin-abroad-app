@@ -370,10 +370,7 @@ export function LessonAudioTray({
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
+    backgroundColor: 'transparent',
     paddingTop: 8,
     paddingHorizontal: 0,
     paddingBottom: 0,
@@ -398,11 +395,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#D0D0D0',
   },
   expandedWrap: {
+    backgroundColor: theme.colors.surface,
     gap: 8,
     paddingHorizontal: 10,
     paddingBottom: 6,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   expandedTopRow: {
     flexDirection: 'row',
@@ -426,11 +425,13 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   collapsedRow: {
+    backgroundColor: theme.colors.surface,
     width: '100%',
     paddingHorizontal: 10,
     paddingBottom: 6,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   collapsedRowPressable: {
     flexDirection: 'row',

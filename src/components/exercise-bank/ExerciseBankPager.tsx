@@ -101,8 +101,42 @@ type FillBlankMeasureToken =
   | { id: string; type: 'text'; text: string; measureText: string }
   | { id: string; type: 'blank'; blankId: string; minLen: number; measureText: string };
 
-const FILL_BLANK_SHORT_MEASURE = ' MMMMMMMM ';
-const FILL_BLANK_LONG_MEASURE = ' MMMMMMMMMMMMMM ';
+const buildBlankMeasureText = (minLen: number) => ` ${'0'.repeat(Math.max(1, minLen) + 1)} `;
+
+const estimateBlankWidth = ({
+  minLen,
+  fontSize,
+  horizontalPadding,
+  containerWidth,
+  maxWidthRatio,
+  hardMaxWidth,
+}: {
+  minLen: number;
+  fontSize: number;
+  horizontalPadding: number;
+  containerWidth: number;
+  maxWidthRatio: number;
+  hardMaxWidth: number;
+}) => {
+  const safeLen = Math.max(1, minLen);
+  const charCount = safeLen + 1;
+  const charWidth = fontSize * 0.56;
+  const rawWidth = charCount * charWidth + horizontalPadding * 2;
+  const minWidth = fontSize * 4.2;
+  const responsiveMax = containerWidth > 0 ? containerWidth * maxWidthRatio : hardMaxWidth;
+  const maxWidth = Math.min(responsiveMax, hardMaxWidth);
+  return Math.round(Math.max(minWidth, Math.min(maxWidth, rawWidth)));
+};
+
+const computeBankBlankWidth = (containerWidth: number, minLen: number) =>
+  estimateBlankWidth({
+    minLen,
+    fontSize: theme.typography.sizes.md,
+    horizontalPadding: theme.spacing.sm,
+    containerWidth,
+    maxWidthRatio: 0.72,
+    hardMaxWidth: 220,
+  });
 
 const getCopy = (language: UiLanguage): PagerCopy => {
   if (language === 'th') {
@@ -540,14 +574,12 @@ function FillBlankMeasuredRows(props: {
         return tokens;
       }
 
-      const placeholderLength = Math.max(token.minLen, 4);
-      const isShort = placeholderLength <= 4;
       tokens.push({
         id: `blank-${index}`,
         type: 'blank' as const,
         blankId: token.blankId,
         minLen: token.minLen,
-        measureText: isShort ? FILL_BLANK_SHORT_MEASURE : FILL_BLANK_LONG_MEASURE,
+        measureText: buildBlankMeasureText(token.minLen),
       });
       return tokens;
     }, []);
@@ -637,8 +669,10 @@ function FillBlankMeasuredRows(props: {
                   style={[
                     styles.fillBlankInput,
                     fillBlankInputStyle,
-                    token.minLen <= 4 ? styles.fillBlankInputShort : styles.fillBlankInputLong,
                     isExample ? styles.fillBlankExampleInput : null,
+                    {
+                      width: computeBankBlankWidth(containerWidth, token.minLen),
+                    },
                   ]}
                 />
               )
