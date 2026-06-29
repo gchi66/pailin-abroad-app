@@ -13116,8 +13116,8 @@ const styles = StyleSheet.create({
   comprehensionQuestionText: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 13.5,
+    lineHeight: 18,
     flexShrink: 1,
   },
   practiceQuestionTextCompact: {
@@ -13129,8 +13129,8 @@ const styles = StyleSheet.create({
   },
   comprehensionQuestionThaiText: {
     color: theme.colors.mutedText,
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 13.5,
+    lineHeight: 18,
     flexShrink: 1,
   },
   practiceQuestionThaiTextCompact: {
@@ -13562,8 +13562,8 @@ const styles = StyleSheet.create({
   },
   comprehensionOptionText: {
     color: theme.colors.text,
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 14,
+    lineHeight: 18,
     flexShrink: 1,
   },
   practiceOptionTextCompact: {
@@ -13578,8 +13578,8 @@ const styles = StyleSheet.create({
   },
   comprehensionOptionThaiText: {
     color: theme.colors.mutedText,
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 14,
+    lineHeight: 18,
     flexShrink: 1,
   },
   practiceOptionThaiTextCompact: {
@@ -13616,8 +13616,8 @@ const styles = StyleSheet.create({
   },
   comprehensionCheckButtonText: {
     color: theme.colors.text,
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: theme.typography.weights.semibold,
   },
   comprehensionCheckButton: {
