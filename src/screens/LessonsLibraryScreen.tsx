@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -280,8 +280,8 @@ export function LessonsLibraryScreen() {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <ResponsivePageShell>
+    <View style={styles.screen}>
+      <ResponsivePageShell style={styles.contentContainer}>
       <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={title} />
 
@@ -472,7 +472,7 @@ export function LessonsLibraryScreen() {
         ) : null}
       </Stack>
           </ResponsivePageShell>
-    </ScrollView>
+    </View>
   );
 }
 

@@ -194,6 +194,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const hasIgnoredInitialSession = useRef(false);
   const guestConversionPendingRef = useRef(false);
   const guestConversionShouldCarryMembershipRef = useRef(false);
+  const hasConfiguredGoogleSignInRef = useRef(false);
 
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',
@@ -209,6 +210,37 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       elapsedMs: getElapsedMs(startedAt),
       ...(metadata ?? {}),
     });
+  }, []);
+
+  const configureGoogleSignIn = useCallback(() => {
+    if (Platform.OS !== 'ios') {
+      return true;
+    }
+
+    if (hasConfiguredGoogleSignInRef.current) {
+      return true;
+    }
+
+    if (!env.googleIosClientId || !env.googleWebClientId) {
+      logAuth('google:configure:missing-env', {
+        hasIosClientId: Boolean(env.googleIosClientId),
+        hasWebClientId: Boolean(env.googleWebClientId),
+      });
+      return false;
+    }
+
+    try {
+      GoogleSignin.configure({
+        iosClientId: env.googleIosClientId,
+        webClientId: env.googleWebClientId,
+      });
+      hasConfiguredGoogleSignInRef.current = true;
+      logAuth('google:configure:success');
+      return true;
+    } catch (error) {
+      logAuth('google:configure:error', error instanceof Error ? error.message : 'Unknown error');
+      return false;
+    }
   }, []);
 
   const persistGuestMode = useCallback(async (enabled: boolean) => {
@@ -597,17 +629,6 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, [clearGuestRevenueCatUserId, persistGuestMode]);
 
   const delay = useCallback((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)), []);
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') {
-      return;
-    }
-
-    GoogleSignin.configure({
-      iosClientId: env.googleIosClientId || undefined,
-      webClientId: env.googleWebClientId || undefined,
-    });
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -1076,7 +1097,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     setIsGuestConversionPending(guestConversionPendingRef.current);
 
     if (Platform.OS === 'ios') {
-      if (!env.googleIosClientId || !env.googleWebClientId) {
+      if (!configureGoogleSignIn()) {
         const message = 'Google sign-in is not configured for iOS.';
         setAuthError(message);
         return { error: message };
@@ -1265,7 +1286,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const refreshProfile = async () => {
-    await fetchProfile(session?.user ?? null, { background: true, waitForEnrichment: true });
+    await fetchProfile(session?.user ?? null, { background: true, waitForEnrichment: false });
   };
 
   const refreshMembershipAccess = async () => {

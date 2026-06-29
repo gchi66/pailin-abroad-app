@@ -530,8 +530,19 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
   };
 
   const renderGroup = (group: LessonRichNode[], groupIndex: number, keyPrefix: string) => {
-    let numberedCounter = 0;
+    const numberedCountsByIndent = new Map<number, number>();
     let previousRenderedNode: LessonRichNode | null = null;
+
+    const resetNumberedCounters = () => {
+      numberedCountsByIndent.clear();
+    };
+
+    const getNumberedIndex = (node: LessonRichNode) => {
+      const indentLevel = getIndentLevel(node);
+      const nextIndex = numberedCountsByIndent.get(indentLevel) ?? 1;
+      numberedCountsByIndent.set(indentLevel, nextIndex + 1);
+      return nextIndex;
+    };
 
     const getNodeSpacing = (
       previousNode: LessonRichNode | null,
@@ -566,12 +577,11 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
           let currentNumberedIndex: number | undefined;
 
           if (node.kind === 'numbered_item') {
-            numberedCounter += 1;
-            currentNumberedIndex = numberedCounter;
-            renderedNode = renderNode(node, index, `${keyPrefix}-node`, numberedCounter);
+            currentNumberedIndex = getNumberedIndex(node);
+            renderedNode = renderNode(node, index, `${keyPrefix}-node`, currentNumberedIndex);
           } else {
-            if (isSubheaderNode(node)) {
-              numberedCounter = 0;
+            if ((node.kind === 'heading' && !node.is_subheader) || isSubheaderNode(node)) {
+              resetNumberedCounters();
             }
 
             renderedNode = renderNode(node, index, `${keyPrefix}-node`);

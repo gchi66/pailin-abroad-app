@@ -5,7 +5,6 @@ import { Image } from 'expo-image';
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { theme } from '@/src/theme/theme';
 import { ExerciseBankExercise } from '@/src/types/exercise-bank';
@@ -1093,7 +1092,15 @@ export function ExerciseBankPager({
           </AppText>
         </Pressable>
 
-        <LanguageToggle style={styles.translatePill} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={contentLang === 'th' ? 'Switch exercise language to English' : 'เปลี่ยนภาษาแบบฝึกหัดเป็นไทย'}
+          onPress={() => onSetContentLang(contentLang === 'th' ? 'en' : 'th')}
+          style={styles.translatePill}>
+          <AppText language={contentLang === 'th' ? 'en' : 'th'} variant="caption" style={styles.translatePillText}>
+            {contentLang === 'th' ? 'EN' : 'ไทย'}
+          </AppText>
+        </Pressable>
       </View>
 
       <View {...(normalizedExercises.length > 1 ? pagerPanResponder.panHandlers : {})} style={styles.pagerBody}>

@@ -38,13 +38,20 @@ export async function initializeRevenueCat() {
     return true;
   }
 
-  Purchases.setLogLevel(LOG_LEVEL.ERROR);
-  Purchases.configure({
-    apiKey: getTrimmedApiKey(),
-  });
-  isConfigured = true;
-  configuredUserId = null;
-  return true;
+  try {
+    Purchases.setLogLevel(LOG_LEVEL.ERROR);
+    Purchases.configure({
+      apiKey: getTrimmedApiKey(),
+    });
+    isConfigured = true;
+    configuredUserId = null;
+    return true;
+  } catch (error) {
+    console.warn('[revenuecat] failed to configure', error);
+    isConfigured = false;
+    configuredUserId = null;
+    return false;
+  }
 }
 
 export async function syncRevenueCatUser(userId: string | null | undefined) {
@@ -58,14 +65,18 @@ export async function syncRevenueCatUser(userId: string | null | undefined) {
     return;
   }
 
-  if (normalizedUserId) {
-    await Purchases.logIn(normalizedUserId);
-    configuredUserId = normalizedUserId;
-    return;
-  }
+  try {
+    if (normalizedUserId) {
+      await Purchases.logIn(normalizedUserId);
+      configuredUserId = normalizedUserId;
+      return;
+    }
 
-  await Purchases.logOut();
-  configuredUserId = null;
+    await Purchases.logOut();
+    configuredUserId = null;
+  } catch (error) {
+    console.warn('[revenuecat] failed to sync user', error);
+  }
 }
 
 export async function getRevenueCatOffering() {
@@ -74,8 +85,13 @@ export async function getRevenueCatOffering() {
     return null;
   }
 
-  const offerings = await Purchases.getOfferings();
-  return offerings.current ?? offerings.all[REVENUECAT_OFFERING_ID] ?? null;
+  try {
+    const offerings = await Purchases.getOfferings();
+    return offerings.current ?? offerings.all[REVENUECAT_OFFERING_ID] ?? null;
+  } catch (error) {
+    console.warn('[revenuecat] failed to load offerings', error);
+    return null;
+  }
 }
 
 export async function getRevenueCatCustomerInfo() {
@@ -84,7 +100,12 @@ export async function getRevenueCatCustomerInfo() {
     return null;
   }
 
-  return Purchases.getCustomerInfo();
+  try {
+    return await Purchases.getCustomerInfo();
+  } catch (error) {
+    console.warn('[revenuecat] failed to load customer info', error);
+    return null;
+  }
 }
 
 export async function invalidateRevenueCatCustomerInfoCache() {
@@ -93,7 +114,11 @@ export async function invalidateRevenueCatCustomerInfoCache() {
     return;
   }
 
-  await Purchases.invalidateCustomerInfoCache();
+  try {
+    await Purchases.invalidateCustomerInfoCache();
+  } catch (error) {
+    console.warn('[revenuecat] failed to invalidate customer info cache', error);
+  }
 }
 
 export async function syncRevenueCatPurchases() {
@@ -102,8 +127,13 @@ export async function syncRevenueCatPurchases() {
     return null;
   }
 
-  const result = await Purchases.syncPurchasesForResult();
-  return result.customerInfo;
+  try {
+    const result = await Purchases.syncPurchasesForResult();
+    return result.customerInfo;
+  } catch (error) {
+    console.warn('[revenuecat] failed to sync purchases', error);
+    return null;
+  }
 }
 
 export function addRevenueCatCustomerInfoUpdateListener(listener: CustomerInfoUpdateListener) {

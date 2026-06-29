@@ -214,8 +214,8 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     practiceChecking: 'CHECKING ANSWERS...',
     practiceAnswerAll: 'Please answer every prompt before checking.',
     practiceLoginRequired: 'Please log in to check your answers.',
-    practiceCorrect: 'Correct',
-    practiceNeedsWork: 'Needs another try',
+    practiceCorrect: 'CORRECT',
+    practiceNeedsWork: 'NEEDS ANOTHER TRY',
     phrasesIntro:
       'This section works best one phrase card at a time so you can focus on the wording, translation, and example audio.',
     phrasesEmpty: 'There are no phrase cards ready to show in this section yet.',

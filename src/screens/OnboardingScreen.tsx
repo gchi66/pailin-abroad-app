@@ -542,6 +542,7 @@ export function OnboardingScreen() {
 
   const copy = getCopy(uiLanguage);
   const scrollRef = useRef<ScrollView | null>(null);
+  const hasEnsuredUserRecordRef = useRef(false);
   const [currentStep, setCurrentStep] = useState<StepId>(0);
   const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
   const [username, setUsername] = useState('');
@@ -632,6 +633,15 @@ export function OnboardingScreen() {
     }));
   }, []);
 
+  const ensureUserRecord = useCallback(async () => {
+    if (hasEnsuredUserRecordRef.current) {
+      return;
+    }
+
+    await ensureOnboardingUserRecord();
+    hasEnsuredUserRecordRef.current = true;
+  }, []);
+
   const handleSetPassword = useCallback(async () => {
     setErrorMessage('');
 
@@ -647,7 +657,7 @@ export function OnboardingScreen() {
 
     setIsSubmitting(true);
     try {
-      await ensureOnboardingUserRecord();
+      await ensureUserRecord();
       await setOnboardingPassword(passwords.newPassword);
       setPasswords({ newPassword: '', confirmPassword: '' });
       goToStep(2);
@@ -656,7 +666,7 @@ export function OnboardingScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [copy.passwordMismatch, copy.passwordRequirements, goToStep, meetsLength, meetsNumberOrSymbol, meetsUppercase, passwords.newPassword, passwordsMatch]);
+  }, [copy.passwordMismatch, copy.passwordRequirements, ensureUserRecord, goToStep, meetsLength, meetsNumberOrSymbol, meetsUppercase, passwords.newPassword, passwordsMatch]);
 
   const handleCompleteProfile = useCallback(async () => {
     setErrorMessage('');
@@ -682,7 +692,7 @@ export function OnboardingScreen() {
 
     setIsSubmitting(true);
     try {
-      await ensureOnboardingUserRecord();
+      await ensureUserRecord();
       await updateOnboardingProfile({
         username: resolvedUsername,
         avatarImage: selectedAvatarPath,
@@ -708,6 +718,7 @@ export function OnboardingScreen() {
     user?.user_metadata?.name,
     user?.user_metadata?.username,
     username,
+    ensureUserRecord,
   ]);
 
   const handleFinishOnboarding = useCallback(async () => {
@@ -924,11 +935,6 @@ export function OnboardingScreen() {
             </View>
           </View>
 
-          {sessionLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={theme.colors.text} />
-            </View>
-          ) : null}
         </Stack>
       </View>
       {Platform.OS === 'ios' ? (
@@ -1496,8 +1502,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: theme.colors.primary,
     fontWeight: theme.typography.weights.medium,
-  },
-  loadingRow: {
-    alignItems: 'center',
   },
 });

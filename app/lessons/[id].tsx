@@ -978,6 +978,31 @@ const parsePracticeAbPromptLayout = (
   options?: { stripBlankPlaceholders?: boolean }
 ): PracticeAbPromptLayout | null => {
   const hasAbPromptMarkers = (value: string) => /^\s*A:/m.test(value) && /(?:^|\s)B:\s*/m.test(value);
+  const extractAbThaiLine = (value: string) => {
+    const lines = splitTextLines(value);
+    if (!lines.length) {
+      return '';
+    }
+
+    const thaiOnlyLines = lines.filter((line) => {
+      if (!THAI_TEXT_RE.test(line)) {
+        return false;
+      }
+      if (/^\s*[AB]:/i.test(line)) {
+        return false;
+      }
+      if (line.includes('_')) {
+        return false;
+      }
+      return true;
+    });
+
+    if (thaiOnlyLines.length) {
+      return thaiOnlyLines.join('\n');
+    }
+
+    return splitThaiText(value).th.trim();
+  };
   const englishCandidates = [
     item.prompt,
     item.text,
@@ -1029,11 +1054,12 @@ const parsePracticeAbPromptLayout = (
     .map((value) => String(value ?? '').replace(/\r\n/g, '\n').trim())
     .filter(Boolean);
   const thaiSource = thaiCandidates[0] ?? '';
+  const thaiLine = extractAbThaiLine(thaiSource);
 
   return {
     aLine,
     bLine: bSuffix ? `B: ${bSuffix}` : 'B:',
-    thaiLine: thaiSource || null,
+    thaiLine: thaiLine || null,
   };
 };
 
@@ -2214,9 +2240,18 @@ const COMMON_MISTAKE_SCM_HEADING_KEYS = new Set([
 ]);
 
 const INLINE_LINK_ARTIFACT_RE = /\(\s*link\s*\)/gi;
+const INVISIBLE_RICH_TEXT_RE = /[\u200B-\u200D\u2060\uFEFF]/g;
+const NON_BREAKING_SPACE_RE = /[\u00A0\u202F]/g;
+
+const normalizeRichText = (text: string) =>
+  text
+    // Remove invisible Unicode characters that can disrupt line wrapping on device.
+    .replace(INVISIBLE_RICH_TEXT_RE, '')
+    // Convert non-breaking spaces to normal spaces so text can wrap naturally.
+    .replace(NON_BREAKING_SPACE_RE, ' ');
 
 const cleanAudioTags = (text: string) =>
-  text
+  normalizeRichText(text)
     .replace(/\[audio:[^\]]+\]/g, ' ')
     .replace(/\[img:[^\]]+\]/g, ' ')
     .replace(INLINE_LINK_ARTIFACT_RE, ' ')
@@ -5379,18 +5414,40 @@ export default function LessonDetailShellScreen() {
 
   const handleResetMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
     markLessonAnswerStateInteracted();
+    const pendingItems = exercise.items.filter((item) => !item.isExample);
+    const isPerfectScore =
+      pendingItems.length > 0 &&
+      pendingItems.every((item) => lockedPracticeMultipleChoiceItems[`${exercise.id}:${item.key}`] === true);
+
     const nextSelections = { ...practiceSelections };
     exercise.items.forEach((item) => {
       const selectionKey = `${exercise.id}:${item.key}`;
-      if (lockedPracticeMultipleChoiceItems[selectionKey]) {
+      if (!isPerfectScore && lockedPracticeMultipleChoiceItems[selectionKey]) {
         return;
       }
       delete nextSelections[selectionKey];
     });
+
+    if (isPerfectScore) {
+      setLockedPracticeMultipleChoiceItems((previous) => {
+        const next = { ...previous };
+        exercise.items.forEach((item) => {
+          delete next[`${exercise.id}:${item.key}`];
+        });
+        return next;
+      });
+    }
+
     setPracticeSelections(nextSelections);
     setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
     setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+
+    if (isPerfectScore) {
+      void clearAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id));
+      return;
+    }
+
     const retainedChoices = exercise.items.map((item) => nextSelections[`${exercise.id}:${item.key}`] ?? []);
     const hasRetainedChoices = retainedChoices.some((choice) => choice.length > 0);
     if (hasRetainedChoices) {
@@ -8285,6 +8342,7 @@ export default function LessonDetailShellScreen() {
 
   const renderCultureNoteBody = (nodes: LessonRichNode[]) => {
     let renderedLeadHeading = false;
+    const numberedCountsByIndent = new Map<number, number>();
 
     const getCultureNoteLeadText = (node: LessonRichNode) => {
       if (node.kind === 'heading') {
@@ -8319,11 +8377,23 @@ export default function LessonDetailShellScreen() {
       return lettersOnly === lettersOnly.toUpperCase();
     };
 
+    const resetNumberedCounters = () => {
+      numberedCountsByIndent.clear();
+    };
+
+    const getNumberedLabel = (node: LessonRichNode) => {
+      const indentLevel = getRichIndentLevel(node);
+      const nextIndex = numberedCountsByIndent.get(indentLevel) ?? 1;
+      numberedCountsByIndent.set(indentLevel, nextIndex + 1);
+      return `${nextIndex}.`;
+    };
+
     return (
       <Stack gap="sm">
         {nodes.map((node, index) => {
           if (isCultureNoteLeadHeading(node)) {
             renderedLeadHeading = true;
+            resetNumberedCounters();
             return (
               <AppText key={`culture-note-lead-${index}`} language={contentLang} variant="body" style={styles.cultureNoteLeadHeading}>
                 {getCultureNoteLeadText(node)}
@@ -8331,10 +8401,15 @@ export default function LessonDetailShellScreen() {
             );
           }
 
+          if (node.kind === 'heading' || isBoldParagraphNode(node)) {
+            resetNumberedCounters();
+          }
+
           return renderRichNode(node, index, {
             keyPrefix: 'culture-note-node',
             allowHeadings: true,
             enableHighlights: false,
+            numberedLabel: node.kind === 'numbered_item' ? getNumberedLabel(node) : undefined,
           });
         })}
       </Stack>
@@ -8768,8 +8843,8 @@ const mergeAdjacentPracticeRowTokens = (
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
 
               return (
-                <View key={selectionKey} style={styles.practiceQuestionCard}>
-                  <View style={styles.practiceMultipleChoiceQuestionHeader}>
+                <View key={selectionKey} style={[styles.practiceQuestionCard, styles.comprehensionQuestionCard]}>
+                  <View style={[styles.practiceMultipleChoiceQuestionHeader, styles.practiceMultipleChoiceQuestionHeaderDeindented]}>
                     <AppText language="en" variant="caption" style={styles.practiceQuestionNumber}>
                       {item.numberLabel || `${itemIndex + 1}`}
                     </AppText>
@@ -8790,20 +8865,32 @@ const mergeAdjacentPracticeRowTokens = (
                           <AppText
                             language="en"
                             variant="body"
-                            style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
+                            style={[
+                              styles.practiceQuestionText,
+                              styles.practiceMultipleChoiceQuestionText,
+                              isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                            ]}>
                             {renderTextWithBlankRuns(abPromptLayout.aLine, `${selectionKey}-ab-a`, styles.practiceInlineBlank)}
                           </AppText>
                           <AppText
                             language="en"
                             variant="body"
-                            style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
+                            style={[
+                              styles.practiceQuestionText,
+                              styles.practiceMultipleChoiceQuestionText,
+                              isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                            ]}>
                             {renderTextWithBlankRuns(abPromptLayout.bLine, `${selectionKey}-ab-b`, styles.practiceInlineBlank)}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
                             <AppText
                               language="th"
                               variant="muted"
-                              style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
+                              style={[
+                                styles.practiceQuestionThaiText,
+                                styles.practiceMultipleChoiceQuestionThaiText,
+                                isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null,
+                              ]}>
                               {abPromptLayout.thaiLine}
                             </AppText>
                           ) : null}
@@ -8814,7 +8901,11 @@ const mergeAdjacentPracticeRowTokens = (
                             <AppText
                               language="en"
                               variant="body"
-                              style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
+                              style={[
+                                styles.practiceQuestionText,
+                                styles.practiceMultipleChoiceQuestionText,
+                                isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                              ]}>
                               {item.textJsonb.length
                                 ? renderRichInlines(item.textJsonb, `${selectionKey}-question`)
                                 : renderTextWithBlankRuns(item.text, `${selectionKey}-question`, styles.practiceInlineBlank)}
@@ -8824,7 +8915,11 @@ const mergeAdjacentPracticeRowTokens = (
                             <AppText
                               language="th"
                               variant="muted"
-                              style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
+                              style={[
+                                styles.practiceQuestionThaiText,
+                                styles.practiceMultipleChoiceQuestionThaiText,
+                                isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null,
+                              ]}>
                               {item.textJsonbTh.length
                                 ? renderRichInlines(item.textJsonbTh, `${selectionKey}-question-th`, { lineIsThaiOverride: true })
                                 : item.textTh}
@@ -8835,7 +8930,7 @@ const mergeAdjacentPracticeRowTokens = (
                     </View>
                   </View>
 
-                  <Stack gap="sm">
+                  <Stack gap="sm" style={styles.comprehensionOptionsList}>
                     {item.options.map((option) => {
                       const normalizedOptionLabel = normalizeOptionLetter(option.label);
                       const isSelected = selectedSet.has(normalizedOptionLabel);
@@ -8890,7 +8985,11 @@ const mergeAdjacentPracticeRowTokens = (
                               <AppText
                                 language="en"
                                 variant="body"
-                                style={[styles.practiceOptionText, isInlineQuickPractice ? styles.practiceOptionTextCompact : null]}>
+                                style={[
+                                  styles.practiceOptionText,
+                                  styles.practiceMultipleChoiceOptionText,
+                                  isInlineQuickPractice ? styles.practiceOptionTextCompact : null,
+                                ]}>
                                 {option.textJsonb.length ? renderRichInlines(option.textJsonb, `${selectionKey}-${option.label}`) : option.text}
                               </AppText>
                             ) : null}
@@ -8898,7 +8997,11 @@ const mergeAdjacentPracticeRowTokens = (
                               <AppText
                                 language="th"
                                 variant="body"
-                                style={[styles.practiceOptionThaiText, isInlineQuickPractice ? styles.practiceOptionThaiTextCompact : null]}>
+                                style={[
+                                  styles.practiceOptionThaiText,
+                                  styles.practiceMultipleChoiceOptionThaiText,
+                                  isInlineQuickPractice ? styles.practiceOptionThaiTextCompact : null,
+                                ]}>
                                 {option.textJsonbTh.length
                                   ? renderRichInlines(option.textJsonbTh, `${selectionKey}-${option.label}-th`)
                                   : option.textTh}
@@ -8922,6 +9025,7 @@ const mergeAdjacentPracticeRowTokens = (
                       );
                     })}
                   </Stack>
+                  {itemIndex < exercise.items.length - 1 ? <View style={styles.comprehensionQuestionDivider} /> : null}
                 </View>
               );
             })}
@@ -9174,7 +9278,9 @@ const mergeAdjacentPracticeRowTokens = (
                               <View
                                 style={[
                                   styles.practiceExampleSentenceAnswerShell,
-                                  styles.practiceExampleSentenceAnswerShellForcedOneLine,
+                                  (practiceExampleAnswerLineCounts[answerKey] ?? 1) === 2
+                                    ? styles.practiceExampleSentenceAnswerShellTwoLine
+                                    : styles.practiceExampleSentenceAnswerShellOneLine,
                                 ]}>
                                 <AppText
                                   language={contentLang === 'th' ? 'th' : 'en'}
@@ -10833,9 +10939,9 @@ const mergeAdjacentPracticeRowTokens = (
                             <AppText language="en" variant="caption" style={styles.comprehensionCheckButtonText}>
                               {hasSubmittedComprehensionAnswers && allComprehensionQuestionsAnswered
                                 ? hasPerfectComprehensionScore
-                                  ? 'great work!'
-                                  : 'Try again'
-                                : 'Check answers'}
+                                  ? 'GREAT WORK!'
+                                  : 'TRY AGAIN'
+                                : 'CHECK ANSWERS'}
                             </AppText>
                           </Pressable>
                         </View>
@@ -12988,6 +13094,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     marginBottom: theme.spacing.xs,
   },
+  practiceMultipleChoiceQuestionHeaderDeindented: {
+    marginLeft: -4,
+  },
   comprehensionQuestionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -13102,6 +13211,10 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     lineHeight: 21,
   },
+  practiceMultipleChoiceQuestionText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
   practiceSentenceTransformQuestionText: {
     fontSize: 14.5,
     lineHeight: 21,
@@ -13126,6 +13239,10 @@ const styles = StyleSheet.create({
   },
   practiceQuestionThaiText: {
     color: theme.colors.mutedText,
+  },
+  practiceMultipleChoiceQuestionThaiText: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   comprehensionQuestionThaiText: {
     color: theme.colors.mutedText,
@@ -13433,7 +13550,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     backgroundColor: '#FD69694D',
   },
-  practiceOptionButtonSelected: {},
+  practiceOptionButtonSelected: {
+    borderRadius: theme.radii.md,
+    backgroundColor: '#EFF6FF',
+  },
   practiceOptionButtonCorrect: {},
   practiceOptionButtonWrong: {},
   practiceOptionLetter: {
@@ -13560,6 +13680,10 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     flexShrink: 1,
   },
+  practiceMultipleChoiceOptionText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
   comprehensionOptionText: {
     color: theme.colors.text,
     fontSize: 14,
@@ -13575,6 +13699,10 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
     flexShrink: 1,
+  },
+  practiceMultipleChoiceOptionThaiText: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   comprehensionOptionThaiText: {
     color: theme.colors.mutedText,
