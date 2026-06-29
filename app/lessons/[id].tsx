@@ -403,7 +403,23 @@ type PracticeFillBlankMirrorLayout = {
   height: number;
 };
 
-const getPracticeInlineTextStyle = (inline: LessonRichInline | null | undefined, compact = false) => [
+type PracticeStyledRun = {
+  text: string;
+  style: LessonRichInline | null | undefined;
+};
+
+type PracticeStyledRunCursor = {
+  runs: PracticeStyledRun[];
+  index: number;
+  offset: number;
+  disabled: boolean;
+};
+
+const getPracticeInlineTextStyle = (
+  inline: LessonRichInline | null | undefined,
+  compact = false,
+  includeUnderline = true
+) => [
   styles.practiceInlineText,
   compact ? styles.practiceInlineTextCompact : null,
   {
@@ -412,8 +428,22 @@ const getPracticeInlineTextStyle = (inline: LessonRichInline | null | undefined,
       italic: inline?.italic === true,
     }),
   },
-  inline?.underline ? styles.practiceInlineUnderline : null,
+  includeUnderline && inline?.underline ? styles.practiceInlineUnderline : null,
 ];
+
+const PRACTICE_BRACKET_TOKEN_RE = /(\[[^\]]+\])/g;
+
+const splitPracticeBracketTokens = (text: string) => text.split(PRACTICE_BRACKET_TOKEN_RE).filter(Boolean);
+
+const isPracticeBracketToken = (text: string) => /^\[[^\]]+\]$/.test(text);
+
+const buildPracticeStyledRunsFromInlines = (inlines: LessonRichInline[] | null | undefined, contentLang: UiLanguage) =>
+  (inlines ?? [])
+    .map((inline) => ({
+      text: cleanAudioTags(resolveRichInlineText(inline, contentLang)),
+      style: inline,
+    }))
+    .filter((run) => run.text);
 
 const getInlineFontFamily = (
   language: UiLanguage,
@@ -466,11 +496,115 @@ const renderPracticeInlineTextToken = (
   key: string,
   compact = false
 ) => {
-  return (
-    <Text key={key} style={getPracticeInlineTextStyle(token.style, compact)}>
-      {token.text}
-    </Text>
-  );
+  return <React.Fragment key={key}>{renderPracticeStyledText(token.text, token.style, key, compact)}</React.Fragment>;
+};
+
+const renderPracticeStyledText = (
+  content: string,
+  style: LessonRichInline | null | undefined,
+  key: string,
+  compact = false
+) => {
+  return splitTextByScript(content).map((segment, segmentIndex) => {
+    const bracketParts = splitPracticeBracketTokens(segment.text);
+    const decoratedChildren = bracketParts.map((part, partIndex) =>
+      isPracticeBracketToken(part) ? (
+        <Text key={`${key}-segment-${segmentIndex}-part-${partIndex}`} style={styles.practiceInlineBracketText}>
+          {part}
+        </Text>
+      ) : (
+        <React.Fragment key={`${key}-segment-${segmentIndex}-part-${partIndex}`}>{part}</React.Fragment>
+      )
+    );
+
+    return style?.underline ? (
+      <View key={`${key}-segment-${segmentIndex}`} style={styles.practiceInlineUnderlineWrap}>
+        <Text style={getPracticeInlineTextStyle(style, compact, false)}>{decoratedChildren}</Text>
+        <View style={styles.practiceInlineUnderlineLine} />
+      </View>
+    ) : (
+      <Text key={`${key}-segment-${segmentIndex}`} style={getPracticeInlineTextStyle(style, compact)}>
+        {decoratedChildren}
+      </Text>
+    );
+  });
+};
+
+const renderPracticeTokenWithStyles = (
+  text: string,
+  cursor: PracticeStyledRunCursor | null,
+  keyPrefix: string,
+  compact = false
+) => {
+  if (!text) {
+    return null;
+  }
+
+  const nodes: React.ReactNode[] = [];
+  let remaining = text;
+  let pieceIndex = 0;
+
+  while (remaining) {
+    if (!cursor || cursor.disabled || !cursor.runs.length) {
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-plain-${pieceIndex}`}>
+          {renderPracticeStyledText(remaining, null, `${keyPrefix}-plain-${pieceIndex}`, compact)}
+        </React.Fragment>
+      );
+      break;
+    }
+
+    const run = cursor.runs[cursor.index];
+    if (!run) {
+      cursor.disabled = true;
+      continue;
+    }
+
+    const runText = run.text.slice(cursor.offset);
+    if (!runText) {
+      cursor.index += 1;
+      cursor.offset = 0;
+      continue;
+    }
+
+    if (!remaining.startsWith(runText[0] ?? '')) {
+      cursor.disabled = true;
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-plain-${pieceIndex}`}>
+          {renderPracticeStyledText(remaining, null, `${keyPrefix}-plain-${pieceIndex}`, compact)}
+        </React.Fragment>
+      );
+      break;
+    }
+
+    const takeLength = Math.min(remaining.length, runText.length);
+    const piece = remaining.slice(0, takeLength);
+    if (piece !== runText.slice(0, takeLength)) {
+      cursor.disabled = true;
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-plain-${pieceIndex}`}>
+          {renderPracticeStyledText(remaining, null, `${keyPrefix}-plain-${pieceIndex}`, compact)}
+        </React.Fragment>
+      );
+      break;
+    }
+
+    nodes.push(
+      <React.Fragment key={`${keyPrefix}-styled-${pieceIndex}`}>
+        {renderPracticeStyledText(piece, run.style, `${keyPrefix}-styled-${pieceIndex}`, compact)}
+      </React.Fragment>
+    );
+
+    remaining = remaining.slice(takeLength);
+    cursor.offset += takeLength;
+    if (cursor.offset >= run.text.length) {
+      cursor.index += 1;
+      cursor.offset = 0;
+    }
+    pieceIndex += 1;
+  }
+
+  return nodes;
 };
 
 const splitPracticeMeasureTextTokens = (text: string) => {
@@ -502,6 +636,7 @@ function PracticeFillBlankMeasuredRows(props: {
   compact: boolean;
   practiceBlankAnswers: Record<string, string>;
   practiceInputRefsMap: React.MutableRefObject<Record<string, TextInput | null>>;
+  styledRuns?: PracticeStyledRun[] | null;
   onBlankAnswerChange: (exerciseId: string, itemKey: string, blankId: string, value: string) => void;
   onInputBlur: (inputKey: string) => void;
   onInputFocus: (inputKey: string) => void;
@@ -518,6 +653,7 @@ function PracticeFillBlankMeasuredRows(props: {
     compact,
     practiceBlankAnswers,
     practiceInputRefsMap,
+    styledRuns,
     onBlankAnswerChange,
     onInputBlur,
     onInputFocus,
@@ -685,6 +821,10 @@ function PracticeFillBlankMeasuredRows(props: {
   };
 
   const visibleLines = lineTokens.length ? lineTokens : [measureTokens];
+  const styledCursor =
+    styledRuns && styledRuns.length
+      ? { runs: styledRuns, index: 0, offset: 0, disabled: false }
+      : null;
 
   return (
     <View
@@ -730,32 +870,42 @@ function PracticeFillBlankMeasuredRows(props: {
           <View key={`${answerKey}:line-${lineIndex}`} style={styles.practiceFillBlankMeasuredRow}>
             {line.map((token) =>
               token.type === 'text' ? (
-                renderPracticeInlineTextToken(token, `${answerKey}:${token.id}`, compact)
+                <React.Fragment key={`${answerKey}:${token.id}`}>
+                  {styledCursor
+                    ? renderPracticeTokenWithStyles(token.text, styledCursor, `${answerKey}:${token.id}`, compact)
+                    : renderPracticeInlineTextToken(token, `${answerKey}:${token.id}`, compact)}
+                </React.Fragment>
               ) : (
-                <TextInput
+                <View
                   key={token.id}
-                  ref={(ref) => {
-                    practiceInputRefsMap.current[`${answerKey}:${token.id}`] = ref;
-                  }}
-                  value={
-                    isExample
-                      ? exampleAnswersByBlank[token.blankId] ?? ''
-                      : practiceBlankAnswers[getPracticeBlankKey(exerciseId, itemKey, token.blankId)] ?? ''
-                  }
-                  onChangeText={(value) => onBlankAnswerChange(exerciseId, itemKey, token.blankId, value)}
-                  onBlur={() => onInputBlur(`${answerKey}:${token.id}`)}
-                  onFocus={() => onInputFocus(`${answerKey}:${token.id}`)}
-                  onSubmitEditing={onDismissKeyboard}
-                  editable={!isExample && editable}
-                  blurOnSubmit
                   style={[
-                    styles.practiceFillBlankInput,
-                    compact ? styles.practiceFillBlankInputCompact : null,
+                    styles.practiceFillBlankInputShell,
+                    compact ? styles.practiceFillBlankInputShellCompact : null,
                     {
                       width: blankWidths[token.id] ?? computePracticeBlankWidth(containerWidth || rawContainerWidth, token.minLen, compact),
                     },
-                  ]}
-                />
+                  ]}>
+                  <TextInput
+                    ref={(ref) => {
+                      practiceInputRefsMap.current[`${answerKey}:${token.id}`] = ref;
+                    }}
+                    value={
+                      isExample
+                        ? exampleAnswersByBlank[token.blankId] ?? ''
+                        : practiceBlankAnswers[getPracticeBlankKey(exerciseId, itemKey, token.blankId)] ?? ''
+                    }
+                    onChangeText={(value) => onBlankAnswerChange(exerciseId, itemKey, token.blankId, value)}
+                    onBlur={() => onInputBlur(`${answerKey}:${token.id}`)}
+                    onFocus={() => onInputFocus(`${answerKey}:${token.id}`)}
+                    onSubmitEditing={onDismissKeyboard}
+                    editable={!isExample && editable}
+                    blurOnSubmit
+                    style={[
+                      styles.practiceFillBlankInputField,
+                      compact ? styles.practiceFillBlankInputFieldCompact : null,
+                    ]}
+                  />
+                </View>
               )
             )}
           </View>
@@ -1064,6 +1214,41 @@ const splitThaiText = (value: string) => {
   return { en: english, th: thai };
 };
 
+const extractThaiParentheticalText = (value: string) => {
+  const matches = Array.from(String(value ?? '').matchAll(/\(([^()]*)\)/g));
+
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const candidate = matches[index]?.[1]?.trim() ?? '';
+    if (candidate && THAI_TEXT_RE.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  return '';
+};
+
+const splitMixedPracticeField = (value: string) => {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) {
+    return { en: '', th: '' };
+  }
+
+  const lineSplit = splitThaiText(normalized);
+  if (lineSplit.en && lineSplit.th) {
+    return lineSplit;
+  }
+
+  const firstThaiIndex = normalized.search(/[\u0E00-\u0E7F]/);
+  if (firstThaiIndex <= 0) {
+    return lineSplit;
+  }
+
+  return {
+    en: normalized.slice(0, firstThaiIndex).trim(),
+    th: normalized.slice(firstThaiIndex).trim(),
+  };
+};
+
 const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
   if (typeof option === 'string') {
     const match = option.match(/^([A-Z])\.\s*(.*)$/s);
@@ -1203,6 +1388,16 @@ const stripInlineMediaTags = (value: string) =>
     .replace(/\[audio:[^\]]+\]/gi, ' ')
     .replace(/\[img:[^\]]+\]/gi, ' ')
     .replace(/\s+/g, ' ')
+    .trim();
+
+const stripInlineMediaTagsPreserveLineBreaks = (value: string) =>
+  String(value ?? '')
+    .replace(/\[audio:[^\]]+\]/gi, ' ')
+    .replace(/\[img:[^\]]+\]/gi, ' ')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
     .trim();
 
 const getInlineImageKey = (...values: unknown[]) => {
@@ -1399,12 +1594,16 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
           ? (thaiItemsSource[index] as Record<string, unknown>)
           : {};
 
-    const text = stripInlineMediaTags(getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en'));
-    const textTh = stripInlineMediaTags(
+    const text = stripInlineMediaTagsPreserveLineBreaks(
+      getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en')
+    );
+    const textTh = stripInlineMediaTagsPreserveLineBreaks(
       getPracticeFieldByLang(thaiFallback, 'text', 'th') || getPracticeExactLocalizedField(current, 'text', 'th')
     );
-    const prompt = stripInlineMediaTags(getPracticeFieldByLang(current, 'prompt', 'en') || getPracticeFieldByLang(current, 'question', 'en'));
-    const promptTh = stripInlineMediaTags(
+    const prompt = stripInlineMediaTagsPreserveLineBreaks(
+      getPracticeFieldByLang(current, 'prompt', 'en') || getPracticeFieldByLang(current, 'question', 'en')
+    );
+    const promptTh = stripInlineMediaTagsPreserveLineBreaks(
       getPracticeFieldByLang(thaiFallback, 'prompt', 'th') ||
         getPracticeFieldByLang(thaiFallback, 'question', 'th') ||
         getPracticeExactLocalizedField(current, 'prompt', 'th') ||
@@ -1606,6 +1805,12 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
     return normalizedItem;
   });
 
+  const rawTitleBase = typeof raw.title === 'string' ? raw.title.trim() : '';
+  const rawTitleEn = getPracticeExactLocalizedField(raw, 'title', 'en');
+  const rawTitleTh = getPracticeExactLocalizedField(raw, 'title', 'th');
+  const splitTitle = splitMixedPracticeField(rawTitleBase);
+  const titleEn = rawTitleEn || splitTitle.en;
+  const titleTh = rawTitleTh || splitTitle.th;
   const promptEn = getPracticeFieldByLang(raw, 'prompt', 'en') || String(raw.prompt_md ?? '').trim();
   const promptTh = getPracticeFieldByLang(raw, 'prompt', 'th');
   const paragraphEn = getPracticeFieldByLang(raw, 'paragraph', 'en');
@@ -1614,9 +1819,9 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
   return {
     id: String(raw.id ?? `practice-${raw.sort_order ?? 0}`),
     kind,
-    title: getPracticeFieldByLang(raw, 'title', contentLang) || promptEn || promptTh || '',
-    titleEn: getPracticeFieldByLang(raw, 'title', 'en'),
-    titleTh: getPracticeFieldByLang(raw, 'title', 'th'),
+    title: contentLang === 'th' ? titleTh || titleEn || promptTh || promptEn || '' : titleEn || titleTh || promptEn || promptTh || '',
+    titleEn,
+    titleTh,
     prompt: contentLang === 'th' ? promptTh || promptEn : promptEn || promptTh,
     promptEn,
     promptTh,
@@ -1871,7 +2076,15 @@ const renderTextWithBlankRuns = (text: string, keyPrefix: string, blankStyle: ob
         </Text>
       );
     }
-    return <React.Fragment key={`${keyPrefix}-text-${index}`}>{segment}</React.Fragment>;
+    return splitPracticeBracketTokens(segment).map((part, partIndex) =>
+      isPracticeBracketToken(part) ? (
+        <Text key={`${keyPrefix}-text-${index}-part-${partIndex}`} style={styles.practiceInlineBracketText}>
+          {part}
+        </Text>
+      ) : (
+        <React.Fragment key={`${keyPrefix}-text-${index}-part-${partIndex}`}>{part}</React.Fragment>
+      )
+    );
   });
 };
 
@@ -2627,6 +2840,7 @@ export default function LessonDetailShellScreen() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [practiceSelections, setPracticeSelections] = useState<Record<string, string[]>>({});
   const [checkedPracticeExercises, setCheckedPracticeExercises] = useState<Record<string, boolean>>({});
+  const [checkingPracticeExercises, setCheckingPracticeExercises] = useState<Record<string, boolean>>({});
   const [lockedPracticeMultipleChoiceItems, setLockedPracticeMultipleChoiceItems] = useState<Record<string, boolean>>({});
   const [practiceOpenAnswers, setPracticeOpenAnswers] = useState<Record<string, string>>({});
   const [practiceBlankAnswers, setPracticeBlankAnswers] = useState<Record<string, string>>({});
@@ -3163,6 +3377,7 @@ export default function LessonDetailShellScreen() {
     setPracticeEvaluations({});
     setPracticeErrorByExercise({});
     setPracticeMarkedCorrect({});
+    setCheckingPracticeExercises({});
     setPracticeExampleAnswerLineCounts({});
     setAppLessonProgressDetail(null);
     setSavedAnswerStateByUnit({});
@@ -5140,21 +5355,26 @@ export default function LessonDetailShellScreen() {
     }
 
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
-    await saveAnswerStateForUnit(
-      buildExerciseAnswerStateUnitKey(exercise.id),
-      buildMultipleChoiceAnswerStatePayload(exercise)
-    );
-    setLockedPracticeMultipleChoiceItems((previous) => {
-      const next = { ...previous };
-      exercise.items.forEach((item) => {
-        const selectionKey = `${exercise.id}:${item.key}`;
-        next[selectionKey] = areChoiceSetsEqual(practiceSelections[selectionKey] ?? [], item.answerLetters);
+    setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
+    try {
+      await saveAnswerStateForUnit(
+        buildExerciseAnswerStateUnitKey(exercise.id),
+        buildMultipleChoiceAnswerStatePayload(exercise)
+      );
+      setLockedPracticeMultipleChoiceItems((previous) => {
+        const next = { ...previous };
+        exercise.items.forEach((item) => {
+          const selectionKey = `${exercise.id}:${item.key}`;
+          next[selectionKey] = areChoiceSetsEqual(practiceSelections[selectionKey] ?? [], item.answerLetters);
+        });
+        return next;
       });
-      return next;
-    });
-    const nextCheckedExercises = { ...checkedPracticeExercises, [exercise.id]: true };
-    setCheckedPracticeExercises(nextCheckedExercises);
-    void writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
+      const nextCheckedExercises = { ...checkedPracticeExercises, [exercise.id]: true };
+      setCheckedPracticeExercises(nextCheckedExercises);
+      void writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
+    } finally {
+      setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
+    }
   };
 
   const handleResetMultipleChoiceExercise = (exercise: NormalizedPracticeExercise) => {
@@ -5169,6 +5389,7 @@ export default function LessonDetailShellScreen() {
     });
     setPracticeSelections(nextSelections);
     setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
+    setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
     const retainedChoices = exercise.items.map((item) => nextSelections[`${exercise.id}:${item.key}`] ?? []);
     const hasRetainedChoices = retainedChoices.some((choice) => choice.length > 0);
@@ -5188,12 +5409,7 @@ export default function LessonDetailShellScreen() {
 
     setPracticeOpenAnswers((previous) => ({ ...previous, [answerKey]: value }));
     setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
-    setPracticeMarkedCorrect((previous) => {
-      if (!(itemStateKey in previous)) {
-        return previous;
-      }
-      return { ...previous, [itemStateKey]: null };
-    });
+    setCheckingPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setPracticeEvaluations((previous) => {
       if (!(itemStateKey in previous)) {
         return previous;
@@ -5214,11 +5430,15 @@ export default function LessonDetailShellScreen() {
     markLessonAnswerStateInteracted();
     const answerKey = getPracticeItemStateKey(exerciseId, itemKey);
     setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
+    setCheckingPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setPracticeMarkedCorrect((previous) => ({ ...previous, [answerKey]: isCorrect }));
-    setPracticeOpenAnswers((previous) => ({
-      ...previous,
-      [answerKey]: isCorrect ? stemText : '',
-    }));
+    setPracticeOpenAnswers((previous) => {
+      const nextValue = isCorrect ? stemText : (previous[answerKey] ?? '');
+      return {
+        ...previous,
+        [answerKey]: nextValue,
+      };
+    });
     setPracticeEvaluations((previous) => {
       if (!(answerKey in previous)) {
         return previous;
@@ -5235,6 +5455,7 @@ export default function LessonDetailShellScreen() {
     const answeredItems = pendingItems.filter((item) => !isPracticeItemUnanswered(exercise, item));
     const exerciseType = exercise.kind === 'sentence_transform' ? 'sentence_transform' : exercise.kind === 'fill_blank' ? 'fill_blank' : 'open';
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
+    setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
     const draftAnswerPayload =
       exercise.kind === 'fill_blank'
         ? {
@@ -5306,6 +5527,13 @@ export default function LessonDetailShellScreen() {
       await Promise.all(
         answeredItems.map(async (item, index) => {
           const answerKey = getPracticeItemStateKey(exercise.id, item.key);
+          const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
+          const markedAsCorrect = practiceMarkedCorrect[itemStateKey];
+          const sentenceTransformExpectedAnswer =
+            item.answer ||
+            (exercise.kind === 'sentence_transform' && markedAsCorrect === true
+              ? item.text || item.prompt || ''
+              : '');
           try {
             const result = await evaluateLessonAnswer({
               exerciseType,
@@ -5315,7 +5543,7 @@ export default function LessonDetailShellScreen() {
                   : exercise.kind === 'sentence_transform'
                     ? getSentenceTransformAnswer(exercise.id, item)
                     : getPracticeOpenAnswer(exercise, item),
-              correctAnswer: item.answer || '',
+              correctAnswer: exercise.kind === 'sentence_transform' ? sentenceTransformExpectedAnswer : item.answer || '',
               sourceType: 'practice',
               exerciseId: exercise.id,
               questionNumber: item.numberLabel || index + 1,
@@ -5443,6 +5671,8 @@ export default function LessonDetailShellScreen() {
       await saveAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id), answerPayload);
     } catch {
       return;
+    } finally {
+      setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
     }
   };
 
@@ -5492,6 +5722,7 @@ export default function LessonDetailShellScreen() {
       setPracticeEvaluations(nextEvaluations);
       setPracticeMarkedCorrect(nextMarkedCorrect);
       setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
+      setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
       setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
 
       if (isPerfectScore) {
@@ -8219,7 +8450,7 @@ export default function LessonDetailShellScreen() {
     </View>
   );
 
-  const segmentPracticeTextWithBlanks = (text: string) => {
+const segmentPracticeTextWithBlanks = (text: string) => {
     const tokens: (
       | { type: 'text'; text: string; style?: LessonRichInline | null }
       | { type: 'blank'; length: number }
@@ -8257,9 +8488,51 @@ export default function LessonDetailShellScreen() {
       index += 1;
     }
 
-    flushBuffer();
-    return tokens;
-  };
+  flushBuffer();
+  return tokens;
+};
+
+const mergeAdjacentPracticeRowTokens = (
+  row: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; length: number; blankId: string; minLen: number })[]
+) => {
+  const merged: typeof row = [];
+  const isWhitespaceOnly = (value: string) => value.length > 0 && value.trim().length === 0;
+
+  row.forEach((token, index) => {
+    const previous = merged[merged.length - 1];
+    const next = row[index + 1];
+    const previousStyle = (previous?.type === 'text' ? previous.style : null) ?? null;
+    const tokenStyle = (token.type === 'text' ? token.style : null) ?? null;
+
+    if (
+      token.type === 'text' &&
+      isWhitespaceOnly(token.text) &&
+      previous?.type === 'text' &&
+      previousStyle?.underline === true &&
+      next?.type === 'text' &&
+      (next.style ?? null)?.underline === true &&
+      inlineFormattingKey(previousStyle as LessonRichInline) ===
+        inlineFormattingKey(((next.style ?? null) as LessonRichInline) ?? {})
+    ) {
+      previous.text += token.text;
+      return;
+    }
+
+    if (
+      token.type === 'text' &&
+      previous?.type === 'text' &&
+      inlineFormattingKey((previousStyle ?? {}) as LessonRichInline) ===
+        inlineFormattingKey((tokenStyle ?? {}) as LessonRichInline)
+    ) {
+      previous.text += token.text;
+      return;
+    }
+
+    merged.push(token);
+  });
+
+  return merged;
+};
 
   const segmentPracticeInlinesWithBlanks = (inlines: LessonRichInline[]) => {
     const tokens: (
@@ -8270,7 +8543,7 @@ export default function LessonDetailShellScreen() {
 
     inlines.forEach((inline) => {
       const text = cleanAudioTags(resolveRichInlineText(inline, contentLang));
-      if (!text.trim()) {
+      if (!text) {
         return;
       }
 
@@ -8278,7 +8551,7 @@ export default function LessonDetailShellScreen() {
       let buffer = '';
 
       const flushBuffer = () => {
-        const tokenText = inline?.underline ? buffer.trimEnd() : buffer;
+        const tokenText = buffer;
         if (tokenText) {
           tokens.push({ type: 'text', text: tokenText, style: inline });
         }
@@ -8417,7 +8690,8 @@ export default function LessonDetailShellScreen() {
     const exerciseError = practiceErrorByExercise[exercise.id] ?? '';
     const openStates = exercise.items.map((item) => practiceEvaluations[getPracticeItemStateKey(exercise.id, item.key)]);
     const isCheckingExercise =
-      (isOpenExercise || isFillBlankExercise || isSentenceTransformExercise) && openStates.some((state) => state?.loading);
+      Boolean(checkingPracticeExercises[exercise.id]) ||
+      ((isOpenExercise || isFillBlankExercise || isSentenceTransformExercise) && openStates.some((state) => state?.loading));
     const hasPromptBlocks = exercise.promptBlocks.length > 0;
     const useCompactPracticeMediaLayout = windowWidth < 430;
     const pendingPracticeItems = exercise.items.filter((item) => !item.isExample && !isPracticePromptOnlyImageItem(exercise, item));
@@ -8659,11 +8933,16 @@ export default function LessonDetailShellScreen() {
             ) : null}
 
             {renderCheckButton({
+              disabled: isCheckingExercise,
               label: isChecked
-                ? hasPerfectPracticeScore
-                  ? greatWorkLabel
-                  : tryAgainLabel
-                : checkAnswersLabel,
+                ? isCheckingExercise
+                  ? pageCopy.practiceChecking
+                  : hasPerfectPracticeScore
+                    ? greatWorkLabel
+                    : tryAgainLabel
+                : isCheckingExercise
+                  ? pageCopy.practiceChecking
+                  : checkAnswersLabel,
               onPress: () => {
                 if (isChecked) {
                   handleResetMultipleChoiceExercise(exercise);
@@ -8708,6 +8987,7 @@ export default function LessonDetailShellScreen() {
                 evaluation && typeof evaluation.correct === 'boolean'
                   ? evaluation.correct
                   : null;
+              const isExerciseChecked = checkedPracticeExercises[exercise.id] === true;
               const shouldUseSentenceExampleShell = item.isExample && isSentenceTransformExercise;
               const shouldStackPracticeMedia = false;
               const inputCount = isOpenExercise ? getPracticeOpenInputCount(exercise, item) : 1;
@@ -9037,7 +9317,7 @@ export default function LessonDetailShellScreen() {
                           <View
                             style={[
                               styles.practiceOpenInlineInputShell,
-                              evaluationCorrect !== null ? styles.practiceOpenInputShellChecked : null,
+                              evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputShellChecked : null,
                             ]}>
                             <TextInput
                               key={`${answerKey}-input-inline`}
@@ -9050,7 +9330,7 @@ export default function LessonDetailShellScreen() {
                               style={[
                                 styles.practiceOpenInlineInputField,
                                 practiceOpenInputStyle,
-                                evaluationCorrect !== null ? styles.practiceOpenInputFieldWithBadge : null,
+                                evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputFieldWithBadge : null,
                               ]}
                               value={practiceOpenAnswers[openAnswerKeys[0]] ?? ''}
                               onChangeText={(nextValue) => handlePracticeOpenAnswerChange(exercise.id, item.key, nextValue, 0)}
@@ -9092,9 +9372,7 @@ export default function LessonDetailShellScreen() {
                         const statusMark =
                           evaluationCorrect !== null && isExerciseChecked
                             ? evaluationCorrect
-                            : isSentenceTransformExercise && typeof markState === 'boolean'
-                              ? markState
-                              : null;
+                            : null;
 
                         return (
                           <View
@@ -9104,7 +9382,7 @@ export default function LessonDetailShellScreen() {
                               isSentenceTransformExercise ? styles.practiceSentenceTransformInputShell : null,
                               inputIndex > 0 ? styles.practiceOpenInputStacked : null,
                               markState === true ? styles.practiceOpenInputDisabled : null,
-                              evaluationCorrect !== null ? styles.practiceOpenInputShellChecked : null,
+                              evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputShellChecked : null,
                             ]}>
                             <TextInput
                               key={`${answerKey}-input-${inputIndex}`}
@@ -9119,7 +9397,7 @@ export default function LessonDetailShellScreen() {
                                 styles.practiceOpenInputField,
                                 practiceOpenInputStyle,
                                 isSentenceTransformExercise ? styles.practiceSentenceTransformInputField : null,
-                                evaluationCorrect !== null ? styles.practiceOpenInputFieldWithBadge : null,
+                                evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputFieldWithBadge : null,
                               ]}
                               value={value}
                               onChangeText={(nextValue) => handlePracticeOpenAnswerChange(exercise.id, item.key, nextValue, inputIndex)}
@@ -9188,12 +9466,12 @@ export default function LessonDetailShellScreen() {
 
             {renderCheckButton({
               disabled: isCheckingExercise,
-              label: isChecked
-                ? hasPerfectPracticeScore
-                  ? greatWorkLabel
-                  : tryAgainLabel
-                : isCheckingExercise
-                  ? pageCopy.practiceChecking
+              label: isCheckingExercise
+                ? pageCopy.practiceChecking
+                : isChecked
+                  ? hasPerfectPracticeScore
+                    ? greatWorkLabel
+                    : tryAgainLabel
                   : checkAnswersLabel,
               onPress: () => {
                 if (isChecked) {
@@ -9245,49 +9523,126 @@ export default function LessonDetailShellScreen() {
               const englishDisplayText = item.text || item.prompt;
               const thaiDisplayText = item.textTh || item.promptTh;
               const thaiOnlyText = splitThaiText(thaiDisplayText).th || thaiDisplayText;
-              const thaiOnlyInlineText = splitThaiText(textJsonbToString(item.textJsonbTh)).th;
-              const thaiInlineHasVisibleThai = item.textJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''));
-              const thaiCompanionText = thaiOnlyInlineText.trim() || thaiOnlyText.trim();
+              const thaiDisplayLines = splitTextLines(thaiDisplayText);
+              const thaiLeadLineSource =
+                thaiDisplayLines.find((line) => THAI_TEXT_RE.test(line) && !line.includes('_')) ?? '';
+              const thaiLeadLine =
+                extractThaiParentheticalText(thaiLeadLineSource) ||
+                splitThaiText(thaiLeadLineSource).th ||
+                thaiLeadLineSource;
+              const thaiBlankLines = thaiDisplayLines.filter((line) => line.includes('_'));
+              const thaiBlankText = thaiBlankLines.join('\n');
+              const thaiCompanionText = thaiOnlyText.trim();
               const thaiCompanionHasVisibleThai = THAI_TEXT_RE.test(thaiCompanionText);
               const englishSourceTokens = item.textJsonb.length
                 ? segmentPracticeInlinesWithBlanks(item.textJsonb)
                 : segmentPracticeTextWithBlanks(englishDisplayText);
-              const sourceTokens = englishSourceTokens;
+              const styledRuns = item.textJsonb.length
+                ? buildPracticeStyledRunsFromInlines(item.textJsonb, contentLang)
+                : null;
               const shouldShowThaiCompanion =
                 contentLang === 'th' &&
                 !abPromptLayout &&
-                (thaiInlineHasVisibleThai || thaiCompanionHasVisibleThai) &&
+                thaiCompanionHasVisibleThai &&
                 normalizePracticeAnswerText(thaiOnlyText) !== normalizePracticeAnswerText(englishDisplayText);
-              const rows: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; length: number; blankId: string; minLen: number })[][] = [[]];
-              let blankCursor = 0;
+              const buildFillBlankRows = (
+                sourceTokens: (
+                  | { type: 'text'; text: string; style?: LessonRichInline | null }
+                  | { type: 'blank'; length: number }
+                  | { type: 'line_break' }
+                )[]
+              ) => {
+                const nextRows: ({ type: 'text'; text: string; style?: LessonRichInline | null } | { type: 'blank'; length: number; blankId: string; minLen: number })[][] = [[]];
+                let nextBlankCursor = 0;
 
-              sourceTokens.forEach((token) => {
-                if (token.type === 'line_break') {
-                  rows.push([]);
-                  return;
-                }
-                if (token.type === 'blank') {
-                  const blank = item.blanks[blankCursor] ?? null;
-                  rows[rows.length - 1].push({
-                    type: 'blank',
-                    length: token.length,
-                    blankId: blank?.id ?? `blank-${blankCursor + 1}`,
-                    minLen: blank?.minLen ?? token.length,
-                  });
-                  blankCursor += 1;
-                  return;
-                }
-                rows[rows.length - 1].push(token);
-              });
+                sourceTokens.forEach((token) => {
+                  if (token.type === 'line_break') {
+                    nextRows.push([]);
+                    return;
+                  }
+                  if (token.type === 'blank') {
+                    const blank = item.blanks[nextBlankCursor] ?? null;
+                    nextRows[nextRows.length - 1].push({
+                      type: 'blank',
+                      length: token.length,
+                      blankId: blank?.id ?? `blank-${nextBlankCursor + 1}`,
+                      minLen: blank?.minLen ?? token.length,
+                    });
+                    nextBlankCursor += 1;
+                    return;
+                  }
+                  nextRows[nextRows.length - 1].push(token);
+                });
 
-              for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
-                rows[rowIndex] = rows[rowIndex].filter(
-                  (token) => token.type === 'blank' || token.text.trim().length > 0
-                );
+                for (let rowIndex = nextRows.length - 1; rowIndex >= 0; rowIndex -= 1) {
+                  nextRows[rowIndex] = mergeAdjacentPracticeRowTokens(
+                    nextRows[rowIndex].filter((token) => token.type === 'blank' || token.text.length > 0)
+                  );
 
-                if (rows[rowIndex].length === 0 && rows.length > 1) {
-                  rows.splice(rowIndex, 1);
+                  if (nextRows[rowIndex].length === 0 && nextRows.length > 1) {
+                    nextRows.splice(rowIndex, 1);
+                  }
                 }
+
+                return { rows: nextRows, blankCursor: nextBlankCursor };
+              };
+
+              const englishRowResult = buildFillBlankRows(englishSourceTokens);
+              const thaiBlankRowResult = thaiBlankText
+                ? buildFillBlankRows(segmentPracticeTextWithBlanks(thaiBlankText))
+                : null;
+              const englishRows = englishRowResult.rows;
+              const englishLeadRow = englishRows[0] ?? [];
+              const englishLeadHasBlank = englishLeadRow.some((token) => token.type === 'blank');
+              const englishFollowupHasBlank = englishRows
+                .slice(1)
+                .some((row) => row.some((token) => token.type === 'blank'));
+              const englishLeadText = englishLeadRow
+                .filter((token): token is { type: 'text'; text: string; style?: LessonRichInline | null } => token.type === 'text')
+                .map((token) => token.text)
+                .join(' ');
+              const shouldUseThaiBlankRows =
+                contentLang === 'th' &&
+                !abPromptLayout &&
+                englishRows.length > 1 &&
+                !englishLeadHasBlank &&
+                englishFollowupHasBlank &&
+                (thaiBlankRowResult?.rows.some((row) => row.some((token) => token.type === 'blank')) ?? false);
+
+              let rows = shouldUseThaiBlankRows
+                ? [englishLeadRow, ...(thaiBlankRowResult?.rows ?? [])]
+                : englishRows;
+              let blankCursor = shouldUseThaiBlankRows
+                ? thaiBlankRowResult?.blankCursor ?? englishRowResult.blankCursor
+                : englishRowResult.blankCursor;
+
+              if (
+                shouldUseThaiBlankRows &&
+                thaiLeadLine &&
+                THAI_TEXT_RE.test(thaiLeadLine) &&
+                !THAI_TEXT_RE.test(englishLeadText)
+              ) {
+                const wrappedThaiLeadLine = /^\(.*\)$/.test(thaiLeadLine.trim())
+                  ? thaiLeadLine.trim()
+                  : `(${thaiLeadLine.trim()})`;
+                rows = rows.map((row, rowIndex) => {
+                  if (rowIndex !== 0 || row.length === 0) {
+                    return row;
+                  }
+
+                  const nextRow = [...row];
+                  for (let tokenIndex = nextRow.length - 1; tokenIndex >= 0; tokenIndex -= 1) {
+                    const token = nextRow[tokenIndex];
+                    if (token?.type === 'text') {
+                      nextRow[tokenIndex] = {
+                        ...token,
+                        text: `${token.text} ${wrappedThaiLeadLine}`,
+                      };
+                      break;
+                    }
+                  }
+                  return nextRow;
+                });
               }
 
               const remainingBlanks = item.blanks.slice(blankCursor);
@@ -9316,6 +9671,11 @@ export default function LessonDetailShellScreen() {
                     : item.answer;
                 return acc;
               }, {});
+              const shouldBaselineAlignFillBlankHeader = !itemImageUrl;
+              const exampleStyledCursor =
+                styledRuns && styledRuns.length
+                  ? { runs: styledRuns, index: 0, offset: 0, disabled: false }
+                  : null;
 
               return (
                 <View key={answerKey} style={item.isExample ? styles.practiceExampleCard : styles.practiceQuestionCard}>
@@ -9327,7 +9687,11 @@ export default function LessonDetailShellScreen() {
                     </View>
                   ) : null}
 
-                  <View style={item.isExample ? styles.practiceFillBlankExampleBody : styles.practiceFillBlankQuestionHeader}>
+                  <View
+                    style={[
+                      item.isExample ? styles.practiceFillBlankExampleBody : styles.practiceFillBlankQuestionHeader,
+                      !item.isExample && shouldBaselineAlignFillBlankHeader ? styles.practiceFillBlankQuestionHeaderBaseline : null,
+                    ]}>
                     {!item.isExample ? (
                       <View
                         style={
@@ -9361,7 +9725,7 @@ export default function LessonDetailShellScreen() {
                               language="en"
                               variant="body"
                               style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                              {abPromptLayout.aLine}
+                              {renderTextWithBlankRuns(abPromptLayout.aLine, `${answerKey}-ab-a-line`, styles.practiceInlineBlank)}
                             </AppText>
                             {contentLang === 'th' && abPromptLayout.thaiLine ? (
                               <AppText
@@ -9376,34 +9740,40 @@ export default function LessonDetailShellScreen() {
                                 language="en"
                                 variant="body"
                                 style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                                {abPromptLayout.bLine}
+                                {renderTextWithBlankRuns(abPromptLayout.bLine, `${answerKey}-ab-b-line`, styles.practiceInlineBlank)}
                               </AppText>
-                              <TextInput
-                                key={`${answerKey}-ab-blank`}
-                                ref={(ref) => {
-                                  practiceInputRefsMap.current[`${answerKey}-ab-blank`] = ref;
-                                }}
-                                numberOfLines={1}
-                                placeholder={item.placeholder || pageCopy.practiceOpenPlaceholder}
-                                placeholderTextColor="#9C9EA4"
-                                value={abBlankValue}
-                                onChangeText={(value) => handlePracticeBlankAnswerChange(exercise.id, item.key, abBlank.id, value)}
-                                onBlur={() => handlePracticeInputBlur(`${answerKey}-ab-blank`)}
-                                onFocus={() => handlePracticeInputFocus(`${answerKey}-ab-blank`)}
-                                onSubmitEditing={dismissLessonKeyboard}
-                                editable={!item.isExample && !evaluation?.loading}
-                                blurOnSubmit
+                              <View
                                 style={[
-                                  styles.practiceOpenInlineInput,
-                                  isInlineQuickPractice ? styles.practiceFillBlankInputCompact : null,
+                                  styles.practiceFillBlankInputShell,
+                                  isInlineQuickPractice ? styles.practiceFillBlankInputShellCompact : null,
                                   item.isExample ? styles.practiceExampleInput : null,
                                   {
                                     width: computePracticeBlankWidth(0, abBlank.minLen, isInlineQuickPractice),
                                     maxWidth: '100%',
                                     minWidth: 0,
                                   },
-                                ]}
-                              />
+                                ]}>
+                                <TextInput
+                                  key={`${answerKey}-ab-blank`}
+                                  ref={(ref) => {
+                                    practiceInputRefsMap.current[`${answerKey}-ab-blank`] = ref;
+                                  }}
+                                  numberOfLines={1}
+                                  placeholder={item.placeholder || pageCopy.practiceOpenPlaceholder}
+                                  placeholderTextColor="#9C9EA4"
+                                  value={abBlankValue}
+                                  onChangeText={(value) => handlePracticeBlankAnswerChange(exercise.id, item.key, abBlank.id, value)}
+                                  onBlur={() => handlePracticeInputBlur(`${answerKey}-ab-blank`)}
+                                  onFocus={() => handlePracticeInputFocus(`${answerKey}-ab-blank`)}
+                                  onSubmitEditing={dismissLessonKeyboard}
+                                  editable={!item.isExample && !evaluation?.loading}
+                                  blurOnSubmit
+                                  style={[
+                                    styles.practiceFillBlankInputField,
+                                    isInlineQuickPractice ? styles.practiceFillBlankInputFieldCompact : null,
+                                  ]}
+                                />
+                              </View>
                             </View>
                           </View>
                         ) : (
@@ -9412,25 +9782,40 @@ export default function LessonDetailShellScreen() {
                               <View key={`${answerKey}-row-${rowIndex}`} style={styles.practiceFillBlankRow}>
                                 {row.map((token, tokenIndex) =>
                                   token.type === 'text' ? (
-                                    renderPracticeInlineTextToken(
-                                      token,
-                                      `${answerKey}-text-${rowIndex}-${tokenIndex}`,
-                                      isInlineQuickPractice
-                                    )
+                                    <React.Fragment key={`${answerKey}-text-${rowIndex}-${tokenIndex}`}>
+                                      {exampleStyledCursor
+                                        ? renderPracticeTokenWithStyles(
+                                            token.text,
+                                            exampleStyledCursor,
+                                            `${answerKey}-text-${rowIndex}-${tokenIndex}`,
+                                            isInlineQuickPractice
+                                          )
+                                        : renderPracticeInlineTextToken(
+                                            token,
+                                            `${answerKey}-text-${rowIndex}-${tokenIndex}`,
+                                            isInlineQuickPractice
+                                          )}
+                                    </React.Fragment>
                                   ) : (
-                                    <TextInput
+                                    <View
                                       key={`${answerKey}-blank-${rowIndex}-${tokenIndex}`}
-                                      value={exampleAnswersByBlank[token.blankId] ?? ''}
-                                      editable={false}
                                       style={[
-                                        styles.practiceFillBlankInput,
-                                        isInlineQuickPractice ? styles.practiceFillBlankInputCompact : null,
+                                        styles.practiceFillBlankInputShell,
+                                        isInlineQuickPractice ? styles.practiceFillBlankInputShellCompact : null,
                                         {
                                           width: computePracticeBlankWidth(0, token.minLen, isInlineQuickPractice),
                                           maxWidth: '100%',
                                         },
-                                      ]}
-                                    />
+                                      ]}>
+                                      <TextInput
+                                        value={exampleAnswersByBlank[token.blankId] ?? ''}
+                                        editable={false}
+                                        style={[
+                                          styles.practiceFillBlankInputField,
+                                          isInlineQuickPractice ? styles.practiceFillBlankInputFieldCompact : null,
+                                        ]}
+                                      />
+                                    </View>
                                   )
                                 )}
                               </View>
@@ -9447,6 +9832,7 @@ export default function LessonDetailShellScreen() {
                                 compact={isInlineQuickPractice}
                                 practiceBlankAnswers={practiceBlankAnswers}
                                 practiceInputRefsMap={practiceInputRefsMap}
+                                styledRuns={shouldUseThaiBlankRows ? (rowIndex === 0 ? styledRuns : null) : styledRuns}
                                 onBlankAnswerChange={handlePracticeBlankAnswerChange}
                                 onInputBlur={handlePracticeInputBlur}
                                 onInputFocus={handlePracticeInputFocus}
@@ -9455,16 +9841,14 @@ export default function LessonDetailShellScreen() {
                             )
                           ))
                         )}
-                        {shouldShowThaiCompanion ? (
+                        {shouldShowThaiCompanion && !shouldUseThaiBlankRows ? (
                           <AppText
                             language="th"
                             variant="muted"
                             style={[styles.practiceQuestionThaiText, isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null]}>
                             {thaiCompanionText
                               ? thaiCompanionText
-                              : thaiInlineHasVisibleThai
-                                ? renderRichInlines(item.textJsonbTh, `${answerKey}-fill-blank-th`, { lineIsThaiOverride: true })
-                                : thaiOnlyText}
+                              : thaiOnlyText}
                           </AppText>
                         ) : null}
 
@@ -9511,12 +9895,12 @@ export default function LessonDetailShellScreen() {
 
             {renderCheckButton({
               disabled: isCheckingExercise,
-              label: isChecked
-                ? hasPerfectPracticeScore
-                  ? greatWorkLabel
-                  : tryAgainLabel
-                : isCheckingExercise
-                  ? pageCopy.practiceChecking
+              label: isCheckingExercise
+                ? pageCopy.practiceChecking
+                : isChecked
+                  ? hasPerfectPracticeScore
+                    ? greatWorkLabel
+                    : tryAgainLabel
                   : checkAnswersLabel,
               onPress: () => {
                 if (isChecked) {
@@ -9575,7 +9959,8 @@ export default function LessonDetailShellScreen() {
   const pagerDotKeys = isPracticeTab
     ? normalizedPracticeExercises.map((exercise) => exercise.id)
     : activePagerGroups.map((group) => group.key);
-  const shouldStackPagerDots = pagerDotKeys.length > 10;
+  const shouldCompactPagerDots = pagerDotKeys.length > 10;
+  const shouldStackPagerDots = pagerDotKeys.length > 18;
   const shouldShowBottomPagerDock =
     hasMultiplePagerCards &&
     !isFullscreen &&
@@ -9604,13 +9989,15 @@ export default function LessonDetailShellScreen() {
         </Pressable>
 
         {!shouldStackPagerDots ? (
-          <View style={styles.richPagerDots}>
+          <View style={[styles.richPagerDots, shouldCompactPagerDots ? styles.richPagerDotsCompact : null]}>
             {pagerDotKeys.map((dotKey, index) => (
               <View
                 key={dotKey}
                 style={[
                   styles.richPagerDot,
+                  shouldCompactPagerDots ? styles.richPagerDotCompact : null,
                   index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                  shouldCompactPagerDots && index === activeInnerCardIndex ? styles.richPagerDotActiveCompact : null,
                 ]}
               />
             ))}
@@ -9633,13 +10020,15 @@ export default function LessonDetailShellScreen() {
       </View>
 
       {shouldStackPagerDots ? (
-        <View style={[styles.richPagerDots, styles.richPagerDotsStacked]}>
+        <View style={[styles.richPagerDots, styles.richPagerDotsStacked, shouldCompactPagerDots ? styles.richPagerDotsCompact : null]}>
           {pagerDotKeys.map((dotKey, index) => (
             <View
               key={dotKey}
               style={[
                 styles.richPagerDot,
+                shouldCompactPagerDots ? styles.richPagerDotCompact : null,
                 index === activeInnerCardIndex ? styles.richPagerDotActive : null,
+                shouldCompactPagerDots && index === activeInnerCardIndex ? styles.richPagerDotActiveCompact : null,
               ]}
             />
           ))}
@@ -11535,6 +11924,9 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
+  richPagerDotsCompact: {
+    gap: 6,
+  },
   richPagerDotsStacked: {
     flex: 0,
     flexWrap: 'wrap',
@@ -11547,9 +11939,17 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#D0D8E0',
   },
+  richPagerDotCompact: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   richPagerDotActive: {
     width: 22,
     backgroundColor: theme.colors.primary,
+  },
+  richPagerDotActiveCompact: {
+    width: 18,
   },
   phraseSectionShell: {
     marginTop: -10,
@@ -12608,6 +13008,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: theme.spacing.xs,
   },
+  practiceFillBlankQuestionHeaderBaseline: {
+    alignItems: 'baseline',
+  },
   practiceFillBlankExampleBody: {
     width: '100%',
   },
@@ -12623,6 +13026,7 @@ const styles = StyleSheet.create({
   },
   practiceFillBlankContentWrap: {
     gap: theme.spacing.md,
+    paddingLeft: 4,
     paddingRight: theme.spacing.sm,
   },
   practiceFillBlankExampleContentWrap: {
@@ -12815,43 +13219,69 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     lineHeight: 21,
   },
+  practiceInlineBracketText: {
+    color: '#9C9EA4',
+  },
   practiceInlineBold: {
     fontWeight: theme.typography.weights.semibold,
   },
   practiceInlineItalic: {
     fontStyle: 'italic',
   },
+  practiceInlineUnderlineWrap: {
+    position: 'relative',
+    justifyContent: 'flex-end',
+    paddingBottom: 0,
+  },
+  practiceInlineUnderlineLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.text,
+  },
   practiceInlineUnderline: {
-    textDecorationLine: 'underline',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.text,
+    paddingBottom: 0,
   },
   practiceInlineBlank: {
     color: 'transparent',
     textDecorationLine: 'underline',
     textDecorationColor: theme.colors.text,
   },
-  practiceFillBlankInput: {
+  practiceFillBlankInputShell: {
     height: 30,
     minHeight: 30,
     borderWidth: 1.1,
     borderColor: '#000000',
     borderRadius: 12,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: theme.colors.text,
     backgroundColor: theme.colors.surface,
-    textAlignVertical: 'center',
+    justifyContent: 'center',
   },
-  practiceFillBlankInputCompact: {
+  practiceFillBlankInputShellCompact: {
     height: 26,
     minHeight: 26,
     borderRadius: 10,
     paddingHorizontal: theme.spacing.xs,
+  },
+  practiceFillBlankInputField: {
+    width: '100%',
+    minWidth: 0,
+    flex: 1,
+    height: '100%',
     fontSize: 14.5,
-    lineHeight: 21,
+    color: theme.colors.text,
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+  },
+  practiceFillBlankInputFieldCompact: {
+    fontSize: 14.5,
   },
   practiceFillBlankInputShort: {
     minWidth: 80,
