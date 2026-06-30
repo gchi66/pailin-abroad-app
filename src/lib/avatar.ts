@@ -8,6 +8,7 @@ import avatar5 from '@/assets/images/characters/avatar_5.png';
 import avatar6 from '@/assets/images/characters/avatar_6.png';
 import avatar7 from '@/assets/images/characters/avatar_7.png';
 import avatar8 from '@/assets/images/characters/avatar_8.png';
+import pailinBlueCircleRight from '@/assets/images/pailin_blue_circle_right.webp';
 
 const avatarMap: Record<string, ImageSourcePropType> = {
   '/images/characters/avatar_1.webp': avatar1,
@@ -26,6 +27,8 @@ const avatarMap: Record<string, ImageSourcePropType> = {
   '/images/characters/avatar_7.png': avatar7,
   '/images/characters/avatar_8.webp': avatar8,
   '/images/characters/avatar_8.png': avatar8,
+  '/images/pailin_blue_circle_right.webp': pailinBlueCircleRight,
+  '/images/characters/pailin_blue_circle_right.webp': pailinBlueCircleRight,
 };
 
 export function resolveAvatarSource(value: string | null | undefined): ImageSourcePropType | null {

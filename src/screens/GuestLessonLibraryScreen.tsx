@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
+import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
 import lockImage from '@/assets/images/lock.webp';
 import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex } from '@/src/api/lessons';
