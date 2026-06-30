@@ -145,3 +145,5 @@ expo-env.d.ts
 # @end expo-cli
 
 app/data/
+
+ios/PailinAbroad.xcworkspace/
