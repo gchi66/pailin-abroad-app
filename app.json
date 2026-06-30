@@ -7,7 +7,7 @@
     "icon": "./assets/images/pailin-app-icon.png",
     "scheme": "pailinabroadmobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pailinabroad.app",
