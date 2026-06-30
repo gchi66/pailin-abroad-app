@@ -19,6 +19,7 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
   getLessonLibraryProgressRefreshToken,
   getLessonLibrarySelection,
+  hydrateLessonLibrarySelection,
   setLessonLibrarySelection,
 } from '@/src/lib/lesson-library-selection';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
@@ -99,6 +100,7 @@ export function GuestLessonLibraryScreen() {
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<StageName>(initialSelection.stage);
   const [selectedLevel, setSelectedLevel] = useState<number | null>(initialSelection.level);
+  const [hasHydratedSelection, setHasHydratedSelection] = useState(false);
   const progressRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -216,11 +218,15 @@ export function GuestLessonLibraryScreen() {
   }, [levelsForSelectedStage, selectedLevel]);
 
   useEffect(() => {
+    if (!hasHydratedSelection) {
+      return;
+    }
+
     setLessonLibrarySelection({
       stage: selectedStage,
       level: selectedLevel,
     });
-  }, [selectedLevel, selectedStage]);
+  }, [hasHydratedSelection, selectedLevel, selectedStage]);
 
   const lessonsForSelection = useMemo(() => {
     if (selectedLevel === null) {
@@ -282,6 +288,13 @@ export function GuestLessonLibraryScreen() {
       setSelectedStage(selection.stage);
       setSelectedLevel(selection.level);
       setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
+      setHasHydratedSelection(false);
+
+      void hydrateLessonLibrarySelection().then((storedSelection) => {
+        setSelectedStage(storedSelection.stage);
+        setSelectedLevel(storedSelection.level);
+        setHasHydratedSelection(true);
+      });
     }, [])
   );
 
