@@ -1915,15 +1915,25 @@ const normalizeQuestion = (question: ResolvedLessonQuestion, contentLang: UiLang
   const localizedOptions = rawOptions.length ? rawOptions : englishOptions;
 
   const options = localizedOptions.map(parseQuestionOption);
+  const fallbackEnglishOptions = englishOptions.map(parseQuestionOption);
   const fallbackThaiOptions = safeParseArray<string | LessonQuestionOption>(question.options_th).map(parseQuestionOption);
 
   const mergedOptions = options.map((option, index) => {
+    const englishOption = fallbackEnglishOptions[index];
     const thaiOption = fallbackThaiOptions[index];
     return {
       ...option,
+      imageKey: option.imageKey || englishOption?.imageKey || thaiOption?.imageKey || null,
+      altText: option.altText || englishOption?.altText || thaiOption?.altText || option.text || englishOption?.text || '',
       label: option.label || thaiOption?.label || String.fromCharCode(65 + index),
       textTh: option.textTh || thaiOption?.text || thaiOption?.textTh || '',
-      altTextTh: option.altTextTh || thaiOption?.altText || thaiOption?.altTextTh || '',
+      altTextTh:
+        option.altTextTh ||
+        thaiOption?.altTextTh ||
+        thaiOption?.altText ||
+        englishOption?.altTextTh ||
+        englishOption?.altText ||
+        '',
     };
   });
 
@@ -2835,6 +2845,7 @@ export default function LessonDetailShellScreen() {
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
   const [coverLesson, setCoverLesson] = useState<LessonListItem | null>(null);
+  const [englishLessonFallback, setEnglishLessonFallback] = useState<ResolvedLessonPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
@@ -3343,6 +3354,21 @@ export default function LessonDetailShellScreen() {
         });
         setLesson(row);
         setCoverLesson(row);
+        if (contentLang === 'en') {
+          setEnglishLessonFallback(row);
+        } else {
+          void fetchResolvedLesson(lessonId, 'en')
+            .then((englishRow) => {
+              if (isMounted) {
+                setEnglishLessonFallback(englishRow);
+              }
+            })
+            .catch(() => {
+              if (isMounted) {
+                setEnglishLessonFallback(null);
+              }
+            });
+        }
         const otherLang = contentLang === 'th' ? 'en' : 'th';
         prefetchResolvedLesson(lessonId, otherLang);
       } catch (error) {
@@ -3374,6 +3400,7 @@ export default function LessonDetailShellScreen() {
   useEffect(() => {
     setLesson(null);
     setCoverLesson(null);
+    setEnglishLessonFallback(null);
     setIsLoading(true);
     setErrorMessage(null);
     setActiveSectionIndex(0);
@@ -3532,6 +3559,30 @@ export default function LessonDetailShellScreen() {
         : [],
     [contentLang, hasStartedLesson, lesson?.questions]
   );
+  const comprehensionOptionImageFallbacks = useMemo(() => {
+    const fallbackMap: Record<string, { imageKey: string | null; altText: string; altTextTh: string }> = {};
+    const fallbackQuestions = englishLessonFallback?.questions ?? [];
+
+    fallbackQuestions.forEach((question, index) => {
+      const normalizedQuestion = normalizeQuestion(question, 'en');
+      const questionId = String(question.id ?? `question-${index + 1}`);
+      const questionSortOrder = Number(question.sort_order ?? index + 1);
+
+      normalizedQuestion.options.forEach((option, optionIndex) => {
+        const label = normalizeOptionLetter(option.label || String.fromCharCode(65 + optionIndex));
+        const fallbackValue = {
+          imageKey: option.imageKey,
+          altText: option.altText,
+          altTextTh: option.altTextTh,
+        };
+
+        fallbackMap[`${questionId}:${label}`] = fallbackValue;
+        fallbackMap[`${questionSortOrder}:${label}`] = fallbackValue;
+      });
+    });
+
+    return fallbackMap;
+  }, [englishLessonFallback?.questions]);
   const normalizedTranscript = useMemo(
     () =>
       hasStartedLesson
@@ -5100,11 +5151,32 @@ export default function LessonDetailShellScreen() {
   const isPracticePromptOnlyImageItem = (
     exercise: NormalizedPracticeExercise,
     item: NormalizedPracticeItem
-  ) =>
-    exercise.kind === 'open' &&
-    lesson?.lesson_external_id === '1.12' &&
-    exercise.id === '24491' &&
-    item.imageKey === '1.12_practice2';
+  ) => {
+    if (exercise.kind !== 'open') {
+      return false;
+    }
+
+    const isKnownLesson112ImageOnlyPrompt =
+      lesson?.lesson_external_id === '1.12' &&
+      item.imageKey === '1.12_practice2';
+
+    const hasVisiblePromptText = Boolean(
+      item.prompt ||
+        item.promptTh ||
+        item.text ||
+        item.textTh ||
+        item.textJsonb.length ||
+        item.textJsonbTh.length ||
+        item.audioKey
+    );
+
+    const isImageOnlyPromptFallback =
+      lesson?.lesson_external_id === '1.12' &&
+      Boolean(item.imageKey) &&
+      !hasVisiblePromptText;
+
+    return isKnownLesson112ImageOnlyPrompt || isImageOnlyPromptFallback;
+  };
 
   const getPracticeOpenInputCount = (exercise: NormalizedPracticeExercise, item: NormalizedPracticeItem) => {
     const exerciseTitle = `${exercise.title} ${exercise.titleEn} ${exercise.titleTh}`.toLowerCase();
@@ -10838,14 +10910,30 @@ const mergeAdjacentPracticeRowTokens = (
                                     isSelected && (isLockedCorrect || (hasSubmittedComprehensionAnswers && (isCorrectOption || isWrongSelection)));
                                   const isCorrectSelectionOutcome = showSelectedOptionOutcome && (isLockedCorrect || isCorrectOption);
                                   const isWrongSelectionOutcome = showSelectedOptionOutcome && !isCorrectSelectionOutcome;
+                                  const optionFallback =
+                                    comprehensionOptionImageFallbacks[`${question.id}:${normalizedOptionLabel}`] ??
+                                    comprehensionOptionImageFallbacks[`${question.sortOrder}:${normalizedOptionLabel}`];
+                                  const optionImageKey = option.imageKey || optionFallback?.imageKey || null;
                                   const optionImageUrl = resolveLessonImageUrl(
-                                    option.imageKey ? lesson?.images?.[option.imageKey] : null,
-                                    option.imageKey
+                                    optionImageKey ? lesson?.images?.[optionImageKey] : null,
+                                    optionImageKey
                                   );
                                   const optionAltText =
                                     contentLang === 'th'
-                                      ? option.altTextTh || option.altText || option.textTh || option.text || `Option ${option.label}`
-                                      : option.altText || option.altTextTh || option.text || option.textTh || `Option ${option.label}`;
+                                      ? option.altTextTh ||
+                                        option.altText ||
+                                        optionFallback?.altTextTh ||
+                                        optionFallback?.altText ||
+                                        option.textTh ||
+                                        option.text ||
+                                        `Option ${option.label}`
+                                      : option.altText ||
+                                        option.altTextTh ||
+                                        optionFallback?.altText ||
+                                        optionFallback?.altTextTh ||
+                                        option.text ||
+                                        option.textTh ||
+                                        `Option ${option.label}`;
 
                                   return (
                                     <Pressable
