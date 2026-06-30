@@ -15,11 +15,10 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Stack as RouterStack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack as RouterStack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioMetadata } from 'expo-audio';
 import { Image } from 'expo-image';
-import { useFocusEffect } from '@react-navigation/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

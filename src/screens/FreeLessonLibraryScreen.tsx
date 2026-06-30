@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
 import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
