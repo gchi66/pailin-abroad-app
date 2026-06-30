@@ -175,10 +175,22 @@ export default function RootLayout() {
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <SplashVisibilityGate fontsLoaded={fontsLoaded} />
               <AppRouteGate />
-              <Stack screenOptions={{ headerShown: false }}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'none',
+                  presentation: 'card',
+                }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="onboarding/index" />
-                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    animation: 'none',
+                    presentation: 'card',
+                    title: 'Modal',
+                  }}
+                />
               </Stack>
               <StatusBar style="dark" />
             </ThemeProvider>
