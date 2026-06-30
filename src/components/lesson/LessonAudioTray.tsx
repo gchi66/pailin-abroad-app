@@ -411,9 +411,12 @@ const styles = StyleSheet.create({
   },
   copyBlock: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
+    paddingHorizontal: 4,
   },
   trackTitle: {
+    flexShrink: 1,
     color: theme.colors.text,
     fontSize: 14,
     lineHeight: 18,

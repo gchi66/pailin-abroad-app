@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
@@ -279,9 +279,9 @@ export function LessonsLibraryScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <ResponsivePageShell style={styles.contentContainer}>
-      <Stack gap="md">
+    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+      <ResponsivePageShell>
+        <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={title} />
 
         {!hasMembership ? (
@@ -469,9 +469,9 @@ export function LessonsLibraryScreen() {
             ) : null}
           </Stack>
         ) : null}
-      </Stack>
-          </ResponsivePageShell>
-    </View>
+        </Stack>
+      </ResponsivePageShell>
+    </ScrollView>
   );
 }
 

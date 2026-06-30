@@ -286,8 +286,7 @@ export function LessonConversationIntroOverlay({
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 30,
+    flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,
   },

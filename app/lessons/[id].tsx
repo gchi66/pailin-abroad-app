@@ -10570,8 +10570,14 @@ const mergeAdjacentPracticeRowTokens = (
                   </View>
                 </View>
               ) : null}
-              {shouldShowConversationIntroOverlay ? (
-                <Animated.View style={[styles.conversationIntroOverlayWrap, conversationIntroAnimatedStyle]}>
+              <Modal
+                visible={shouldShowConversationIntroOverlay}
+                transparent={false}
+                animationType="none"
+                presentationStyle="overFullScreen"
+                statusBarTranslucent
+                onRequestClose={handleDismissConversationIntro}>
+                <Animated.View style={[styles.conversationIntroModalRoot, conversationIntroAnimatedStyle]}>
                   <LessonConversationIntroOverlay
                     language={pageLanguage}
                     lessonLabel={studyLessonLabel}
@@ -10594,7 +10600,7 @@ const mergeAdjacentPracticeRowTokens = (
                     onSetRate={handleSetAudioRate}
                   />
                 </Animated.View>
-              ) : null}
+              </Modal>
 
               {!isFullscreen ? (
                 <>
@@ -11354,8 +11360,14 @@ const mergeAdjacentPracticeRowTokens = (
         </View>
       ) : null}
 
-      {!isLoading && !errorMessage && lesson && hasStartedLesson && isMenuOpen ? (
-        <View style={[styles.menuOverlay, { paddingBottom: menuOverlayBottomInset }]}>
+      <Modal
+        visible={!isLoading && !errorMessage && !!lesson && hasStartedLesson && isMenuOpen}
+        transparent
+        animationType="fade"
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setIsMenuOpen(false)}>
+        <View style={[styles.menuOverlayModalRoot, { paddingBottom: menuOverlayBottomInset }]}>
           <Pressable style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)} />
           <Card padding="md" radius="lg" style={styles.menuSheet}>
             <Stack gap="sm">
@@ -11447,7 +11459,7 @@ const mergeAdjacentPracticeRowTokens = (
             })}
           </View>
         </View>
-      ) : null}
+      </Modal>
     </View>
   );
 }
@@ -11716,6 +11728,10 @@ const styles = StyleSheet.create({
   conversationIntroOverlayWrap: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 40,
+  },
+  conversationIntroModalRoot: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
   },
   studyTopChrome: {
     backgroundColor: theme.colors.surface,
@@ -14357,6 +14373,11 @@ const styles = StyleSheet.create({
   },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    paddingTop: theme.spacing.lg,
+  },
+  menuOverlayModalRoot: {
+    flex: 1,
     justifyContent: 'center',
     paddingTop: theme.spacing.lg,
   },
