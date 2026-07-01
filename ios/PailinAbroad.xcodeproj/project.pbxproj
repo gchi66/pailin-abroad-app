@@ -22,7 +22,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PailinAbroad/Info.plist; sourceTree = "<group>"; };
 		363A80B4577CCFDB43F1C2D7 /* Pods-PailinAbroad.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PailinAbroad.release.xcconfig"; path = "Target Support Files/Pods-PailinAbroad/Pods-PailinAbroad.release.xcconfig"; sourceTree = "<group>"; };
 		4E4EFF8A361BB1BF625E983D /* libPods-PailinAbroad.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PailinAbroad.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A63FE612FC9A19384D142FEA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = PailinAbroad/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A63FE612FC9A19384D142FEA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = PailinAbroad/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = PailinAbroad/SplashScreen.storyboard; sourceTree = "<group>"; };
 		B505C1890A4C15B9AC3042FB /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-PailinAbroad/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		BA55ECB33E0A150B9438F6FE /* Pods-PailinAbroad.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PailinAbroad.debug.xcconfig"; path = "Target Support Files/Pods-PailinAbroad/Pods-PailinAbroad.debug.xcconfig"; sourceTree = "<group>"; };
@@ -128,7 +128,6 @@
 				BA55ECB33E0A150B9438F6FE /* Pods-PailinAbroad.debug.xcconfig */,
 				363A80B4577CCFDB43F1C2D7 /* Pods-PailinAbroad.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -385,7 +384,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -419,7 +418,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

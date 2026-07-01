@@ -9974,7 +9974,7 @@ const mergeAdjacentPracticeRowTokens = (
                                     practiceInputRefsMap.current[`${answerKey}-ab-blank`] = ref;
                                   }}
                                   numberOfLines={1}
-                                  placeholder={item.placeholder || pageCopy.practiceOpenPlaceholder}
+                                  placeholder=""
                                   placeholderTextColor="#9C9EA4"
                                   value={abBlankValue}
                                   onChangeText={(value) => handlePracticeBlankAnswerChange(exercise.id, item.key, abBlank.id, value)}
