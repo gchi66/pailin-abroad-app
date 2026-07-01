@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   Alert,
+  InteractionManager,
   Keyboard,
   Linking,
   Modal,
@@ -128,7 +129,7 @@ const RICH_ACCENT_BAR_WIDTH = 4;
 const RICH_ACCENT_TEXT_GAP = 10;
 const PHRASE_AUDIO_MARKER_LANE_WIDTH = RICH_AUDIO_BUTTON_WIDTH + RICH_ACCENT_TEXT_GAP;
 const RICH_AUDIO_COLUMN_EXTRA_OFFSET = 0;
-const RICH_ACCENT_COLUMN_EXTRA_OFFSET = 0;
+const RICH_ACCENT_COLUMN_EXTRA_OFFSET = RICH_ACCENT_BAR_WIDTH + RICH_ACCENT_TEXT_GAP;
 const RICH_AUDIO_MARKER_LEFT = -(RICH_AUDIO_BUTTON_WIDTH + RICH_ACCENT_TEXT_GAP - 4);
 const RICH_ACCENT_MARKER_LEFT = -(RICH_ACCENT_BAR_WIDTH + RICH_ACCENT_TEXT_GAP);
 const RICH_NUMBER_MARKER_LEFT = -(RICH_NUMBER_BADGE_WIDTH + RICH_ROW_GAP);
@@ -2831,9 +2832,11 @@ const PITCH_CORRECTION_QUALITY = 'medium';
 const elapsedMs = (start: number) => Math.max(0, Math.round(performance.now() - start));
 
 export default function LessonDetailShellScreen() {
-  const params = useLocalSearchParams<{ id?: string; locked?: string }>();
+  const params = useLocalSearchParams<{ id?: string; locked?: string; libraryRoute?: string }>();
   const lessonId = typeof params.id === 'string' ? params.id : '';
   const lockedParam = typeof params.locked === 'string' ? params.locked : null;
+  const libraryRouteParam =
+    params.libraryRoute === 'library' || params.libraryRoute === 'free-library' ? params.libraryRoute : null;
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, user } = useAppSession();
@@ -4168,15 +4171,18 @@ export default function LessonDetailShellScreen() {
       setIsConversationIntroVisible(false);
       setIsConversationIntroAnimatingOut(false);
       setConversationIntroPendingSectionIndex(null);
-      setActiveSectionIndex(clampedTargetIndex);
       conversationIntroTranslateY.value = 0;
       conversationIntroScale.value = 1;
       conversationIntroOpacity.value = 1;
 
-      if (shouldExpandTray) {
-        audioTrayExpandCounterRef.current += 1;
-        setAudioTrayAutoExpandSignal(`conversation-intro-${audioTrayExpandCounterRef.current}`);
-      }
+      InteractionManager.runAfterInteractions(() => {
+        setActiveSectionIndex(clampedTargetIndex);
+
+        if (shouldExpandTray) {
+          audioTrayExpandCounterRef.current += 1;
+          setAudioTrayAutoExpandSignal(`conversation-intro-${audioTrayExpandCounterRef.current}`);
+        }
+      });
     },
     [conversationIntroOpacity, conversationIntroScale, conversationIntroTranslateY, sectionCount]
   );
@@ -4731,8 +4737,18 @@ export default function LessonDetailShellScreen() {
   ]);
 
   useEffect(() => {
-    setExpandedPhraseIds({});
-  }, [lessonId, contentLang, normalizedLessonPhrases]);
+    const validPhraseIds = new Set(normalizedLessonPhrases.map((phrase) => phrase.id));
+
+    setExpandedPhraseIds((previous) => {
+      const nextEntries = Object.entries(previous).filter(([phraseId, isExpanded]) => isExpanded && validPhraseIds.has(phraseId));
+
+      if (nextEntries.length === Object.keys(previous).length) {
+        return previous;
+      }
+
+      return Object.fromEntries(nextEntries);
+    });
+  }, [normalizedLessonPhrases]);
 
   useEffect(() => {
     if (!isInnerPagerTab) {
@@ -4788,18 +4804,24 @@ export default function LessonDetailShellScreen() {
   }, [lessonId]);
 
   const navigateToLessonLibrary = useCallback(async () => {
-    await flushPendingLessonPersistence();
     const stage = lessonCover?.stage;
     const level = typeof lessonCover?.level === 'number' ? lessonCover.level : null;
+    const targetRoute = libraryRouteParam ?? (hasMembership ? 'library' : 'free-library');
     if (
       (stage === 'Beginner' || stage === 'Intermediate' || stage === 'Advanced' || stage === 'Expert') &&
       level !== null
     ) {
-      setLessonLibrarySelection({ stage, level });
+      setLessonLibrarySelection({
+        stage,
+        level,
+        lessonId: lessonCover?.id ?? lessonId,
+        route: targetRoute,
+      });
     }
     bumpLessonLibraryProgressRefreshToken();
-    router.push('/(tabs)/lessons');
-  }, [flushPendingLessonPersistence, lessonCover?.level, lessonCover?.stage, router]);
+    router.push(targetRoute === 'free-library' ? '/(tabs)/lessons/free-library' : '/(tabs)/lessons/library');
+    void flushPendingLessonPersistence();
+  }, [flushPendingLessonPersistence, hasMembership, lessonCover?.id, lessonCover?.level, lessonCover?.stage, lessonId, libraryRouteParam, router]);
 
   const navigateToPrimaryTab = useCallback(async () => {
     await flushPendingLessonPersistence();
@@ -4894,13 +4916,20 @@ export default function LessonDetailShellScreen() {
       }
 
       prefetchResolvedLesson(nextLessonId, contentLang === 'th' ? 'th' : 'en');
-      router.push(`/lessons/${nextLessonId}`);
+      router.push({
+        pathname: '/lessons/[id]',
+        params: {
+          id: nextLessonId,
+          ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
+        },
+      });
     } catch {
       Alert.alert(pageCopy.finishLesson, pageCopy.completionNoNextLesson);
     }
   }, [
     contentLang,
     flushPendingLessonPersistence,
+    libraryRouteParam,
     lessonCover?.id,
     pageCopy.completionNoNextLesson,
     pageCopy.finishLesson,
@@ -7062,6 +7091,7 @@ export default function LessonDetailShellScreen() {
       const thaiSpeakerState = speakerLineIsThai(lineText);
       const isThaiLineForPhraseCard =
         thaiSpeakerState === true || (!isSpeakerLine && THAI_TEXT_RE.test(lineText));
+      const firstThaiCharIndex = lineText.search(THAI_TEXT_RE);
 
       return {
         lineText,
@@ -7070,6 +7100,7 @@ export default function LessonDetailShellScreen() {
         isSpeakerLine,
         isEnglishSpeakerLine: isEnglishSpeakerLineText(lineText),
         isThaiLineForPhraseCard,
+        firstThaiCharIndex,
       };
     });
 
@@ -7084,6 +7115,7 @@ export default function LessonDetailShellScreen() {
       const isThaiLine = options?.isPhraseCard
         ? Boolean(lineMeta?.isThaiLineForPhraseCard)
         : contentLang === 'th' && THAI_TEXT_RE.test(lineText);
+      const firstThaiCharIndex = typeof lineMeta?.firstThaiCharIndex === 'number' ? lineMeta.firstThaiCharIndex : -1;
       const speakerPrefixLength = lineMeta?.speakerPrefixLength ?? 0;
       let lineOffset = 0;
       const renderedSpans: React.ReactNode[] = [];
@@ -7154,7 +7186,10 @@ export default function LessonDetailShellScreen() {
 
             const globalPieceStart = spanOffset + pieceStart;
             const globalPieceEnd = spanOffset + pieceEnd;
-            const shouldMutePiece = isThaiLine;
+            const shouldMutePiece =
+              options?.isPhraseCard && isThaiLine && firstThaiCharIndex >= 0
+                ? globalPieceEnd > firstThaiCharIndex
+                : isThaiLine;
             const pieceWithinSpeakerPrefix = speakerPrefixLength > 0 && globalPieceStart < speakerPrefixLength;
             const pieceCrossesSpeakerBoundary = speakerPrefixLength > 0 && globalPieceEnd > speakerPrefixLength;
 
@@ -9150,14 +9185,17 @@ const mergeAdjacentPracticeRowTokens = (
                     ? getPracticeOpenAnswer(exercise, item)
                     : practiceOpenAnswers[answerKey] ?? '';
               const showMarkButtons = isSentenceTransformExercise && (item.correctTag === 'yes' || item.correctTag === 'no');
-              const resolvedExampleMarkState = item.isExample
+              const resolvedPromptMarkState = item.correctTag === 'yes'
                 ? true
-                : item.correctTag === 'yes'
+                : item.correctTag === 'no'
+                  ? false
+                  : null;
+              const resolvedExampleAnswerMarkState = item.isExample && isSentenceTransformExercise
+                ? answerValue.trim().length > 0
                   ? true
-                  : item.correctTag === 'no'
-                    ? false
-                    : null;
-              const displayMarkState = item.isExample ? true : markState;
+                  : null
+                : resolvedPromptMarkState;
+              const displayMarkState = item.isExample ? resolvedPromptMarkState : markState;
               const evaluationCorrect =
                 evaluation && typeof evaluation.correct === 'boolean'
                   ? evaluation.correct
@@ -9288,7 +9326,7 @@ const mergeAdjacentPracticeRowTokens = (
                                   ]}>
                                   {answerValue}
                                 </AppText>
-                                {resolvedExampleMarkState !== false ? (
+                                {resolvedExampleAnswerMarkState === true ? (
                                   <View style={styles.practiceExampleSentenceCorrectBadge}>
                                     <Text style={styles.practiceExampleSentenceCorrectBadgeText}>✓</Text>
                                   </View>
@@ -9366,14 +9404,14 @@ const mergeAdjacentPracticeRowTokens = (
                                   ]}>
                                   {answerValue}
                                 </AppText>
-                                {resolvedExampleMarkState !== null ? (
+                                {resolvedExampleAnswerMarkState !== null ? (
                                   <View
                                     style={[
                                       styles.practiceExampleSentenceCorrectBadge,
-                                      resolvedExampleMarkState === false ? styles.practiceExampleSentenceIncorrectBadge : null,
+                                      resolvedExampleAnswerMarkState === false ? styles.practiceExampleSentenceIncorrectBadge : null,
                                     ]}>
                                     <Text style={styles.practiceExampleSentenceCorrectBadgeText}>
-                                      {resolvedExampleMarkState ? '✓' : 'X'}
+                                      {resolvedExampleAnswerMarkState ? '✓' : 'X'}
                                     </Text>
                                   </View>
                                 ) : null}
@@ -11465,7 +11503,9 @@ const mergeAdjacentPracticeRowTokens = (
                   accessibilityRole="button"
                   onPress={() => {
                     setIsMenuOpen(false);
-                    void navigateToLessonLibrary();
+                    requestAnimationFrame(() => {
+                      void navigateToLessonLibrary();
+                    });
                   }}
                   style={styles.menuHeaderButton}>
                   <IconSymbol name="book.fill" size={20} color={theme.colors.text} />

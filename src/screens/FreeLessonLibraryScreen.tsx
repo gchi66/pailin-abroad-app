@@ -15,7 +15,12 @@ import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
-import { getLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
+import {
+  clearLessonLibraryAnchor,
+  getLessonLibraryProgressRefreshToken,
+  getLessonLibrarySelection,
+  setLessonLibrarySelection,
+} from '@/src/lib/lesson-library-selection';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
@@ -62,12 +67,16 @@ export function FreeLessonLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount } = useAppSession();
+  const initialSelection = getLessonLibrarySelection();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progressByLesson, setProgressByLesson] = useState<Record<string, AppLessonProgressSummary>>({});
   const [progressRefreshToken, setProgressRefreshToken] = useState(() => getLessonLibraryProgressRefreshToken());
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(initialSelection.lessonId ?? null);
   const progressRequestIdRef = useRef(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const lessonOffsetByIdRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -139,6 +148,33 @@ export function FreeLessonLibraryScreen() {
     return STAGE_ORDER.flatMap((stage) => (lessonsByStage.get(stage) ?? []).map((lesson) => lesson.id)).filter(Boolean);
   }, [lessonsByStage]);
 
+  const allVisibleLessons = useMemo(
+    () => STAGE_ORDER.flatMap((stage) => lessonsByStage.get(stage) ?? []),
+    [lessonsByStage]
+  );
+
+  const tryRestoreLessonScroll = React.useCallback(
+    (lessonId: string | null) => {
+      if (!lessonId || !allVisibleLessons.some((lesson) => lesson.id === lessonId)) {
+        return false;
+      }
+
+      const y = lessonOffsetByIdRef.current[lessonId];
+      if (typeof y !== 'number') {
+        return false;
+      }
+
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(y - theme.spacing.lg, 0),
+        animated: false,
+      });
+      setPendingLessonId(null);
+      clearLessonLibraryAnchor();
+      return true;
+    },
+    [allVisibleLessons]
+  );
+
   const refreshProgressSummaries = React.useCallback(async () => {
     if (!hasAccount || !visibleLessonIds.length) {
       setProgressByLesson({});
@@ -168,6 +204,8 @@ export function FreeLessonLibraryScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      const selection = getLessonLibrarySelection();
+      setPendingLessonId(selection.lessonId ?? null);
       setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
     }, [])
   );
@@ -176,12 +214,31 @@ export function FreeLessonLibraryScreen() {
     void refreshProgressSummaries();
   }, [progressRefreshToken, refreshProgressSummaries]);
 
+  useEffect(() => {
+    if (!pendingLessonId) {
+      return;
+    }
+
+    const frameId = requestAnimationFrame(() => {
+      tryRestoreLessonScroll(pendingLessonId);
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [pendingLessonId, tryRestoreLessonScroll]);
+
   const handleLessonPress = (lesson: LessonListItem) => {
+    setLessonLibrarySelection({
+      stage: (lesson.stage as StageName) ?? 'Beginner',
+      level: typeof lesson.level === 'number' ? lesson.level : null,
+      lessonId: lesson.id,
+      route: 'free-library',
+    });
     router.push({
       pathname: '/lessons/[id]',
       params: {
         id: lesson.id,
         locked: '0',
+        libraryRoute: 'free-library',
       },
     });
   };
@@ -195,7 +252,7 @@ export function FreeLessonLibraryScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+    <ScrollView ref={scrollViewRef} style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
       <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={uiLanguage === 'th' ? 'คลังบทเรียนฟรี' : 'Free Lesson Library'} />
@@ -247,6 +304,14 @@ export function FreeLessonLibraryScreen() {
                               key={lesson.id}
                               accessibilityRole="button"
                               style={[styles.itemPressable, index < lessons.length - 1 ? styles.lessonItemBorder : null]}
+                              onLayout={(event) => {
+                                lessonOffsetByIdRef.current[lesson.id] = event.nativeEvent.layout.y;
+                                if (pendingLessonId === lesson.id) {
+                                  requestAnimationFrame(() => {
+                                    tryRestoreLessonScroll(lesson.id);
+                                  });
+                                }
+                              }}
                               onPressIn={() => handleLessonPressIn(lesson.id)}
                               onPress={() => handleLessonPress(lesson)}>
                               <View style={styles.lessonRow}>

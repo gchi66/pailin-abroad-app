@@ -17,6 +17,7 @@ import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
+  clearLessonLibraryAnchor,
   getLessonLibraryProgressRefreshToken,
   getLessonLibrarySelection,
   hydrateLessonLibrarySelection,
@@ -100,8 +101,11 @@ export function LessonsLibraryScreen() {
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<StageName>(initialSelection.stage);
   const [selectedLevel, setSelectedLevel] = useState<number | null>(initialSelection.level);
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(initialSelection.lessonId ?? null);
   const [hasHydratedSelection, setHasHydratedSelection] = useState(false);
   const progressRequestIdRef = useRef(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const lessonOffsetByIdRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -217,6 +221,28 @@ export function LessonsLibraryScreen() {
     [lessonsForSelection]
   );
 
+  const tryRestoreLessonScroll = React.useCallback(
+    (lessonId: string | null) => {
+      if (!lessonId || !lessonsForSelection.some((lesson) => lesson.id === lessonId)) {
+        return false;
+      }
+
+      const y = lessonOffsetByIdRef.current[lessonId];
+      if (typeof y !== 'number') {
+        return false;
+      }
+
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(y - theme.spacing.lg, 0),
+        animated: false,
+      });
+      setPendingLessonId(null);
+      clearLessonLibraryAnchor();
+      return true;
+    },
+    [lessonsForSelection]
+  );
+
   const refreshProgressSummaries = React.useCallback(async () => {
     if (!hasMembership || !visibleLessonIds.length) {
       setProgressByLesson({});
@@ -256,12 +282,14 @@ export function LessonsLibraryScreen() {
       const selection = getLessonLibrarySelection();
       setSelectedStage(selection.stage);
       setSelectedLevel(selection.level);
+      setPendingLessonId(selection.lessonId ?? null);
       setProgressRefreshToken(getLessonLibraryProgressRefreshToken());
       setHasHydratedSelection(false);
 
       void hydrateLessonLibrarySelection().then((storedSelection) => {
         setSelectedStage(storedSelection.stage);
         setSelectedLevel(storedSelection.level);
+        setPendingLessonId((currentPendingLessonId) => currentPendingLessonId ?? storedSelection.lessonId ?? null);
         setHasHydratedSelection(true);
       });
     }, [])
@@ -270,6 +298,18 @@ export function LessonsLibraryScreen() {
   useEffect(() => {
     void refreshProgressSummaries();
   }, [progressRefreshToken, refreshProgressSummaries]);
+
+  useEffect(() => {
+    if (!pendingLessonId) {
+      return;
+    }
+
+    const frameId = requestAnimationFrame(() => {
+      tryRestoreLessonScroll(pendingLessonId);
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [pendingLessonId, tryRestoreLessonScroll]);
 
   if (isLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -293,7 +333,7 @@ export function LessonsLibraryScreen() {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+    <ScrollView ref={scrollViewRef} style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <Stack gap="md">
         <StandardPageHeader language={uiLanguage} title={title} />
@@ -416,13 +456,29 @@ export function LessonsLibraryScreen() {
                   key={lesson.id}
                   accessibilityRole="button"
                   style={styles.itemPressable}
+                  onLayout={(event) => {
+                    lessonOffsetByIdRef.current[lesson.id] = event.nativeEvent.layout.y;
+                    if (pendingLessonId === lesson.id) {
+                      requestAnimationFrame(() => {
+                        tryRestoreLessonScroll(lesson.id);
+                      });
+                    }
+                  }}
                   onPressIn={() => prefetchLesson(lesson.id)}
                   onPress={() => {
                     setLessonLibrarySelection({
                       stage: selectedStage,
                       level: selectedLevel,
+                      lessonId: lesson.id,
+                      route: 'library',
                     });
-                    router.push(`/lessons/${lesson.id}`);
+                    router.push({
+                      pathname: '/lessons/[id]',
+                      params: {
+                        id: lesson.id,
+                        libraryRoute: 'library',
+                      },
+                    });
                   }}>
                   <Card padding="md" radius="md" style={styles.lessonCard}>
                     <View style={styles.lessonRow}>
