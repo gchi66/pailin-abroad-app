@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isErrorWithCode, isSuccessResponse, statusCodes, GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -108,6 +107,10 @@ const isSilentAuthTransportError = (value: unknown) => {
     message.includes('COMPRESSION_ERROR') ||
     message.includes('last_stream_id:')
   );
+};
+
+const getGoogleSignInModule = () => {
+  return require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
 };
 
 type AppProfile = UserProfile & {
@@ -230,6 +233,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     try {
+      const { GoogleSignin } = getGoogleSignInModule();
       GoogleSignin.configure({
         iosClientId: env.googleIosClientId,
         webClientId: env.googleWebClientId,
@@ -1075,6 +1079,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
     if (Platform.OS === 'ios') {
       try {
+        const { GoogleSignin } = getGoogleSignInModule();
         if (GoogleSignin.hasPreviousSignIn()) {
           await GoogleSignin.signOut();
         }
@@ -1104,6 +1109,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       }
 
       try {
+        const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = getGoogleSignInModule();
         const nativePromptStartedAt = Date.now();
         const response = await GoogleSignin.signIn();
         logAuthTiming('google:native:signIn:completed', nativePromptStartedAt, {
