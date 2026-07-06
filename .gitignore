@@ -147,3 +147,4 @@ expo-env.d.ts
 app/data/
 
 ios/PailinAbroad.xcworkspace/
+.expo/devices.json
