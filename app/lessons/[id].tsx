@@ -16,6 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import type { ImageStyle, StyleProp, ViewStyle } from 'react-native';
 import { Stack as RouterStack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioMetadata } from 'expo-audio';
@@ -380,6 +381,11 @@ type PendingRichLink = {
   note: string | null;
   icon: keyof typeof MaterialIcons.glyphMap;
 };
+
+type PracticeImagePreview = {
+  uri: string;
+  altText: string;
+} | null;
 
 const formatLessonNumber = (lesson: Pick<LessonListItem, 'level' | 'lesson_order'> | null | undefined) => {
   if (typeof lesson?.level === 'number' && typeof lesson?.lesson_order === 'number') {
@@ -2719,6 +2725,10 @@ const normalizeLessonImagePath = (rawValue: string | null) => {
   value = value.replace(/^\/+/, '');
   value = value.split(/[?#]/)[0];
 
+  if (value && !/\.[a-z0-9]+$/i.test(value)) {
+    value = `${value}.webp`;
+  }
+
   return value || null;
 };
 
@@ -2767,6 +2777,27 @@ const resolveLessonImageUrl = (value: unknown, fallbackImageKey?: string | null)
   }
 
   return buildLessonImagePublicUrl(fallbackImageKey ?? null);
+};
+
+const resolveRichNodeImageSource = (
+  node: LessonRichNode,
+  lessonImages: Record<string, unknown> | null | undefined
+) => {
+  const imageKey =
+    typeof node.image_key === 'string' && node.image_key.trim()
+      ? node.image_key.trim()
+      : typeof (node as { imageKey?: unknown }).imageKey === 'string' &&
+          (node as { imageKey?: string }).imageKey?.trim()
+        ? (node as { imageKey: string }).imageKey.trim()
+        : null;
+
+  return (
+    resolveLessonImageUrl(
+      node.image_url ?? (node as { imageUrl?: unknown }).imageUrl ?? (node as { image?: unknown }).image,
+      imageKey
+    ) ??
+    resolveLessonImageUrl(imageKey && lessonImages && imageKey in lessonImages ? lessonImages[imageKey] : null, imageKey)
+  );
 };
 
 const normalizeHeaderImagePath = (rawValue: string | null) => {
@@ -2912,6 +2943,7 @@ export default function LessonDetailShellScreen() {
   const [appLessonProgressDetail, setAppLessonProgressDetail] = useState<AppLessonProgressDetail | null>(null);
   const [savedAnswerStateByUnit, setSavedAnswerStateByUnit] = useState<Record<string, Record<string, unknown>>>({});
   const [pendingRichLink, setPendingRichLink] = useState<PendingRichLink | null>(null);
+  const [practiceImagePreview, setPracticeImagePreview] = useState<PracticeImagePreview>(null);
   const richLinkLessonCacheRef = useRef<Record<string, LessonListItem | null>>({});
   const voiceSoundRef = useRef<AudioPlayer | null>(null);
   const snippetSoundRef = useRef<AudioPlayer | null>(null);
@@ -3443,6 +3475,7 @@ export default function LessonDetailShellScreen() {
     setPracticeMarkedCorrect({});
     setCheckingPracticeExercises({});
     setPracticeExampleAnswerLineCounts({});
+    setPracticeImagePreview(null);
     setAppLessonProgressDetail(null);
     setSavedAnswerStateByUnit({});
     pendingAppResumeRef.current = null;
@@ -3466,6 +3499,7 @@ export default function LessonDetailShellScreen() {
 
   const lessonCover = lesson ?? coverLesson;
   const isLessonReady = Boolean(lesson);
+  const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
 
   useEffect(() => {
     if (!lessonId || !isLessonReady || lessonReadyLoggedRef.current) {
@@ -3501,7 +3535,7 @@ export default function LessonDetailShellScreen() {
   }, [lessonCover]);
 
   const resolvedFocus = useMemo(() => {
-    if (uiLanguage === 'th') {
+    if (pageLanguage === 'th') {
       return (
         lesson?.focus_th?.trim() ||
         coverLesson?.focus_th?.trim() ||
@@ -3520,29 +3554,29 @@ export default function LessonDetailShellScreen() {
       coverLesson?.focus_th?.trim() ||
       null
     );
-  }, [coverLesson, lesson, uiLanguage]);
+  }, [coverLesson, lesson, pageLanguage]);
 
   const checkpointFocusText = useMemo(() => {
     if (!isCheckpointCoverLesson) {
       return null;
     }
 
-    if (uiLanguage === 'th') {
+    if (pageLanguage === 'th') {
       return 'บทสนทนาในจุดตรวจสอบนี้มีหลายแนวคิดที่คุณได้เรียนมาในเลเวลนี้แล้ว ลองดูว่าตอนนี้คุณเข้าใจสิ่งเหล่านั้นในบทสนทนาได้ไหม';
     }
 
     return "The checkpoint conversation has lots of the concepts you've learned in this level! See if you can understand them now in the conversation.";
-  }, [isCheckpointCoverLesson, uiLanguage]);
+  }, [isCheckpointCoverLesson, pageLanguage]);
 
   const coverFocusText = checkpointFocusText || resolvedFocus;
 
   const resolvedBackstory = useMemo(() => {
-    if (uiLanguage === 'th') {
+    if (pageLanguage === 'th') {
       return lesson?.backstory_th || coverLesson?.backstory_th || lesson?.backstory || coverLesson?.backstory || lesson?.backstory_en || null;
     }
 
     return lesson?.backstory_en || lesson?.backstory || coverLesson?.backstory || lesson?.backstory_th || coverLesson?.backstory_th || null;
-  }, [coverLesson, lesson, uiLanguage]);
+  }, [coverLesson, lesson, pageLanguage]);
 
   const headerImageUrl = useMemo(
     () => lesson?.header_image_url ?? resolveHeaderImageUrl(lesson?.header_image_path ?? lesson?.header_img ?? coverLesson?.header_img ?? null),
@@ -3678,7 +3712,6 @@ export default function LessonDetailShellScreen() {
     });
   }, [normalizedQuestions]);
 
-  const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
   const tabBarText = TAB_BAR_LABELS[uiLanguage];
   const practiceOpenInputStyle = contentLang === 'th' ? styles.practiceOpenInputThai : styles.practiceOpenInputEnglish;
   const applyInputStyle = contentLang === 'th' ? styles.applyInputThai : styles.applyInputEnglish;
@@ -4325,12 +4358,28 @@ export default function LessonDetailShellScreen() {
     typeof lessonCover?.level === 'number' && typeof lessonCover?.lesson_order === 'number'
       ? `${lessonCover.level}.${lessonCover.lesson_order}`
       : lessonCover?.lesson_order?.toString() ?? '-';
+  const checkpointLevelNumber =
+    typeof lessonCover?.level === 'number'
+      ? lessonCover.level
+      : typeof lesson?.level === 'number'
+        ? lesson.level
+        : typeof coverLesson?.level === 'number'
+          ? coverLesson.level
+          : null;
   const activeLessonNumber =
     lesson?.lesson_external_id ??
     (typeof lesson?.level === 'number' && typeof lesson?.lesson_order === 'number'
       ? `${lesson.level}.${lesson.lesson_order}`
       : coverLessonNumber);
-  const studyLessonLabel = `${uiCopy.lessonLabel} ${coverLessonNumber}`;
+  const checkpointLessonLabel =
+    pageLanguage === 'th'
+      ? checkpointLevelNumber !== null
+        ? `เช็คพอยต์เลเวล ${checkpointLevelNumber}`
+        : 'เช็คพอยต์'
+      : checkpointLevelNumber !== null
+        ? `Level ${checkpointLevelNumber} Checkpoint`
+        : 'Checkpoint';
+  const studyLessonLabel = isCheckpointCoverLesson ? checkpointLessonLabel : `${uiCopy.lessonLabel} ${coverLessonNumber}`;
   const sectionMenuLabel = pageCopy.sectionMenuLabel;
   const startLessonLabel = isLessonReady ? uiCopy.startLesson : uiCopy.loadingLessonCta;
   const coverMinHeight = Math.max(windowHeight || 0, 720);
@@ -6586,6 +6635,23 @@ export default function LessonDetailShellScreen() {
         return;
       }
 
+      if (node.kind === 'image') {
+        flushAccentGroup();
+
+        const imageSource = resolveRichNodeImageSource(node, lesson?.images);
+
+        if (!imageSource) {
+          return;
+        }
+
+        renderedNodes.push(
+          <View key={nodeKey} style={styles.richImageWrap}>
+            <Image source={{ uri: imageSource }} contentFit="contain" style={styles.richImage} />
+          </View>
+        );
+        return;
+      }
+
       if (node.kind === 'paragraph') {
         if (accent) {
           if (accentGroup.length && !THAI_TEXT_RE.test(getApplyNodeText(node, contentLang))) {
@@ -8074,14 +8140,7 @@ export default function LessonDetailShellScreen() {
     }
 
     if (node.kind === 'image') {
-      const imageSource =
-        resolveLessonImageUrl(node.image_url, typeof node.image_key === 'string' ? node.image_key : null) ??
-        resolveLessonImageUrl(
-          typeof node.image_key === 'string' && lesson?.images && node.image_key in lesson.images
-            ? lesson.images[node.image_key]
-            : null,
-          typeof node.image_key === 'string' ? node.image_key : null
-        );
+      const imageSource = resolveRichNodeImageSource(node, lesson?.images);
       if (!imageSource) {
         return null;
       }
@@ -8767,6 +8826,44 @@ const mergeAdjacentPracticeRowTokens = (
     return tokens;
   };
 
+  const openPracticeImagePreview = useCallback((uri: string, altText: string) => {
+    setPracticeImagePreview({ uri, altText });
+  }, []);
+
+  const closePracticeImagePreview = useCallback(() => {
+    setPracticeImagePreview(null);
+  }, []);
+
+  const renderPracticeImage = useCallback(
+    (
+      imageUrl: string,
+      altText: string,
+      options?: {
+        shellStyle?: StyleProp<ViewStyle>;
+        imageStyle?: StyleProp<ImageStyle>;
+      }
+    ) => (
+      <Pressable
+        accessibilityHint={pageLanguage === 'th' ? 'แตะเพื่อดูภาพขนาดใหญ่' : 'Tap to enlarge image'}
+        accessibilityLabel={altText}
+        accessibilityRole="button"
+        onPress={() => openPracticeImagePreview(imageUrl, altText)}
+        style={({ pressed }) => [
+          styles.practicePromptImagePressable,
+          options?.shellStyle ?? null,
+          pressed ? styles.practicePromptImagePressed : null,
+        ]}>
+        <Image
+          source={{ uri: imageUrl }}
+          accessibilityLabel={altText}
+          contentFit="contain"
+          style={[styles.practicePromptImage, options?.imageStyle ?? null]}
+        />
+      </Pressable>
+    ),
+    [openPracticeImagePreview, pageLanguage]
+  );
+
   const renderPracticePromptBlocks = (exercise: NormalizedPracticeExercise) => {
     if (!exercise.promptBlocks.length) {
       return null;
@@ -8817,17 +8914,17 @@ const mergeAdjacentPracticeRowTokens = (
             }
 
             return (
-              <View key={`practice-prompt-image-${index}`} style={styles.practicePromptBlockImageShell}>
-                <Image
-                  source={{ uri: imageUrl }}
-                  accessibilityLabel={
-                    contentLang === 'th'
-                      ? block.altTextTh || block.altText || 'Practice prompt image'
-                      : block.altText || block.altTextTh || 'Practice prompt image'
+              <View key={`practice-prompt-image-${index}`} style={styles.practicePromptFeatureWrap}>
+                {renderPracticeImage(
+                  imageUrl,
+                  contentLang === 'th'
+                    ? block.altTextTh || block.altText || 'Practice prompt image'
+                    : block.altText || block.altTextTh || 'Practice prompt image',
+                  {
+                    shellStyle: styles.practicePromptFeatureImageShell,
+                    imageStyle: styles.practicePromptFeatureImage,
                   }
-                  contentFit="contain"
-                  style={styles.practicePromptImage}
-                />
+                )}
               </View>
             );
           }
@@ -9042,6 +9139,10 @@ const mergeAdjacentPracticeRowTokens = (
                       const isSelected = selectedSet.has(normalizedOptionLabel);
                       const isCorrectOption = answerSet.has(normalizedOptionLabel);
                       const isWrongSelection = isChecked && isSelected && !isCorrectOption;
+                      const showSelectedOptionOutcome =
+                        isSelected && (isLockedCorrect || (isChecked && (isItemCorrect || isWrongSelection || (!isMulti && !isCorrectOption))));
+                      const isCorrectSelectionOutcome = showSelectedOptionOutcome && (isLockedCorrect || isItemCorrect);
+                      const isWrongSelectionOutcome = showSelectedOptionOutcome && !isCorrectSelectionOutcome;
                       const optionImageUrl = resolveLessonImageUrl(
                         option.imageKey ? lesson?.images?.[option.imageKey] : null,
                         option.imageKey
@@ -9061,19 +9162,31 @@ const mergeAdjacentPracticeRowTokens = (
                           onPress={() => handlePracticeChoice(exercise.id, item.key, option.label, isMulti)}
                           style={[
                             styles.practiceOptionButton,
-                            isSelected ? styles.practiceOptionButtonSelected : null,
+                            isWrongSelectionOutcome
+                              ? styles.comprehensionOptionButtonSelectedWrong
+                              : isCorrectSelectionOutcome
+                                ? styles.comprehensionOptionButtonSelectedCorrect
+                                : isSelected
+                                  ? styles.practiceOptionButtonSelected
+                                  : null,
                           ]}>
                           <View
                             style={[
                               styles.practiceOptionLetter,
-                              isSelected ? styles.practiceOptionLetterSelected : null,
+                              isWrongSelectionOutcome
+                                ? styles.comprehensionOptionLetterWrong
+                                : isCorrectSelectionOutcome
+                                  ? styles.comprehensionOptionLetterCorrect
+                                  : isSelected
+                                    ? styles.practiceOptionLetterSelected
+                                    : null,
                             ]}>
                             <Text
                               style={[
                                 styles.practiceOptionLetterText,
                                 isSelected ? styles.practiceOptionLetterTextInverse : null,
                               ]}>
-                              {option.label}
+                              {isWrongSelectionOutcome ? 'X' : isCorrectSelectionOutcome ? '✓' : option.label}
                             </Text>
                           </View>
                           <View style={styles.practiceOptionTextWrap}>
@@ -9114,17 +9227,17 @@ const mergeAdjacentPracticeRowTokens = (
                               </AppText>
                             ) : null}
                           </View>
-                          {isSelected && (isLockedCorrect || (isChecked && (isItemCorrect || isWrongSelection || (!isMulti && !isCorrectOption)))) ? (
+                          {showSelectedOptionOutcome ? (
                             <AppText
                               language="en"
                               variant="caption"
                               style={[
                                 styles.practiceOptionOutcomeMark,
-                                isLockedCorrect || isItemCorrect
+                                isCorrectSelectionOutcome
                                   ? styles.comprehensionOutcomeMarkCorrect
                                   : styles.practiceOptionOutcomeMarkWrong,
                               ]}>
-                              {isLockedCorrect || isItemCorrect ? '✓' : '✗'}
+                              {isCorrectSelectionOutcome ? '✓' : '✗'}
                             </AppText>
                           ) : null}
                         </Pressable>
@@ -9216,14 +9329,10 @@ const mergeAdjacentPracticeRowTokens = (
               if (isPromptOnlyImage) {
                 return itemImageUrl ? (
                   <View key={answerKey} style={styles.practicePromptOnlyImageCard}>
-                    <View style={[styles.practicePromptImageShell, styles.practicePromptImageShellLarge]}>
-                      <Image
-                        source={{ uri: itemImageUrl }}
-                        accessibilityLabel={itemAltText}
-                        contentFit="contain"
-                        style={[styles.practicePromptImage, styles.practicePromptImageLarge]}
-                      />
-                    </View>
+                    {renderPracticeImage(itemImageUrl, itemAltText, {
+                      shellStyle: [styles.practicePromptImageShell, styles.practicePromptImageShellLarge],
+                      imageStyle: styles.practicePromptImageLarge,
+                    })}
                   </View>
                 ) : null;
               }
@@ -9238,14 +9347,9 @@ const mergeAdjacentPracticeRowTokens = (
 
                   <View style={[styles.practiceExampleBody, useCompactPracticeMediaLayout ? styles.practiceExampleBodyStacked : null]}>
                     {itemImageUrl ? (
-                      <View style={[styles.practiceExampleImageShell, useCompactPracticeMediaLayout ? styles.practiceExampleImageShellStacked : null]}>
-                        <Image
-                          source={{ uri: itemImageUrl }}
-                          accessibilityLabel={itemAltText}
-                          contentFit="contain"
-                          style={styles.practicePromptImage}
-                        />
-                      </View>
+                      renderPracticeImage(itemImageUrl, itemAltText, {
+                        shellStyle: [styles.practiceExampleImageShell, useCompactPracticeMediaLayout ? styles.practiceExampleImageShellStacked : null],
+                      })
                     ) : null}
 
                     <View style={[styles.practiceExampleContent, useCompactPracticeMediaLayout ? styles.practiceExampleContentStacked : null]}>
@@ -9505,19 +9609,14 @@ const mergeAdjacentPracticeRowTokens = (
 
                   <View style={shouldStackPracticeMedia ? styles.practiceOpenColumn : styles.practiceOpenRow}>
                     {itemImageUrl ? (
-                      <View
-                        style={[
+                      renderPracticeImage(itemImageUrl, itemAltText, {
+                        shellStyle: [
                           styles.practicePromptImageShell,
                           shouldStackPracticeMedia ? styles.practicePromptImageShellStacked : null,
                           shouldUseLargePromptImage ? styles.practicePromptImageShellLarge : null,
-                        ]}>
-                        <Image
-                          source={{ uri: itemImageUrl }}
-                          accessibilityLabel={itemAltText}
-                          contentFit="contain"
-                          style={[styles.practicePromptImage, shouldUseLargePromptImage ? styles.practicePromptImageLarge : null]}
-                        />
-                      </View>
+                        ],
+                        imageStyle: shouldUseLargePromptImage ? styles.practicePromptImageLarge : null,
+                      })
                     ) : null}
 
                     <View style={[styles.practiceOpenInputWrap, shouldStackPracticeMedia ? styles.practiceOpenInputWrapStacked : null]}>
@@ -9922,14 +10021,9 @@ const mergeAdjacentPracticeRowTokens = (
 
                     <View style={[styles.practiceQuestionTextWrap, styles.practiceFillBlankContentWrap, item.isExample ? styles.practiceFillBlankExampleContentWrap : null]}>
                       {itemImageUrl ? (
-                        <View style={styles.practicePromptImageShell}>
-                          <Image
-                            source={{ uri: itemImageUrl }}
-                            accessibilityLabel={itemAltText}
-                            contentFit="contain"
-                            style={styles.practicePromptImage}
-                          />
-                        </View>
+                        renderPracticeImage(itemImageUrl, itemAltText, {
+                          shellStyle: styles.practicePromptImageShell,
+                        })
                       ) : null}
 
                       <Stack gap="xs">
@@ -10449,6 +10543,30 @@ const mergeAdjacentPracticeRowTokens = (
 
       <Modal
         animationType="fade"
+        onRequestClose={closePracticeImagePreview}
+        transparent
+        visible={practiceImagePreview !== null}>
+        <Pressable style={styles.practiceImagePreviewBackdrop} onPress={closePracticeImagePreview}>
+          <Pressable
+            accessibilityLabel={pageLanguage === 'th' ? 'ปิดภาพขยาย' : 'Close enlarged image'}
+            accessibilityRole="button"
+            onPress={closePracticeImagePreview}
+            style={styles.practiceImagePreviewCloseButton}>
+            <MaterialIcons name="close" size={18} color={theme.colors.surface} />
+          </Pressable>
+          {practiceImagePreview ? (
+            <Image
+              source={{ uri: practiceImagePreview.uri }}
+              accessibilityLabel={practiceImagePreview.altText}
+              contentFit="contain"
+              style={styles.practiceImagePreviewImage}
+            />
+          ) : null}
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
         onRequestClose={closeRichLinkSheet}
         transparent
         visible={Boolean(pendingRichLink)}>
@@ -10585,14 +10703,14 @@ const mergeAdjacentPracticeRowTokens = (
                     <View style={styles.coverBottomPanel}>
                       <Stack gap="sm">
                         <AppText language={uiLanguage} variant="caption" style={styles.coverLessonLabel}>
-                          {uiCopy.lessonLabel} {coverLessonNumber}
+                          {studyLessonLabel}
                         </AppText>
 
                         <AppText language="en" variant="title" style={styles.coverTitle}>
                           {englishTitle ?? 'Untitled lesson'}
                         </AppText>
 
-                        {thaiTitle ? (
+                        {thaiTitle && !isCheckpointCoverLesson ? (
                           <AppText language="th" variant="body" style={styles.coverThaiTitle}>
                             {thaiTitle}
                           </AppText>
@@ -13131,13 +13249,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  practicePromptBlockImageShell: {
+  practicePromptFeatureWrap: {
     width: '100%',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E6EAF2',
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.sm,
+    alignItems: 'center',
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  practicePromptFeatureImageShell: {
+    width: '100%',
+    maxWidth: 320,
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  practicePromptFeatureImage: {
+    width: '100%',
+    height: 220,
   },
   practicePromptAudioRow: {
     flexDirection: 'row',
@@ -13587,6 +13714,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
     ...brutalShadow,
   },
   practicePromptImageShellStacked: {
@@ -13603,12 +13732,45 @@ const styles = StyleSheet.create({
     width: 184,
     minHeight: 184,
   },
+  practicePromptImagePressable: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  practicePromptImagePressed: {
+    opacity: 0.9,
+  },
   practicePromptImage: {
     width: '100%',
     height: 120,
   },
   practicePromptImageLarge: {
     height: 158,
+  },
+  practiceImagePreviewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(18, 22, 28, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xl,
+  },
+  practiceImagePreviewCloseButton: {
+    position: 'absolute',
+    top: 56,
+    right: theme.spacing.md,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  practiceImagePreviewImage: {
+    width: '100%',
+    maxWidth: 720,
+    height: '100%',
+    maxHeight: '82%',
   },
   practiceOpenInputWrap: {
     flex: 1,

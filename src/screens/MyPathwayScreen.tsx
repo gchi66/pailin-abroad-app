@@ -4,6 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } f
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
+import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
 import lockImage from '@/assets/images/lock.webp';
 import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
@@ -624,19 +625,28 @@ export function MyPathwayScreen() {
                   {(() => {
                     const lessonNumber = getLessonNumber(resumeRow.lesson);
                     const digitCount = lessonNumber.replace(/\D/g, '').length;
+                    const isCheckpoint = isCheckpointLesson(resumeRow.lesson);
 
                     return (
-                  <View style={styles.resumeNumberGroup}>
-                    <AppText
-                      language={uiLanguage}
-                      variant="body"
-                      style={[styles.resumeNumber, digitCount >= 4 ? styles.resumeNumberCompact : null]}>
-                      {lessonNumber}
-                    </AppText>
-                    {!hasMembership && resumeRow.state === 'locked' ? (
-                      <Image source={lockImage} style={styles.resumeLockIcon} resizeMode="contain" />
-                    ) : null}
-                  </View>
+                      <View style={styles.resumeNumberGroup}>
+                        {isCheckpoint ? (
+                          <Image
+                            source={blueCheckmarkImage}
+                            style={styles.resumeNumberCheckmark}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <AppText
+                            language={uiLanguage}
+                            variant="body"
+                            style={[styles.resumeNumber, digitCount >= 4 ? styles.resumeNumberCompact : null]}>
+                            {lessonNumber}
+                          </AppText>
+                        )}
+                        {!hasMembership && resumeRow.state === 'locked' ? (
+                          <Image source={lockImage} style={styles.resumeLockIcon} resizeMode="contain" />
+                        ) : null}
+                      </View>
                     );
                   })()}
 
@@ -1081,6 +1091,12 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginTop: 2,
     fontFamily: theme.typography.fontFaces.en.medium,
+  },
+  resumeNumberCheckmark: {
+    width: 22,
+    height: 22,
+    marginTop: 5,
+    marginLeft: 2,
   },
   resumeNumberCompact: {
     fontSize: 17,

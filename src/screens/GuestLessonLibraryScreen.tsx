@@ -459,7 +459,12 @@ export function GuestLessonLibraryScreen() {
                 key={`level-${level}`}
                 accessibilityRole="button"
                 style={[styles.levelButton, selectedLevel === level ? styles.levelButtonActive : null]}
-                onPress={() => setSelectedLevel(level)}>
+                onPress={() => {
+                  if (selectedLevel !== level) {
+                    setIsStageMenuOpen(false);
+                  }
+                  setSelectedLevel(level);
+                }}>
                 <AppText
                   language={uiLanguage}
                   variant="body"

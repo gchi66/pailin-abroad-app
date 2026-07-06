@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -102,6 +102,11 @@ export function LessonConversationIntroOverlay({
     onSeek(ratio);
   };
 
+  useEffect(() => {
+    setIsBodyExpanded(false);
+    setBodyCanExpand(false);
+  }, [body]);
+
   return (
     <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: Math.max(insets.bottom, theme.spacing.lg) }]}>
       <View style={styles.topBar}>
@@ -145,15 +150,17 @@ export function LessonConversationIntroOverlay({
               style={styles.body}>
               {body}
             </AppText>
-            <AppText
-              language={language}
-              variant="muted"
-              onTextLayout={(event) => {
-                setBodyCanExpand((event.nativeEvent.lines?.length ?? 0) > 4);
-              }}
-              style={[styles.body, styles.bodyMeasure]}>
-              {body}
-            </AppText>
+            <View pointerEvents="none" style={styles.bodyMeasureWrap}>
+              <AppText
+                language={language}
+                variant="muted"
+                onTextLayout={(event) => {
+                  setBodyCanExpand((event.nativeEvent.lines?.length ?? 0) > 4);
+                }}
+                style={[styles.body, styles.bodyMeasure]}>
+                {body}
+              </AppText>
+            </View>
             {bodyCanExpand ? (
               <Pressable
                 accessibilityRole="button"
@@ -374,10 +381,17 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  bodyMeasure: {
+  bodyMeasureWrap: {
     position: 'absolute',
+    width: '100%',
+    maxWidth: 320,
     opacity: 0,
-    zIndex: -1,
+    pointerEvents: 'none',
+    overflow: 'hidden',
+    maxHeight: 0,
+  },
+  bodyMeasure: {
+    width: '100%',
   },
   bodyToggle: {
     marginTop: theme.spacing.xs,
