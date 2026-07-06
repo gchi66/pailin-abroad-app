@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
 
 import { AppText } from './AppText';
@@ -38,11 +39,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md + 2,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.5, height: 1.5 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...createNeoShadow({
+      color: theme.colors.shadow,
+      elevation: 2,
+      offset: 1.5,
+    }),
   },
   languagePillText: {
     color: theme.colors.text,

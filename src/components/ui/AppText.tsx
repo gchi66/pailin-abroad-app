@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
+import { Platform, StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '../../theme/theme';
+import { resolveFontFamily, stripFontSynthesis } from '../../theme/typography';
 
 type TextVariant = 'title' | 'body' | 'caption' | 'muted';
 type Language = 'en' | 'th';
@@ -43,6 +44,13 @@ const variantWeights: Record<TextVariant, keyof typeof theme.typography.fontFace
   muted: 'regular',
 };
 
+const variantFontWeights: Record<TextVariant, TextStyle['fontWeight']> = {
+  title: theme.typography.weights.semibold,
+  body: theme.typography.weights.regular,
+  caption: theme.typography.weights.medium,
+  muted: theme.typography.weights.regular,
+};
+
 export function AppText({
   variant = 'body',
   language,
@@ -52,10 +60,27 @@ export function AppText({
 }: AppTextProps) {
   const flattenedStyle = StyleSheet.flatten(style);
   const explicitFontFamily = flattenedStyle?.fontFamily;
+  const explicitFontWeight = flattenedStyle?.fontWeight;
+  const explicitFontStyle = flattenedStyle?.fontStyle;
   const resolvedLanguage = language ?? (containsThaiGlyphs(children) ? 'th' : 'en');
-  const resolvedFontFamily = explicitFontFamily ?? theme.typography.fontFaces[resolvedLanguage][variantWeights[variant]];
+  const languageFontFaces = theme.typography.fontFaces[resolvedLanguage] as Record<string, string>;
+  const resolvedFontFamily =
+    explicitFontFamily ??
+    (Platform.OS === 'android'
+      ? resolveFontFamily(resolvedLanguage, {
+          italic: explicitFontStyle === 'italic',
+          weight: explicitFontWeight ?? variantFontWeights[variant],
+        })
+      : languageFontFaces[variantWeights[variant]]);
   const getSegmentFontFamily = (segmentLanguage: ScriptLanguage) =>
-    explicitFontFamily ?? theme.typography.fontFaces[segmentLanguage][variantWeights[variant]];
+    explicitFontFamily ??
+    (Platform.OS === 'android'
+      ? resolveFontFamily(segmentLanguage, {
+          italic: explicitFontStyle === 'italic',
+          weight: explicitFontWeight ?? variantFontWeights[variant],
+        })
+      : (theme.typography.fontFaces[segmentLanguage] as Record<string, string>)[variantWeights[variant]]);
+  const sanitizedStyle = stripFontSynthesis(flattenedStyle ?? undefined);
 
   const renderStringWithBlankRuns = (value: string, keyPrefix: string) => {
     const parts = value.split(/(_{2,})/g).filter((part) => part.length > 0);
@@ -108,7 +133,7 @@ export function AppText({
   };
 
   return (
-    <Text {...rest} style={[styles.base, { fontFamily: resolvedFontFamily }, variantStyles[variant], style]}>
+    <Text {...rest} style={[styles.base, { fontFamily: resolvedFontFamily }, variantStyles[variant], sanitizedStyle]}>
       {renderChildren(children, 'app-text')}
     </Text>
   );

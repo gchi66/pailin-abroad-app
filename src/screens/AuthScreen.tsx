@@ -26,7 +26,9 @@ import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
+import { resolveFontFamily } from '@/src/theme/typography';
 
 type AuthMode = 'signup' | 'signin';
 
@@ -462,22 +464,30 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
                         isAppleSubmitting ? styles.buttonDisabled : null,
                       ]}>
-                      {isAppleSubmitting ? (
-                        <View style={styles.appleButtonLoadingState}>
-                          <ActivityIndicator color="#FFFFFF" />
-                          <AppText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
-                            {copy.appleLoading}
-                          </AppText>
-                        </View>
-                      ) : (
-                        <AppleAuthentication.AppleAuthenticationButton
-                          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                          cornerRadius={isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14}
-                          onPress={handleApple}
-                          style={styles.appleButton}
-                        />
-                      )}
+                      <View
+                        style={[
+                          styles.appleButtonInner,
+                          isCompactScreen ? styles.appleButtonShellCompact : null,
+                          isTabletScreen ? styles.appleButtonShellTablet : null,
+                          isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
+                        ]}>
+                        {isAppleSubmitting ? (
+                          <View style={styles.appleButtonLoadingState}>
+                            <ActivityIndicator color="#FFFFFF" />
+                            <AppText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
+                              {copy.appleLoading}
+                            </AppText>
+                          </View>
+                        ) : (
+                          <AppleAuthentication.AppleAuthenticationButton
+                            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                            cornerRadius={isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14}
+                            onPress={handleApple}
+                            style={styles.appleButton}
+                          />
+                        )}
+                      </View>
                     </View>
                   ) : null}
 
@@ -1003,15 +1013,16 @@ const styles = StyleSheet.create({
   appleButtonShell: {
     height: 50,
     borderRadius: 14,
+    ...createNeoShadow({
+      color: '#1A2332',
+      elevation: 3,
+      offset: 1.75,
+    }),
+  },
+  appleButtonInner: {
+    flex: 1,
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#1A2332',
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: {
-      width: 1.75,
-      height: 1.75,
-    },
-    elevation: 3,
   },
   appleButtonShellCompact: {
     height: 46,
@@ -1053,14 +1064,11 @@ const styles = StyleSheet.create({
     borderColor: '#1A2332',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
-    shadowColor: '#1A2332',
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: {
-      width: 1.75,
-      height: 1.75,
-    },
-    elevation: 3,
+    ...createNeoShadow({
+      color: '#1A2332',
+      elevation: 3,
+      offset: 1.75,
+    }),
   },
   googleButtonCompact: {
     minHeight: 50,
@@ -1130,14 +1138,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingLeft: 14,
     paddingRight: 10,
-    shadowColor: '#1A2332',
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: {
-      width: 1.75,
-      height: 1.75,
-    },
-    elevation: 3,
+    ...createNeoShadow({
+      color: '#1A2332',
+      elevation: 3,
+      offset: 1.75,
+    }),
   },
   inputShellCompact: {
     minHeight: 50,
@@ -1180,10 +1185,10 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   inputEnglish: {
-    fontFamily: theme.typography.fontFaces.en.regular,
+    fontFamily: Platform.OS === 'android' ? resolveFontFamily('en', { weight: '600' }) : theme.typography.fontFaces.en.regular,
   },
   inputThai: {
-    fontFamily: theme.typography.fontFaces.th.regular,
+    fontFamily: Platform.OS === 'android' ? resolveFontFamily('th', { weight: '600' }) : theme.typography.fontFaces.th.regular,
   },
   inputAccessory: {
     marginLeft: 8,
@@ -1288,14 +1293,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#1A2332',
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: {
-      width: 1.75,
-      height: 1.75,
-    },
-    elevation: 4,
+    ...createNeoShadow({
+      color: '#1A2332',
+      elevation: 4,
+      offset: 1.75,
+    }),
   },
   ctaButtonCompact: {
     minHeight: 50,

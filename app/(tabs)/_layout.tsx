@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
 
@@ -139,7 +139,7 @@ const createStyles = (insetTop: number, insetBottom: number) =>
     },
     tabBarLabel: {
       fontSize: 11,
-      fontWeight: theme.typography.weights.semibold,
+      ...(Platform.OS === 'android' ? null : { fontWeight: theme.typography.weights.semibold }),
       textAlign: 'center',
     },
     tabBarLabelEnglish: {

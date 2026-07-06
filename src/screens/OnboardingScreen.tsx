@@ -34,6 +34,7 @@ import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useOnboarding } from '@/src/context/onboarding-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
@@ -1262,11 +1263,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: theme.colors.accentMuted,
     padding: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 0,
+    ...createNeoShadow({
+      color: theme.colors.shadow,
+      elevation: 3,
+      offset: 3,
+    }),
   },
   planCardCompact: {
     padding: theme.spacing.xs,
@@ -1371,11 +1372,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 0,
+    ...createNeoShadow({
+      color: theme.colors.shadow,
+      elevation: 2,
+      offset: 2,
+    }),
   },
   upgradeButtonCompact: {
     minHeight: 42,

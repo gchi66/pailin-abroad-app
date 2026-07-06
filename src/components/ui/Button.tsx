@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   Pressable,
   PressableProps,
   StyleProp,
@@ -9,6 +10,7 @@ import {
 } from 'react-native';
 
 import { theme } from '../../theme/theme';
+import { createNeoShadow } from '../../theme/shadows';
 import { AppText } from './AppText';
 
 type ButtonVariant = 'primary' | 'outline';
@@ -78,6 +80,12 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      android: createNeoShadow({
+        color: theme.colors.shadow,
+        offset: 2,
+      }),
+    }),
   },
   label: {
     fontSize: theme.typography.sizes.md,
@@ -92,4 +100,3 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
-

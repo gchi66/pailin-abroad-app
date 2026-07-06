@@ -23,6 +23,7 @@ import {
   purchaseRevenueCatPackage,
   restoreRevenueCatPurchases,
 } from '@/src/lib/revenuecat';
+import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
@@ -979,32 +980,35 @@ const styles = StyleSheet.create({
     borderColor: '#9D9D9D',
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.xs,
-    shadowColor: '#9D9D9D',
-    shadowOffset: { width: 1, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 0,
-    elevation: 1,
+    ...createNeoShadow({
+      color: '#9D9D9D',
+      elevation: 1,
+      offset: 1,
+      opacity: 0.35,
+    }),
   },
   planCard: {
     backgroundColor: theme.colors.surface,
     borderWidth: 2,
     borderColor: '#9D9D9D',
     paddingHorizontal: theme.spacing.lg,
-    shadowColor: '#9D9D9D',
-    shadowOffset: { width: 1.5, height: 1.5 },
-    shadowOpacity: 0.55,
-    shadowRadius: 0,
-    elevation: 2,
+    ...createNeoShadow({
+      color: '#9D9D9D',
+      elevation: 2,
+      offset: 1.5,
+      opacity: 0.55,
+    }),
   },
   selectedCard: {
     borderWidth: 2,
     borderColor: '#3CA0FE',
     backgroundColor: '#F8FCFF',
-    shadowColor: '#3CA0FE',
-    shadowOffset: { width: 1.5, height: 1.5 },
-    shadowOpacity: 0.55,
-    shadowRadius: 0,
-    elevation: 2,
+    ...createNeoShadow({
+      color: '#3CA0FE',
+      elevation: 2,
+      offset: 1.5,
+      opacity: 0.55,
+    }),
   },
   lifetimeCardShell: {
     gap: theme.spacing.sm,
@@ -1263,11 +1267,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    ...createNeoShadow({
+      color: theme.colors.shadow,
+      elevation: 3,
+      offset: 3,
+    }),
   },
   joinButtonText: {
     fontWeight: theme.typography.weights.bold,
@@ -1280,11 +1284,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    ...createNeoShadow({
+      color: theme.colors.shadow,
+      elevation: 3,
+      offset: 3,
+    }),
   },
   warningBox: {
     alignItems: 'center',
@@ -1354,11 +1358,11 @@ const styles = StyleSheet.create({
     paddingRight: theme.spacing.sm,
     paddingBottom: theme.spacing.sm,
     paddingLeft: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    ...createNeoShadow({
+      color: theme.colors.shadow,
+      elevation: 3,
+      offset: 3,
+    }),
   },
   stickyBarCopy: {
     flex: 1,
