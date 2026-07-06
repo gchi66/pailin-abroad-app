@@ -12,6 +12,7 @@ import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCirc
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -405,7 +406,7 @@ export function GuestLessonLibraryScreen() {
                   {upgradeCopy.body}
                 </AppText>
               </View>
-              <Pressable
+              <NeoShadowPressable
                 accessibilityRole="button"
                 style={styles.noticeButton}
                 onPress={() => {
@@ -415,14 +416,14 @@ export function GuestLessonLibraryScreen() {
                 <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                   {upgradeCopy.cta}
                 </AppText>
-              </Pressable>
+              </NeoShadowPressable>
             </View>
           </Card>
         </View>
 
         <Stack gap="sm">
           <View style={styles.stageSelector}>
-            <Pressable
+            <NeoShadowPressable
               accessibilityRole="button"
               style={styles.stageButton}
               onPress={() => setIsStageMenuOpen((prev) => !prev)}>
@@ -432,7 +433,7 @@ export function GuestLessonLibraryScreen() {
               <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
                 ▾
               </AppText>
-            </Pressable>
+            </NeoShadowPressable>
             {isStageMenuOpen ? (
               <View style={styles.stageMenu}>
                 {availableStages.map((stage) => (
@@ -455,7 +456,7 @@ export function GuestLessonLibraryScreen() {
 
           <View style={styles.levelRow}>
             {levelsForSelectedStage.map((level) => (
-              <Pressable
+              <NeoShadowPressable
                 key={`level-${level}`}
                 accessibilityRole="button"
                 style={[styles.levelButton, selectedLevel === level ? styles.levelButtonActive : null]}
@@ -471,7 +472,7 @@ export function GuestLessonLibraryScreen() {
                   style={[styles.levelButtonText, selectedLevel === level ? styles.levelButtonTextActive : null]}>
                   {toLevelLabel(level, uiLanguage)}
                 </AppText>
-              </Pressable>
+              </NeoShadowPressable>
             ))}
           </View>
         </Stack>

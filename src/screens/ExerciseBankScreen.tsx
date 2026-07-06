@@ -8,6 +8,7 @@ import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -317,7 +318,7 @@ export function ExerciseBankScreen() {
                       {hasAccount ? copy.freeBody : copy.noAccountBody}
                     </AppText>
                   </View>
-                  <Pressable
+                  <NeoShadowPressable
                     accessibilityRole="button"
                     style={styles.noticeButton}
                     onPress={() => {
@@ -330,29 +331,29 @@ export function ExerciseBankScreen() {
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.membershipCta}
                     </AppText>
-                  </Pressable>
+                  </NeoShadowPressable>
                 </View>
               </Card>
             ) : null}
 
             <View style={styles.toolbarShell}>
               <View style={styles.filterRow}>
-                <Pressable
+                <NeoShadowPressable
                   accessibilityRole="button"
                   style={[styles.filterButton, filterMode === 'featured' ? styles.filterButtonActive : null]}
                   onPress={() => setFilterMode('featured')}>
                   <AppText language={uiLanguage} variant="caption" style={[styles.filterButtonText, filterMode === 'featured' ? styles.filterButtonTextActive : null]}>
                     {copy.featuredButton}
                   </AppText>
-                </Pressable>
-                <Pressable
+                </NeoShadowPressable>
+                <NeoShadowPressable
                   accessibilityRole="button"
                   style={[styles.filterButton, filterMode === 'categories' ? styles.filterButtonActive : null]}
                   onPress={() => setFilterMode('categories')}>
                   <AppText language={uiLanguage} variant="caption" style={[styles.filterButtonText, filterMode === 'categories' ? styles.filterButtonTextActive : null]}>
                     {copy.categoriesButton}
                   </AppText>
-                </Pressable>
+                </NeoShadowPressable>
               </View>
 
               <View style={styles.searchShell}>

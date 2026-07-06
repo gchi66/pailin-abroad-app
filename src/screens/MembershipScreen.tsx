@@ -5,6 +5,7 @@ import { CustomerInfo, PurchasesPackage, PURCHASES_ERROR_CODE, PurchasesError } 
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { membershipImages } from '@/src/assets/app-images';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -870,6 +871,7 @@ export function MembershipScreen() {
       {selectedPlan && isCompactLayout ? (
         <View style={styles.stickyBarShell}>
           <View style={styles.stickyBar}>
+            <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
             <View style={styles.stickyBarCopy}>
               <AppText language={uiLanguage} variant="caption" style={styles.stickyBarLabel}>
                 {stickyPlanLabel}

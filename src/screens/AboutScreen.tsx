@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { aboutImages } from '@/src/assets/app-images';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -269,7 +270,7 @@ export function AboutScreen() {
           {sectionOptions.map((option) => {
             const isActive = activeSection === option.key;
             return (
-              <Pressable
+              <NeoShadowPressable
                 key={option.key}
                 accessibilityRole="button"
                 onPress={() => setActiveSection(option.key)}
@@ -280,7 +281,7 @@ export function AboutScreen() {
                   style={[styles.sectionTabText, isActive ? styles.sectionTabTextActive : null]}>
                   {option.label.toUpperCase()}
                 </AppText>
-              </Pressable>
+              </NeoShadowPressable>
             );
           })}
         </View>

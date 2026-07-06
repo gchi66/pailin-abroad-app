@@ -9,6 +9,7 @@ import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCirc
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -274,11 +275,11 @@ export function FreeLessonLibraryScreen() {
                   <View key={stage} style={styles.stageSection}>
                     <View style={styles.stageDivider}>
                       <View style={styles.stageDividerLine} />
-                      <View style={styles.stageHeaderChip}>
+                      <NeoShadowView style={styles.stageHeaderChip}>
                         <AppText language={uiLanguage} variant="body" style={styles.stageTitle}>
                           {getStageTitle(stage, uiLanguage)}
                         </AppText>
-                      </View>
+                      </NeoShadowView>
                     </View>
 
                     <Card padding="xs" radius="lg" style={styles.stageCard}>

@@ -1,4 +1,4 @@
-import { ViewStyle } from 'react-native';
+import { Platform, StyleSheet, ViewStyle } from 'react-native';
 
 export const createShadow = ({
   color,
@@ -41,3 +41,60 @@ export const createNeoShadow = ({
     opacity,
     radius: 0,
   });
+
+type AndroidNeoShadowConfig = {
+  borderRadius: number;
+  color: string;
+  offset: number;
+};
+
+export const getAndroidNeoShadowConfig = (style: ViewStyle | undefined): AndroidNeoShadowConfig | null => {
+  if (Platform.OS !== 'android' || !style) {
+    return null;
+  }
+
+  const flattenedStyle = StyleSheet.flatten(style);
+  const offsetWidth = flattenedStyle?.shadowOffset?.width;
+  const offsetHeight = flattenedStyle?.shadowOffset?.height;
+
+  if (
+    typeof offsetWidth !== 'number' ||
+    typeof offsetHeight !== 'number' ||
+    offsetWidth <= 0 ||
+    offsetHeight <= 0 ||
+    flattenedStyle?.shadowRadius !== 0 ||
+    typeof flattenedStyle?.shadowOpacity !== 'number' ||
+    flattenedStyle.shadowOpacity <= 0 ||
+    typeof flattenedStyle?.shadowColor !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    borderRadius: typeof flattenedStyle.borderRadius === 'number' ? flattenedStyle.borderRadius : 0,
+    color: flattenedStyle.shadowColor,
+    offset: Math.max(offsetWidth, offsetHeight),
+  };
+};
+
+export const stripAndroidNeoShadow = (style: ViewStyle | undefined): ViewStyle | undefined => {
+  if (Platform.OS !== 'android' || !style) {
+    return style;
+  }
+
+  const flattenedStyle = StyleSheet.flatten(style);
+  if (!flattenedStyle) {
+    return flattenedStyle;
+  }
+
+  const {
+    elevation: _elevation,
+    shadowColor: _shadowColor,
+    shadowOffset: _shadowOffset,
+    shadowOpacity: _shadowOpacity,
+    shadowRadius: _shadowRadius,
+    ...rest
+  } = flattenedStyle;
+
+  return rest;
+};

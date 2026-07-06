@@ -59,6 +59,42 @@ const getFontFaceKey = (weight: TextStyle['fontWeight'] | undefined, italic: boo
   return 'regular';
 };
 
+const getFallbackFontFaceKey = (fontFaceKey: string, fontFaces: Record<string, string>) => {
+  if (fontFaces[fontFaceKey]) {
+    return fontFaceKey;
+  }
+
+  if (fontFaceKey === 'black' || fontFaceKey === 'extraBold') {
+    return fontFaces.bold ? 'bold' : fontFaces.semibold ? 'semibold' : 'regular';
+  }
+
+  if (fontFaceKey === 'boldItalic') {
+    return fontFaces.semiboldItalic ? 'semiboldItalic' : fontFaces.italic ? 'italic' : 'regular';
+  }
+
+  if (fontFaceKey === 'semiboldItalic') {
+    return fontFaces.italic ? 'italic' : 'regular';
+  }
+
+  if (fontFaceKey === 'mediumItalic') {
+    return fontFaces.italic ? 'italic' : 'regular';
+  }
+
+  if (fontFaceKey === 'medium') {
+    return fontFaces.semibold ? 'semibold' : 'regular';
+  }
+
+  if (fontFaceKey === 'semibold') {
+    return fontFaces.bold ? 'bold' : 'regular';
+  }
+
+  if (fontFaceKey === 'bold') {
+    return fontFaces.semibold ? 'semibold' : 'regular';
+  }
+
+  return 'regular';
+};
+
 export const resolveFontFamily = (
   language: Language,
   options?: {
@@ -69,8 +105,9 @@ export const resolveFontFamily = (
   const italic = options?.italic ?? false;
   const fontFaceKey = getFontFaceKey(options?.weight, italic);
   const fontFaces = theme.typography.fontFaces[language] as Record<string, string>;
+  const resolvedFontFaceKey = getFallbackFontFaceKey(fontFaceKey, fontFaces);
 
-  return fontFaces[fontFaceKey] ?? fontFaces.regular;
+  return fontFaces[resolvedFontFaceKey] ?? fontFaces.regular;
 };
 
 export const stripFontSynthesis = (style: TextStyle | undefined): TextStyle | undefined => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
@@ -9,7 +9,9 @@ import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { AppText } from '@/src/components/ui/AppText';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
@@ -350,7 +352,7 @@ export function LessonsLibraryScreen() {
                     {upgradeCopy.body}
                   </AppText>
                 </View>
-                <Pressable
+                <NeoShadowPressable
                   accessibilityRole="button"
                   style={styles.noticeButton}
                   onPress={() => {
@@ -360,7 +362,7 @@ export function LessonsLibraryScreen() {
                   <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                     {upgradeCopy.cta}
                   </AppText>
-                </Pressable>
+                </NeoShadowPressable>
               </View>
             </Card>
           </View>
@@ -368,17 +370,20 @@ export function LessonsLibraryScreen() {
 
         <Stack gap="sm">
           <View style={styles.stageSelector}>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.stageButton}
-              onPress={() => setIsStageMenuOpen((prev) => !prev)}>
-              <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
-                {toStageLabel(selectedStage, uiLanguage)}
-              </AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
-                ▾
-              </AppText>
-            </Pressable>
+            <View style={styles.stageButtonWrap}>
+              <AndroidNeoShadowLayer borderRadius={theme.radii.md} color={theme.colors.border} offset={2} />
+              <Pressable
+                accessibilityRole="button"
+                style={styles.stageButton}
+                onPress={() => setIsStageMenuOpen((prev) => !prev)}>
+                <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
+                  {toStageLabel(selectedStage, uiLanguage)}
+                </AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.stageButtonText}>
+                  ▾
+                </AppText>
+              </Pressable>
+            </View>
             {isStageMenuOpen ? (
               <View style={styles.stageMenu}>
                 {availableStages.map((stage) => (
@@ -401,23 +406,25 @@ export function LessonsLibraryScreen() {
 
           <View style={styles.levelRow}>
             {levelsForSelectedStage.map((level) => (
-              <Pressable
-                key={`level-${level}`}
-                accessibilityRole="button"
-                style={[styles.levelButton, selectedLevel === level ? styles.levelButtonActive : null]}
-                onPress={() => {
-                  if (selectedLevel !== level) {
-                    setIsStageMenuOpen(false);
-                  }
-                  setSelectedLevel(level);
-                }}>
-                <AppText
-                  language={uiLanguage}
-                  variant="body"
-                  style={[styles.levelButtonText, selectedLevel === level ? styles.levelButtonTextActive : null]}>
-                  {toLevelLabel(level, uiLanguage)}
-                </AppText>
-              </Pressable>
+              <View key={`level-${level}`} style={styles.levelButtonWrap}>
+                <AndroidNeoShadowLayer borderRadius={theme.radii.md} color={theme.colors.border} offset={2} />
+                <Pressable
+                  accessibilityRole="button"
+                  style={[styles.levelButton, selectedLevel === level ? styles.levelButtonActive : null]}
+                  onPress={() => {
+                    if (selectedLevel !== level) {
+                      setIsStageMenuOpen(false);
+                    }
+                    setSelectedLevel(level);
+                  }}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="body"
+                    style={[styles.levelButtonText, selectedLevel === level ? styles.levelButtonTextActive : null]}>
+                    {toLevelLabel(level, uiLanguage)}
+                  </AppText>
+                </Pressable>
+              </View>
             ))}
           </View>
         </Stack>
@@ -599,6 +606,9 @@ const styles = StyleSheet.create({
   stageSelector: {
     paddingHorizontal: theme.spacing.md,
   },
+  stageButtonWrap: {
+    position: 'relative',
+  },
   stageButton: {
     minHeight: 62,
     borderRadius: theme.radii.md,
@@ -609,11 +619,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.xs,
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.border,
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   stageButtonText: {
     fontSize: 20,
@@ -651,9 +667,13 @@ const styles = StyleSheet.create({
     rowGap: theme.spacing.sm,
     flexWrap: 'wrap',
   },
-  levelButton: {
+  levelButtonWrap: {
+    position: 'relative',
     width: '22%',
     minWidth: 74,
+  },
+  levelButton: {
+    width: '100%',
     minHeight: 56,
     borderRadius: theme.radii.md,
     borderWidth: 1,
@@ -662,11 +682,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.xs,
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.border,
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   levelButtonActive: {
     backgroundColor: '#91CAFF',

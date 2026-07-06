@@ -27,8 +27,14 @@ const paddingStyles: Record<SpacingKey, ViewStyle> = {
   xl: { padding: theme.spacing.xl },
 };
 
-export function Card({ radius = 'lg', padding = 'md', style, ...rest }: CardProps) {
-  return <View {...rest} style={[styles.base, radiusStyles[radius], paddingStyles[padding], style]} />;
+export function Card({ radius = 'lg', padding = 'md', style, children, ...rest }: CardProps) {
+  const combinedStyle = StyleSheet.flatten([styles.base, radiusStyles[radius], paddingStyles[padding], style]);
+
+  return (
+    <View {...rest} style={combinedStyle}>
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

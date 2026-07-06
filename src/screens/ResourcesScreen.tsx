@@ -1,9 +1,10 @@
 import React from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -175,37 +176,40 @@ export function ResourcesScreen() {
                 disabled={!card.enabled}
                 style={styles.cardPressable}
                 onPress={() => handleCardPress(card)}>
-                <Card padding="lg" radius="lg" style={[styles.resourceCard, !card.enabled ? styles.resourceCardDisabled : null]}>
-                  <View style={styles.cardInner}>
-                    <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
-                      <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
-                      <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
+                <View style={[styles.cardWrap, !card.enabled ? styles.cardWrapDisabled : null]}>
+                  <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.border} offset={3} />
+                  <Card padding="lg" radius="lg" style={styles.resourceCard}>
+                    <View style={styles.cardInner}>
+                      <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
+                        <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
+                        <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
+                      </View>
+
+                      <View style={styles.cardCopy}>
+                        <AppText
+                          adjustsFontSizeToFit
+                          language={uiLanguage}
+                          minimumFontScale={0.9}
+                          numberOfLines={1}
+                          variant="body"
+                          style={styles.cardTitle}>
+                          {card.title}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="body" style={styles.cardDescription}>
+                          {card.description}
+                        </AppText>
+                      </View>
                     </View>
 
-                    <View style={styles.cardCopy}>
-                      <AppText
-                        adjustsFontSizeToFit
-                        language={uiLanguage}
-                        minimumFontScale={0.9}
-                        numberOfLines={1}
-                        variant="body"
-                        style={styles.cardTitle}>
-                        {card.title}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="body" style={styles.cardDescription}>
-                        {card.description}
-                      </AppText>
-                    </View>
-                  </View>
-
-                  {card.badge ? (
-                    <View pointerEvents="none" style={styles.badgeWrap}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
-                        {card.badge}
-                      </AppText>
-                    </View>
-                  ) : null}
-                </Card>
+                    {card.badge ? (
+                      <View pointerEvents="none" style={styles.badgeWrap}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
+                          {card.badge}
+                        </AppText>
+                      </View>
+                    ) : null}
+                  </Card>
+                </View>
               </Pressable>
             ))}
           </Stack>
@@ -235,19 +239,28 @@ const styles = StyleSheet.create({
   cardPressable: {
     width: '100%',
   },
+  cardWrap: {
+    position: 'relative',
+  },
+  cardWrapDisabled: {
+    opacity: 0.88,
+  },
   resourceCard: {
     width: '100%',
     minHeight: 184,
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.lg,
-  },
-  resourceCardDisabled: {
-    opacity: 0.64,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.border,
+        shadowOffset: { width: 3, height: 3 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   cardInner: {
     position: 'relative',

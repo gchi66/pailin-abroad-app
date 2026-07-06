@@ -5,6 +5,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
+import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -48,9 +51,8 @@ const actionIconMap: Record<MoreAction['key'], { icon: React.ComponentProps<type
 
 export function MoreScreen() {
   const router = useRouter();
-  const { uiLanguage, setUiLanguage } = useUiLanguage();
+  const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, isGuestMode } = useAppSession();
-  const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
 
   const copy =
     uiLanguage === 'th'
@@ -88,25 +90,14 @@ export function MoreScreen() {
             <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
               <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
-              onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-              style={styles.languagePill}>
-              <AppText
-                language={uiLanguage === 'th' ? 'en' : 'th'}
-                variant="caption"
-                style={styles.languagePillText}>
-                {pathwayToggleLabel}
-              </AppText>
-            </Pressable>
+            <LanguageToggle style={styles.languagePill} />
           </View>
         </View>
 
         <View style={styles.actionsWrap}>
           <Stack gap="md">
             {!hasMembership ? (
-              <Pressable
+              <NeoShadowPressable
                 accessibilityRole="button"
                 style={styles.membershipCard}
                 onPress={() => {
@@ -114,9 +105,9 @@ export function MoreScreen() {
                   router.push('/(tabs)/account/membership');
                 }}>
                 <View style={styles.actionLeading}>
-                  <View style={[styles.iconBadge, styles.membershipIconBadge]}>
+                  <NeoShadowView style={[styles.iconBadge, styles.membershipIconBadge]}>
                     <MaterialIcons name="workspace-premium" size={24} color="#1A2332" />
-                  </View>
+                  </NeoShadowView>
                   <View style={styles.membershipCopy}>
                     <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
                       {copy.membershipTitle}
@@ -129,18 +120,18 @@ export function MoreScreen() {
                 <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
                   ›
                 </AppText>
-              </Pressable>
+              </NeoShadowPressable>
             ) : null}
 
             {copy.actions.map((action) => {
               const iconConfig = actionIconMap[action.key];
 
               return (
-                <Pressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
+                <NeoShadowPressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
                   <View style={styles.actionLeading}>
-                    <View style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
+                    <NeoShadowView style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
                       <MaterialIcons name={iconConfig.icon} size={22} color={iconConfig.tint} />
-                    </View>
+                    </NeoShadowView>
                     <AppText language={uiLanguage} variant="body" style={styles.linkText}>
                       {action.label}
                     </AppText>
@@ -148,7 +139,7 @@ export function MoreScreen() {
                 <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
                   ›
                 </AppText>
-                </Pressable>
+                </NeoShadowPressable>
               );
             })}
           </Stack>

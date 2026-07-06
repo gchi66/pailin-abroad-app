@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Platform,
   Pressable,
   PressableProps,
   StyleProp,
@@ -10,7 +9,6 @@ import {
 } from 'react-native';
 
 import { theme } from '../../theme/theme';
-import { createNeoShadow } from '../../theme/shadows';
 import { AppText } from './AppText';
 
 type ButtonVariant = 'primary' | 'outline';
@@ -52,16 +50,16 @@ export function Button({
   textStyle,
   ...rest
 }: ButtonProps) {
+  const resolvedBaseStyle = StyleSheet.flatten([styles.base, variantStyles[variant], style]);
+
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       style={({ pressed }) => [
-        styles.base,
-        variantStyles[variant],
+        resolvedBaseStyle,
         pressed && !disabled ? styles.pressed : null,
         disabled ? styles.disabled : null,
-        style,
       ]}
       {...rest}>
       <AppText language={language} variant="caption" style={[styles.label, textVariantStyles[variant], textStyle]}>
@@ -80,12 +78,6 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      android: createNeoShadow({
-        color: theme.colors.shadow,
-        offset: 2,
-      }),
-    }),
   },
   label: {
     fontSize: theme.typography.sizes.md,

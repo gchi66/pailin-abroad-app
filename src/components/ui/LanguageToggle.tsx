@@ -1,8 +1,8 @@
 import React from 'react';
-import { Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { createNeoShadow } from '@/src/theme/shadows';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { theme } from '@/src/theme/theme';
 
 import { AppText } from './AppText';
@@ -16,19 +16,25 @@ export function LanguageToggle({ style }: LanguageToggleProps) {
   const toggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
-      onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-      style={[styles.languagePill, style]}>
-      <AppText language={uiLanguage === 'th' ? 'en' : 'th'} variant="caption" style={styles.languagePillText}>
-        {toggleLabel}
-      </AppText>
-    </Pressable>
+    <View style={styles.wrap}>
+      <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
+        onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
+        style={[styles.languagePill, style]}>
+        <AppText language={uiLanguage === 'th' ? 'en' : 'th'} variant="caption" style={styles.languagePillText}>
+          {toggleLabel}
+        </AppText>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    position: 'relative',
+  },
   languagePill: {
     minWidth: 78,
     minHeight: 42,
@@ -39,10 +45,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md + 2,
-    ...createNeoShadow({
-      color: theme.colors.shadow,
-      elevation: 2,
-      offset: 1.5,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 1.5, height: 1.5 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
     }),
   },
   languagePillText: {

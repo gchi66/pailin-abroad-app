@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -42,11 +43,11 @@ export default function ExploreScreen() {
                 ? 'มี 3 แนวทางให้ดู: Account แบบเรียบง่าย, ภาษาใน top bar, และ Account แบบ sheet'
                 : 'There are 3 directions to review: simple Account tab, language in the top bar, and a sheet-style Account hub.'}
             </AppText>
-            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => router.push('/nav-mockups')}>
+            <NeoShadowPressable accessibilityRole="button" style={styles.primaryButton} onPress={() => router.push('/nav-mockups')}>
               <AppText language={uiLanguage} variant="body" style={styles.primaryButtonText}>
                 {uiLanguage === 'th' ? 'เปิดดู mockups' : 'Open mockups'}
               </AppText>
-            </Pressable>
+            </NeoShadowPressable>
           </Stack>
         </Card>
       </Stack>

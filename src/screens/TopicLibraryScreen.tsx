@@ -8,6 +8,7 @@ import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -289,7 +290,7 @@ export function TopicLibraryScreen() {
                       {copy.freeDesc}
                     </AppText>
                   </View>
-                  <Pressable
+                  <NeoShadowPressable
                     accessibilityRole="button"
                     style={styles.noticeButton}
                     onPress={() => {
@@ -302,14 +303,14 @@ export function TopicLibraryScreen() {
                     <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
                       {copy.freeCta}
                     </AppText>
-                  </Pressable>
+                  </NeoShadowPressable>
                 </View>
               </Card>
             ) : null}
 
             <View style={styles.toolbarShell}>
               <View style={styles.filterRow}>
-                <Pressable
+                <NeoShadowPressable
                   accessibilityRole="button"
                   style={[styles.filterButton, filterMode === 'featured' ? styles.filterButtonActive : null]}
                   onPress={() => setFilterMode('featured')}>
@@ -319,9 +320,9 @@ export function TopicLibraryScreen() {
                     style={[styles.filterButtonText, filterMode === 'featured' ? styles.filterButtonTextActive : null]}>
                     {copy.featuredButton}
                   </AppText>
-                </Pressable>
+                </NeoShadowPressable>
 
-                <Pressable
+                <NeoShadowPressable
                   accessibilityRole="button"
                   style={[styles.filterButton, filterMode === 'all' ? styles.filterButtonActive : null]}
                   onPress={() => setFilterMode('all')}>
@@ -331,7 +332,7 @@ export function TopicLibraryScreen() {
                     style={[styles.filterButtonText, filterMode === 'all' ? styles.filterButtonTextActive : null]}>
                     {copy.allButton}
                   </AppText>
-                </Pressable>
+                </NeoShadowPressable>
               </View>
 
               <View style={styles.searchShell}>

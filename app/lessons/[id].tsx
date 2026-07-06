@@ -7,6 +7,7 @@ import {
   Linking,
   Modal,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -6381,7 +6382,10 @@ export default function LessonDetailShellScreen() {
         if (status.didJustFinish) {
           setPlayingSnippetKey((current) => (current === audioKey ? null : current));
           setActiveSnippetKey((current) => (current === audioKey ? null : current));
-          void player.seekTo(0).catch(() => undefined);
+          // Android can re-trigger playback when a snippet is seeked immediately on finish.
+          if (Platform.OS !== 'android') {
+            void player.seekTo(0).catch(() => undefined);
+          }
         } else if (status.playing) {
           setActiveSnippetKey(audioKey);
           setPlayingSnippetKey(audioKey);

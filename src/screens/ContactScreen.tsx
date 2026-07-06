@@ -18,6 +18,7 @@ import { submitContactMessage } from '@/src/api/contact';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -194,7 +195,7 @@ export function ContactScreen() {
           </View>
 
           {status !== 'idle' ? (
-            <View
+            <NeoShadowView
               style={[
                 styles.statusBox,
                 styles.neoCard,
@@ -205,7 +206,7 @@ export function ContactScreen() {
               <AppText language={uiLanguage} variant="body" style={styles.statusText}>
                 {isSending ? copy.sending : feedback}
               </AppText>
-            </View>
+            </NeoShadowView>
           ) : null}
 
           <Stack gap="md">
@@ -213,59 +214,60 @@ export function ContactScreen() {
               <AppText language={uiLanguage} variant="caption" style={styles.label}>
                 {copy.nameLabel}
               </AppText>
-              <TextInput
-                accessibilityLabel={copy.nameLabel}
-                autoCapitalize="words"
-                autoCorrect={false}
-                editable={!isSending}
-                onChangeText={(value) => updateField('name', value)}
-                placeholder={copy.namePlaceholder}
-                placeholderTextColor={theme.colors.mutedText}
-                style={[styles.input, styles.neoInput, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-                value={formData.name}
-              />
+              <NeoShadowView style={[styles.inputShell, styles.neoInput]}>
+                <TextInput
+                  accessibilityLabel={copy.nameLabel}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  editable={!isSending}
+                  onChangeText={(value) => updateField('name', value)}
+                  placeholder={copy.namePlaceholder}
+                  placeholderTextColor={theme.colors.mutedText}
+                  style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+                  value={formData.name}
+                />
+              </NeoShadowView>
             </View>
 
             <View style={styles.fieldGroup}>
               <AppText language={uiLanguage} variant="caption" style={styles.label}>
                 {copy.emailLabel}
               </AppText>
-              <TextInput
-                accessibilityLabel={copy.emailLabel}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isSending}
-                keyboardType="email-address"
-                onChangeText={(value) => updateField('email', value)}
-                placeholder={copy.emailPlaceholder}
-                placeholderTextColor={theme.colors.mutedText}
-                style={[styles.input, styles.neoInput, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
-                value={formData.email}
-              />
+              <NeoShadowView style={[styles.inputShell, styles.neoInput]}>
+                <TextInput
+                  accessibilityLabel={copy.emailLabel}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isSending}
+                  keyboardType="email-address"
+                  onChangeText={(value) => updateField('email', value)}
+                  placeholder={copy.emailPlaceholder}
+                  placeholderTextColor={theme.colors.mutedText}
+                  style={[styles.input, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+                  value={formData.email}
+                />
+              </NeoShadowView>
             </View>
 
             <View style={styles.fieldGroup}>
               <AppText language={uiLanguage} variant="caption" style={styles.label}>
                 {copy.messageLabel}
               </AppText>
-              <TextInput
-                accessibilityLabel={copy.messageLabel}
-                autoCapitalize="sentences"
-                autoCorrect
-                editable={!isSending}
-                multiline
-                onChangeText={(value) => updateField('message', value)}
-                placeholder={copy.messagePlaceholder}
-                placeholderTextColor={theme.colors.mutedText}
-                style={[
-                  styles.input,
-                  styles.neoInput,
-                  styles.messageInput,
-                  uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish,
-                ]}
-                textAlignVertical="top"
-                value={formData.message}
-              />
+              <NeoShadowView style={[styles.inputShell, styles.neoInput, styles.messageInputShell]}>
+                <TextInput
+                  accessibilityLabel={copy.messageLabel}
+                  autoCapitalize="sentences"
+                  autoCorrect
+                  editable={!isSending}
+                  multiline
+                  onChangeText={(value) => updateField('message', value)}
+                  placeholder={copy.messagePlaceholder}
+                  placeholderTextColor={theme.colors.mutedText}
+                  style={[styles.input, styles.messageInput, uiLanguage === 'th' ? styles.inputThai : styles.inputEnglish]}
+                  textAlignVertical="top"
+                  value={formData.message}
+                />
+              </NeoShadowView>
             </View>
 
             <Button
@@ -351,15 +353,20 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 52,
+    paddingVertical: theme.spacing.sm,
+    color: theme.colors.text,
+    fontSize: theme.typography.sizes.md,
+    lineHeight: theme.typography.lineHeights.md,
+  },
+  inputShell: {
+    minHeight: 52,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.md,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    paddingVertical: 0,
+    justifyContent: 'center',
   },
   neoInput: {
     shadowColor: theme.colors.shadow,
@@ -376,6 +383,11 @@ const styles = StyleSheet.create({
   },
   messageInput: {
     minHeight: 150,
+  },
+  messageInputShell: {
+    minHeight: 150,
+    paddingVertical: theme.spacing.sm,
+    justifyContent: 'flex-start',
   },
   submitButton: {
     marginTop: theme.spacing.xs,

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -10,6 +10,7 @@ import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle
 import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -477,18 +478,21 @@ export function MyPathwayScreen() {
                 </View>
 
                 <View style={styles.planMeta}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
-                    onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-                    style={styles.languagePill}>
-                    <AppText
-                      language={uiLanguage === 'th' ? 'en' : 'th'}
-                      variant="caption"
-                      style={styles.languagePillText}>
-                      {pathwayToggleLabel}
-                    </AppText>
-                  </Pressable>
+                  <View style={styles.languagePillWrap}>
+                    <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
+                      onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
+                      style={styles.languagePill}>
+                      <AppText
+                        language={uiLanguage === 'th' ? 'en' : 'th'}
+                        variant="caption"
+                        style={styles.languagePillText}>
+                        {pathwayToggleLabel}
+                      </AppText>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             </View>
@@ -540,8 +544,10 @@ export function MyPathwayScreen() {
           </Pressable>
         ) : null}
 
-        <Card padding="md" radius="lg" style={styles.progressCard}>
-          <Stack gap="sm">
+        <View style={styles.cardWrap}>
+          <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={2.5} />
+          <Card padding="md" radius="lg" style={styles.progressCard}>
+            <Stack gap="sm">
             <View style={styles.progressHeader}>
               <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
                 {copy.progressTitle}
@@ -610,17 +616,20 @@ export function MyPathwayScreen() {
                 </AppText>
               </View>
             </View>
-          </Stack>
-        </Card>
+            </Stack>
+          </Card>
+        </View>
 
         <Stack gap="sm">
           <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
             {copy.continueLearning}
           </AppText>
 
-          <Card padding="md" radius="lg" style={styles.resumeCard}>
-            {resumeRow ? (
-              <Stack gap="md">
+          <View style={styles.cardWrap}>
+            <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={2.5} />
+            <Card padding="md" radius="lg" style={styles.resumeCard}>
+              {resumeRow ? (
+                <Stack gap="md">
                 <View style={styles.resumeMeta}>
                   {(() => {
                     const lessonNumber = getLessonNumber(resumeRow.lesson);
@@ -667,27 +676,31 @@ export function MyPathwayScreen() {
                   </View>
                 </View>
 
-                <Button
-                  language={uiLanguage}
-                  title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
-                  onPress={() => {
-                    if (resumeRow.state === 'locked') {
-                      prefetchPricing();
-                      router.push('/(tabs)/account/membership');
-                      return;
-                    }
+                <View style={styles.resumeButtonWrap}>
+                  <AndroidNeoShadowLayer borderRadius={theme.radii.xl} color={theme.colors.shadow} offset={2.5} />
+                  <Button
+                    language={uiLanguage}
+                    title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                    onPress={() => {
+                      if (resumeRow.state === 'locked') {
+                        prefetchPricing();
+                        router.push('/(tabs)/account/membership');
+                        return;
+                      }
 
-                    handleOpenLesson(resumeRow.lesson);
-                  }}
-                  style={styles.resumeButton}
-                />
-              </Stack>
-            ) : (
-              <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
-                {errorMessage || copy.noResumeLesson}
-              </AppText>
-            )}
-          </Card>
+                      handleOpenLesson(resumeRow.lesson);
+                    }}
+                    style={styles.resumeButton}
+                  />
+                </View>
+                </Stack>
+              ) : (
+                <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
+                  {errorMessage || copy.noResumeLesson}
+                </AppText>
+              )}
+            </Card>
+          </View>
         </Stack>
 
         <Stack gap="sm">
@@ -743,14 +756,17 @@ export function MyPathwayScreen() {
               </Card>
             )}
 
-            <Pressable
-              accessibilityRole="button"
-              style={styles.libraryButton}
-              onPress={() => router.push(hasMembership ? '/(tabs)/lessons/library' : '/(tabs)/lessons/free-library')}>
-              <AppText language={uiLanguage} variant="caption" style={styles.libraryButtonText}>
-                {hasMembership ? copy.browseLibrary : copy.browseFreeLibrary}
-              </AppText>
-            </Pressable>
+            <View style={styles.libraryButtonWrap}>
+              <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={1.75} />
+              <Pressable
+                accessibilityRole="button"
+                style={styles.libraryButton}
+                onPress={() => router.push(hasMembership ? '/(tabs)/lessons/library' : '/(tabs)/lessons/free-library')}>
+                <AppText language={uiLanguage} variant="caption" style={styles.libraryButtonText}>
+                  {hasMembership ? copy.browseLibrary : copy.browseFreeLibrary}
+                </AppText>
+              </Pressable>
+            </View>
           </Stack>
         </Stack>
       </Stack>
@@ -904,11 +920,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md + 2,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.5, height: 1.5 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 1.5, height: 1.5 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  languagePillWrap: {
+    position: 'relative',
   },
   languagePillText: {
     color: theme.colors.text,
@@ -964,13 +989,22 @@ const styles = StyleSheet.create({
     color: theme.colors.surface,
     fontWeight: theme.typography.weights.bold,
   },
+  cardWrap: {
+    position: 'relative',
+  },
   progressCard: {
     backgroundColor: '#DCEEFF',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   progressHeader: {
     flexDirection: 'row',
@@ -996,10 +1030,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
     flexWrap: 'wrap',
+    ...Platform.select({
+      android: {
+        paddingBottom: 4,
+      },
+    }),
   },
   stageText: {
     fontSize: 32,
-    lineHeight: 38,
+    lineHeight: Platform.OS === 'android' ? 42 : 38,
     fontWeight: theme.typography.weights.semibold,
   },
   levelPill: {
@@ -1070,11 +1109,17 @@ const styles = StyleSheet.create({
   },
   resumeCard: {
     backgroundColor: theme.colors.surface,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   resumeMeta: {
     flexDirection: 'row',
@@ -1123,13 +1168,22 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
     color: '#66758A',
   },
+  resumeButtonWrap: {
+    position: 'relative',
+  },
   resumeButton: {
     width: '100%',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 1.75, height: 1.75 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+    }),
   },
   upNextCard: {
     minHeight: 84,
@@ -1169,18 +1223,27 @@ const styles = StyleSheet.create({
   },
   libraryButton: {
     minHeight: 54,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 1.75, height: 1.75 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  libraryButtonWrap: {
+    position: 'relative',
   },
   libraryButtonText: {
     textTransform: 'uppercase',
