@@ -2953,6 +2953,7 @@ export default function LessonDetailShellScreen() {
   const inflightSnippetPreloadsRef = useRef<Partial<Record<string, Promise<void>>>>({});
   const isConversationLockScreenActiveRef = useRef(false);
   const conversationAudioMetadataRef = useRef<AudioMetadata>({});
+  const conversationAudioSourceKeyRef = useRef<string | null>(null);
   const nextSectionHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRateRef = useRef(1);
   const applyInputRef = useRef<TextInput | null>(null);
@@ -6018,7 +6019,13 @@ export default function LessonDetailShellScreen() {
 
     const run = async () => {
       if (!hasStartedLesson || !lesson?.id || !lesson.conversation_audio_url) {
+        conversationAudioSourceKeyRef.current = null;
         setAudioUrls({ main: null, noBg: null, bg: null });
+        return;
+      }
+
+      const nextSourceKey = `${lesson.id}:${lesson.conversation_audio_url.trim()}`;
+      if (conversationAudioSourceKeyRef.current === nextSourceKey && audioUrls.main) {
         return;
       }
 
@@ -6027,11 +6034,13 @@ export default function LessonDetailShellScreen() {
         if (!isMounted) {
           return;
         }
+        conversationAudioSourceKeyRef.current = nextSourceKey;
         setAudioUrls(urls);
       } catch {
         if (!isMounted) {
           return;
         }
+        conversationAudioSourceKeyRef.current = null;
         setAudioUrls({ main: null, noBg: null, bg: null });
       }
     };
@@ -6041,7 +6050,7 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [hasStartedLesson, lesson]);
+  }, [audioUrls.main, hasStartedLesson, lesson]);
 
   useEffect(() => {
     let isMounted = true;
