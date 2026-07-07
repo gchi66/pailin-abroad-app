@@ -216,7 +216,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, []);
 
   const configureGoogleSignIn = useCallback(() => {
-    if (Platform.OS !== 'ios') {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
       return true;
     }
 
@@ -224,8 +224,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       return true;
     }
 
-    if (!env.googleIosClientId || !env.googleWebClientId) {
+    const missingIosClientId = Platform.OS === 'ios' && !env.googleIosClientId;
+    const missingWebClientId = !env.googleWebClientId;
+
+    if (missingIosClientId || missingWebClientId) {
       logAuth('google:configure:missing-env', {
+        platform: Platform.OS,
         hasIosClientId: Boolean(env.googleIosClientId),
         hasWebClientId: Boolean(env.googleWebClientId),
       });
@@ -235,8 +239,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     try {
       const { GoogleSignin } = getGoogleSignInModule();
       GoogleSignin.configure({
-        iosClientId: env.googleIosClientId,
         webClientId: env.googleWebClientId,
+        ...(Platform.OS === 'ios' ? { iosClientId: env.googleIosClientId } : {}),
       });
       hasConfiguredGoogleSignInRef.current = true;
       logAuth('google:configure:success');
@@ -1101,15 +1105,31 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
     setIsGuestConversionPending(guestConversionPendingRef.current);
 
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
       if (!configureGoogleSignIn()) {
-        const message = 'Google sign-in is not configured for iOS.';
+        const message =
+          Platform.OS === 'ios'
+            ? 'Google sign-in is not configured for iOS.'
+            : 'Google sign-in is not configured for Android.';
         setAuthError(message);
         return { error: message };
       }
 
+      const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = getGoogleSignInModule();
+
       try {
-        const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = getGoogleSignInModule();
+        if (Platform.OS === 'android') {
+          const playServicesAvailable = await GoogleSignin.hasPlayServices({
+            showPlayServicesUpdateDialog: true,
+          });
+
+          if (!playServicesAvailable) {
+            const message = 'Google Play Services are not available on this device.';
+            setAuthError(message);
+            return { error: message };
+          }
+        }
+
         const nativePromptStartedAt = Date.now();
         const response = await GoogleSignin.signIn();
         logAuthTiming('google:native:signIn:completed', nativePromptStartedAt, {
