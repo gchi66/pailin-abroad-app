@@ -20,13 +20,40 @@ type TopicSection = {
   body: LessonRichNode[];
 };
 
-const INLINE_MARKER_RE = /(\[X\]|\[✓\]|\[-\]|\[x\]|\[check\])/g;
+const INLINE_MARKER_RE = /(\[\s*(?:X|x|✓|√|✔|check|-|✗|✕|✖|×)\ufe0e?\ufe0f?\s*\])/g;
 const INLINE_MARKER_COLORS: Record<string, string> = {
-  '[X]': '#FD6969',
   '[x]': '#FD6969',
-  '[✓]': '#3CA0FE',
   '[check]': '#3CA0FE',
   '[-]': '#28A265',
+};
+const INLINE_MARKER_DISPLAY: Record<string, string> = {
+  '[x]': 'x',
+  '[check]': '✓',
+  '[-]': '-',
+};
+const getInlineMarkerKey = (marker: string) => {
+  const compactMarker = marker.replace(/\s+/g, '').replace(/[\ufe0e\ufe0f]/g, '');
+  const lowerMarker = compactMarker.toLowerCase();
+
+  if (lowerMarker === '[x]' || compactMarker === '[✗]' || compactMarker === '[✕]' || compactMarker === '[✖]' || compactMarker === '[×]') {
+    return '[x]';
+  }
+  if (lowerMarker === '[check]' || compactMarker === '[✓]' || compactMarker === '[√]' || compactMarker === '[✔]') {
+    return '[check]';
+  }
+  if (compactMarker === '[-]') {
+    return '[-]';
+  }
+
+  return null;
+};
+const getInlineMarkerColor = (marker: string) => {
+  const markerKey = getInlineMarkerKey(marker);
+  return markerKey ? INLINE_MARKER_COLORS[markerKey] : null;
+};
+const getInlineMarkerDisplay = (marker: string) => {
+  const markerKey = getInlineMarkerKey(marker);
+  return markerKey ? INLINE_MARKER_DISPLAY[markerKey] : null;
 };
 const TABLE_LINK_RE = /\[link:([^\]]+)\]([\s\S]*?)\[\/link\]/g;
 
@@ -39,6 +66,50 @@ const cleanAudioTags = (text: string) =>
 const getInlineText = (inline: LessonRichInline) => cleanAudioTags(String(inline?.text ?? ''));
 const hasRenderableInlines = (inlines: LessonRichInline[] | null | undefined) =>
   Array.isArray(inlines) && inlines.some((inline) => getInlineText(inline).trim().length > 0);
+const inlineFormattingKey = (inline: LessonRichInline) =>
+  JSON.stringify({
+    bold: inline.bold === true,
+    italic: inline.italic === true,
+    underline: inline.underline === true,
+    link: typeof inline.link === 'string' ? inline.link.trim() : '',
+    highlight: typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '',
+  });
+const mergeAdjacentTopicInlines = (inlines: LessonRichInline[] | null | undefined) => {
+  if (!Array.isArray(inlines) || !inlines.length) {
+    return [];
+  }
+
+  const merged: LessonRichInline[] = [];
+
+  inlines.forEach((inline) => {
+    const textValue = getInlineText(inline);
+    if (!textValue) {
+      return;
+    }
+
+    const previous = merged[merged.length - 1];
+    const canMerge =
+      previous &&
+      inlineFormattingKey(previous) === inlineFormattingKey(inline) &&
+      !String(previous.text ?? '').includes('\n') &&
+      !textValue.includes('\n');
+
+    if (canMerge) {
+      merged[merged.length - 1] = {
+        ...previous,
+        text: `${String(previous.text ?? '')}${textValue}`,
+      };
+      return;
+    }
+
+    merged.push({
+      ...inline,
+      text: textValue,
+    });
+  });
+
+  return merged;
+};
 const isListLikeNode = (node: LessonRichNode | null | undefined) =>
   node?.kind === 'numbered_item' || node?.kind === 'list_item' || node?.kind === 'misc_item';
 
@@ -193,17 +264,19 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
   };
 
   const renderInlines = (inlines: LessonRichInline[] | null | undefined, keyPrefix: string) => {
-    if (!Array.isArray(inlines) || !inlines.length) {
+    const mergedInlines = mergeAdjacentTopicInlines(inlines);
+    if (!mergedInlines.length) {
       return null;
     }
 
-    return inlines.map((inline, index) => {
+    return mergedInlines.map((inline, index) => {
       const textValue = getInlineText(inline);
       if (!textValue) {
         return null;
       }
 
       const parts = textValue.split(INLINE_MARKER_RE).filter(Boolean);
+      const hasInlineMarker = parts.some((part) => getInlineMarkerColor(part));
       const renderSegments = (text: string, segmentKey: string, colorOverride?: string) =>
         splitTextByScript(text).map((segment, segmentIndex) => (
           <Text
@@ -227,7 +300,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
             inline.underline ? styles.inlineUnderline : null,
             typeof inline.link === 'string' && inline.link.trim() ? styles.inlineLink : null,
           ]}>
-          {parts.length > 1
+          {hasInlineMarker
             ? parts.map((part, partIndex) => (
                 <Text
                   key={`${keyPrefix}-${index}-${partIndex}`}
@@ -235,10 +308,10 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
                     styles.inlineText,
                     inline.italic ? styles.inlineItalic : null,
                     inline.underline ? styles.inlineUnderline : null,
-                    INLINE_MARKER_COLORS[part] ? styles.inlineMarker : null,
-                    INLINE_MARKER_COLORS[part] ? { color: INLINE_MARKER_COLORS[part] } : null,
+                    getInlineMarkerColor(part) ? styles.inlineMarker : null,
+                    getInlineMarkerColor(part) ? { color: getInlineMarkerColor(part) } : null,
                   ]}>
-                  {renderSegments(part, `${keyPrefix}-${index}-${partIndex}`, INLINE_MARKER_COLORS[part])}
+                  {renderSegments(getInlineMarkerDisplay(part) ?? part, `${keyPrefix}-${index}-${partIndex}`, getInlineMarkerColor(part) ?? undefined)}
                 </Text>
               ))
             : renderSegments(textValue, `${keyPrefix}-${index}`)}
@@ -312,6 +385,26 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
     const tableViewportWidth = tableViewportWidths[key] ?? 0;
     const tableRenderWidth = Math.max(tableMinWidth, tableViewportWidth);
 
+    const renderTableMarkerText = (text: string, keyPrefix: string, textStyle: object | object[]) => {
+      const parts = text.split(INLINE_MARKER_RE).filter(Boolean);
+      if (!parts.some((part) => getInlineMarkerColor(part))) {
+        return text;
+      }
+
+      return parts.map((part, partIndex) => {
+        const markerColor = getInlineMarkerColor(part);
+        if (!markerColor) {
+          return part;
+        }
+
+        return (
+          <Text key={`${keyPrefix}-marker-${partIndex}`} style={[textStyle, styles.inlineMarker, { color: markerColor }]}>
+            {getInlineMarkerDisplay(part) ?? part}
+          </Text>
+        );
+      });
+    };
+
     const renderTableCellTextWithLinks = (text: string, keyPrefix: string) => {
       const parts: React.ReactNode[] = [];
       let lastIndex = 0;
@@ -326,9 +419,10 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
         const end = start + raw.length;
 
         if (start > lastIndex) {
+          const segmentText = text.slice(lastIndex, start);
           parts.push(
             <Text key={`${keyPrefix}-text-${linkIndex}`} style={styles.tableCellText}>
-              {text.slice(lastIndex, start)}
+              {renderTableMarkerText(segmentText, `${keyPrefix}-text-${linkIndex}`, styles.tableCellText)}
             </Text>
           );
         }
@@ -336,7 +430,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
         const href = String(hrefRaw ?? '').trim();
         parts.push(
           <Text key={`${keyPrefix}-link-${linkIndex}`} onPress={() => handleOpenLink(href)} style={[styles.tableCellText, styles.inlineLink]}>
-            {linkText || href}
+            {renderTableMarkerText(linkText || href, `${keyPrefix}-link-${linkIndex}`, [styles.tableCellText, styles.inlineLink])}
           </Text>
         );
 
@@ -345,14 +439,15 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
       }
 
       if (lastIndex < text.length) {
+        const segmentText = text.slice(lastIndex);
         parts.push(
           <Text key={`${keyPrefix}-tail`} style={styles.tableCellText}>
-            {text.slice(lastIndex)}
+            {renderTableMarkerText(segmentText, `${keyPrefix}-tail`, styles.tableCellText)}
           </Text>
         );
       }
 
-      return parts.length ? parts : <Text style={styles.tableCellText}>{text}</Text>;
+      return parts.length ? parts : <Text style={styles.tableCellText}>{renderTableMarkerText(text, `${keyPrefix}-plain`, styles.tableCellText)}</Text>;
     };
 
     const renderTableCellContent = (cellText: string, rowIndex: number, cellIndex: number, isHeaderRow: boolean) => {

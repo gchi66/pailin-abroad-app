@@ -939,23 +939,41 @@ const MASTER_ORDER = [
 const CYAN_HIGHLIGHT = '#00ffff';
 const APPLY_ACCENT_COLOR = '#7BE6C9';
 const UNDERSTAND_HIGHLIGHTS = new Set(['#f4cccc', '#d9ead3', '#c9daf7', '#c9daf8']);
-const INLINE_MARKER_RE = /(\[X\]|\[✓\]|\[√\]|\[-\]|\[x\]|\[check\])/g;
+const INLINE_MARKER_RE = /(\[\s*(?:X|x|✓|√|✔|check|-|✗|✕|✖|×)\ufe0e?\ufe0f?\s*\])/g;
 const SPEAKER_PREFIX_RE = /^\s*((?:[A-Za-z][A-Za-z ]{0,24}|[\u0E00-\u0E7F][\u0E00-\u0E7F ]{0,24}):\s*)/;
 const INLINE_MARKER_COLORS: Record<string, string> = {
-  '[X]': '#FD6969',
   '[x]': '#FD6969',
-  '[✓]': '#3CA0FE',
-  '[√]': '#3CA0FE',
   '[check]': '#3CA0FE',
   '[-]': '#28A265',
 };
 const INLINE_MARKER_DISPLAY: Record<string, string> = {
-  '[X]': 'x',
   '[x]': 'x',
-  '[✓]': '✓',
-  '[√]': '✓',
   '[check]': '✓',
   '[-]': '-',
+};
+const getInlineMarkerKey = (marker: string) => {
+  const compactMarker = marker.replace(/\s+/g, '').replace(/[\ufe0e\ufe0f]/g, '');
+  const lowerMarker = compactMarker.toLowerCase();
+
+  if (lowerMarker === '[x]' || compactMarker === '[✗]' || compactMarker === '[✕]' || compactMarker === '[✖]' || compactMarker === '[×]') {
+    return '[x]';
+  }
+  if (lowerMarker === '[check]' || compactMarker === '[✓]' || compactMarker === '[√]' || compactMarker === '[✔]') {
+    return '[check]';
+  }
+  if (compactMarker === '[-]') {
+    return '[-]';
+  }
+
+  return null;
+};
+const getInlineMarkerColor = (marker: string) => {
+  const markerKey = getInlineMarkerKey(marker);
+  return markerKey ? INLINE_MARKER_COLORS[markerKey] : null;
+};
+const getInlineMarkerDisplay = (marker: string) => {
+  const markerKey = getInlineMarkerKey(marker);
+  return markerKey ? INLINE_MARKER_DISPLAY[markerKey] : null;
 };
 const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
   byKey: {},
@@ -7040,6 +7058,8 @@ export default function LessonDetailShellScreen() {
       lines.push(currentLine);
     }
 
+    lines = lines.map((lineSpans) => mergeAdjacentRichInlines(lineSpans, contentLang));
+
     const splitLineSpansAtOffsets = (lineSpans: LessonRichInline[], splitOffsets: number[]) => {
       if (!splitOffsets.length) {
         return [lineSpans];
@@ -7228,7 +7248,7 @@ export default function LessonDetailShellScreen() {
         let consumedChars = 0;
 
         markerAwareParts.forEach((part, partIndex) => {
-          const markerColor = INLINE_MARKER_COLORS[part];
+          const markerColor = getInlineMarkerColor(part);
           if (markerColor) {
             renderedSpans.push(
               <Text
@@ -7247,7 +7267,7 @@ export default function LessonDetailShellScreen() {
                   markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                   markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
                 ]}>
-                {INLINE_MARKER_DISPLAY[part] ?? part}
+                {getInlineMarkerDisplay(part) ?? part}
               </Text>
             );
             consumedChars += part.length;
@@ -7382,9 +7402,9 @@ export default function LessonDetailShellScreen() {
 
           const renderLinePieces = (text: string, bodyKey: string) => {
             const markerParts = text.split(INLINE_MARKER_RE).filter(Boolean);
-            if (markerParts.length > 1) {
+            if (markerParts.some((part) => getInlineMarkerColor(part))) {
               return markerParts.flatMap((part, partIndex) => {
-                const markerColor = INLINE_MARKER_COLORS[part];
+                const markerColor = getInlineMarkerColor(part);
                 if (markerColor) {
                   return (
                     <Text
@@ -7402,7 +7422,7 @@ export default function LessonDetailShellScreen() {
                         markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                         markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
                       ]}>
-                      {INLINE_MARKER_DISPLAY[part] ?? part}
+                      {getInlineMarkerDisplay(part) ?? part}
                     </Text>
                   );
                 }
@@ -7501,10 +7521,10 @@ export default function LessonDetailShellScreen() {
       };
       const textParts = textValue.split(INLINE_MARKER_RE).filter(Boolean);
       const renderedText =
-        textParts.length > 1 ? (
+        textParts.some((part) => getInlineMarkerColor(part)) ? (
           <Text key={`${keyPrefix}-${index}`} style={styles.richInlineText}>
             {textParts.map((part, partIndex) => {
-              const markerColor = INLINE_MARKER_COLORS[part];
+              const markerColor = getInlineMarkerColor(part);
 
               if (!markerColor) {
                 return renderThaiSegments(part, `${keyPrefix}-${index}-${partIndex}`);
@@ -7526,7 +7546,7 @@ export default function LessonDetailShellScreen() {
                     markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
                     markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
                   ]}>
-                  {INLINE_MARKER_DISPLAY[part] ?? part}
+                  {getInlineMarkerDisplay(part) ?? part}
                 </Text>
               );
             })}
