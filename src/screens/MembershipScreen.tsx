@@ -254,12 +254,81 @@ const getCopy = (uiLanguage: UiLanguage) => {
   };
 };
 
-const formatAmount = (value: number) =>
-  Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const formatAmount = (value: number, maximumFractionDigits = 2, minimumFractionDigits = 0) =>
+  Number(value).toLocaleString(undefined, { minimumFractionDigits, maximumFractionDigits });
 
-const buildPriceWithSymbol = (currency: string | null, value: number) => {
-  const symbol = currency === 'USD' ? '$' : '฿';
-  return `${symbol}${formatAmount(value)}`;
+const buildPriceWithSymbol = (
+  currency: string | null,
+  value: number,
+  maximumFractionDigits = 2,
+  minimumFractionDigits = 0
+) => {
+  if (currency === 'USD') {
+    return `$${formatAmount(value, maximumFractionDigits, minimumFractionDigits)}`;
+  }
+  if (currency === 'THB') {
+    return `฿${formatAmount(value, maximumFractionDigits, minimumFractionDigits)}`;
+  }
+
+  if (currency) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        currency,
+        maximumFractionDigits,
+        minimumFractionDigits,
+        style: 'currency',
+      }).format(value);
+    } catch {
+      return `${currency} ${formatAmount(value, maximumFractionDigits, minimumFractionDigits)}`;
+    }
+  }
+
+  return `฿${formatAmount(value, maximumFractionDigits, minimumFractionDigits)}`;
+};
+
+const buildStorefrontMonthlyDisplayPrice = (currency: string, value: number) => {
+  if (currency === 'THB') {
+    return buildPriceWithSymbol(currency, value, 0);
+  }
+
+  if (currency === 'USD') {
+    return buildPriceWithSymbol(currency, value, 2, 2);
+  }
+
+  return buildPriceWithSymbol(currency, value);
+};
+
+const getStorefrontPriceForPlan = (pkg: PurchasesPackage | null | undefined, months: number) => {
+  if (!pkg || !Number.isFinite(pkg.product.price) || pkg.product.price <= 0) {
+    return null;
+  }
+
+  const currency = pkg.product.currencyCode;
+  if (months <= 1) {
+    return {
+      currency,
+      displayPrice: pkg.product.priceString,
+      totalPrice: pkg.product.price,
+      monthlyPrice: pkg.product.price,
+    };
+  }
+
+  const monthlyPrice = pkg.product.price / months;
+  return {
+    currency,
+    displayPrice: buildStorefrontMonthlyDisplayPrice(currency, monthlyPrice),
+    totalPrice: pkg.product.price,
+    monthlyPrice,
+  };
+};
+
+const getPromoOriginalMultiplier = (billingPeriod: string) => {
+  const promoPrice = THB_PROMO_MONTHLY_PRICES[billingPeriod];
+  if (!promoPrice) {
+    return 2;
+  }
+
+  return promoPrice.originalPerMonth / promoPrice.currentPerMonth;
 };
 
 type MembershipPlanCardProps = {
@@ -537,6 +606,26 @@ export function MembershipScreen() {
         if (cancelled) {
           return;
         }
+        if (__DEV__) {
+          console.log(
+            '[revenuecat products]',
+            {
+              offeringIdentifier: offering?.identifier ?? null,
+              packages:
+                offering?.availablePackages.map((pkg) => ({
+                  packageIdentifier: pkg.identifier,
+                  packageType: pkg.packageType,
+                  productId: pkg.product.identifier,
+                  title: pkg.product.title,
+                  description: pkg.product.description,
+                  price: pkg.product.price,
+                  priceString: pkg.product.priceString,
+                  currencyCode: pkg.product.currencyCode,
+                  subscriptionPeriod: pkg.product.subscriptionPeriod,
+                })) ?? [],
+            }
+          );
+        }
         setAvailablePackages(getPlanPackageMap(offering));
         setCustomerInfo(nextCustomerInfo);
       } catch (error) {
@@ -557,16 +646,23 @@ export function MembershipScreen() {
     }
 
     const isUsdPricing = pricingState.currency === 'USD';
-    const lifetimePrice = isUsdPricing ? USD_LIFETIME_PRICING.current : THB_LIFETIME_PRICING.current;
-    const lifetimeOriginalPrice = isUsdPricing ? USD_LIFETIME_PRICING.original : THB_LIFETIME_PRICING.original;
+    const fallbackLifetimePrice = isUsdPricing ? USD_LIFETIME_PRICING.current : THB_LIFETIME_PRICING.current;
+    const lifetimeStorefrontPrice = getStorefrontPriceForPlan(availablePackages.lifetime, 1);
+    const lifetimePrice = lifetimeStorefrontPrice?.totalPrice ?? fallbackLifetimePrice;
+    const lifetimeCurrency = lifetimeStorefrontPrice?.currency ?? pricingState.currency ?? '';
+    const lifetimeOriginalPrice = lifetimeStorefrontPrice
+      ? Math.ceil(lifetimeStorefrontPrice.totalPrice * 2)
+      : isUsdPricing
+        ? USD_LIFETIME_PRICING.original
+        : THB_LIFETIME_PRICING.original;
     const lifetimePlan: MembershipCard = {
       id: 'lifetime',
       duration: copy.lifetime.title,
       bestFor: copy.lifetime.bestFor,
-      price: buildPriceWithSymbol(pricingState.currency, lifetimePrice),
+      price: lifetimeStorefrontPrice?.displayPrice ?? buildPriceWithSymbol(pricingState.currency, lifetimePrice),
       totalPrice: lifetimePrice,
       originalPrice: lifetimeOriginalPrice,
-      billingPeriod: pricingState.currency ?? '',
+      billingPeriod: lifetimeCurrency,
       paymentLabel: copy.lifetime.paymentLabel,
       savingsLabel: copy.lifetime.savingsLabel,
       includesLabel: copy.lifetime.includesLabel,
@@ -582,30 +678,38 @@ export function MembershipScreen() {
         const planCopy = copy.plans[copyKey] as PlanCopy;
         const months = monthsByPeriod[plan.billing_period] ?? 1;
         const thbPromoPrice = pricingState.currency === 'THB' ? THB_PROMO_MONTHLY_PRICES[plan.billing_period] : null;
-        const currentPerMonth = thbPromoPrice ? thbPromoPrice.currentPerMonth : Number(plan.amount_per_month);
-        const originalPerMonth = thbPromoPrice
-          ? thbPromoPrice.originalPerMonth
-          : Number.isFinite(Number(plan.amount_per_month))
-            ? Number(plan.amount_per_month) * 2
-            : null;
-        const totalPrice = currentPerMonth * months;
+        const storefrontPrice = getStorefrontPriceForPlan(
+          availablePackages[plan.billing_period as PlanId],
+          months
+        );
+        const currentPerMonth =
+          storefrontPrice?.monthlyPrice ?? (thbPromoPrice ? thbPromoPrice.currentPerMonth : Number(plan.amount_per_month));
+        const originalPerMonth = storefrontPrice
+          ? Math.ceil(currentPerMonth * getPromoOriginalMultiplier(plan.billing_period))
+          : thbPromoPrice
+            ? thbPromoPrice.originalPerMonth
+            : Number.isFinite(Number(plan.amount_per_month))
+              ? Number(plan.amount_per_month) * 2
+              : null;
+        const totalPrice = storefrontPrice?.totalPrice ?? currentPerMonth * months;
         const originalPrice = originalPerMonth ? originalPerMonth * months : null;
+        const billingCurrency = storefrontPrice?.currency ?? pricingState.currency ?? '';
         return {
           id: plan.billing_period,
           duration: planCopy.duration,
           bestFor: planCopy.bestFor,
           savings: planCopy.savings ?? null,
-          price: buildPriceWithSymbol(pricingState.currency, currentPerMonth),
+          price: storefrontPrice?.displayPrice ?? buildPriceWithSymbol(pricingState.currency, currentPerMonth),
           totalPrice,
           originalPrice,
           originalDisplayPrice: originalPerMonth,
-          billingPeriod: pricingState.currency ?? '',
+          billingPeriod: billingCurrency,
           period: copy.period,
         } satisfies MembershipCard;
       });
 
     return [lifetimePlan, ...plans];
-  }, [copy, pricingState]);
+  }, [availablePackages, copy, pricingState]);
 
   useEffect(() => {
     if (allPlans.length === 0) {

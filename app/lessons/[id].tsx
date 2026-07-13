@@ -7973,6 +7973,16 @@ export default function LessonDetailShellScreen() {
 
       return normalizedRow;
     });
+
+    // Imported tables can retain blank spreadsheet rows after their content.
+    // Remove only trailing empty rows so intentional spacing within a table remains intact.
+    while (
+      normalizedRows.length > 1 &&
+      normalizedRows[normalizedRows.length - 1].every((cell) => !getRawCellText(cell).trim())
+    ) {
+      normalizedRows.pop();
+    }
+
     const preferredColumnCount = (() => {
       const headerRow = normalizedRows[0] ?? [];
       const headerColumns = headerRow.reduce((sum, cell) => {
@@ -8125,6 +8135,7 @@ export default function LessonDetailShellScreen() {
       phraseIsLeadAudio?: boolean;
       forceSubheader?: boolean;
       compactBody?: boolean;
+      preserveNumberedItems?: boolean;
     }
   ) => {
     const nodeKey = `${options?.keyPrefix ?? 'rich-node'}-${index}`;
@@ -8194,7 +8205,7 @@ export default function LessonDetailShellScreen() {
     }
 
     if (node.kind === 'numbered_item') {
-      if (hasAudio) {
+      if (hasAudio && options?.preserveNumberedItems !== true) {
         return renderRichAudioRow(node, nodeKey, textIndentStyle, hasAccent, options);
       }
 
@@ -8567,6 +8578,11 @@ export default function LessonDetailShellScreen() {
         return false;
       }
 
+      // Roman-numeral definitions are body content, not lead headings.
+      if (/^[IVXLCDM]+\s*=\s*[\d,]+$/.test(text)) {
+        return false;
+      }
+
       const lettersOnly = text.replace(/[^A-Za-z]/g, '');
       if (!lettersOnly) {
         return false;
@@ -8607,6 +8623,7 @@ export default function LessonDetailShellScreen() {
             keyPrefix: 'culture-note-node',
             allowHeadings: true,
             enableHighlights: false,
+            preserveNumberedItems: true,
             numberedLabel: node.kind === 'numbered_item' ? getNumberedLabel(node) : undefined,
           });
         })}
