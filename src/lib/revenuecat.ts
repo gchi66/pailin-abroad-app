@@ -12,12 +12,32 @@ import { env } from '@/src/config/env';
 export const REVENUECAT_ENTITLEMENT_ID = 'full_access';
 export const REVENUECAT_OFFERING_ID = 'default';
 
-const isSupportedPlatform = Platform.OS === 'ios';
+const isSupportedPlatform = Platform.OS === 'ios' || Platform.OS === 'android';
+const shouldLogAndroidRevenueCatDebug = __DEV__ && Platform.OS === 'android';
 
 let isConfigured = false;
 let configuredUserId: string | null = null;
 
-const getTrimmedApiKey = () => env.revenueCatIosApiKey.trim();
+const logAndroidRevenueCatDebug = (message: string, data?: unknown) => {
+  if (!shouldLogAndroidRevenueCatDebug) {
+    return;
+  }
+
+  if (typeof data === 'undefined') {
+    console.log(`[revenuecat:android] ${message}`);
+    return;
+  }
+
+  console.log(`[revenuecat:android] ${message}`, data);
+};
+
+const getTrimmedApiKey = () => {
+  if (Platform.OS === 'android') {
+    return env.revenueCatAndroidApiKey.trim();
+  }
+
+  return env.revenueCatIosApiKey.trim();
+};
 
 const getNormalizedUserId = (userId: string | null | undefined) => {
   if (typeof userId !== 'string') {
@@ -30,11 +50,19 @@ const getNormalizedUserId = (userId: string | null | undefined) => {
 export const isRevenueCatAvailable = () => isSupportedPlatform && getTrimmedApiKey().length > 0;
 
 export async function initializeRevenueCat() {
+  logAndroidRevenueCatDebug('initialize requested', {
+    hasApiKey: getTrimmedApiKey().length > 0,
+    isConfigured,
+    isSupportedPlatform,
+  });
+
   if (!isRevenueCatAvailable()) {
+    logAndroidRevenueCatDebug('initialize skipped');
     return false;
   }
 
   if (isConfigured) {
+    logAndroidRevenueCatDebug('already configured');
     return true;
   }
 
@@ -45,6 +73,7 @@ export async function initializeRevenueCat() {
     });
     isConfigured = true;
     configuredUserId = null;
+    logAndroidRevenueCatDebug('configured');
     return true;
   } catch (error) {
     console.warn('[revenuecat] failed to configure', error);
@@ -57,11 +86,13 @@ export async function initializeRevenueCat() {
 export async function syncRevenueCatUser(userId: string | null | undefined) {
   const isReady = await initializeRevenueCat();
   if (!isReady) {
+    logAndroidRevenueCatDebug('sync user skipped; not ready');
     return;
   }
 
   const normalizedUserId = getNormalizedUserId(userId);
   if (normalizedUserId === configuredUserId) {
+    logAndroidRevenueCatDebug('sync user skipped; unchanged user');
     return;
   }
 
@@ -69,11 +100,13 @@ export async function syncRevenueCatUser(userId: string | null | undefined) {
     if (normalizedUserId) {
       await Purchases.logIn(normalizedUserId);
       configuredUserId = normalizedUserId;
+      logAndroidRevenueCatDebug('logged in user', { userId: normalizedUserId });
       return;
     }
 
     await Purchases.logOut();
     configuredUserId = null;
+    logAndroidRevenueCatDebug('logged out user');
   } catch (error) {
     console.warn('[revenuecat] failed to sync user', error);
   }
@@ -82,12 +115,27 @@ export async function syncRevenueCatUser(userId: string | null | undefined) {
 export async function getRevenueCatOffering() {
   const isReady = await initializeRevenueCat();
   if (!isReady) {
+    logAndroidRevenueCatDebug('offering skipped; not ready');
     return null;
   }
 
   try {
     const offerings = await Purchases.getOfferings();
-    return offerings.current ?? offerings.all[REVENUECAT_OFFERING_ID] ?? null;
+    const offering = offerings.current ?? offerings.all[REVENUECAT_OFFERING_ID] ?? null;
+    logAndroidRevenueCatDebug('offerings loaded', {
+      currentOfferingIdentifier: offerings.current?.identifier ?? null,
+      offeringIdentifiers: Object.keys(offerings.all),
+      selectedOfferingIdentifier: offering?.identifier ?? null,
+      availablePackages: offering?.availablePackages.map((pkg) => ({
+        packageIdentifier: pkg.identifier,
+        productIdentifier: pkg.product.identifier,
+        productType: pkg.product.productType,
+        price: pkg.product.price,
+        priceString: pkg.product.priceString,
+        subscriptionPeriod: pkg.product.subscriptionPeriod,
+      })) ?? [],
+    });
+    return offering;
   } catch (error) {
     console.warn('[revenuecat] failed to load offerings', error);
     return null;
@@ -97,11 +145,17 @@ export async function getRevenueCatOffering() {
 export async function getRevenueCatCustomerInfo() {
   const isReady = await initializeRevenueCat();
   if (!isReady) {
+    logAndroidRevenueCatDebug('customer info skipped; not ready');
     return null;
   }
 
   try {
-    return await Purchases.getCustomerInfo();
+    const customerInfo = await Purchases.getCustomerInfo();
+    logAndroidRevenueCatDebug('customer info loaded', {
+      activeEntitlements: Object.keys(customerInfo.entitlements.active),
+      originalAppUserId: customerInfo.originalAppUserId,
+    });
+    return customerInfo;
   } catch (error) {
     console.warn('[revenuecat] failed to load customer info', error);
     return null;
@@ -124,11 +178,15 @@ export async function invalidateRevenueCatCustomerInfoCache() {
 export async function syncRevenueCatPurchases() {
   const isReady = await initializeRevenueCat();
   if (!isReady) {
+    logAndroidRevenueCatDebug('sync purchases skipped; not ready');
     return null;
   }
 
   try {
     const result = await Purchases.syncPurchasesForResult();
+    logAndroidRevenueCatDebug('purchases synced', {
+      activeEntitlements: Object.keys(result.customerInfo.entitlements.active),
+    });
     return result.customerInfo;
   } catch (error) {
     console.warn('[revenuecat] failed to sync purchases', error);
@@ -150,7 +208,18 @@ export async function purchaseRevenueCatPackage(pkg: PurchasesPackage) {
     throw new Error('RevenueCat is not configured.');
   }
 
-  return Purchases.purchasePackage(pkg);
+  logAndroidRevenueCatDebug('purchase started', {
+    packageIdentifier: pkg.identifier,
+    productIdentifier: pkg.product.identifier,
+    price: pkg.product.price,
+    priceString: pkg.product.priceString,
+  });
+  const result = await Purchases.purchasePackage(pkg);
+  logAndroidRevenueCatDebug('purchase completed', {
+    activeEntitlements: Object.keys(result.customerInfo.entitlements.active),
+    productIdentifier: result.productIdentifier,
+  });
+  return result;
 }
 
 export async function restoreRevenueCatPurchases() {
@@ -159,7 +228,12 @@ export async function restoreRevenueCatPurchases() {
     throw new Error('RevenueCat is not configured.');
   }
 
-  return Purchases.restorePurchases();
+  logAndroidRevenueCatDebug('restore started');
+  const customerInfo = await Purchases.restorePurchases();
+  logAndroidRevenueCatDebug('restore completed', {
+    activeEntitlements: Object.keys(customerInfo.entitlements.active),
+  });
+  return customerInfo;
 }
 
 export function hasRevenueCatFullAccess(customerInfo: CustomerInfo | null | undefined) {
@@ -202,6 +276,13 @@ export function getPlanPackageMap(offering: PurchasesOffering | null): Partial<R
       mapped.lifetime = pkg;
     }
   }
+
+  logAndroidRevenueCatDebug('plan package map built', {
+    monthly: mapped.monthly?.product.identifier ?? null,
+    threeMonth: mapped['3-month']?.product.identifier ?? null,
+    sixMonth: mapped['6-month']?.product.identifier ?? null,
+    lifetime: mapped.lifetime?.product.identifier ?? null,
+  });
 
   return mapped;
 }

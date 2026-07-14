@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -41,6 +41,8 @@ type SettingsCopy = {
   billingLoading: string;
   manageMembership: string;
   manageMembershipHint: string;
+  manageMembershipAndroid: string;
+  manageMembershipAndroidHint: string;
   deleteAccount: string;
   deleteAccountHint: string;
   deleteAccountConfirmTitle: string;
@@ -79,6 +81,8 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       billingLoading: 'กำลังโหลดข้อมูลการเรียกเก็บเงิน...',
       manageMembership: 'จัดการการสมัครสมาชิกใน Apple',
       manageMembershipHint: 'หากต้องการยกเลิกหรือเปลี่ยนการสมัครสมาชิก โปรดไปที่ Settings > Apple Account > Subscriptions บนอุปกรณ์ Apple ของคุณ',
+      manageMembershipAndroid: 'จัดการการสมัครสมาชิกใน Google Play',
+      manageMembershipAndroidHint: 'หากต้องการยกเลิกหรือเปลี่ยนการสมัครสมาชิก โปรดเปิด Google Play Store แล้วไปที่โปรไฟล์ > Payments & subscriptions > Subscriptions',
       deleteAccount: 'ลบบัญชี',
       deleteAccountHint: 'การลบบัญชีจะลบข้อมูลและความคืบหน้าของคุณอย่างถาวร',
       deleteAccountConfirmTitle: 'ลบบัญชี?',
@@ -116,6 +120,8 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     billingLoading: 'Loading billing details...',
     manageMembership: 'Manage Subscription in Apple',
     manageMembershipHint: 'To cancel or change your subscription, go to Settings > Apple Account > Subscriptions on your Apple device.',
+    manageMembershipAndroid: 'Manage Subscription in Google Play',
+    manageMembershipAndroidHint: 'To cancel or change your subscription, open the Google Play Store and go to Profile > Payments & subscriptions > Subscriptions.',
     deleteAccount: 'Delete Account',
     deleteAccountHint: 'Deleting your account permanently removes your data and learning progress.',
     deleteAccountConfirmTitle: 'Delete account?',
@@ -583,10 +589,10 @@ export function SettingsScreen() {
                     <View style={styles.dangerRowContent}>
                       <View style={styles.dangerTextBlock}>
                         <AppText language={uiLanguage} variant="body" style={styles.dangerActionText}>
-                          {copy.manageMembership}
+                          {Platform.OS === 'android' ? copy.manageMembershipAndroid : copy.manageMembership}
                         </AppText>
                         <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
-                          {copy.manageMembershipHint}
+                          {Platform.OS === 'android' ? copy.manageMembershipAndroidHint : copy.manageMembershipHint}
                         </AppText>
                       </View>
                     </View>

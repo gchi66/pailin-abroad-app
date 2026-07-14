@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CustomerInfo, PurchasesPackage, PURCHASES_ERROR_CODE, PurchasesError } from 'react-native-purchases';
@@ -28,6 +28,21 @@ import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
+
+function StickyBarFrame({ children }: PropsWithChildren) {
+  const bar = <View style={styles.stickyBar}>{children}</View>;
+
+  if (Platform.OS !== 'android') {
+    return bar;
+  }
+
+  return (
+    <View style={styles.stickyBarAndroidWrap}>
+      <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
+      {bar}
+    </View>
+  );
+}
 
 type PricingState = {
   loading: boolean;
@@ -596,7 +611,7 @@ export function MembershipScreen() {
     let cancelled = false;
 
     const loadRevenueCatProducts = async () => {
-      if (Platform.OS !== 'ios' || !isRevenueCatAvailable()) {
+      if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !isRevenueCatAvailable()) {
         return;
       }
 
@@ -737,7 +752,7 @@ export function MembershipScreen() {
       return;
     }
 
-    if (Platform.OS !== 'ios' || !selectedPackage) {
+    if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !selectedPackage) {
       Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
       return;
     }
@@ -770,7 +785,7 @@ export function MembershipScreen() {
   };
 
   const handleRestorePress = async () => {
-    if (Platform.OS !== 'ios' || !isRevenueCatAvailable()) {
+    if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !isRevenueCatAvailable()) {
       Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
       return;
     }
@@ -974,8 +989,7 @@ export function MembershipScreen() {
 
       {selectedPlan && isCompactLayout ? (
         <View style={styles.stickyBarShell}>
-          <View style={styles.stickyBar}>
-            <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
+          <StickyBarFrame>
             <View style={styles.stickyBarCopy}>
               <AppText language={uiLanguage} variant="caption" style={styles.stickyBarLabel}>
                 {stickyPlanLabel}
@@ -992,7 +1006,7 @@ export function MembershipScreen() {
               textStyle={styles.stickyJoinButtonText}
               title={purchaseInProgress ? copy.joinLoading : copy.joinCta}
             />
-          </View>
+          </StickyBarFrame>
         </View>
       ) : null}
     </View>
@@ -1452,6 +1466,9 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.md,
     backgroundColor: 'transparent',
   },
+  stickyBarAndroidWrap: {
+    position: 'relative',
+  },
   stickyBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1464,10 +1481,15 @@ const styles = StyleSheet.create({
     paddingRight: theme.spacing.sm,
     paddingBottom: theme.spacing.sm,
     paddingLeft: theme.spacing.md,
-    ...createNeoShadow({
-      color: theme.colors.shadow,
-      elevation: 3,
-      offset: 3,
+    ...Platform.select({
+      ios: createNeoShadow({
+        color: theme.colors.shadow,
+        elevation: 3,
+        offset: 3,
+      }),
+      android: {
+        elevation: 0,
+      },
     }),
   },
   stickyBarCopy: {
