@@ -1,13 +1,13 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import avatar1 from '@/assets/images/characters/avatar_1.png';
-import avatar2 from '@/assets/images/characters/avatar_2.png';
-import avatar3 from '@/assets/images/characters/avatar_3.png';
-import avatar4 from '@/assets/images/characters/avatar_4.png';
-import avatar5 from '@/assets/images/characters/avatar_5.png';
-import avatar6 from '@/assets/images/characters/avatar_6.png';
-import avatar7 from '@/assets/images/characters/avatar_7.png';
-import avatar8 from '@/assets/images/characters/avatar_8.png';
+import avatar1 from '@/assets/images/characters/avatar_1.webp';
+import avatar2 from '@/assets/images/characters/avatar_2.webp';
+import avatar3 from '@/assets/images/characters/avatar_3.webp';
+import avatar4 from '@/assets/images/characters/avatar_4.webp';
+import avatar5 from '@/assets/images/characters/avatar_5.webp';
+import avatar6 from '@/assets/images/characters/avatar_6.webp';
+import avatar7 from '@/assets/images/characters/avatar_7.webp';
+import avatar8 from '@/assets/images/characters/avatar_8.webp';
 import pailinBlueCircleRight from '@/assets/images/pailin_blue_circle_right.webp';
 
 const avatarMap: Record<string, ImageSourcePropType> = {
