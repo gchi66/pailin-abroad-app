@@ -527,7 +527,7 @@ export function MembershipScreen() {
     let cancelled = false;
 
     const loadRevenueCatProducts = async () => {
-      if (Platform.OS !== 'ios' || !isRevenueCatAvailable()) {
+      if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !isRevenueCatAvailable()) {
         return;
       }
 
@@ -633,7 +633,7 @@ export function MembershipScreen() {
       return;
     }
 
-    if (Platform.OS !== 'ios' || !selectedPackage) {
+    if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !selectedPackage) {
       Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
       return;
     }
@@ -666,7 +666,7 @@ export function MembershipScreen() {
   };
 
   const handleRestorePress = async () => {
-    if (Platform.OS !== 'ios' || !isRevenueCatAvailable()) {
+    if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !isRevenueCatAvailable()) {
       Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
       return;
     }
