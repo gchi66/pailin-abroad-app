@@ -143,6 +143,27 @@ const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
   };
 };
 
+function UpgradeBannerButton({ label, uiLanguage }: { label: string; uiLanguage: UiLanguage }) {
+  const button = (
+    <View style={styles.upgradeBannerButton}>
+      <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerButtonText}>
+        {label}
+      </AppText>
+    </View>
+  );
+
+  if (Platform.OS !== 'android') {
+    return button;
+  }
+
+  return (
+    <View style={styles.upgradeBannerButtonWrap}>
+      <AndroidNeoShadowLayer borderRadius={theme.radii.xl} color={theme.colors.shadow} offset={1.5} />
+      {button}
+    </View>
+  );
+}
+
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
   const preferredText = preferred?.trim();
   if (preferredText) {
@@ -513,11 +534,7 @@ export function MyPathwayScreen() {
               </AppText>
             </View>
 
-            <View style={styles.upgradeBannerButton}>
-              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerButtonText}>
-                {copy.guestBannerCta}
-              </AppText>
-            </View>
+            <UpgradeBannerButton label={copy.guestBannerCta} uiLanguage={uiLanguage} />
           </Pressable>
         ) : !hasMembership ? (
           <Pressable
@@ -536,11 +553,7 @@ export function MyPathwayScreen() {
               </AppText>
             </View>
 
-            <View style={styles.upgradeBannerButton}>
-              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerButtonText}>
-                {copy.upgradeBannerCta}
-              </AppText>
-            </View>
+            <UpgradeBannerButton label={copy.upgradeBannerCta} uiLanguage={uiLanguage} />
           </Pressable>
         ) : null}
 
@@ -970,6 +983,9 @@ const styles = StyleSheet.create({
   upgradeBannerBody: {
     color: theme.colors.mutedText,
   },
+  upgradeBannerButtonWrap: {
+    position: 'relative',
+  },
   upgradeBannerButton: {
     minHeight: 36,
     borderRadius: theme.radii.xl,
@@ -979,11 +995,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.5, height: 1.5 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 1.5, height: 1.5 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   upgradeBannerButtonText: {
     color: theme.colors.surface,
