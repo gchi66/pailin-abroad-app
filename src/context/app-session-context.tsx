@@ -22,6 +22,7 @@ import {
   syncRevenueCatUser,
 } from '@/src/lib/revenuecat';
 import { clearResolvedLessonCache } from '@/src/api/lessons';
+import { clearPathwayDataPrefetch, prefetchPathwayData } from '@/src/api/pathway-prefetch';
 import { supabase } from '@/src/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -675,7 +676,12 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setSession(nextSession);
       setIsGuestMode(nextSession ? false : storedGuestMode === 'true');
       setGuestRevenueCatUserId(nextSession ? null : storedGuestRevenueCatUserId);
-      await fetchProfile(nextSession?.user ?? null);
+      if (nextSession?.user.id) {
+        prefetchPathwayData(nextSession.user.id);
+      } else {
+        clearPathwayDataPrefetch();
+      }
+      await fetchProfile(nextSession?.user ?? null, { background: false });
       if (isMounted) {
         setIsLoading(false);
         logBootstrap('session hydrate completed', {

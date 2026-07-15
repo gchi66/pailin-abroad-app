@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { getLessonsIndex } from '@/src/api/lessons';
+import { consumePathwayDataPrefetch } from '@/src/api/pathway-prefetch';
 import {
   CompletedLessonProgress,
   DailyStreakResponse,
@@ -25,6 +26,7 @@ export type PathwayLessonRow = {
 type UsePathwayDataParams = {
   enabled?: boolean;
   hasMembership: boolean;
+  userId?: string | null;
 };
 
 const STAGE_ORDER: StageName[] = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
@@ -119,7 +121,7 @@ const sortCompletedProgress = (left: CompletedLessonProgress, right: CompletedLe
   return 0;
 };
 
-export function usePathwayData({ enabled = true, hasMembership }: UsePathwayDataParams) {
+export function usePathwayData({ enabled = true, hasMembership, userId = null }: UsePathwayDataParams) {
   const [dailyStreak, setDailyStreak] = useState<DailyStreakResponse | null>(null);
   const [pathwayLessons, setPathwayLessons] = useState<LessonListItem[]>([]);
   const [completedProgress, setCompletedProgress] = useState<CompletedLessonProgress[]>([]);
@@ -146,6 +148,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     let lessonIndexFailed = false;
     let pathwayLessonsFailed = false;
     let coreContentSettled = false;
+    const prefetchedData = userId ? consumePathwayDataPrefetch(userId) : null;
     logBootstrap('pathway data effect started', {
       hasMembership,
     });
@@ -173,9 +176,9 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       }
     };
 
-    const loadPathwayLessons = async () => {
+    const loadPathwayLessonsFallback = async () => {
       const startedAt = Date.now();
-      console.info(PATHWAY_TIMING_LABEL, 'pathway lessons started');
+      console.info(PATHWAY_TIMING_LABEL, 'pathway lessons fallback started');
 
       try {
         const pathwayResult = await withRequestTiming('pathway lessons', fetchUserPathwayLessons, (result) => ({
@@ -187,8 +190,12 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
         }
 
         const normalizedPathwayLessons = pathwayResult.filter(isLessonListItem).sort(compareLessons);
+        if (normalizedPathwayLessons.length === 0) {
+          throw new Error('Pathway fallback returned no lessons.');
+        }
+
         setPathwayLessons(normalizedPathwayLessons);
-        pathwayLessonsResolved = normalizedPathwayLessons.length > 0;
+        pathwayLessonsResolved = true;
         settleCoreContent('pathway lessons');
       } catch (error) {
         pathwayLessonsFailed = true;
@@ -208,7 +215,10 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       console.info(PATHWAY_TIMING_LABEL, 'stats started');
 
       try {
-        const dailyStreakResult = await withRequestTiming('stats', fetchDailyStreak);
+        const dailyStreakResult = await withRequestTiming(
+          'stats',
+          () => prefetchedData?.dailyStreak ?? fetchDailyStreak(),
+        );
 
         if (!isMounted) {
           return;
@@ -229,9 +239,13 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       console.info(PATHWAY_TIMING_LABEL, 'completed lessons started');
 
       try {
-        const completedResult = await withRequestTiming('completed lessons', fetchUserCompletedLessons, (result) => ({
-          completedCount: result.length,
-        }));
+        const completedResult = await withRequestTiming(
+          'completed lessons',
+          () => prefetchedData?.completedLessons ?? fetchUserCompletedLessons(),
+          (result) => ({
+            completedCount: result.length,
+          }),
+        );
 
         if (!isMounted) {
           return;
@@ -250,9 +264,13 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     const loadLessonEngagements = async () => {
       console.info(PATHWAY_TIMING_LABEL, 'lesson engagements started');
       try {
-        const engagementResult = await withRequestTiming('lesson engagements', fetchUserLessonEngagements, (result) => ({
-          engagementCount: result.length,
-        }));
+        const engagementResult = await withRequestTiming(
+          'lesson engagements',
+          () => prefetchedData?.lessonEngagements ?? fetchUserLessonEngagements(),
+          (result) => ({
+            engagementCount: result.length,
+          }),
+        );
 
         if (!isMounted) {
           return;
@@ -280,15 +298,19 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       console.info(PATHWAY_TIMING_LABEL, 'lesson index started');
 
       try {
-        const lessonsIndex = await getLessonsIndex();
+        const lessonsIndex = await (prefetchedData?.lessonIndex ?? getLessonsIndex());
 
         if (!isMounted) {
           return;
         }
 
         const normalizedLessonsIndex = lessonsIndex.filter(isLessonListItem).sort(compareLessons);
+        if (normalizedLessonsIndex.length === 0) {
+          throw new Error('Lesson index returned no lessons.');
+        }
+
         setAllLessons(normalizedLessonsIndex);
-        lessonIndexResolved = normalizedLessonsIndex.length > 0;
+        lessonIndexResolved = true;
         logRequestTiming('lesson index', startedAt, {
           lessonCount: lessonsIndex.length,
         });
@@ -296,7 +318,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       } catch (error) {
         lessonIndexFailed = true;
         logRequestFailure('lesson index', startedAt, error);
-        settleCoreContent('failure');
+        void loadPathwayLessonsFallback();
       } finally {
         if (isMounted) {
           setIsLessonIndexLoading(false);
@@ -304,7 +326,6 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
       }
     };
 
-    void loadPathwayLessons();
     void loadStats();
     void loadCompletedProgress();
     void loadLessonEngagements();
@@ -313,7 +334,7 @@ export function usePathwayData({ enabled = true, hasMembership }: UsePathwayData
     return () => {
       isMounted = false;
     };
-  }, [enabled, hasMembership]);
+  }, [enabled, hasMembership, userId]);
 
   const firstLessonIds = useMemo(() => {
     const firstByLevel = new Map<string, string>();

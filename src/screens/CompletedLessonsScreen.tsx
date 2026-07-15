@@ -49,11 +49,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
 
 export function CompletedLessonsScreen() {
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership } = useAppSession();
+  const { hasAccount, hasMembership, user } = useAppSession();
   const copy = getCopy(uiLanguage);
   const { completedProgress, errorMessage, isCompletedProgressLoading } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
+    userId: user?.id ?? null,
   });
 
   if (isCompletedProgressLoading) {

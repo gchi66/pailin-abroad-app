@@ -230,7 +230,7 @@ export function LearningProgressScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership, profile } = useAppSession();
+  const { hasAccount, hasMembership, profile, user } = useAppSession();
   const copy = getCopy(uiLanguage);
   const {
     allLessons,
@@ -246,6 +246,7 @@ export function LearningProgressScreen() {
   } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
+    userId: user?.id ?? null,
   });
 
   const progressContext = useMemo(

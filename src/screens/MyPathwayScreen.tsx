@@ -303,6 +303,7 @@ export function MyPathwayScreen() {
   } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
+    userId: user?.id ?? null,
   });
   const showGuestUi = isGuestMode && !user?.id;
 
