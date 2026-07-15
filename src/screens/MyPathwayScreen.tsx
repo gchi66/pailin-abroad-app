@@ -280,7 +280,12 @@ const getProgressContext = (
   };
 };
 
-export function MyPathwayScreen() {
+type MyPathwayScreenProps = {
+  deferLoadingState?: boolean;
+  onReady?: () => void;
+};
+
+export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwayScreenProps = {}) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { uiLanguage, setUiLanguage } = useUiLanguage();
@@ -391,7 +396,19 @@ export function MyPathwayScreen() {
     void AsyncStorage.setItem(getNoNameWelcomeSeenKey(user.id), 'true').catch(() => {});
   }, [shouldShowFirstNoNameWelcome, user?.id]);
 
-  if (isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading) {
+  const isPathwayLoading = isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading;
+
+  useEffect(() => {
+    if (!isPathwayLoading) {
+      onReady?.();
+    }
+  }, [isPathwayLoading, onReady]);
+
+  if (isPathwayLoading) {
+    if (deferLoadingState) {
+      return <View style={styles.loadingBackground} />;
+    }
+
     return <PageLoadingState language={uiLanguage} />;
   }
 
@@ -823,6 +840,10 @@ export function MyPathwayScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingBackground: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,

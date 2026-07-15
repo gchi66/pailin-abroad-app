@@ -32,10 +32,11 @@ export default function TabLayout() {
   useColorScheme();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, isGuestMode } = useAppSession();
+  const { hasAccount, isGuestMode, isLoading } = useAppSession();
 
   const styles = useMemo(() => createStyles(insets.top, insets.bottom), [insets.bottom, insets.top]);
   const text = labels[uiLanguage];
+  const shouldShowTabBar = isLoading || hasAccount || isGuestMode;
 
   const tabsScreenOptions = useMemo(
     () => ({
@@ -44,13 +45,12 @@ export default function TabLayout() {
       headerShown: false,
       tabBarButton: HapticTab,
       tabBarItemStyle: styles.tabBarItem,
-      sceneStyle: !hasAccount && !isGuestMode ? styles.sceneFullscreen : styles.scene,
-      tabBarStyle: !hasAccount && !isGuestMode ? styles.tabBarHidden : styles.tabBar,
+      sceneStyle: shouldShowTabBar ? styles.scene : styles.sceneFullscreen,
+      tabBarStyle: shouldShowTabBar ? styles.tabBar : styles.tabBarHidden,
       tabBarLabelStyle: [styles.tabBarLabel, uiLanguage === 'th' ? styles.tabBarLabelThai : styles.tabBarLabelEnglish],
     }),
     [
-      hasAccount,
-      isGuestMode,
+      shouldShowTabBar,
       styles.scene,
       styles.sceneFullscreen,
       styles.tabBar,
