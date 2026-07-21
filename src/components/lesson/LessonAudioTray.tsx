@@ -67,6 +67,7 @@ export function LessonAudioTray({
   autoCollapseSignal = null,
   autoExpandSignal = null,
 }: LessonAudioTrayProps) {
+  const usesFloatingRateMenu = Platform.OS === 'android' || Platform.OS === 'ios';
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showRates, setShowRates] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -259,13 +260,13 @@ export function LessonAudioTray({
           </Pressable>
         </View>
       ) : (
-        <View style={[styles.expandedWrap, Platform.OS === 'android' ? styles.expandedWrapAndroid : null]}>
+        <View style={[styles.expandedWrap, usesFloatingRateMenu ? styles.expandedWrapAndroid : null]}>
           <View {...trayPanResponder.panHandlers}>
             <View style={styles.expandedTopRow}>
               <View
                 style={[
                   styles.copyBlock,
-                  Platform.OS === 'android' && showRates ? styles.copyBlockRateMenuOpenAndroid : null,
+                  usesFloatingRateMenu && showRates ? styles.copyBlockRateMenuOpenAndroid : null,
                 ]}>
                 <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
                   {title}
@@ -324,7 +325,7 @@ export function LessonAudioTray({
               <MaterialIcons name="forward-10" size={34} color={theme.colors.text} />
             </Pressable>
 
-            {Platform.OS === 'android' ? (
+            {usesFloatingRateMenu ? (
               <View style={styles.rateControlsWrapAndroid}>
                 <Pressable
                   accessibilityRole="button"
@@ -363,7 +364,7 @@ export function LessonAudioTray({
               {formatTime(currentMillis)}
             </AppText>
 
-            {Platform.OS !== 'android' ? (
+            {!usesFloatingRateMenu ? (
               <View style={styles.rateWrap}>
                 <Pressable
                   accessibilityRole="button"
@@ -411,16 +412,16 @@ export function LessonAudioTray({
     <Animated.View
       style={[
         styles.shell,
-        Platform.OS === 'android' ? styles.shellAndroid : null,
+        usesFloatingRateMenu ? styles.shellAndroid : null,
         { transform: [{ translateY: dragTranslateY }] },
       ]}>
-      {Platform.OS === 'android' ? (
+      {usesFloatingRateMenu ? (
         <View style={styles.shellContentAndroid}>{trayContent}</View>
       ) : (
         trayContent
       )}
 
-      {Platform.OS === 'android' && showRates ? (
+      {usesFloatingRateMenu && showRates ? (
         <View style={styles.rateMenuAndroid}>
           {rates.map((option) => (
             <Pressable
