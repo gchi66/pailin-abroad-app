@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Animated, LayoutChangeEvent, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  LayoutChangeEvent,
+  PanResponder,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
@@ -37,6 +45,10 @@ const formatTime = (millis: number) => {
 };
 
 const rates = [0.5, 0.75, 1, 1.25, 1.5];
+const RATE_MENU_WIDTH = 68;
+const RATE_OPTION_HEIGHT = 44;
+const RATE_MENU_GAP = 4;
+const RATE_MENU_PADDING = 4;
 
 export function LessonAudioTray({
   language,
@@ -149,6 +161,10 @@ export function LessonAudioTray({
     setCollapsedState(!isCollapsed);
   };
 
+  const handleToggleRates = () => {
+    setShowRates((previous) => !previous);
+  };
+
   const trayPanResponder = useMemo(
     () =>
       PanResponder.create({
@@ -192,8 +208,8 @@ export function LessonAudioTray({
   const playButtonLabel = isPlaying ? 'Pause audio' : 'Play audio';
   const collapseLabel = isCollapsed ? 'Expand audio controls' : 'Collapse audio controls';
 
-  return (
-    <Animated.View style={[styles.shell, { transform: [{ translateY: dragTranslateY }] }]}>
+  const trayContent = (
+    <>
       <View
         {...trayPanResponder.panHandlers}
         style={styles.handleHitArea}>
@@ -243,10 +259,14 @@ export function LessonAudioTray({
           </Pressable>
         </View>
       ) : (
-        <View style={styles.expandedWrap}>
+        <View style={[styles.expandedWrap, Platform.OS === 'android' ? styles.expandedWrapAndroid : null]}>
           <View {...trayPanResponder.panHandlers}>
             <View style={styles.expandedTopRow}>
-              <View style={styles.copyBlock}>
+              <View
+                style={[
+                  styles.copyBlock,
+                  Platform.OS === 'android' && showRates ? styles.copyBlockRateMenuOpenAndroid : null,
+                ]}>
                 <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
                   {title}
                 </AppText>
@@ -256,6 +276,7 @@ export function LessonAudioTray({
                   </AppText>
                 ) : null}
               </View>
+
             </View>
           </View>
 
@@ -302,6 +323,22 @@ export function LessonAudioTray({
               style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
               <MaterialIcons name="forward-10" size={34} color={theme.colors.text} />
             </Pressable>
+
+            {Platform.OS === 'android' ? (
+              <View style={styles.rateControlsWrapAndroid}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle playback rates"
+                  accessibilityState={{ expanded: showRates }}
+                  hitSlop={6}
+                  onPress={handleToggleRates}
+                  style={({ pressed }) => [styles.ratePillAndroid, pressed ? styles.ratePillPressed : null]}>
+                  <AppText language="en" variant="caption" style={styles.rateTextAndroid}>
+                    {rate}x
+                  </AppText>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           <View
@@ -326,37 +363,39 @@ export function LessonAudioTray({
               {formatTime(currentMillis)}
             </AppText>
 
-            <View style={styles.rateWrap}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Toggle playback rates"
-                onPress={() => setShowRates((previous) => !previous)}
-                style={styles.ratePill}>
-                <AppText language="en" variant="caption" style={styles.rateText}>
-                  {rate}x
-                </AppText>
-              </Pressable>
+            {Platform.OS !== 'android' ? (
+              <View style={styles.rateWrap}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle playback rates"
+                  onPress={handleToggleRates}
+                  style={styles.ratePill}>
+                  <AppText language="en" variant="caption" style={styles.rateText}>
+                    {rate}x
+                  </AppText>
+                </Pressable>
 
-              {showRates ? (
-                <View style={styles.rateMenu}>
-                  {rates.map((option) => (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Set playback rate to ${option}x`}
-                      onPress={() => {
-                        onSetRate(option);
-                        setShowRates(false);
-                      }}
-                      style={[styles.rateOption, option === rate ? styles.rateOptionActive : null]}>
-                      <AppText language="en" variant="caption" style={styles.rateOptionText}>
-                        {option}x
-                      </AppText>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-            </View>
+                {showRates ? (
+                  <View style={styles.rateMenu}>
+                    {rates.map((option) => (
+                      <Pressable
+                        key={option}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set playback rate to ${option}x`}
+                        onPress={() => {
+                          onSetRate(option);
+                          setShowRates(false);
+                        }}
+                        style={[styles.rateOption, option === rate ? styles.rateOptionActive : null]}>
+                        <AppText language="en" variant="caption" style={styles.rateOptionText}>
+                          {option}x
+                        </AppText>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             <AppText language="en" variant="caption" style={styles.timeLabel}>
               {formatTime(durationMillis)}
@@ -364,6 +403,46 @@ export function LessonAudioTray({
           </View>
         </View>
       )}
+
+    </>
+  );
+
+  return (
+    <Animated.View
+      style={[
+        styles.shell,
+        Platform.OS === 'android' ? styles.shellAndroid : null,
+        { transform: [{ translateY: dragTranslateY }] },
+      ]}>
+      {Platform.OS === 'android' ? (
+        <View style={styles.shellContentAndroid}>{trayContent}</View>
+      ) : (
+        trayContent
+      )}
+
+      {Platform.OS === 'android' && showRates ? (
+        <View style={styles.rateMenuAndroid}>
+          {rates.map((option) => (
+            <Pressable
+              key={option}
+              accessibilityRole="button"
+              accessibilityLabel={`Set playback rate to ${option}x`}
+              onPress={() => {
+                onSetRate(option);
+                setShowRates(false);
+              }}
+              style={({ pressed }) => [
+                styles.rateOptionAndroid,
+                option === rate ? styles.rateOptionActive : null,
+                pressed ? styles.ratePillPressed : null,
+              ]}>
+              <AppText language="en" variant="caption" style={styles.rateOptionTextAndroid}>
+                {option}x
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </Animated.View>
   );
 }
@@ -374,6 +453,19 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: 0,
     paddingBottom: 0,
+  },
+  shellAndroid: {
+    paddingTop: 0,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'visible',
+  },
+  shellContentAndroid: {
+    backgroundColor: 'transparent',
+    paddingTop: 8,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   handleHitArea: {
     alignItems: 'center',
@@ -403,6 +495,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: 'hidden',
   },
+  expandedWrapAndroid: {
+    backgroundColor: 'transparent',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
   expandedTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -415,6 +512,9 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingHorizontal: 4,
   },
+  copyBlockRateMenuOpenAndroid: {
+    paddingRight: RATE_MENU_WIDTH + 16,
+  },
   trackTitle: {
     flexShrink: 1,
     color: theme.colors.text,
@@ -426,6 +526,33 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: 12,
     lineHeight: 15,
+  },
+  rateControlsWrapAndroid: {
+    position: 'absolute',
+    right: 0,
+    top: 4,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ratePillAndroid: {
+    width: 44,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateTextAndroid: {
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  ratePillPressed: {
+    opacity: 0.65,
   },
   collapsedRow: {
     backgroundColor: theme.colors.surface,
@@ -616,6 +743,36 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     fontWeight: theme.typography.weights.medium,
+  },
+  rateMenuAndroid: {
+    position: 'absolute',
+    right: 10,
+    bottom: 86,
+    width: RATE_MENU_WIDTH,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surface,
+    padding: RATE_MENU_PADDING,
+    gap: RATE_MENU_GAP,
+    elevation: 24,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  rateOptionAndroid: {
+    width: '100%',
+    height: RATE_OPTION_HEIGHT,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateOptionTextAndroid: {
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.semibold,
   },
   disabledControl: {
     opacity: 0.45,

@@ -1088,6 +1088,23 @@ const parsePracticeAbPromptLayout = (
   };
 };
 
+const getLocalizedMultilinePracticeText = (item: NormalizedPracticeItem) => {
+  const englishText = textJsonbToString(item.textJsonb) || item.text;
+  const thaiText = textJsonbToString(item.textJsonbTh) || item.textTh;
+  const englishLines = splitTextLines(englishText);
+  const thaiLines = splitTextLines(thaiText);
+
+  if (englishLines.length < 2 || thaiLines.length === 0) {
+    return null;
+  }
+
+  // Some translated documents localize the complete multiline stem, while
+  // others localize only its trailing response lines. Preserve only the
+  // unmatched English lead lines, then replace the rest with the Thai source.
+  const preservedEnglishLineCount = Math.max(englishLines.length - thaiLines.length, 0);
+  return [...englishLines.slice(0, preservedEnglishLineCount), ...thaiLines].join('\n');
+};
+
 const buildLessonTabs = (lesson: ResolvedLessonPayload | null): LessonTab[] => {
   if (!lesson) {
     return [];
@@ -2408,6 +2425,44 @@ const isBoldParagraphNode = (node: LessonRichNode) => {
 
   return textSpans.length > 0 && textSpans.every((inline) => Boolean(inline.bold));
 };
+
+const normalizeCultureNoteLeadHeadingExceptionText = (value: string) =>
+  cleanAudioTags(value).replace(/\s+/g, '');
+
+const getCultureNoteLeadHeadingExceptionKey = (
+  lessonNumber: string,
+  contentLanguage: UiLanguage,
+  text: string
+) => `${lessonNumber}|${contentLanguage}|${normalizeCultureNoteLeadHeadingExceptionText(text)}`;
+
+const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
+  getCultureNoteLeadHeadingExceptionKey('6.4', 'en', '36/2 = 18°C'),
+  getCultureNoteLeadHeadingExceptionKey(
+    '6.4',
+    'th',
+    'อากาศในฝันของคุณเป็นแบบไหน? สำหรับไพลิน คือ 78°F หรือ 25°C'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '8.3',
+    'th',
+    'ตัวเลขเหล่านี้สามารถนำมารวมกันเพื่อสร้างตัวเลขต่างๆได้ เช่น VI หมายถึง 6 เพราะประกอบด้วยสัญลักษณ์ 5 (V) กับ 1 (I) ในขณะที่ ตัวเลข 4 เขียนเป็น IV ซึ่งคุณสามารถคิดเป็น 5-1=4 ได้เลย'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '9.2',
+    'th',
+    'เป็นคำทั่วไป ไม่เป็นทางการ ที่ใช้เรียกบุคคลในกลุ่ม LGBTQ+'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '9.2',
+    'th',
+    'ทัศนคติต่อชุมชน LGBTQ+ ในอเมริกา ได้ผ่านการเปลี่ยนแปลงครั้งใหญ่หลายครั้งในประวัติศาสตร์ยุคใหม่ ในอดีต ความสัมพันธ์ระหว่างคนเพศเดียวกันไม่ได้รับการยอมรับอย่างเปิดเผย และผู้ที่อยู่ในความสัมพันธ์แบบนี้อาจเผชิญกับอคติ หรือแม้กระทั่งความรุนแรงได้ สาเหตุหนึ่งมาจากการที่อเมริกาเป็นประเทศที่มีรากฐานศาสนาคริสต์เข้มแข็ง การตีความบางอย่างจากในคัมภีร์ไบเบิลกำหนดว่า การแต่งงานควรเกิดขึ้นระหว่างชายและหญิงเท่านั้น ดังนั้น ชาวคริสต์หลายคนจึงคัดค้านการแต่งงานเพศเดียวกัน เพราะขัดต่อความเชื่อของพวกเขา'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '9.2',
+    'th',
+    'แต่ในช่วงหลายปีที่ผ่านมา การเปลี่ยนแปลงทางสังคมได้นำไปสู่ ทัศนคติที่เปิดกว้างและยอมรับความหลากหลายมากขึ้น ในหลายพื้นที่ของประเทศ และก้าวสำคัญอย่างหนึ่งคือ การทำให้การแต่งงานเพศเดียวกันถูกกฎหมายในสหรัฐอเมริกาในปี 2015 โดยปัจจุบัน เมืองใหญ่หลายแห่งในอเมริกายังมีย่านชุมชนเกย์ ที่เป็นที่รู้จักและมีความมั่นคง แต่ถึงแม้ว่าหลายคนจะยอมรับแล้ว แต่ก็ยังมี ชุมชนศาสนาบางส่วนที่ยังคัดค้านสิทธิของ LGBTQ+ อยู่ เช่น การแต่งงานของเพศเดียวกัน'
+  ),
+]);
 
 const hasVisibleRichNodeContent = (node: LessonRichNode, contentLang: UiLanguage) => {
   if (node.kind === 'quick_practice_exercise') {
@@ -5326,12 +5381,31 @@ export default function LessonDetailShellScreen() {
     }
 
     if (exercise.kind === 'sentence_transform') {
+      const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
+      const markedCorrect = practiceMarkedCorrect[itemStateKey];
+
+      // Android sentence transforms that render correctness toggles must
+      // reflect the learner's selection, not the answer tag imported with the
+      // source question. Transforms without toggles are answered by typing.
+      if (Platform.OS === 'android') {
+        const hasCorrectnessToggles = item.correctTag === 'yes' || item.correctTag === 'no';
+        if (!hasCorrectnessToggles) {
+          return !normalizePracticeAnswerText(practiceOpenAnswers[itemStateKey] ?? '');
+        }
+        if (markedCorrect === true) {
+          return false;
+        }
+        if (markedCorrect !== false) {
+          return true;
+        }
+        return !normalizePracticeAnswerText(practiceOpenAnswers[itemStateKey] ?? '');
+      }
+
       if (item.correctTag === 'yes') {
         return false;
       }
 
-      const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
-      if (practiceMarkedCorrect[itemStateKey] === true) {
+      if (markedCorrect === true) {
         return false;
       }
 
@@ -5680,6 +5754,17 @@ export default function LessonDetailShellScreen() {
     const pendingItems = exercise.items.filter((item) => !item.isExample && !isPracticePromptOnlyImageItem(exercise, item));
     const answeredItems = pendingItems.filter((item) => !isPracticeItemUnanswered(exercise, item));
     const exerciseType = exercise.kind === 'sentence_transform' ? 'sentence_transform' : exercise.kind === 'fill_blank' ? 'fill_blank' : 'open';
+
+    if (
+      Platform.OS === 'android' &&
+      pendingItems.length > 0 &&
+      answeredItems.length < pendingItems.length
+    ) {
+      setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
+      setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: pageCopy.practiceAnswerAll }));
+      return;
+    }
+
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
     setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
     const draftAnswerPayload =
@@ -6309,6 +6394,22 @@ export default function LessonDetailShellScreen() {
   }, [lessonId]);
 
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      // Preparing many snippet players keeps Android decoder/audio resources
+      // allocated and can prevent the main lesson player from creating its
+      // AudioTrack (especially on emulators). Snippets still load on demand.
+      Object.values(preloadedSnippetPlayersRef.current).forEach((player) => {
+        try {
+          player.remove();
+        } catch {
+          return;
+        }
+      });
+      preloadedSnippetPlayersRef.current = {};
+      inflightSnippetPreloadsRef.current = {};
+      return;
+    }
+
     if (!snippetPreloadTargets.length) {
       return;
     }
@@ -6489,7 +6590,7 @@ export default function LessonDetailShellScreen() {
 
   const renderApplyInlines = (
     inlines: LessonRichInline[] | null | undefined,
-    options?: { treatAsDialogue?: boolean }
+    options?: { treatAsDialogue?: boolean; suppressUnderlineAndItalic?: boolean }
   ) => {
     if (!Array.isArray(inlines) || !inlines.length) {
       return null;
@@ -6506,10 +6607,10 @@ export default function LessonDetailShellScreen() {
         {
           fontFamily: getInlineFontFamily(contentLang, {
             bold: inline.bold === true,
-            italic: inline.italic === true,
+            italic: options?.suppressUnderlineAndItalic ? false : inline.italic === true,
           }),
         },
-        inline.underline ? styles.applyInlineUnderline : null,
+        !options?.suppressUnderlineAndItalic && inline.underline ? styles.applyInlineUnderline : null,
       ];
 
       const renderApplyLinePieces = (text: string, lineKey: string, isThaiLine: boolean) => {
@@ -6603,6 +6704,7 @@ export default function LessonDetailShellScreen() {
     ) => {
       const nodeKey = `apply-node-${index}`;
       const textLanguage = contentLang === 'th' ? 'th' : 'en';
+      const suppressUnderlineAndItalic = activeLessonNumber === '6.6' && node.is_response === true;
 
       return (
         <View
@@ -6616,7 +6718,10 @@ export default function LessonDetailShellScreen() {
             language={textLanguage}
             variant="body"
             style={[styles.applyParagraphText, emphasized ? styles.applyInstructionText : null]}>
-            {renderApplyInlines(node.inlines, { treatAsDialogue: compact })}
+            {renderApplyInlines(node.inlines, {
+              treatAsDialogue: compact,
+              suppressUnderlineAndItalic,
+            })}
           </AppText>
         </View>
       );
@@ -8578,6 +8683,15 @@ export default function LessonDetailShellScreen() {
         return false;
       }
 
+      const exceptionKey = getCultureNoteLeadHeadingExceptionKey(activeLessonNumber, contentLang, text);
+      if (CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS.has(exceptionKey)) {
+        // An exception means this section has no inferred lead heading. Consume
+        // the one lead-heading opportunity so detection does not move to the
+        // next body paragraph that happens to contain uppercase Latin text.
+        renderedLeadHeading = true;
+        return false;
+      }
+
       // Roman-numeral definitions are body content, not lead headings.
       if (/^[IVXLCDM]+\s*=\s*[\d,]+$/.test(text)) {
         return false;
@@ -9055,10 +9169,13 @@ const mergeAdjacentPracticeRowTokens = (
           style={({ pressed }) => [
             styles.ctaButton,
             styles.comprehensionCheckButton,
+            isInlineQuickPractice && Platform.OS === 'android'
+              ? styles.quickPracticeCheckButtonAndroid
+              : null,
             options.disabled ? styles.ctaButtonDisabled : null,
             pressed && !options.disabled ? styles.ctaButtonPressed : null,
           ]}>
-          <AppText language="en" variant="caption" style={styles.comprehensionCheckButtonText}>
+          <AppText language={pageLanguage} variant="caption" style={styles.comprehensionCheckButtonText}>
             {options.label}
           </AppText>
         </Pressable>
@@ -9091,6 +9208,8 @@ const mergeAdjacentPracticeRowTokens = (
                 selectedSet.size === answerSet.size &&
                 Array.from(answerSet).every((label) => selectedSet.has(label));
               const abPromptLayout = parsePracticeAbPromptLayout(item);
+              const localizedMultilineText =
+                contentLang === 'th' ? getLocalizedMultilinePracticeText(item) : null;
               const itemImageUrl = resolveLessonImageUrl(item.imageKey ? lesson?.images?.[item.imageKey] : null, item.imageKey);
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
@@ -9113,7 +9232,23 @@ const mergeAdjacentPracticeRowTokens = (
                         </View>
                       ) : null}
                       {renderPracticeItemAudioButton(item.audioKey, selectionKey)}
-                      {abPromptLayout ? (
+                      {localizedMultilineText ? (
+                        <AppText
+                          language="th"
+                          variant="body"
+                          style={[
+                            styles.practiceQuestionText,
+                            styles.practiceMultipleChoiceQuestionText,
+                            styles.practiceLocalizedMultilineQuestionText,
+                            isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                          ]}>
+                          {renderTextWithBlankRuns(
+                            localizedMultilineText,
+                            `${selectionKey}-localized-multiline`,
+                            styles.practiceInlineBlank
+                          )}
+                        </AppText>
+                      ) : abPromptLayout ? (
                         <View style={styles.practiceAbPromptStack}>
                           <AppText
                             language="en"
@@ -10275,11 +10410,21 @@ const mergeAdjacentPracticeRowTokens = (
     );
   };
 
-  const renderQuickPracticeExercise = (exercise: NormalizedPracticeExercise) => (
-    <GestureDetector gesture={quickPracticeNativeGesture}>
+  const renderQuickPracticeExercise = (exercise: NormalizedPracticeExercise) => {
+    const quickPracticeBody = (
       <View style={styles.quickPracticeInlineWrap}>{renderPracticeExerciseBody(exercise, 'inline')}</View>
-    </GestureDetector>
-  );
+    );
+
+    // On Android, an eagerly activated native gesture around the whole exercise
+    // intercepts taps before nested Pressables (including Check Answers) receive them.
+    // The parent pager pan already has a horizontal activation threshold, so direct
+    // controls remain usable without this extra wrapper.
+    if (Platform.OS === 'android') {
+      return quickPracticeBody;
+    }
+
+    return <GestureDetector gesture={quickPracticeNativeGesture}>{quickPracticeBody}</GestureDetector>;
+  };
 
   const handlePracticeExampleAnswerTextLayout = useCallback(
     (answerKey: string, event: NativeSyntheticEvent<TextLayoutEventData>) => {
@@ -11235,10 +11380,10 @@ const mergeAdjacentPracticeRowTokens = (
                               styles.comprehensionCheckButton,
                               pressed ? styles.ctaButtonPressed : null,
                             ]}>
-                            <AppText language="en" variant="caption" style={styles.comprehensionCheckButtonText}>
+                            <AppText language={pageLanguage} variant="caption" style={styles.comprehensionCheckButtonText}>
                               {hasSubmittedComprehensionAnswers && allComprehensionQuestionsAnswered
                                 ? hasPerfectComprehensionScore
-                                  ? 'GREAT WORK!'
+                                  ? pageCopy.greatJob
                                   : 'TRY AGAIN'
                                 : 'CHECK ANSWERS'}
                             </AppText>
@@ -11554,10 +11699,11 @@ const mergeAdjacentPracticeRowTokens = (
                     </View>
                   ) : null}
 
-                  <View style={styles.stickyFooter}>
+                  <View style={[styles.stickyFooter, Platform.OS === 'android' ? styles.stickyFooterAndroid : null]}>
                     <View
                       style={[
                         styles.stickyFooterShell,
+                        Platform.OS === 'android' ? styles.stickyFooterShellAndroid : null,
                         { paddingBottom: Math.max(insets.bottom, 10) },
                       ]}>
                     {shouldShowAudioTray ? (
@@ -11929,7 +12075,7 @@ const styles = StyleSheet.create({
   coverThaiTitle: {
     color: '#54565C',
     fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.md,
+    lineHeight: Platform.OS === 'android' ? 28 : theme.typography.lineHeights.md,
   },
   coverFocusBlock: {
     borderRadius: theme.radii.lg,
@@ -13535,6 +13681,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
   },
+  practiceLocalizedMultilineQuestionText: {
+    lineHeight: Platform.OS === 'android' ? 22 : 18,
+  },
   practiceSentenceTransformQuestionText: {
     fontSize: 14.5,
     lineHeight: 21,
@@ -14108,6 +14257,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#91CAFF',
     ...brutalShadow,
   },
+  quickPracticeCheckButtonAndroid: {
+    marginRight: 3,
+    marginBottom: 3,
+    elevation: 0,
+    boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
+  },
   practiceFeedbackBox: {
     marginLeft: 14,
     gap: theme.spacing.xs,
@@ -14383,6 +14538,14 @@ const styles = StyleSheet.create({
     zIndex: 1,
     backgroundColor: 'transparent',
   },
+  stickyFooterAndroid: {
+    zIndex: 1,
+    position: 'relative',
+    marginTop: -28,
+    backgroundColor: 'transparent',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
   stickyFooterShell: {
     marginTop: 0,
     paddingTop: 0,
@@ -14392,7 +14555,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    overflow: 'hidden',
+    overflow: 'visible',
+  },
+  stickyFooterShellAndroid: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: theme.colors.border,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'visible',
   },
   completionModalBackdrop: {
     flex: 1,
