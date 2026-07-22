@@ -210,6 +210,7 @@ const RICH_PAGER_RIGHT_SWIPE_VELOCITY = 700;
 const RICH_PAGER_DRAG_LIMIT = 28;
 const LESSON_INPUT_FOCUS_TOP_OFFSET = 120;
 const LESSON_INPUT_KEYBOARD_GAP = 16;
+const ANDROID_LESSON_INPUT_FOCUS_LIFT = 16;
 
 const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
 const PRACTICE_INPUT_RECHECK_DELAY = 120;
@@ -2934,6 +2935,8 @@ const formatLinkedLabel = (value: string) =>
 const secondsToMillis = (seconds: number) => Math.max(0, Math.round(seconds * 1000));
 const millisToSeconds = (millis: number) => Math.max(0, millis / 1000);
 const PITCH_CORRECTION_QUALITY = 'medium';
+const ANDROID_LESSON_COVER_BOTTOM_BUFFER = 16;
+const ANDROID_LESSON_CTA_BOTTOM_BUFFER = 16;
 const elapsedMs = (start: number) => Math.max(0, Math.round(performance.now() - start));
 
 export default function LessonDetailShellScreen() {
@@ -3069,8 +3072,11 @@ export default function LessonDetailShellScreen() {
   const scrollLessonInputIntoView = useCallback((targetY?: number) => {
     requestAnimationFrame(() => {
       if (typeof targetY === 'number') {
+        const focusTopOffset =
+          LESSON_INPUT_FOCUS_TOP_OFFSET -
+          (Platform.OS === 'android' ? ANDROID_LESSON_INPUT_FOCUS_LIFT : 0);
         contentScrollRef.current?.scrollTo({
-          y: Math.max(0, targetY - LESSON_INPUT_FOCUS_TOP_OFFSET),
+          y: Math.max(0, targetY - focusTopOffset),
           animated: false,
         });
         return;
@@ -3105,7 +3111,11 @@ export default function LessonDetailShellScreen() {
         }
 
         const inputBottom = y + height;
-        const desiredInputBottom = windowHeight - lessonKeyboardHeight - LESSON_INPUT_KEYBOARD_GAP;
+        const desiredInputBottom =
+          windowHeight -
+          lessonKeyboardHeight -
+          LESSON_INPUT_KEYBOARD_GAP -
+          (Platform.OS === 'android' ? ANDROID_LESSON_INPUT_FOCUS_LIFT : 0);
         const overlap = inputBottom - desiredInputBottom;
 
         if (overlap > 1) {
@@ -4398,7 +4408,12 @@ export default function LessonDetailShellScreen() {
   const sectionSwipeGesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(!isInnerPagerTab && sectionCount > 1 && (canSwipeToPreviousSection || canSwipeToNextVisitedSection))
+        .enabled(
+          !(Platform.OS === 'android' && isComprehensionTab) &&
+            !isInnerPagerTab &&
+            sectionCount > 1 &&
+            (canSwipeToPreviousSection || canSwipeToNextVisitedSection)
+        )
         .activeOffsetX(SECTION_SWIPE_ACTIVE_OFFSET_X)
         .failOffsetY(SECTION_SWIPE_FAIL_OFFSET_Y)
         .shouldCancelWhenOutside(false)
@@ -4410,6 +4425,7 @@ export default function LessonDetailShellScreen() {
       canSwipeToNextVisitedSection,
       canSwipeToPreviousSection,
       handleSectionSwipe,
+      isComprehensionTab,
       isInnerPagerTab,
       sectionCount,
     ]
@@ -10852,7 +10868,10 @@ const mergeAdjacentPracticeRowTokens = (
                     source={{ uri: headerImageUrl }}
                     contentFit="contain"
                     contentPosition="center"
-                    style={styles.coverRemoteImage}
+                    style={[
+                      styles.coverRemoteImage,
+                      Platform.OS === 'android' ? styles.coverRemoteImageAndroid : null,
+                    ]}
                   />
                 ) : null}
 
@@ -10869,7 +10888,13 @@ const mergeAdjacentPracticeRowTokens = (
 
                 <View style={styles.coverOverlay} />
 
-                <View style={styles.coverContent}>
+                <View
+                  style={[
+                    styles.coverContent,
+                    Platform.OS === 'android'
+                      ? { paddingBottom: theme.spacing.xl + ANDROID_LESSON_COVER_BOTTOM_BUFFER }
+                      : null,
+                  ]}>
                   <View style={[styles.coverContentShell, isTabletLessonLayout ? styles.coverContentShellTablet : null]}>
                     <View style={styles.coverTopMetaRow}>
                       <View style={styles.coverTopBar}>
@@ -11699,7 +11724,14 @@ const mergeAdjacentPracticeRowTokens = (
                     </View>
                   ) : null}
 
-                  <View style={[styles.stickyFooter, Platform.OS === 'android' ? styles.stickyFooterAndroid : null]}>
+                  <View
+                    style={[
+                      styles.stickyFooter,
+                      Platform.OS === 'android' ? styles.stickyFooterAndroid : null,
+                      Platform.OS === 'android' && shouldShowBottomPagerDock
+                        ? styles.stickyFooterAndroidWithPager
+                        : null,
+                    ]}>
                     <View
                       style={[
                         styles.stickyFooterShell,
@@ -11748,7 +11780,11 @@ const mergeAdjacentPracticeRowTokens = (
                       </View>
                     ) : null}
 
-                    <View style={styles.ctaRow}>
+                    <View
+                      style={[
+                        styles.ctaRow,
+                        Platform.OS === 'android' ? styles.ctaRowAndroid : null,
+                      ]}>
                       {lessonCompletionError ? (
                         <AppText language={pageLanguage} variant="muted" style={styles.lessonCompletionErrorText}>
                           {lessonCompletionError}
@@ -11950,6 +11986,9 @@ const styles = StyleSheet.create({
     right: 18,
     bottom: 320,
     transform: [{ translateY: -12 }],
+  },
+  coverRemoteImageAndroid: {
+    transform: [{ translateY: -20 }],
   },
   coverFallbackArt: {
     ...StyleSheet.absoluteFillObject,
@@ -14546,6 +14585,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
   },
+  stickyFooterAndroidWithPager: {
+    marginTop: 0,
+  },
   stickyFooterShell: {
     marginTop: 0,
     paddingTop: 0,
@@ -14783,6 +14825,9 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     paddingBottom: 16,
     backgroundColor: 'transparent',
+  },
+  ctaRowAndroid: {
+    paddingBottom: 16 + ANDROID_LESSON_CTA_BOTTOM_BUFFER,
   },
   nextSectionHintOverlay: {
     position: 'absolute',

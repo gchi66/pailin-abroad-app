@@ -49,6 +49,7 @@ const RATE_MENU_WIDTH = 68;
 const RATE_OPTION_HEIGHT = 44;
 const RATE_MENU_GAP = 4;
 const RATE_MENU_PADDING = 4;
+const ANDROID_BOTTOM_BUFFER = 16;
 
 export function LessonAudioTray({
   language,
@@ -457,6 +458,7 @@ const styles = StyleSheet.create({
   },
   shellAndroid: {
     paddingTop: 0,
+    paddingBottom: ANDROID_BOTTOM_BUFFER,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'visible',

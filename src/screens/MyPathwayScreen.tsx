@@ -679,7 +679,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                           <AppText
                             language={uiLanguage}
                             variant="body"
-                            style={[styles.resumeNumber, digitCount >= 4 ? styles.resumeNumberCompact : null]}>
+                            style={[styles.resumeNumber, digitCount >= 3 ? styles.resumeNumberCompact : null]}>
                             {lessonNumber}
                           </AppText>
                         )}
@@ -1190,6 +1190,7 @@ const styles = StyleSheet.create({
   resumeNumberCompact: {
     fontSize: 17,
     lineHeight: 22,
+    marginTop: 4,
   },
   resumeLockIcon: {
     width: 36,
