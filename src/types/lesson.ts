@@ -33,6 +33,9 @@ export type LessonRichNode = {
   audio_section?: string | null;
   audio_seq?: number | null;
   is_response?: boolean | null;
+  list_id?: string | null;
+  list_nesting_level?: number | null;
+  list_start_number?: number | null;
   [key: string]: unknown;
 };
 

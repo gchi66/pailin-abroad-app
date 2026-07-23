@@ -8568,7 +8568,23 @@ export default function LessonDetailShellScreen() {
       zebraGroups.push(currentGroup);
     }
 
-    let numberedIndex = 0;
+    let legacyNumberedIndex = 0;
+    const numberedCountsByList = new Map<string, number>();
+
+    const getUnderstandNumberedLabel = (node: LessonRichNode) => {
+      const listId = typeof node.list_id === 'string' ? node.list_id.trim() : '';
+      if (!listId) {
+        legacyNumberedIndex += 1;
+        return `${legacyNumberedIndex}.`;
+      }
+
+      const nestingLevel = typeof node.list_nesting_level === 'number' ? node.list_nesting_level : getRichIndentLevel(node);
+      const counterKey = `${listId}:${nestingLevel}`;
+      const configuredStart = typeof node.list_start_number === 'number' ? node.list_start_number : 1;
+      const nextIndex = numberedCountsByList.get(counterKey) ?? configuredStart;
+      numberedCountsByList.set(counterKey, nextIndex + 1);
+      return `${nextIndex}.`;
+    };
 
     return zebraGroups.map((group, index) => (
       <View
@@ -8576,11 +8592,10 @@ export default function LessonDetailShellScreen() {
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
           if (node.kind === 'numbered_item') {
-            numberedIndex += 1;
             return renderRichNode(node, nodeIndex, {
               keyPrefix: 'understand-node',
               enableHighlights: true,
-              numberedLabel: `${numberedIndex}.`,
+              numberedLabel: getUnderstandNumberedLabel(node),
               compactBody: true,
             });
           }
