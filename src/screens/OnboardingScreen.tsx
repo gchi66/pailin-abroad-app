@@ -99,8 +99,8 @@ type PasswordStepProps = StepBaseProps & {
   onPasswordChange: (field: PasswordField, value: string) => void;
   errorMessage: string;
   meetsLength: boolean;
-  meetsNumberOrSymbol: boolean;
-  meetsUppercase: boolean;
+  meetsNumberAndSymbol: boolean;
+  meetsLetterCases: boolean;
 };
 
 type ProfileStepProps = StepBaseProps & {
@@ -153,8 +153,8 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
       passwordMismatch: 'รหัสผ่านไม่ตรงกัน',
       passwordRequirements: 'กรุณาตั้งรหัสผ่านให้ตรงตามเงื่อนไขทั้งหมด',
       passwordRule1: 'อย่างน้อย 8 ตัวอักษร',
-      passwordRule2: 'มีตัวเลขหรือตัวอักษรพิเศษอย่างน้อย 1 ตัว',
-      passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่อย่างน้อย 1 ตัว',
+      passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว',
+      passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว',
       whatToCallYou: 'อยากให้เราเรียกคุณว่าอะไรดีล่ะ?',
       firstNameLabel: 'ชื่อผู้ใช้',
       optionalLabel: 'ไม่บังคับ',
@@ -197,8 +197,8 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
     passwordMismatch: 'Passwords do not match.',
     passwordRequirements: 'Please meet all password requirements.',
     passwordRule1: 'At least 8 characters',
-    passwordRule2: 'At least 1 number or special character',
-    passwordRule3: 'At least 1 uppercase letter',
+    passwordRule2: 'At least 1 number and 1 special character',
+    passwordRule3: 'At least 1 uppercase and 1 lowercase letter',
     whatToCallYou: 'What should we call you?',
     firstNameLabel: 'Username',
     optionalLabel: 'Optional',
@@ -264,16 +264,16 @@ function PasswordStep({
   onPasswordChange,
   errorMessage,
   meetsLength,
-  meetsNumberOrSymbol,
-  meetsUppercase,
+  meetsNumberAndSymbol,
+  meetsLetterCases,
 }: PasswordStepProps) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const rules = [
     { label: copy.passwordRule1, met: meetsLength },
-    { label: copy.passwordRule2, met: meetsNumberOrSymbol },
-    { label: copy.passwordRule3, met: meetsUppercase },
+    { label: copy.passwordRule2, met: meetsNumberAndSymbol },
+    { label: copy.passwordRule3, met: meetsLetterCases },
   ];
 
   return (
@@ -578,8 +578,12 @@ export function OnboardingScreen() {
     : Math.max(620, Math.min(720, height - insets.top - theme.spacing.md * 2 - 12));
 
   const meetsLength = passwords.newPassword.length >= 8;
-  const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>]/.test(passwords.newPassword);
-  const meetsUppercase = /[A-Z]/.test(passwords.newPassword);
+  const meetsNumber = /\d/.test(passwords.newPassword);
+  const meetsSymbol = /[!@#$%^&*(),.?":{}|<>_;'\-+=/\\[\]~`]/.test(passwords.newPassword);
+  const meetsNumberAndSymbol = meetsNumber && meetsSymbol;
+  const meetsLetterCases =
+    /[A-Z]/.test(passwords.newPassword) &&
+    /[a-z]/.test(passwords.newPassword);
   const passwordsMatch =
     passwords.newPassword.length > 0 &&
     passwords.confirmPassword.length > 0 &&
@@ -646,7 +650,7 @@ export function OnboardingScreen() {
   const handleSetPassword = useCallback(async () => {
     setErrorMessage('');
 
-    if (!meetsLength || !meetsNumberOrSymbol || !meetsUppercase) {
+    if (!meetsLength || !meetsNumberAndSymbol || !meetsLetterCases) {
       setErrorMessage(copy.passwordRequirements);
       return;
     }
@@ -667,7 +671,7 @@ export function OnboardingScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [copy.passwordMismatch, copy.passwordRequirements, ensureUserRecord, goToStep, meetsLength, meetsNumberOrSymbol, meetsUppercase, passwords.newPassword, passwordsMatch]);
+  }, [copy.passwordMismatch, copy.passwordRequirements, ensureUserRecord, goToStep, meetsLength, meetsLetterCases, meetsNumberAndSymbol, passwords.newPassword, passwordsMatch]);
 
   const handleCompleteProfile = useCallback(async () => {
     setErrorMessage('');
@@ -800,8 +804,8 @@ export function OnboardingScreen() {
           onPasswordChange={handlePasswordChange}
           errorMessage={currentStep === 1 ? errorMessage : ''}
           meetsLength={meetsLength}
-          meetsNumberOrSymbol={meetsNumberOrSymbol}
-          meetsUppercase={meetsUppercase}
+          meetsNumberAndSymbol={meetsNumberAndSymbol}
+          meetsLetterCases={meetsLetterCases}
         />
       ),
       2: (
@@ -856,8 +860,8 @@ export function OnboardingScreen() {
     errorMessage,
     handlePasswordChange,
     meetsLength,
-    meetsNumberOrSymbol,
-    meetsUppercase,
+    meetsLetterCases,
+    meetsNumberAndSymbol,
     passwords,
     router,
     selectedAvatarPath,

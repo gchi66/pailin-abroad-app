@@ -41,10 +41,7 @@ export function AuthScreen() {
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSignUpCredentialsFocused, setIsSignUpCredentialsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [isAppleSubmitting, setIsAppleSubmitting] = useState(false);
@@ -71,7 +68,6 @@ export function AuthScreen() {
             divider: 'or email',
             email: 'อีเมล',
             password: 'รหัสผ่าน',
-            confirmPassword: 'ยืนยันรหัสผ่าน',
             submitSignUp: 'สร้างบัญชี ->',
             submitSignIn: 'เข้าสู่ระบบ ->',
             footerSignupPrefix: 'เป็นสมาชิกอยู่แล้ว? ',
@@ -80,15 +76,9 @@ export function AuthScreen() {
             footerSigninAction: 'สมัครสมาชิก',
             continueGuestPrefix: 'หรือ',
             continueGuestAction: 'เข้าใช้งานแบบผู้เยี่ยมชม',
-            passwordMismatch: 'รหัสผ่านไม่ตรงกัน',
-            passwordShort: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
-            passwordRuleOne: 'อย่างน้อย 8 ตัวอักษร',
-            passwordRuleTwo: 'ตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว',
-            passwordRuleThree: 'ตัวเลขหรือสัญลักษณ์อย่างน้อย 1 ตัว',
             authSuccessTitle: 'สำเร็จ',
             authSuccess: 'เข้าสู่ระบบสำเร็จ',
-            signupSuccess: 'สร้างบัญชีสำเร็จ',
-            signupConfirm: 'สร้างบัญชีสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อน',
+            signupConfirm: 'กรุณาตรวจสอบอีเมล แล้วกดลิงก์เพื่อยืนยันและดำเนินการต่อ',
             authErrorTitle: 'เกิดข้อผิดพลาด',
             termsPrefix: 'การสมัครถือว่าคุณยอมรับ ',
             termsTerms: 'ข้อกำหนด',
@@ -110,7 +100,6 @@ export function AuthScreen() {
             divider: 'or email',
             email: 'Email',
             password: 'Password',
-            confirmPassword: 'Confirm password',
             submitSignUp: 'Create account ->',
             submitSignIn: 'Log in ->',
             footerSignupPrefix: 'Already a member? ',
@@ -119,15 +108,9 @@ export function AuthScreen() {
             footerSigninAction: 'Sign up',
             continueGuestPrefix: 'Or ',
             continueGuestAction: 'continue as guest',
-            passwordMismatch: 'Passwords do not match.',
-            passwordShort: 'Password must be at least 8 characters.',
-            passwordRuleOne: 'At least 8 characters',
-            passwordRuleTwo: 'At least 1 uppercase letter',
-            passwordRuleThree: 'At least 1 number or symbol',
             authSuccessTitle: 'Success',
             authSuccess: 'Signed in successfully.',
-            signupSuccess: 'Account created successfully.',
-            signupConfirm: 'Account created. Check your email to confirm before signing in.',
+            signupConfirm: 'Check your email, then tap the link to confirm and continue.',
             authErrorTitle: 'Error',
             termsPrefix: 'By signing up you agree to our ',
             termsTerms: 'Terms',
@@ -146,15 +129,11 @@ export function AuthScreen() {
     }).start();
   }, [mode, modeAnim]);
 
-  const meetsLength = password.length >= 8;
-  const meetsUppercase = /[A-Z]/.test(password);
-  const meetsNumberOrSymbol = /[\d!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]/.test(password);
   const isBusy = isSubmitting || isLoading || isAppleSubmitting || isGoogleSubmitting || isGuestSubmitting;
   const isCompactScreen = height <= 720 || width <= 350;
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
   const showAppleButton = Platform.OS === 'ios' && isAppleAvailable;
-  const showExpandedSignUpFields = mode === 'signin' || isSignUpCredentialsFocused;
 
   useEffect(() => {
     let isMounted = true;
@@ -191,18 +170,6 @@ export function AuthScreen() {
   }, [isGuestMode, isGuestSubmitting, router]);
 
   const handleSubmit = async () => {
-    if (mode === 'signup') {
-      if (password.length < 8) {
-        Alert.alert(copy.authErrorTitle, copy.passwordShort);
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        Alert.alert(copy.authErrorTitle, copy.passwordMismatch);
-        return;
-      }
-    }
-
     setIsSubmitting(true);
     try {
       if (mode === 'signin') {
@@ -215,16 +182,13 @@ export function AuthScreen() {
         return;
       }
 
-      const { error, needsEmailConfirmation } = await signUp({ email, password });
+      const { error } = await signUp({ email });
       if (error) {
         Alert.alert(copy.authErrorTitle, error);
         return;
       }
 
-      Alert.alert(copy.authSuccessTitle, needsEmailConfirmation ? copy.signupConfirm : copy.signupSuccess);
-      if (needsEmailConfirmation) {
-        setMode('signin');
-      }
+      Alert.alert(copy.authSuccessTitle, copy.signupConfirm);
     } finally {
       setIsSubmitting(false);
     }
@@ -268,23 +232,13 @@ export function AuthScreen() {
       return;
     }
 
-    setIsSignUpCredentialsFocused(false);
+    setPassword('');
+    setShowPassword(false);
     setMode(nextMode);
   };
 
-  const handleSignUpFieldFocus = () => {
-    if (mode === 'signup') {
-      setIsSignUpCredentialsFocused(true);
-    }
-  };
-
   const collapseSignUpFields = () => {
-    if (mode !== 'signup' || !isSignUpCredentialsFocused) {
-      return;
-    }
-
     Keyboard.dismiss();
-    setIsSignUpCredentialsFocused(false);
   };
 
   const modeContentStyle = {
@@ -534,7 +488,6 @@ export function AuthScreen() {
                   uiLanguage={uiLanguage}
                   value={email}
                   onChangeText={setEmail}
-                  onFocus={handleSignUpFieldFocus}
                   placeholder={copy.email}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -547,19 +500,17 @@ export function AuthScreen() {
                   isLargeTablet={isLargeTabletScreen}
                 />
 
-                {showExpandedSignUpFields ? (
-                  <>
+                {mode === 'signin' ? (
                     <FormField
                       uiLanguage={uiLanguage}
                       value={password}
                       onChangeText={setPassword}
-                      onFocus={handleSignUpFieldFocus}
                       placeholder={copy.password}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      textContentType={mode === 'signup' ? 'newPassword' : 'password'}
-                      autoComplete={mode === 'signup' ? 'new-password' : 'password'}
+                      textContentType="password"
+                      autoComplete="password"
                       inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
                       style={styles.fieldSpacing}
                       isCompact={isCompactScreen}
@@ -573,67 +524,6 @@ export function AuthScreen() {
                       }
                     />
 
-                    {mode === 'signup' ? (
-                      <>
-                        <FormField
-                          uiLanguage={uiLanguage}
-                          value={confirmPassword}
-                          onChangeText={setConfirmPassword}
-                          onFocus={handleSignUpFieldFocus}
-                          placeholder={copy.confirmPassword}
-                          secureTextEntry={!showConfirmPassword}
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          textContentType="newPassword"
-                          autoComplete="new-password"
-                          inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
-                          style={styles.fieldSpacing}
-                          isCompact={isCompactScreen}
-                          isTablet={isTabletScreen}
-                          isLargeTablet={isLargeTabletScreen}
-                          trailingAccessory={
-                            <PasswordVisibilityButton
-                              isVisible={showConfirmPassword}
-                              onPress={() => setShowConfirmPassword((current) => !current)}
-                            />
-                          }
-                        />
-
-                      <View
-                        style={[
-                          styles.rulesCard,
-                          isCompactScreen ? styles.rulesCardCompact : null,
-                          isTabletScreen ? styles.rulesCardTablet : null,
-                          isLargeTabletScreen ? styles.rulesCardLargeTablet : null,
-                        ]}>
-                        <PasswordRule
-                          language={uiLanguage}
-                          text={copy.passwordRuleOne}
-                          isMet={meetsLength}
-                          isCompact={isCompactScreen}
-                          isTablet={isTabletScreen}
-                          isLargeTablet={isLargeTabletScreen}
-                        />
-                        <PasswordRule
-                          language={uiLanguage}
-                          text={copy.passwordRuleTwo}
-                          isMet={meetsUppercase}
-                          isCompact={isCompactScreen}
-                          isTablet={isTabletScreen}
-                          isLargeTablet={isLargeTabletScreen}
-                        />
-                        <PasswordRule
-                          language={uiLanguage}
-                          text={copy.passwordRuleThree}
-                          isMet={meetsNumberOrSymbol}
-                          isCompact={isCompactScreen}
-                          isTablet={isTabletScreen}
-                          isLargeTablet={isLargeTabletScreen}
-                        />
-                      </View>
-                      </>
-                    ) : null}
-                  </>
                 ) : null}
               </Animated.View>
 
@@ -752,7 +642,6 @@ function FormField({
   keyboardType,
   onChangeText,
   onFocus,
-  onTouchStart,
   placeholder,
   secureTextEntry,
   inputAccessoryViewID,
@@ -831,48 +720,6 @@ function PasswordVisibilityButton({
     <Pressable accessibilityRole="button" hitSlop={8} onPress={onPress} style={styles.iconButton}>
       <MaterialIcons name={isVisible ? 'visibility-off' : 'visibility'} size={20} color="#8899AA" />
     </Pressable>
-  );
-}
-
-function PasswordRule({
-  isMet,
-  isCompact,
-  isTablet,
-  isLargeTablet,
-  language,
-  text,
-}: {
-  isMet: boolean;
-  isCompact?: boolean;
-  isTablet?: boolean;
-  isLargeTablet?: boolean;
-  language: 'en' | 'th';
-  text: string;
-}) {
-  return (
-    <View style={styles.ruleRow}>
-      <View
-        style={[
-          styles.ruleDot,
-          isCompact ? styles.ruleDotCompact : null,
-          isTablet ? styles.ruleDotTablet : null,
-          isLargeTablet ? styles.ruleDotLargeTablet : null,
-          isMet ? styles.ruleDotMet : null,
-        ]}>
-        {isMet ? <MaterialIcons name="check" size={12} color="#1A2332" /> : null}
-      </View>
-      <AppText
-        language={language}
-        variant="caption"
-        style={[
-          styles.ruleText,
-          isCompact ? styles.ruleTextCompact : null,
-          isTablet ? styles.ruleTextTablet : null,
-          isLargeTablet ? styles.ruleTextLargeTablet : null,
-        ]}>
-        {text}
-      </AppText>
-    </View>
   );
 }
 
@@ -1201,78 +1048,6 @@ const styles = StyleSheet.create({
   },
   fieldSpacing: {
     marginTop: 12,
-  },
-  rulesCard: {
-    marginTop: 12,
-    gap: 8,
-    paddingHorizontal: 2,
-    paddingVertical: 2,
-  },
-  rulesCardCompact: {
-    marginTop: 10,
-    gap: 6,
-    paddingHorizontal: 2,
-    paddingVertical: 0,
-  },
-  rulesCardTablet: {
-    marginTop: 14,
-    gap: 10,
-  },
-  rulesCardLargeTablet: {
-    marginTop: 16,
-    gap: 12,
-  },
-  ruleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ruleDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#1A2332',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  ruleDotCompact: {
-    width: 14,
-    height: 14,
-    marginRight: 6,
-  },
-  ruleDotTablet: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
-  ruleDotLargeTablet: {
-    width: 22,
-    height: 22,
-    marginRight: 12,
-  },
-  ruleDotMet: {
-    backgroundColor: '#CDEB8B',
-  },
-  ruleText: {
-    flex: 1,
-    color: '#1A2332',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  ruleTextCompact: {
-    fontSize: 12,
-    lineHeight: 15,
-  },
-  ruleTextTablet: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  ruleTextLargeTablet: {
-    fontSize: 18,
-    lineHeight: 24,
   },
   errorText: {
     color: '#FF4545',

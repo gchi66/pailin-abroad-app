@@ -154,7 +154,7 @@ type AppSessionContextValue = {
   hasMembership: boolean;
   hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
-  signUp: (params: { email: string; password: string }) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
+  signUp: (params: { email: string }) => Promise<{ error: string | null }>;
   signInWithApple: () => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   continueAsGuest: () => Promise<void>;
@@ -472,33 +472,58 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     logAuth('createSessionFromUrl:start');
     const { params, errorCode } = QueryParams.getQueryParams(url);
 
-    if (errorCode) {
-      logAuth('createSessionFromUrl:errorCode', errorCode);
-      throw new Error(errorCode);
+    const authError = typeof params.error === 'string' ? params.error : null;
+    const errorDescription = typeof params.error_description === 'string' ? params.error_description : null;
+
+    if (errorCode || authError || errorDescription) {
+      const message = errorDescription ?? errorCode ?? authError ?? 'Could not complete authentication.';
+      logAuth('createSessionFromUrl:errorCode', message);
+      throw new Error(message);
     }
 
     const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
     const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
+    const authorizationCode = typeof params.code === 'string' ? params.code : null;
+
+    if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error) {
+        logAuth('createSessionFromUrl:setSessionError', error.message);
+        throw error;
+      }
+
+      logAuthTiming('createSessionFromUrl:success', sessionFromUrlStartedAt, {
+        flow: 'tokens',
+      });
+      return;
+    }
+
+    if (authorizationCode) {
+      const { error } = await supabase.auth.exchangeCodeForSession(authorizationCode);
+
+      if (error) {
+        logAuth('createSessionFromUrl:exchangeCodeError', error.message);
+        throw error;
+      }
+
+      logAuthTiming('createSessionFromUrl:success', sessionFromUrlStartedAt, {
+        flow: 'pkce',
+      });
+      return;
+    }
 
     if (!accessToken || !refreshToken) {
       logAuth('createSessionFromUrl:missingTokens', {
         hasAccessToken: Boolean(accessToken),
         hasRefreshToken: Boolean(refreshToken),
+        hasAuthorizationCode: Boolean(authorizationCode),
       });
       return;
     }
-
-    const { error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-
-    if (error) {
-      logAuth('createSessionFromUrl:setSessionError', error.message);
-      throw error;
-    }
-
-    logAuthTiming('createSessionFromUrl:success', sessionFromUrlStartedAt);
   }, [logAuthTiming]);
 
   const fetchProfile = useCallback(async (
@@ -954,26 +979,49 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     return { error: null };
   };
 
-  const signUp = async ({ email, password }: { email: string; password: string }) => {
+  const signUp = async ({ email }: { email: string }) => {
     guestConversionPendingRef.current = isGuestMode || Boolean(guestRevenueCatUserId);
     guestConversionShouldCarryMembershipRef.current =
       guestConversionPendingRef.current && hasRevenueCatFullAccess(revenueCatCustomerInfo);
     setIsGuestConversionPending(guestConversionPendingRef.current);
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
 
-    if (error) {
-      setAuthError(error.message);
-      return { error: error.message, needsEmailConfirmation: false };
+    const apiBaseUrl = env.apiBaseUrl.trim().replace(/\/+$/, '');
+    if (!apiBaseUrl) {
+      const message = 'Missing required env var: EXPO_PUBLIC_API_BASE_URL';
+      setAuthError(message);
+      return { error: message };
     }
 
-    setAuthError(null);
-    return {
-      error: null,
-      needsEmailConfirmation: data.session === null,
-    };
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/signup-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+        }),
+      });
+      const json = (await response.json().catch(() => null)) as
+        | { error?: string; message?: string }
+        | null;
+
+      if (!response.ok) {
+        const message =
+          json?.error ??
+          json?.message ??
+          `Signup request failed with status ${response.status}`;
+        setAuthError(message);
+        return { error: message };
+      }
+
+      setAuthError(null);
+      return { error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not request a confirmation link.';
+      setAuthError(message);
+      return { error: message };
+    }
   };
 
   const signInWithApple = async () => {
