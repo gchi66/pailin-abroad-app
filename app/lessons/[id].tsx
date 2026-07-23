@@ -8241,6 +8241,13 @@ export default function LessonDetailShellScreen() {
     );
   };
 
+  const isLesson1013ThaiCultureNoteDdText = (text: string) =>
+    isCultureNoteTab &&
+    contentLang === 'th' &&
+    (activeLessonNumber === '10.13' || coverLessonNumber === '10.13') &&
+    THAI_TEXT_RE.test(text) &&
+    text.includes('DD');
+
   const renderRichNode = (
     node: LessonRichNode,
     index: number,
@@ -8270,6 +8277,9 @@ export default function LessonDetailShellScreen() {
       node.kind === 'paragraph' &&
       isLesson153 &&
       (normalizedNodeHeadingText === 'UND -Y' || normalizedNodeHeadingText === '-Y');
+    const isLesson1013ThaiCultureNoteDdParagraph =
+      node.kind === 'paragraph' &&
+      isLesson1013ThaiCultureNoteDdText(getNodeHeadingText(node, contentLang));
 
     if (options?.isPhraseCard && isPhraseLinkPlaceholderNode(node, contentLang)) {
       return null;
@@ -8399,7 +8409,9 @@ export default function LessonDetailShellScreen() {
       }
 
       const isSubheader =
-        options?.forceSubheader === true || forceSubheaderByLessonOverride || isBoldParagraphNode(node);
+        options?.forceSubheader === true ||
+        forceSubheaderByLessonOverride ||
+        (isBoldParagraphNode(node) && !isLesson1013ThaiCultureNoteDdParagraph);
       const paragraphText = (
         <AppText
           key={`${nodeKey}-text`}
@@ -8696,6 +8708,13 @@ export default function LessonDetailShellScreen() {
       const text = getCultureNoteLeadText(node);
 
       if (!text) {
+        return false;
+      }
+
+      if (isLesson1013ThaiCultureNoteDdText(text)) {
+        // The Thai DD explanation contains uppercase Latin text, but it is body
+        // copy rather than the Culture Note's lead heading.
+        renderedLeadHeading = true;
         return false;
       }
 

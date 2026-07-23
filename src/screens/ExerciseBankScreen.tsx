@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/exercise-bank';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
@@ -430,7 +431,13 @@ export function ExerciseBankScreen() {
                     <Pressable
                       key={`${section.category_slug}:${section.section_slug}`}
                       accessibilityRole="button"
+                      style={styles.sectionCardWrap}
                       onPress={() => handleSectionPress(section)}>
+                      <AndroidNeoShadowLayer
+                        borderRadius={theme.radii.lg}
+                        color={theme.colors.shadow}
+                        offset={2}
+                      />
                       <Card padding="lg" radius="lg" style={[styles.sectionCard, isLocked ? styles.sectionCardLocked : null]}>
                         <Stack gap="sm">
                           <View style={styles.sectionCardHeader}>
@@ -655,6 +662,20 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderWidth: 1,
     borderColor: theme.colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  sectionCardWrap: {
+    position: 'relative',
   },
   sectionCardLocked: {
     opacity: 0.72,

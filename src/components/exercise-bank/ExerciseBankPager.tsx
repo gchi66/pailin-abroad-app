@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Stack } from '@/src/components/ui/Stack';
@@ -1092,15 +1093,18 @@ export function ExerciseBankPager({
           </AppText>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={contentLang === 'th' ? 'Switch exercise language to English' : 'เปลี่ยนภาษาแบบฝึกหัดเป็นไทย'}
-          onPress={() => onSetContentLang(contentLang === 'th' ? 'en' : 'th')}
-          style={styles.translatePill}>
-          <AppText language={contentLang === 'th' ? 'en' : 'th'} variant="caption" style={styles.translatePillText}>
-            {contentLang === 'th' ? 'EN' : 'ไทย'}
-          </AppText>
-        </Pressable>
+        <View style={styles.translatePillWrap}>
+          <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={contentLang === 'th' ? 'Switch exercise language to English' : 'เปลี่ยนภาษาแบบฝึกหัดเป็นไทย'}
+            onPress={() => onSetContentLang(contentLang === 'th' ? 'en' : 'th')}
+            style={styles.translatePill}>
+            <AppText language={contentLang === 'th' ? 'en' : 'th'} variant="caption" style={styles.translatePillText}>
+              {contentLang === 'th' ? 'EN' : 'ไทย'}
+            </AppText>
+          </Pressable>
+        </View>
       </View>
 
       <View {...(normalizedExercises.length > 1 ? pagerPanResponder.panHandlers : {})} style={styles.pagerBody}>
@@ -1169,30 +1173,34 @@ export function ExerciseBankPager({
 
       <View style={styles.footer}>
         {!isActiveExerciseChecked ? (
-          <Button
-            language={language}
-            title={isActiveExerciseChecking ? copy.checking : copy.checkAnswers}
-            onPress={() => {
-              if (!activeExercise || isActiveExerciseChecking) {
-                return;
-              }
+          <View style={styles.footerCheckButtonWrap}>
+            <AndroidNeoShadowLayer borderRadius={25} color={theme.colors.shadow} offset={3} />
+            <Button
+              language={language}
+              title={isActiveExerciseChecking ? copy.checking : copy.checkAnswers}
+              onPress={() => {
+                if (!activeExercise || isActiveExerciseChecking) {
+                  return;
+                }
 
-              if (activeExercise.kind === 'multiple_choice') {
-                handleCheckMultipleChoice(activeExercise);
-                return;
-              }
+                if (activeExercise.kind === 'multiple_choice') {
+                  handleCheckMultipleChoice(activeExercise);
+                  return;
+                }
 
-              if (
-                activeExercise.kind === 'open' ||
-                activeExercise.kind === 'fill_blank' ||
-                activeExercise.kind === 'sentence_transform'
-              ) {
-                void handleCheckOpenExercise(activeExercise);
-                return;
-              }
-            }}
-            style={styles.footerButtonPrimary}
-          />
+                if (
+                  activeExercise.kind === 'open' ||
+                  activeExercise.kind === 'fill_blank' ||
+                  activeExercise.kind === 'sentence_transform'
+                ) {
+                  void handleCheckOpenExercise(activeExercise);
+                  return;
+                }
+              }}
+              style={styles.footerCheckButton}
+              textStyle={styles.footerCheckButtonText}
+            />
+          </View>
         ) : isActiveExerciseFullyCorrect ? (
           <Button
             language={language}
@@ -1698,8 +1706,39 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   translatePill: {
-    minWidth: 78,
-    minHeight: 38,
+    minWidth: 60,
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#91CAFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.sm + 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 1.5, height: 1.5 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  translatePillWrap: {
+    position: 'relative',
+  },
+  translatePillText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.bold,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: 1 }],
   },
   headerBlock: {
     marginBottom: theme.spacing.sm,
@@ -2037,7 +2076,41 @@ const styles = StyleSheet.create({
   footerButtonPrimary: {
     width: '100%',
     minHeight: 54,
+    borderRadius: theme.radii.lg,
     borderColor: theme.colors.border,
+  },
+  footerCheckButtonWrap: {
+    position: 'relative',
+    width: '100%',
+    marginBottom: 3,
+  },
+  footerCheckButton: {
+    width: '100%',
+    minHeight: 38,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: '#91CAFF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 3, height: 3 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  footerCheckButtonText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.semibold,
+    textTransform: 'uppercase',
   },
   footerButtonSplit: {
     flex: 1,

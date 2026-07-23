@@ -595,10 +595,10 @@ const styles = StyleSheet.create({
   topicCard: {
     backgroundColor: theme.colors.surface,
     shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
+    shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 0,
-    elevation: 3,
+    elevation: 2,
   },
   topicCardLocked: {
     backgroundColor: '#F7F7F7',
