@@ -48,6 +48,9 @@ export function AuthScreen() {
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [isGuestSubmitting, setIsGuestSubmitting] = useState(false);
   const modeAnim = useRef(new Animated.Value(1)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const hasAppliedSignUpFocusOffsetRef = useRef(false);
   const keyboardAccessoryId = 'auth-keyboard-accessory';
 
   const copy = useMemo(
@@ -129,6 +132,14 @@ export function AuthScreen() {
     }).start();
   }, [mode, modeAnim]);
 
+  useEffect(() => {
+    const keyboardHideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      hasAppliedSignUpFocusOffsetRef.current = false;
+    });
+
+    return () => keyboardHideSubscription.remove();
+  }, []);
+
   const isBusy = isSubmitting || isLoading || isAppleSubmitting || isGoogleSubmitting || isGuestSubmitting;
   const isCompactScreen = height <= 720 || width <= 350;
   const isTabletScreen = width >= 768;
@@ -188,7 +199,10 @@ export function AuthScreen() {
         return;
       }
 
-      Alert.alert(copy.authSuccessTitle, copy.signupConfirm);
+      router.replace({
+        pathname: '/email-confirmation',
+        params: { email: email.trim() },
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -241,6 +255,20 @@ export function AuthScreen() {
     Keyboard.dismiss();
   };
 
+  const handleEmailFocus = () => {
+    if (Platform.OS !== 'ios' || mode !== 'signup' || hasAppliedSignUpFocusOffsetRef.current) {
+      return;
+    }
+
+    hasAppliedSignUpFocusOffsetRef.current = true;
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: scrollOffsetRef.current + 96,
+        animated: true,
+      });
+    }, 300);
+  };
+
   const modeContentStyle = {
     opacity: modeAnim,
     transform: [
@@ -256,9 +284,10 @@ export function AuthScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+      behavior={Platform.OS === 'ios' && mode === 'signin' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' && mode === 'signin' ? 12 : 0}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.screen}
         contentContainerStyle={[
           styles.contentContainer,
@@ -270,6 +299,10 @@ export function AuthScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        onScroll={(event) => {
+          scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         bounces={false}>
         <View style={[styles.centerShell, isCompactScreen ? styles.centerShellCompact : null]}>
           <View
@@ -488,6 +521,7 @@ export function AuthScreen() {
                   uiLanguage={uiLanguage}
                   value={email}
                   onChangeText={setEmail}
+                  onFocus={handleEmailFocus}
                   placeholder={copy.email}
                   keyboardType="email-address"
                   autoCapitalize="none"

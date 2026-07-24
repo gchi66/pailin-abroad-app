@@ -155,6 +155,7 @@ type AppSessionContextValue = {
   hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
   signUp: (params: { email: string }) => Promise<{ error: string | null }>;
+  resendSignUpEmail: (email: string) => Promise<{ error: string | null }>;
   signInWithApple: () => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   continueAsGuest: () => Promise<void>;
@@ -1000,6 +1001,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         },
         body: JSON.stringify({
           email: email.trim(),
+          redirect_path: '/auth/callback',
         }),
       });
       const json = (await response.json().catch(() => null)) as
@@ -1022,6 +1024,24 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setAuthError(message);
       return { error: message };
     }
+  };
+
+  const resendSignUpEmail = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: 'https://www.pailinabroad.com/auth/callback',
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      return { error: error.message };
+    }
+
+    setAuthError(null);
+    return { error: null };
   };
 
   const signInWithApple = async () => {
@@ -1395,6 +1415,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     hasCompletedOnboarding,
     signIn,
     signUp,
+    resendSignUpEmail,
     signInWithApple,
     signInWithGoogle,
     continueAsGuest,

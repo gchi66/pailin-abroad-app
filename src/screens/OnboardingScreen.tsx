@@ -423,88 +423,96 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onCon
 
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
-      <Stack gap={compact ? 'md' : 'lg'} style={styles.benefitsStepContent}>
-        <Stack gap="xs" align="center">
-          <AppText language={uiLanguage} variant="title" style={[styles.benefitsTitle, compact ? styles.benefitsTitleCompact : null]}>
-            {copy.benefitsTitle}
-          </AppText>
-          <AppText language={uiLanguage} variant="muted" style={[styles.benefitsSubtitle, compact ? styles.benefitsSubtitleCompact : null]}>
-            {copy.benefitsSubtitle}
-          </AppText>
+      <ScrollView
+        style={styles.benefitsScroll}
+        contentContainerStyle={styles.benefitsScrollContent}
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical={false}
+        bounces={false}
+        nestedScrollEnabled>
+        <Stack gap={compact ? 'md' : 'lg'} style={styles.benefitsStepContent}>
+          <Stack gap="xs" align="center">
+            <AppText language={uiLanguage} variant="title" style={[styles.benefitsTitle, compact ? styles.benefitsTitleCompact : null]}>
+              {copy.benefitsTitle}
+            </AppText>
+            <AppText language={uiLanguage} variant="muted" style={[styles.benefitsSubtitle, compact ? styles.benefitsSubtitleCompact : null]}>
+              {copy.benefitsSubtitle}
+            </AppText>
+          </Stack>
+
+          <View style={styles.planCardsRow}>
+            <View style={[styles.planCardFree, compact ? styles.planCardCompact : null]}>
+              <View style={styles.planPillFree}>
+                <AppText language={uiLanguage} variant="caption" style={styles.planPillFreeText}>
+                  {copy.freeLabel}
+                </AppText>
+              </View>
+              <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
+                {copy.freeTitle}
+              </AppText>
+              <Stack gap={compact ? 'xs' : 'sm'} style={styles.planFeatureList}>
+                {freeBenefits.map((benefit) => (
+                  <View key={benefit} style={styles.planFeatureRow}>
+                    <View style={styles.freeCheckCircle}>
+                      <AppText language="en" variant="caption" style={styles.freeCheckMark}>
+                        ✓
+                      </AppText>
+                    </View>
+                    <AppText
+                      language={uiLanguage}
+                      variant="body"
+                      style={[styles.planFeatureText, compact ? styles.planFeatureTextCompact : null, veryCompact ? styles.planFeatureTextVeryCompact : null]}>
+                      {benefit}
+                    </AppText>
+                  </View>
+                ))}
+              </Stack>
+            </View>
+
+            <View style={[styles.planCardPaid, compact ? styles.planCardCompact : null]}>
+              <View style={styles.planPillPaid}>
+                <AppText language={uiLanguage} variant="caption" style={styles.planPillPaidText}>
+                  {copy.fullLabel}
+                </AppText>
+              </View>
+              <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
+                {copy.paidTitle}
+              </AppText>
+              <Stack gap={compact ? 'xs' : 'sm'} style={styles.planFeatureList}>
+                {paidBenefits.map((benefit) => (
+                  <View key={benefit} style={styles.planFeatureRow}>
+                    <View style={styles.paidCheckCircle}>
+                      <AppText language="en" variant="caption" style={styles.paidCheckMark}>
+                        ✓
+                      </AppText>
+                    </View>
+                    <AppText
+                      language={uiLanguage}
+                      variant="body"
+                      style={[styles.planFeatureText, compact ? styles.planFeatureTextCompact : null, veryCompact ? styles.planFeatureTextVeryCompact : null]}>
+                      {benefit}
+                    </AppText>
+                  </View>
+                ))}
+              </Stack>
+            </View>
+          </View>
+
+          <View style={styles.benefitsActions}>
+            <Pressable accessibilityRole="button" style={[styles.upgradeButton, compact ? styles.upgradeButtonCompact : null]} onPress={onUpgrade}>
+              <AppText language={uiLanguage} variant="caption" style={styles.upgradeButtonText}>
+                {copy.upgradeCta}
+              </AppText>
+              <Image source={arrowRightImage} style={styles.upgradeButtonIcon} contentFit="contain" />
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={onContinueFree}>
+              <AppText language={uiLanguage} variant="caption" style={styles.continueFreeText}>
+                {copy.continueFree}
+              </AppText>
+            </Pressable>
+          </View>
         </Stack>
-
-        <View style={styles.planCardsRow}>
-          <View style={[styles.planCardFree, compact ? styles.planCardCompact : null]}>
-            <View style={styles.planPillFree}>
-              <AppText language={uiLanguage} variant="caption" style={styles.planPillFreeText}>
-                {copy.freeLabel}
-              </AppText>
-            </View>
-            <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
-              {copy.freeTitle}
-            </AppText>
-            <Stack gap={compact ? 'xs' : 'sm'} style={styles.planFeatureList}>
-              {freeBenefits.map((benefit) => (
-                <View key={benefit} style={styles.planFeatureRow}>
-                  <View style={styles.freeCheckCircle}>
-                    <AppText language="en" variant="caption" style={styles.freeCheckMark}>
-                      ✓
-                    </AppText>
-                  </View>
-                  <AppText
-                    language={uiLanguage}
-                    variant="body"
-                    style={[styles.planFeatureText, compact ? styles.planFeatureTextCompact : null, veryCompact ? styles.planFeatureTextVeryCompact : null]}>
-                    {benefit}
-                  </AppText>
-                </View>
-              ))}
-            </Stack>
-          </View>
-
-          <View style={[styles.planCardPaid, compact ? styles.planCardCompact : null]}>
-            <View style={styles.planPillPaid}>
-              <AppText language={uiLanguage} variant="caption" style={styles.planPillPaidText}>
-                {copy.fullLabel}
-              </AppText>
-            </View>
-            <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
-              {copy.paidTitle}
-            </AppText>
-            <Stack gap={compact ? 'xs' : 'sm'} style={styles.planFeatureList}>
-              {paidBenefits.map((benefit) => (
-                <View key={benefit} style={styles.planFeatureRow}>
-                  <View style={styles.paidCheckCircle}>
-                    <AppText language="en" variant="caption" style={styles.paidCheckMark}>
-                      ✓
-                    </AppText>
-                  </View>
-                  <AppText
-                    language={uiLanguage}
-                    variant="body"
-                    style={[styles.planFeatureText, compact ? styles.planFeatureTextCompact : null, veryCompact ? styles.planFeatureTextVeryCompact : null]}>
-                    {benefit}
-                  </AppText>
-                </View>
-              ))}
-            </Stack>
-          </View>
-        </View>
-
-        <View style={styles.benefitsActions}>
-          <Pressable accessibilityRole="button" style={[styles.upgradeButton, compact ? styles.upgradeButtonCompact : null]} onPress={onUpgrade}>
-            <AppText language={uiLanguage} variant="caption" style={styles.upgradeButtonText}>
-              {copy.upgradeCta}
-            </AppText>
-            <Image source={arrowRightImage} style={styles.upgradeButtonIcon} contentFit="contain" />
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={onContinueFree}>
-            <AppText language={uiLanguage} variant="caption" style={styles.continueFreeText}>
-              {copy.continueFree}
-            </AppText>
-          </Pressable>
-        </View>
-      </Stack>
+      </ScrollView>
     </View>
   );
 }
@@ -533,7 +541,7 @@ function ConfirmationStep({ copy, uiLanguage, cardWidth, compact }: StepBaseProp
 }
 
 export function OnboardingScreen() {
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
@@ -569,13 +577,24 @@ export function OnboardingScreen() {
   );
   const currentStepIndex = Math.max(0, visibleStepIds.indexOf(currentStep));
 
-  const compact = height <= 700;
-  const veryCompact = height <= 620;
+  const availableShellHeight =
+    height - insets.top - insets.bottom - theme.spacing.sm - theme.spacing.md;
+  const compact =
+    Platform.OS === 'android'
+      ? availableShellHeight <= 700 || width <= 380 || fontScale >= 1.15
+      : height <= 700;
+  const veryCompact =
+    Platform.OS === 'android'
+      ? availableShellHeight <= 620 || width <= 340 || fontScale >= 1.3
+      : height <= 620;
   const shellInnerHorizontalPadding = theme.spacing.sm;
   const shellInnerWidth = Math.max(width - theme.spacing.md * 2 - shellInnerHorizontalPadding * 2 - 2, 240);
-  const shellHeight = compact
-    ? Math.max(520, Math.min(620, height - insets.top - theme.spacing.sm * 2 - 8))
-    : Math.max(620, Math.min(720, height - insets.top - theme.spacing.md * 2 - 12));
+  const shellHeight =
+    Platform.OS === 'android'
+      ? Math.max(0, Math.min(compact ? 620 : 720, availableShellHeight))
+      : compact
+        ? Math.max(520, Math.min(620, height - insets.top - theme.spacing.sm * 2 - 8))
+        : Math.max(620, Math.min(720, height - insets.top - theme.spacing.md * 2 - 12));
 
   const meetsLength = passwords.newPassword.length >= 8;
   const meetsNumber = /\d/.test(passwords.newPassword);
@@ -1228,6 +1247,14 @@ const styles = StyleSheet.create({
   benefitsStepContent: {
     paddingTop: theme.spacing.xs,
     justifyContent: 'flex-start',
+  },
+  benefitsScroll: {
+    flex: 1,
+  },
+  benefitsScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xs,
   },
   benefitsTitle: {
     textAlign: 'center',
