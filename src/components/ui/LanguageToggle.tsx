@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
@@ -9,9 +9,10 @@ import { AppText } from './AppText';
 
 type LanguageToggleProps = {
   style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 };
 
-export function LanguageToggle({ style }: LanguageToggleProps) {
+export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
   const { uiLanguage, setUiLanguage } = useUiLanguage();
   const toggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
 
@@ -23,7 +24,10 @@ export function LanguageToggle({ style }: LanguageToggleProps) {
         accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
         onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
         style={[styles.languagePill, style]}>
-        <AppText language={uiLanguage === 'th' ? 'en' : 'th'} variant="caption" style={styles.languagePillText}>
+        <AppText
+          language={uiLanguage === 'th' ? 'en' : 'th'}
+          variant="caption"
+          style={[styles.languagePillText, textStyle]}>
           {toggleLabel}
         </AppText>
       </Pressable>

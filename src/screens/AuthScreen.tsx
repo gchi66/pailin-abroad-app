@@ -29,7 +29,6 @@ import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
-import { resolveFontFamily } from '@/src/theme/typography';
 
 type AuthMode = 'signup' | 'signin';
 
@@ -326,7 +325,18 @@ export function AuthScreen() {
                   ]}
                   contentFit="contain"
                 />
-                <LanguageToggle />
+                <LanguageToggle
+                  textStyle={
+                    Platform.OS === 'android'
+                      ? {
+                          fontFamily:
+                            uiLanguage === 'th'
+                              ? theme.typography.fontFaces.en.medium
+                              : theme.typography.fontFaces.th.medium,
+                        }
+                      : undefined
+                  }
+                />
               </View>
             </Pressable>
 
@@ -341,7 +351,7 @@ export function AuthScreen() {
                 ]}>
                 {mode === 'signup' ? (
                   <>
-                    <AppText
+                    <AuthText
                       language={uiLanguage}
                       variant="title"
                       style={[
@@ -351,8 +361,8 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                       ]}>
                       {copy.signUpTitleLineOne}
-                    </AppText>
-                    <AppText
+                    </AuthText>
+                    <AuthText
                       language={uiLanguage}
                       variant="title"
                       style={[
@@ -360,7 +370,7 @@ export function AuthScreen() {
                         isCompactScreen ? styles.headlineLineCompact : null,
                         isTabletScreen ? styles.headlineLineTablet : null,
                       ]}>
-                      <AppText
+                      <AuthText
                         language={uiLanguage}
                         variant="title"
                         style={[
@@ -370,10 +380,10 @@ export function AuthScreen() {
                           isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                         ]}>
                         {copy.signUpTitleAccent}
-                      </AppText>
+                      </AuthText>
                       {copy.signUpTitleTail ? ` ${copy.signUpTitleTail}` : ''}
-                    </AppText>
-                    <AppText
+                    </AuthText>
+                    <AuthText
                       language={uiLanguage}
                       variant="caption"
                       style={[
@@ -383,11 +393,11 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.subtitleLargeTablet : null,
                       ]}>
                       {copy.signUpSubtitle}
-                    </AppText>
+                    </AuthText>
                   </>
                 ) : (
                   <>
-                    <AppText
+                    <AuthText
                       language={uiLanguage}
                       variant="title"
                       style={[
@@ -397,8 +407,8 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                       ]}>
                       {copy.signInTitleLineOne}
-                    </AppText>
-                    <AppText
+                    </AuthText>
+                    <AuthText
                       language={uiLanguage}
                       variant="title"
                       style={[
@@ -406,7 +416,7 @@ export function AuthScreen() {
                         isCompactScreen ? styles.headlineLineCompact : null,
                         isTabletScreen ? styles.headlineLineTablet : null,
                       ]}>
-                      <AppText
+                      <AuthText
                         language={uiLanguage}
                         variant="title"
                         style={[
@@ -416,10 +426,10 @@ export function AuthScreen() {
                           isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                         ]}>
                         {copy.signInTitleAccent}
-                      </AppText>
+                      </AuthText>
                       {copy.signInTitleTail ? ` ${copy.signInTitleTail}` : ''}
-                    </AppText>
-                    <AppText
+                    </AuthText>
+                    <AuthText
                       language={uiLanguage}
                       variant="caption"
                       style={[
@@ -429,7 +439,7 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.subtitleLargeTablet : null,
                       ]}>
                       {copy.signInSubtitle}
-                    </AppText>
+                    </AuthText>
                   </>
                 )}
               </Animated.View>
@@ -463,9 +473,9 @@ export function AuthScreen() {
                         {isAppleSubmitting ? (
                           <View style={styles.appleButtonLoadingState}>
                             <ActivityIndicator color="#FFFFFF" />
-                            <AppText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
+                            <AuthText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
                               {copy.appleLoading}
-                            </AppText>
+                            </AuthText>
                           </View>
                         ) : (
                           <AppleAuthentication.AppleAuthenticationButton
@@ -495,7 +505,7 @@ export function AuthScreen() {
                       onPress={handleGoogle}
                       disabled={isGoogleSubmitting}>
                       <GoogleBadge />
-                      <AppText
+                      <AuthText
                         language={uiLanguage}
                         variant="caption"
                         style={[
@@ -505,7 +515,7 @@ export function AuthScreen() {
                           isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
                         ]}>
                         {isGoogleSubmitting ? copy.googleLoading : copy.google}
-                      </AppText>
+                      </AuthText>
                     </Pressable>
                   </View>
                 </View>
@@ -514,9 +524,9 @@ export function AuthScreen() {
               <Pressable onPress={collapseSignUpFields}>
                 <View style={[styles.dividerRow, isCompactScreen ? styles.dividerRowCompact : null]}>
                   <View style={styles.dividerLine} />
-                  <AppText language={uiLanguage} variant="caption" style={styles.dividerText}>
+                  <AuthText language={uiLanguage} variant="caption" style={styles.dividerText}>
                     {copy.divider}
-                  </AppText>
+                  </AuthText>
                   <View style={styles.dividerLine} />
                 </View>
               </Pressable>
@@ -569,9 +579,9 @@ export function AuthScreen() {
               <Pressable onPress={collapseSignUpFields}>
                 <View style={styles.footerStack}>
                   {authError ? (
-                    <AppText language={uiLanguage} variant="caption" style={styles.errorText}>
+                    <AuthText language={uiLanguage} variant="caption" style={styles.errorText}>
                       {authError}
-                    </AppText>
+                    </AuthText>
                   ) : null}
 
                   <View style={styles.authButtonWrap}>
@@ -589,7 +599,7 @@ export function AuthScreen() {
                       onPress={handleSubmit}
                       disabled={isBusy}>
                       {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-                      <AppText
+                      <AuthText
                         language={uiLanguage}
                         variant="caption"
                         style={[
@@ -599,12 +609,12 @@ export function AuthScreen() {
                           isLargeTabletScreen ? styles.ctaTextLargeTablet : null,
                         ]}>
                         {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
-                      </AppText>
+                      </AuthText>
                     </Pressable>
                   </View>
 
                   <Pressable accessibilityRole="button" onPress={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}>
-                    <AppText
+                    <AuthText
                       language={uiLanguage}
                       variant="caption"
                       style={[
@@ -614,14 +624,14 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.footerTextLargeTablet : null,
                       ]}>
                       {mode === 'signup' ? copy.footerSignupPrefix : copy.footerSigninPrefix}
-                      <AppText language={uiLanguage} variant="caption" style={styles.footerAction}>
+                      <AuthText language={uiLanguage} variant="caption" style={styles.footerAction}>
                         {mode === 'signup' ? copy.footerSignupAction : copy.footerSigninAction}
-                      </AppText>
-                    </AppText>
+                      </AuthText>
+                    </AuthText>
                   </Pressable>
 
                   <Pressable accessibilityRole="button" onPress={handleContinueAsGuest}>
-                    <AppText
+                    <AuthText
                       language={uiLanguage}
                       variant="caption"
                       style={[
@@ -631,14 +641,14 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.footerTextLargeTablet : null,
                       ]}>
                       {copy.continueGuestPrefix}
-                      <AppText language={uiLanguage} variant="caption" style={styles.guestLinkUnderline}>
+                      <AuthText language={uiLanguage} variant="caption" style={styles.guestLinkUnderline}>
                         {copy.continueGuestAction}
-                      </AppText>
-                    </AppText>
+                      </AuthText>
+                    </AuthText>
                   </Pressable>
 
                   {mode === 'signup' ? (
-                    <AppText
+                    <AuthText
                       language={uiLanguage}
                       variant="caption"
                       style={[
@@ -648,14 +658,14 @@ export function AuthScreen() {
                         isLargeTabletScreen ? styles.termsTextLargeTablet : null,
                       ]}>
                       {copy.termsPrefix}
-                      <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
+                      <AuthText language={uiLanguage} variant="caption" style={styles.termsAction}>
                         {copy.termsTerms}
-                      </AppText>
+                      </AuthText>
                       {copy.termsMiddle}
-                      <AppText language={uiLanguage} variant="caption" style={styles.termsAction}>
+                      <AuthText language={uiLanguage} variant="caption" style={styles.termsAction}>
                         {copy.termsPrivacy}
-                      </AppText>
-                    </AppText>
+                      </AuthText>
+                    </AuthText>
                   ) : null}
                 </View>
               </Pressable>
@@ -675,6 +685,26 @@ export function AuthScreen() {
       ) : null}
     </KeyboardAvoidingView>
   );
+}
+
+function AuthText({
+  language = 'en',
+  variant = 'body',
+  style,
+  ...rest
+}: React.ComponentProps<typeof AppText>) {
+  const iosVariantFace = {
+    title: 'semibold',
+    body: 'regular',
+    caption: 'medium',
+    muted: 'regular',
+  } as const;
+  const androidMatchedFontStyle =
+    Platform.OS === 'android'
+      ? { fontFamily: theme.typography.fontFaces[language][iosVariantFace[variant]] }
+      : null;
+
+  return <AppText {...rest} language={language} variant={variant} style={[androidMatchedFontStyle, style]} />;
 }
 
 function FormField({
@@ -1058,7 +1088,7 @@ const styles = StyleSheet.create({
     color: '#1A2332',
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: '600',
+    fontWeight: Platform.OS === 'android' ? '400' : '600',
     paddingVertical: 0,
   },
   inputCompact: {
@@ -1077,10 +1107,10 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   inputEnglish: {
-    fontFamily: Platform.OS === 'android' ? resolveFontFamily('en', { weight: '600' }) : theme.typography.fontFaces.en.regular,
+    fontFamily: theme.typography.fontFaces.en.regular,
   },
   inputThai: {
-    fontFamily: Platform.OS === 'android' ? resolveFontFamily('th', { weight: '600' }) : theme.typography.fontFaces.th.regular,
+    fontFamily: theme.typography.fontFaces.th.regular,
   },
   inputAccessory: {
     marginLeft: 8,
