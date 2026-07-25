@@ -24,6 +24,14 @@ async function getSessionOrThrow() {
   return session;
 }
 
+async function getSessionUserOrThrow() {
+  const session = await getSessionOrThrow();
+  if (!session.user) {
+    throw new Error('User not found.');
+  }
+  return session.user;
+}
+
 async function fetchAuthedJson<T>(path: string, options: { method: 'POST' | 'PUT'; body?: Record<string, unknown> }) {
   const baseUrl = assertApiBaseUrl();
   const session = await getSessionOrThrow();
@@ -90,65 +98,63 @@ export async function setOnboardingPassword(password: string) {
   }
 }
 
-export async function updateOnboardingProfile(params: { username: string; avatarImage: string }) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('User not found.');
-  }
+export async function updateOnboardingProfile(
+  params: { username: string; avatarImage: string },
+  options: { waitForBackendSync?: boolean } = {}
+) {
+  const user = await getSessionUserOrThrow();
 
   const username = params.username.trim();
   if (!username) {
     throw new Error('Username is required.');
   }
 
-  const { error: profileError } = await supabase
+  const profileUpdate = supabase
     .from('users')
     .update({
       username,
       avatar_image: params.avatarImage,
     })
     .eq('id', user.id);
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-
-  const { error: authUpdateError } = await supabase.auth.updateUser({
+  const authUpdate = supabase.auth.updateUser({
     data: {
       username,
       name: username,
       avatar_image: params.avatarImage,
     },
   });
+  const [{ error: profileError }, { error: authUpdateError }] = await Promise.all([
+    profileUpdate,
+    authUpdate,
+  ]);
+
+  if (profileError) {
+    throw new Error(profileError.message);
+  }
 
   if (authUpdateError) {
     throw new Error(authUpdateError.message);
   }
 
-  try {
-    await fetchAuthedJson('/api/user/profile', {
-      method: 'PUT',
-      body: {
-        username,
-        avatar_image: params.avatarImage,
-      },
-    });
-  } catch (error) {
+  const backendSync = fetchAuthedJson('/api/user/profile', {
+    method: 'PUT',
+    body: {
+      username,
+      avatar_image: params.avatarImage,
+    },
+  }).catch((error) => {
     console.warn('[onboarding] backend profile sync skipped:', error);
+  });
+
+  if (options.waitForBackendSync !== false) {
+    await backendSync;
+  } else {
+    void backendSync;
   }
 }
 
 export async function completeOnboarding() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('User not found.');
-  }
+  const user = await getSessionUserOrThrow();
 
   const { error } = await supabase
     .from('users')

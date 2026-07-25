@@ -552,6 +552,7 @@ export function OnboardingScreen() {
   const copy = getCopy(uiLanguage);
   const scrollRef = useRef<ScrollView | null>(null);
   const hasEnsuredUserRecordRef = useRef(false);
+  const ensureUserRecordPromiseRef = useRef<Promise<void> | null>(null);
   const [currentStep, setCurrentStep] = useState<StepId>(0);
   const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
   const [username, setUsername] = useState('');
@@ -662,9 +663,26 @@ export function OnboardingScreen() {
       return;
     }
 
-    await ensureOnboardingUserRecord();
-    hasEnsuredUserRecordRef.current = true;
+    if (!ensureUserRecordPromiseRef.current) {
+      ensureUserRecordPromiseRef.current = ensureOnboardingUserRecord()
+        .then(() => {
+          hasEnsuredUserRecordRef.current = true;
+        })
+        .finally(() => {
+          ensureUserRecordPromiseRef.current = null;
+        });
+    }
+
+    await ensureUserRecordPromiseRef.current;
   }, []);
+
+  useEffect(() => {
+    if (!sessionLoading && user) {
+      void ensureUserRecord().catch(() => {
+        // The submitting step retries and surfaces the error if prefetching fails.
+      });
+    }
+  }, [ensureUserRecord, sessionLoading, user]);
 
   const handleSetPassword = useCallback(async () => {
     setErrorMessage('');
@@ -717,12 +735,19 @@ export function OnboardingScreen() {
     setIsSubmitting(true);
     try {
       await ensureUserRecord();
-      await updateOnboardingProfile({
-        username: resolvedUsername,
-        avatarImage: selectedAvatarPath,
-      });
-      await refreshProfile();
+      await updateOnboardingProfile(
+        {
+          username: resolvedUsername,
+          avatarImage: selectedAvatarPath,
+        },
+        {
+          waitForBackendSync: false,
+        }
+      );
       goToStep(skipBenefitsStep ? 4 : 3);
+      void refreshProfile().catch((error) => {
+        console.warn('[onboarding] background profile refresh failed:', error);
+      });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to update profile.');
     } finally {
