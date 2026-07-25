@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import googleLogoImage from '../../assets/images/google_logo.png';
 import fullLogoImage from '../../assets/images/full-logo.webp';
+import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -144,6 +145,7 @@ export function AuthScreen() {
   const isCompactScreen = height <= 720 || width <= 350;
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
+  const authButtonRadius = isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14;
   const showAppleButton = Platform.OS === 'ios' && isAppleAvailable;
 
   useEffect(() => {
@@ -478,31 +480,34 @@ export function AuthScreen() {
                     </View>
                   ) : null}
 
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.googleButton,
-                      isCompactScreen ? styles.googleButtonCompact : null,
-                      isTabletScreen ? styles.googleButtonTablet : null,
-                      isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
-                      pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
-                      isGoogleSubmitting ? styles.buttonDisabled : null,
-                    ]}
-                    onPress={handleGoogle}
-                    disabled={isGoogleSubmitting}>
-                    <GoogleBadge />
-                    <AppText
-                      language={uiLanguage}
-                      variant="caption"
-                      style={[
-                        styles.googleButtonText,
-                        isCompactScreen ? styles.googleButtonTextCompact : null,
-                        isTabletScreen ? styles.googleButtonTextTablet : null,
-                        isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
-                      ]}>
-                      {isGoogleSubmitting ? copy.googleLoading : copy.google}
-                    </AppText>
-                  </Pressable>
+                  <View style={styles.authButtonWrap}>
+                    <AndroidNeoShadowLayer borderRadius={authButtonRadius} color="#1A2332" offset={1.75} />
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.googleButton,
+                        isCompactScreen ? styles.googleButtonCompact : null,
+                        isTabletScreen ? styles.googleButtonTablet : null,
+                        isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
+                        pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
+                        isGoogleSubmitting ? styles.buttonDisabled : null,
+                      ]}
+                      onPress={handleGoogle}
+                      disabled={isGoogleSubmitting}>
+                      <GoogleBadge />
+                      <AppText
+                        language={uiLanguage}
+                        variant="caption"
+                        style={[
+                          styles.googleButtonText,
+                          isCompactScreen ? styles.googleButtonTextCompact : null,
+                          isTabletScreen ? styles.googleButtonTextTablet : null,
+                          isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
+                        ]}>
+                        {isGoogleSubmitting ? copy.googleLoading : copy.google}
+                      </AppText>
+                    </Pressable>
+                  </View>
                 </View>
               </Pressable>
 
@@ -569,31 +574,34 @@ export function AuthScreen() {
                     </AppText>
                   ) : null}
 
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.ctaButton,
-                      isCompactScreen ? styles.ctaButtonCompact : null,
-                      isTabletScreen ? styles.ctaButtonTablet : null,
-                      isLargeTabletScreen ? styles.ctaButtonLargeTablet : null,
-                      pressed && !isBusy ? styles.buttonPressed : null,
-                      isBusy ? styles.buttonDisabled : null,
-                    ]}
-                    onPress={handleSubmit}
-                    disabled={isBusy}>
-                    {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-                    <AppText
-                      language={uiLanguage}
-                      variant="caption"
-                      style={[
-                        styles.ctaText,
-                        isCompactScreen ? styles.ctaTextCompact : null,
-                        isTabletScreen ? styles.ctaTextTablet : null,
-                        isLargeTabletScreen ? styles.ctaTextLargeTablet : null,
-                      ]}>
-                      {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
-                    </AppText>
-                  </Pressable>
+                  <View style={styles.authButtonWrap}>
+                    <AndroidNeoShadowLayer borderRadius={authButtonRadius} color="#1A2332" offset={1.75} />
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.ctaButton,
+                        isCompactScreen ? styles.ctaButtonCompact : null,
+                        isTabletScreen ? styles.ctaButtonTablet : null,
+                        isLargeTabletScreen ? styles.ctaButtonLargeTablet : null,
+                        pressed && !isBusy ? styles.buttonPressed : null,
+                        isBusy ? styles.buttonDisabled : null,
+                      ]}
+                      onPress={handleSubmit}
+                      disabled={isBusy}>
+                      {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                      <AppText
+                        language={uiLanguage}
+                        variant="caption"
+                        style={[
+                          styles.ctaText,
+                          isCompactScreen ? styles.ctaTextCompact : null,
+                          isTabletScreen ? styles.ctaTextTablet : null,
+                          isLargeTabletScreen ? styles.ctaTextLargeTablet : null,
+                        ]}>
+                        {mode === 'signup' ? copy.submitSignUp : copy.submitSignIn}
+                      </AppText>
+                    </Pressable>
+                  </View>
 
                   <Pressable accessibilityRole="button" onPress={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}>
                     <AppText
@@ -890,6 +898,9 @@ const styles = StyleSheet.create({
   socialButtons: {
     gap: 12,
     marginTop: 6,
+  },
+  authButtonWrap: {
+    position: 'relative',
   },
   appleButtonShell: {
     height: 50,

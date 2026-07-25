@@ -2437,6 +2437,21 @@ const getCultureNoteLeadHeadingExceptionKey = (
 ) => `${lessonNumber}|${contentLanguage}|${normalizeCultureNoteLeadHeadingExceptionText(text)}`;
 
 const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
+  getCultureNoteLeadHeadingExceptionKey(
+    '4.14',
+    'th',
+    'แม้ว่าในสหรัฐอเมริกา (U.S.A.) และสหราชอาณาจักร (U.K.) จะใช้ภาษาอังกฤษเหมือนกัน แต่ก็ยังมีความแตกต่างในเรื่องของคำศัพท์อยู่บ้าง'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '4.15',
+    'th',
+    'ฤดูร้อนในแอลเออาจจะค่อนข้างร้อน (สูงถึง 37°C) แต่เป็นความร้อนแบบแห้ง ซึ่งหลายคนคิดว่าสามารถทนได้ง่ายกว่าความร้อนแบบชื้น ฤดูหนาวในแอลเออาจจะหนาวเย็นลงเล็กน้อย (ต่ำถึง 4°C) แต่ก็ไม่หนาวเท่ากับรัฐอื่น ๆ ส่วนใหญ่'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '6.3',
+    'th',
+    'มีแอปหาคู่อื่นๆอีกมากมายที่ รองรับกลุ่มคนที่แตกต่างออกไป เช่น ชุมชน L.G.B.T.Q+, ผู้ใช้ที่มีอายุมากกว่า 40 ปี, กลุ่มอินฟลูเอนเซอร์บนโซเชียลมีเดีย หรือกลุ่มชาวคริสเตียน โดยแอปหาคู่ใหม่ๆยังคงถูกสร้างขึ้นอย่างต่อเนื่อง เพื่อเจาะกลุ่มคนที่มีความสนใจหรือไลฟ์สไตล์เฉพาะ หรือเพื่อเสนอวิธีใหม่ในการจับคู่กับผู้อื่นออนไลน์'
+  ),
   getCultureNoteLeadHeadingExceptionKey('6.4', 'en', '36/2 = 18°C'),
   getCultureNoteLeadHeadingExceptionKey(
     '6.4',
@@ -9266,7 +9281,12 @@ const mergeAdjacentPracticeRowTokens = (
 
               return (
                 <View key={selectionKey} style={[styles.practiceQuestionCard, styles.comprehensionQuestionCard]}>
-                  <View style={[styles.practiceMultipleChoiceQuestionHeader, styles.practiceMultipleChoiceQuestionHeaderDeindented]}>
+                  <View
+                    style={[
+                      styles.practiceMultipleChoiceQuestionHeader,
+                      styles.practiceMultipleChoiceQuestionHeaderDeindented,
+                      itemImageUrl ? styles.practiceMultipleChoiceQuestionHeaderWithImage : null,
+                    ]}>
                     <AppText language="en" variant="caption" style={styles.practiceQuestionNumber}>
                       {item.numberLabel || `${itemIndex + 1}`}
                     </AppText>
@@ -13632,6 +13652,9 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: theme.spacing.xs,
     marginBottom: theme.spacing.xs,
+  },
+  practiceMultipleChoiceQuestionHeaderWithImage: {
+    alignItems: 'flex-start',
   },
   practiceMultipleChoiceQuestionHeaderDeindented: {
     marginLeft: -4,
