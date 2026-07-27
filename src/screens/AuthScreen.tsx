@@ -29,6 +29,7 @@ import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
+import { usePostHog } from 'posthog-react-native';
 
 type AuthMode = 'signup' | 'signin';
 
@@ -38,6 +39,7 @@ export function AuthScreen() {
   const { height, width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
   const { authError, continueAsGuest, isGuestMode, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
+  const posthog = usePostHog();
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -190,6 +192,7 @@ export function AuthScreen() {
           Alert.alert(copy.authErrorTitle, error);
           return;
         }
+        posthog.capture('sign_in_completed', { method: 'email' });
         Alert.alert(copy.authSuccessTitle, copy.authSuccess);
         return;
       }
@@ -200,6 +203,7 @@ export function AuthScreen() {
         return;
       }
 
+      posthog.capture('sign_up_completed', { method: 'email' });
       router.replace({
         pathname: '/email-confirmation',
         params: { email: email.trim() },
@@ -211,6 +215,7 @@ export function AuthScreen() {
 
   const handleGoogle = async () => {
     setIsGoogleSubmitting(true);
+    posthog.capture('google_sign_in_started', { mode });
     try {
       const { error } = await signInWithGoogle();
       if (error) {
@@ -223,6 +228,7 @@ export function AuthScreen() {
 
   const handleApple = async () => {
     setIsAppleSubmitting(true);
+    posthog.capture('apple_sign_in_started', { mode });
     try {
       const { error } = await signInWithApple();
       if (error) {
@@ -235,6 +241,7 @@ export function AuthScreen() {
 
   const handleContinueAsGuest = async () => {
     setIsGuestSubmitting(true);
+    posthog.capture('guest_mode_started');
     try {
       await continueAsGuest();
     } catch {

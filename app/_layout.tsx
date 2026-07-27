@@ -4,9 +4,12 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PostHogProvider } from 'posthog-react-native';
+
+import { posthog } from '@/src/config/posthog';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -44,6 +47,16 @@ function AppRouteGate() {
   const pathname = usePathname();
   const params = useGlobalSearchParams<{ devtools?: string }>();
   const { hasAccount, hasCompletedOnboarding, isGuestMode, isLoading } = useAppSession();
+  const previousPathname = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      posthog.screen(pathname, {
+        previous_screen: previousPathname.current ?? null,
+      });
+      previousPathname.current = pathname;
+    }
+  }, [pathname]);
 
   const isOnOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
   const isOnAuthRoute = pathname === '/account/auth';
@@ -169,6 +182,14 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <PostHogProvider
+        client={posthog}
+        autocapture={{
+          captureScreens: false,
+          captureTouches: true,
+          propsToCapture: ['testID'],
+        }}
+      >
       <AppSessionProvider>
         <OnboardingProvider>
           <UiLanguageProvider>
@@ -197,6 +218,7 @@ export default function RootLayout() {
           </UiLanguageProvider>
         </OnboardingProvider>
       </AppSessionProvider>
+      </PostHogProvider>
     </GestureHandlerRootView>
   );
 }

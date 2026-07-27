@@ -36,6 +36,7 @@ import { useOnboarding } from '@/src/context/onboarding-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
+import { usePostHog } from 'posthog-react-native';
 
 type UiLanguage = 'en' | 'th';
 type PasswordField = 'newPassword' | 'confirmPassword';
@@ -547,6 +548,7 @@ export function OnboardingScreen() {
   const { uiLanguage } = useUiLanguage();
   const { markOnboardingComplete } = useOnboarding();
   const { hasMembership, isGuestConversionPending, isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
+  const posthog = usePostHog();
   const keyboardAccessoryId = 'onboarding-keyboard-accessory';
 
   const copy = getCopy(uiLanguage);
@@ -777,13 +779,17 @@ export function OnboardingScreen() {
       await completeOnboarding();
       await markOnboardingComplete();
       await refreshProfile();
+      posthog.capture('onboarding_completed', {
+        skipped_password_step: skipPasswordStep,
+        skipped_benefits_step: skipBenefitsStep,
+      });
       router.replace('/(tabs)');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to complete onboarding.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [markOnboardingComplete, refreshProfile, router]);
+  }, [markOnboardingComplete, posthog, refreshProfile, router, skipBenefitsStep, skipPasswordStep]);
 
   const handleBack = useCallback(() => {
     setErrorMessage('');
@@ -877,8 +883,12 @@ export function OnboardingScreen() {
           cardWidth={shellInnerWidth}
           compact={compact}
           veryCompact={veryCompact}
-          onContinueFree={() => goToStep(4)}
+          onContinueFree={() => {
+            posthog.capture('onboarding_free_plan_chosen');
+            goToStep(4);
+          }}
           onUpgrade={() => {
+            posthog.capture('onboarding_upgrade_pressed');
             prefetchPricing();
             router.push('/(tabs)/account/membership');
           }}
@@ -916,6 +926,7 @@ export function OnboardingScreen() {
     veryCompact,
     visibleStepIds,
     goToStep,
+    posthog,
   ]);
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {

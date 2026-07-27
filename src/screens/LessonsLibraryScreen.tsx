@@ -28,6 +28,7 @@ import {
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
+import { usePostHog } from 'posthog-react-native';
 
 type StageName = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 
@@ -94,6 +95,7 @@ export function LessonsLibraryScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasMembership } = useAppSession();
+  const posthog = usePostHog();
   const initialSelection = getLessonLibrarySelection();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -478,6 +480,13 @@ export function LessonsLibraryScreen() {
                   }}
                   onPressIn={() => prefetchLesson(lesson.id)}
                   onPress={() => {
+                    posthog.capture('lesson_opened', {
+                      lesson_id: lesson.id,
+                      lesson_title: lesson.title ?? null,
+                      stage: selectedStage,
+                      level: selectedLevel,
+                      has_membership: hasMembership,
+                    });
                     setLessonLibrarySelection({
                       stage: selectedStage,
                       level: selectedLevel,

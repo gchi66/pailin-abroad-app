@@ -24,6 +24,7 @@ import {
 import { clearResolvedLessonCache } from '@/src/api/lessons';
 import { clearPathwayDataPrefetch, prefetchPathwayData } from '@/src/api/pathway-prefetch';
 import { supabase } from '@/src/lib/supabase';
+import { posthog } from '@/src/config/posthog';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -704,6 +705,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       setGuestRevenueCatUserId(nextSession ? null : storedGuestRevenueCatUserId);
       if (nextSession?.user.id) {
         prefetchPathwayData(nextSession.user.id);
+        posthog.identify(nextSession.user.id, {
+          $set: {
+            ...(typeof nextSession.user.app_metadata?.provider === 'string'
+              ? { auth_provider: nextSession.user.app_metadata.provider }
+              : {}),
+          },
+        });
       } else {
         clearPathwayDataPrefetch();
       }
@@ -798,6 +806,19 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
             primaryLoadElapsedMs: getElapsedMs(primaryLoadStartedAt),
             hasSession: Boolean(nextSession),
             userId: authenticatedUser?.id ?? null,
+          });
+        }
+
+        if (authenticatedUser?.id && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+          posthog.identify(authenticatedUser.id, {
+            $set: {
+              ...(typeof authenticatedUser.app_metadata?.provider === 'string'
+                ? { auth_provider: authenticatedUser.app_metadata.provider }
+                : {}),
+            },
+            $set_once: {
+              first_sign_in_date: new Date().toISOString(),
+            },
           });
         }
 
@@ -1149,6 +1170,8 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       return { error: error.message };
     }
 
+    posthog.capture('sign_out_completed');
+    posthog.reset();
     setAuthError(null);
     setIsGuestMode(false);
     await persistGuestMode(false);

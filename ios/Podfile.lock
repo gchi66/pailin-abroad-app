@@ -323,8 +323,8 @@ PODS:
   - PromisesObjC (2.4.1)
   - PromisesSwift (2.4.1):
     - PromisesObjC (= 2.4.1)
-  - PurchasesHybridCommon (18.15.1):
-    - RevenueCat (= 5.78.0)
+  - PurchasesHybridCommon (18.18.0):
+    - RevenueCat (= 5.80.0)
   - RCTDeprecation (0.81.5)
   - RCTRequired (0.81.5)
   - RCTTypeSafety (0.81.5):
@@ -2024,7 +2024,7 @@ PODS:
     - ReactNativeDependencies
   - ReactNativeDependencies (0.81.5)
   - RecaptchaInterop (101.0.0)
-  - RevenueCat (5.78.0)
+  - RevenueCat (5.80.0)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -2092,8 +2092,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNPurchases (10.4.0):
-    - PurchasesHybridCommon (= 18.15.1)
+  - RNPurchases (10.4.1):
+    - PurchasesHybridCommon (= 18.18.0)
     - React-Core
   - RNReanimated (4.1.7):
     - hermes-engine
@@ -2726,7 +2726,7 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
-  PurchasesHybridCommon: eed735a411c1aee8c05d62933fa7c4a40ede4009
+  PurchasesHybridCommon: a5c81898ee5e1fa4a679c3c12e948ce3b4f4e341
   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
   RCTRequired: 8f3cfc90cc25cf6e420ddb3e7caaaabc57df6043
   RCTTypeSafety: 16a4144ca3f959583ab019b57d5633df10b5e97c
@@ -2793,11 +2793,11 @@ SPEC CHECKSUMS:
   ReactCommon: 08810150b1206cc44aecf5f6ae19af32f29151a8
   ReactNativeDependencies: 71ce9c28beb282aa720ea7b46980fff9669f428a
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
-  RevenueCat: f3641992451c1426da8d8d1466cec3bbdb765962
+  RevenueCat: f4427b8a1daa7a04a26cb20d60807aa818d9420b
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
   RNGestureHandler: 2914750df066d89bf9d8f48a10ad5f0051108ac3
   RNGoogleSignin: 104dd7238c56fe354e4b0a8fd267f866039ffdf3
-  RNPurchases: 1436e2381a4a06bfd6378158f9ebd11993e684cc
+  RNPurchases: 3a5c962673dee49d1210067000caea5ea218a7b9
   RNReanimated: 41f496c18437fd0aa841234917af84e98fd5b9a2
   RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
   RNSVG: 31d6639663c249b7d5abc9728dde2041eb2a3c34

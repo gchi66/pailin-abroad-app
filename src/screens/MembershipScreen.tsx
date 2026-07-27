@@ -26,6 +26,7 @@ import {
 } from '@/src/lib/revenuecat';
 import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
+import { usePostHog } from 'posthog-react-native';
 
 type UiLanguage = 'en' | 'th';
 
@@ -561,6 +562,7 @@ export function MembershipScreen() {
   const { uiLanguage } = useUiLanguage();
   const { width } = useWindowDimensions();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
+  const posthog = usePostHog();
   const isNativeApp = Platform.OS !== 'web';
   const [selectedPlanId, setSelectedPlanId] = useState<string>('lifetime');
   const [showPlanWarning, setShowPlanWarning] = useState(false);
@@ -764,6 +766,12 @@ export function MembershipScreen() {
       const result = await purchaseRevenueCatPackage(selectedPackage);
       setCustomerInfo(result.customerInfo);
       await refreshMembershipAccess();
+      posthog.capture('membership_purchased', {
+        plan_id: selectedPlan.id,
+        plan_duration: selectedPlan.duration,
+        is_lifetime: selectedPlan.isLifetime ?? false,
+        total_price: selectedPlan.totalPrice,
+      });
       router.replace({
         pathname: '/purchase-success',
         params: { returnTo: '/(tabs)' },
@@ -774,6 +782,10 @@ export function MembershipScreen() {
         purchasesError?.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR || purchasesError?.userCancelled === true;
 
       if (didUserCancel) {
+        posthog.capture('membership_purchase_cancelled', {
+          plan_id: selectedPlan.id,
+          plan_duration: selectedPlan.duration,
+        });
         return;
       }
 
@@ -790,6 +802,7 @@ export function MembershipScreen() {
       return;
     }
 
+    posthog.capture('membership_restore_pressed');
     try {
       setRestoreInProgress(true);
       const restoredCustomerInfo = await restoreRevenueCatPurchases();
@@ -884,7 +897,14 @@ export function MembershipScreen() {
                 isSelected={selectedPlanId === plan.id}
                 joinLabel={copy.joinCta}
                 onJoinPress={handleJoinPress}
-                onPress={() => setSelectedPlanId(plan.id)}
+                onPress={() => {
+                setSelectedPlanId(plan.id);
+                posthog.capture('membership_plan_selected', {
+                  plan_id: plan.id,
+                  plan_duration: plan.duration,
+                  is_lifetime: plan.isLifetime ?? false,
+                });
+              }}
                 showInlineJoinButton={!isCompactLayout}
                 uiLanguage={uiLanguage}
               />
