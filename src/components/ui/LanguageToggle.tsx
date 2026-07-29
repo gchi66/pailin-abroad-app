@@ -8,11 +8,12 @@ import { theme } from '@/src/theme/theme';
 import { AppText } from './AppText';
 
 type LanguageToggleProps = {
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
 
-export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
+export function LanguageToggle({ compact = false, style, textStyle }: LanguageToggleProps) {
   const { uiLanguage, setUiLanguage } = useUiLanguage();
   const toggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
 
@@ -23,11 +24,11 @@ export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
         accessibilityRole="button"
         accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
         onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-        style={[styles.languagePill, style]}>
+        style={[styles.languagePill, compact ? styles.compactPill : null, style]}>
         <AppText
           language={uiLanguage === 'th' ? 'en' : 'th'}
           variant="caption"
-          style={[styles.languagePillText, textStyle]}>
+          style={[styles.languagePillText, compact ? styles.compactPillText : null, textStyle]}>
           {toggleLabel}
         </AppText>
       </Pressable>
@@ -70,5 +71,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textAlignVertical: 'center',
     transform: [{ translateY: 1 }],
+  },
+  compactPill: {
+    minWidth: 62,
+    minHeight: 34,
+    paddingHorizontal: theme.spacing.sm + 2,
+  },
+  compactPillText: {
+    fontSize: 13,
+    lineHeight: 13,
   },
 });

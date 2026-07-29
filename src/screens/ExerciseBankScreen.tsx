@@ -1,151 +1,79 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
-import lockImage from '@/assets/images/lock.webp';
+import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
 import { prefetchPricing } from '@/src/api/pricing';
-import { fetchExerciseBankFeatured, fetchExerciseBankSections } from '@/src/api/exercise-bank';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
-import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { Stack } from '@/src/components/ui/Stack';
+import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import {
+  EXERCISE_BANK_COLLECTIONS,
+  ExerciseBankCollectionDefinition,
+} from '@/src/lib/exercise-bank-collections';
 import { theme } from '@/src/theme/theme';
-import { ExerciseBankCategory, ExerciseBankSectionSummary } from '@/src/types/exercise-bank';
+import { ExerciseBankTopic } from '@/src/types/exercise-bank';
 
 type UiLanguage = 'en' | 'th';
-type FilterMode = 'featured' | 'categories';
 
-const CATEGORY_ORDER = [
-  'verbs-and-tenses',
-  'nouns-and-articles',
-  'pronouns',
-  'adjectives',
-  'conjunctions',
-  'prepositions',
-  'other-concepts',
-];
-
-const CATEGORY_ORDER_INDEX = CATEGORY_ORDER.reduce<Record<string, number>>((acc, slug, index) => {
-  acc[slug] = index;
-  return acc;
-}, {});
-
-const CATEGORY_LABELS: Record<string, { en: string; th: string }> = {
-  'verbs-and-tenses': { en: 'Verbs & Tenses', th: 'คำกริยา & รูปกาลกริยา' },
-  'nouns-and-articles': { en: 'Nouns & Articles', th: 'คำนาม & คำนำหน้านาม' },
-  pronouns: { en: 'Pronouns', th: 'คำสรรพนาม' },
-  adjectives: { en: 'Adjectives', th: 'คำคุณศัพท์' },
-  conjunctions: { en: 'Conjunctions', th: 'คำเชื่อม' },
-  prepositions: { en: 'Prepositions', th: 'คำบุพบท' },
-  'other-concepts': { en: 'Other Concepts', th: 'แนวคิดการเรียนอื่นๆ' },
+type TopicCollection = ExerciseBankCollectionDefinition & {
+  topicCount: number;
 };
 
-const getCategoryLabel = ({
-  category,
-  categoryLabel,
-  categorySlug,
-  uiLanguage,
-}: {
-  category?: string | null;
-  categoryLabel?: string | null;
-  categorySlug?: string | null;
-  uiLanguage: UiLanguage;
-}) => {
-  const normalizedSlug = categorySlug?.trim() ?? '';
-  const mappedLabel = CATEGORY_LABELS[normalizedSlug];
-  if (mappedLabel) {
-    return uiLanguage === 'th' ? mappedLabel.th : mappedLabel.en;
-  }
-
-  return categoryLabel?.trim() || category?.trim() || '';
-};
-
-type Copy = {
-  title: string;
-  subtitle: string;
-  featuredButton: string;
-  categoriesButton: string;
-  searchPlaceholder: string;
-  searchLabel: string;
-  featuredBadge: string;
-  exercisesSuffixSingle: string;
-  exercisesSuffixPlural: string;
-  freeTitle: string;
-  freeBody: string;
-  noAccountTitle: string;
-  noAccountBody: string;
-  membershipCta: string;
-  loadingFallback: string;
-  emptyTitle: string;
-  emptyBody: string;
-};
-
-const getCopy = (language: UiLanguage): Copy => {
-  if (language === 'th') {
-    return {
-      title: 'สื่อการเรียน',
-      subtitle: 'แบบฝึกหัดเพิ่มเติมสำหรับกฎไวยากรณ์ที่เข้าใจยาก',
-      featuredButton: 'แบบฝึกหัดที่แนะนำ',
-      categoriesButton: 'ดูตามหมวดหมู่',
-      searchPlaceholder: 'ค้นหาแบบฝึกหัด',
-      searchLabel: 'ค้นหาแบบฝึกหัด',
-      featuredBadge: 'แบบฝึกหัดแนะนำ',
-      exercisesSuffixSingle: 'แบบฝึกหัด',
-      exercisesSuffixPlural: 'แบบฝึกหัด',
-      freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
-      freeBody: 'ยังสามารถดูแบบฝึกหัดแนะนำที่ใช้ได้กับแผนของคุณ',
-      noAccountTitle: 'ดูเหมือนว่าคุณยังไม่มีบัญชีผู้ใช้',
-      noAccountBody: 'สมัครสมาชิกฟรีเพื่อเข้าถึงสื่อการเรียนแนะนำของเรา',
-      membershipCta: 'สมัครสมาชิก',
-      loadingFallback: 'ไม่สามารถโหลดคลังแบบฝึกหัดได้',
-      emptyTitle: 'ไม่พบแบบฝึกหัดที่ตรงกัน',
-      emptyBody: 'ลองเปลี่ยนคำค้นหาหรือหมวดหมู่แล้วค้นหาอีกครั้ง',
-    };
-  }
-
-  return {
-    title: 'Exercise Bank',
-    subtitle: 'Additional practice exercises for those difficult grammar topics',
-    featuredButton: 'Featured',
-    categoriesButton: 'Categories',
-    searchPlaceholder: 'Search exercise sections',
-    searchLabel: 'Search exercise sections',
-    featuredBadge: 'Featured',
-    exercisesSuffixSingle: 'exercise',
-    exercisesSuffixPlural: 'exercises',
-    freeTitle: 'Free plan',
-    freeBody: 'You can access all of our featured exercises. Upgrade to access the full bank.',
-    noAccountTitle: 'Unlock the exercise bank',
-    noAccountBody: 'Create an account, then upgrade for full access.',
-    membershipCta: 'Upgrade',
-    loadingFallback: 'Failed to load the exercise bank.',
-    emptyTitle: 'No exercise sections found',
-    emptyBody: 'Try changing your search or active category.',
-  };
-};
+const getCopy = (language: UiLanguage) =>
+  language === 'th'
+    ? {
+        title: 'คลังแบบฝึกหัด',
+        freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
+        freeBody: 'คุณสามารถเข้าถึงหัวข้อแนะนำทั้งหมดได้ อัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
+        noAccountTitle: 'ปลดล็อกคลังแบบฝึกหัด',
+        noAccountBody: 'สร้างบัญชี จากนั้นอัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
+        membershipCta: 'อัปเกรด',
+        loadingFallback: 'ไม่สามารถโหลดคลังแบบฝึกหัดได้',
+        searchPlaceholder: 'ค้นหาหัวข้อแบบฝึกหัด',
+        searchLabel: 'ค้นหาหัวข้อแบบฝึกหัด',
+        emptyTitle: 'ยังไม่มีหัวข้อแบบฝึกหัด',
+        emptyBody: 'หัวข้อจะปรากฏที่นี่เมื่อเพิ่มลงในคลังแบบฝึกหัด',
+        noResultsTitle: 'ไม่พบหัวข้อที่ตรงกัน',
+        noResultsBody: 'ลองใช้คำค้นหาอื่น',
+        topicSingle: 'หัวข้อ',
+        topicPlural: 'หัวข้อ',
+      }
+    : {
+        title: 'Exercise Bank',
+        freeTitle: 'Free plan',
+        freeBody: 'You can access all featured topics. Upgrade to access the full bank.',
+        noAccountTitle: 'Unlock the exercise bank',
+        noAccountBody: 'Create an account, then upgrade for full access.',
+        membershipCta: 'Upgrade',
+        loadingFallback: 'Failed to load the exercise bank.',
+        searchPlaceholder: 'Search exercise topics',
+        searchLabel: 'Search exercise topics',
+        emptyTitle: 'No exercise topics yet',
+        emptyBody: 'Topics will appear here when they are added to the exercise bank.',
+        noResultsTitle: 'No matching topics',
+        noResultsBody: 'Try a different search.',
+        topicSingle: 'topic',
+        topicPlural: 'topics',
+      };
 
 export function ExerciseBankScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
-  const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
-  const returnTo = typeof returnToParam === 'string' && returnToParam.trim() ? returnToParam : null;
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
-  const [sections, setSections] = useState<ExerciseBankSectionSummary[]>([]);
-  const [categories, setCategories] = useState<ExerciseBankCategory[]>([]);
-  const [featured, setFeatured] = useState<ExerciseBankSectionSummary[]>([]);
+  const [topics, setTopics] = useState<ExerciseBankTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [filterMode, setFilterMode] = useState<FilterMode>('featured');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   useEffect(() => {
     let isMounted = true;
@@ -154,21 +82,13 @@ export function ExerciseBankScreen() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const [sectionsResponse, featuredResponse] = await Promise.all([
-          fetchExerciseBankSections(),
-          fetchExerciseBankFeatured(),
-        ]);
-
-        if (!isMounted) {
-          return;
+        const rows = await fetchExerciseBankTopics();
+        if (isMounted) {
+          setTopics(rows);
         }
-
-        setSections(sectionsResponse.sections);
-        setCategories(sectionsResponse.categories);
-        setFeatured(featuredResponse);
       } catch (error) {
         if (isMounted) {
-          setErrorMessage(error instanceof Error ? error.message : 'Failed to load the exercise bank.');
+          setErrorMessage(error instanceof Error ? error.message : copy.loadingFallback);
         }
       } finally {
         if (isMounted) {
@@ -182,113 +102,45 @@ export function ExerciseBankScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [copy.loadingFallback]);
 
-  const visibleCategoryOptions = useMemo(() => {
-    const normalized = categories
-      .filter((category) => typeof category.category_slug === 'string' && category.category_slug.trim())
-      .map((category) => ({
-        slug: category.category_slug?.trim() ?? '',
-        label: getCategoryLabel({
-          category: category.category,
-          categoryLabel: category.category_label,
-          categorySlug: category.category_slug,
-          uiLanguage,
-        }),
-      }))
-      .sort((a, b) => {
-        const orderA = CATEGORY_ORDER_INDEX[a.slug] ?? Number.MAX_SAFE_INTEGER;
-        const orderB = CATEGORY_ORDER_INDEX[b.slug] ?? Number.MAX_SAFE_INTEGER;
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
+  const collections = useMemo<TopicCollection[]>(() => {
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en');
 
-        return a.label.localeCompare(b.label, uiLanguage === 'th' ? 'th' : 'en');
-      });
-
-    return [{ slug: 'all', label: uiLanguage === 'th' ? 'ทั้งหมด' : 'All' }, ...normalized];
-  }, [categories, uiLanguage]);
-
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const visibleSections = useMemo(() => {
-    const source = filterMode === 'featured' ? featured : sections;
-    const filtered = source.filter((section) => {
-      if (filterMode === 'categories' && selectedCategory !== 'all' && section.category_slug !== selectedCategory) {
-        return false;
-      }
+    return EXERCISE_BANK_COLLECTIONS.map((collection) => {
+      const collectionTopics =
+        collection.slug === 'featured'
+          ? topics.filter((topic) => topic.is_featured)
+          : topics.filter((topic) => topic.category === collection.category);
 
       if (!normalizedSearch) {
-        return true;
+        return { ...collection, topicCount: collectionTopics.length };
       }
 
-      const haystack = [section.section, section.section_th, section.category_label].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(normalizedSearch);
+      const labelMatches = collection.label[uiLanguage].toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en').includes(normalizedSearch);
+      const matchingTopics = collectionTopics.filter((topic) =>
+        [topic.topic, topic.display_title]
+          .join(' ')
+          .toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en')
+          .includes(normalizedSearch)
+      );
+
+      return {
+        ...collection,
+        topicCount: labelMatches ? collectionTopics.length : matchingTopics.length,
+      };
+    }).filter((collection) => collection.topicCount > 0);
+  }, [searchTerm, topics, uiLanguage]);
+
+  const handleCollectionPress = (collection: TopicCollection) => {
+    router.push({
+      pathname: '/(tabs)/resources/exercise-bank/[collectionSlug]',
+      params: {
+        collectionSlug: collection.slug,
+        title: collection.label[uiLanguage],
+        search: searchTerm.trim(),
+      },
     });
-
-    return [...filtered].sort((a, b) => {
-      const categoryOrderA = CATEGORY_ORDER_INDEX[a.category_slug?.trim() ?? ''] ?? Number.MAX_SAFE_INTEGER;
-      const categoryOrderB = CATEGORY_ORDER_INDEX[b.category_slug?.trim() ?? ''] ?? Number.MAX_SAFE_INTEGER;
-      if (categoryOrderA !== categoryOrderB) {
-        return categoryOrderA - categoryOrderB;
-      }
-
-      const sectionOrderA = typeof a.section_order === 'number' ? a.section_order : Number.MAX_SAFE_INTEGER;
-      const sectionOrderB = typeof b.section_order === 'number' ? b.section_order : Number.MAX_SAFE_INTEGER;
-      if (sectionOrderA !== sectionOrderB) {
-        return sectionOrderA - sectionOrderB;
-      }
-
-      return String(a.section ?? '').localeCompare(String(b.section ?? ''));
-    });
-  }, [featured, filterMode, normalizedSearch, sections, selectedCategory]);
-
-  const featuredSectionKeys = useMemo(() => {
-    return new Set(
-      featured
-        .map((section) => {
-          const categorySlug = section.category_slug?.trim();
-          const sectionSlug = section.section_slug?.trim();
-          return categorySlug && sectionSlug ? `${categorySlug}:${sectionSlug}` : null;
-        })
-        .filter((value): value is string => Boolean(value))
-    );
-  }, [featured]);
-
-  const canAccessSection = (section: ExerciseBankSectionSummary) => {
-    if (hasMembership) {
-      return true;
-    }
-
-    if (!hasAccount) {
-      return false;
-    }
-
-    const categorySlug = section.category_slug?.trim();
-    const sectionSlug = section.section_slug?.trim();
-    if (!categorySlug || !sectionSlug) {
-      return false;
-    }
-
-    return featuredSectionKeys.has(`${categorySlug}:${sectionSlug}`);
-  };
-
-  const handleSectionPress = (section: ExerciseBankSectionSummary) => {
-    if (!canAccessSection(section)) {
-      prefetchPricing();
-      router.push({
-        pathname: '/(tabs)/account/membership',
-        params: { returnTo: '/(tabs)/resources/exercise-bank' },
-      });
-      return;
-    }
-
-    const categorySlug = section.category_slug?.trim();
-    const sectionSlug = section.section_slug?.trim();
-    if (!categorySlug || !sectionSlug) {
-      return;
-    }
-
-    router.push(`/(tabs)/resources/exercise-bank/${categorySlug}/${sectionSlug}`);
   };
 
   if (isLoading) {
@@ -298,65 +150,19 @@ export function ExerciseBankScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
-      <Stack gap="md">
-        <StandardPageHeader
-          language={uiLanguage}
-          title={copy.title}
-          onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
-          backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
-        />
+        <Stack gap="md">
+          <StandardPageHeader
+            language={uiLanguage}
+            title={copy.title}
+            titleSize="compact"
+            titleStyle={styles.exerciseBankHeaderTitle}
+            topInsetOffset={30}
+            inlineActions
+            rightElement={<LanguageToggle compact />}
+          />
 
-        <View style={styles.contentWrap}>
-          <Stack gap="md">
-            {!hasMembership ? (
-              <Card padding="lg" radius="lg" style={styles.noticeCard}>
-                <View style={styles.noticeRow}>
-                  <View style={styles.noticeCopy}>
-                    <AppText language={uiLanguage} variant="body" style={styles.noticeTitle}>
-                      {hasAccount ? copy.freeTitle : copy.noAccountTitle}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.noticeBody}>
-                      {hasAccount ? copy.freeBody : copy.noAccountBody}
-                    </AppText>
-                  </View>
-                  <NeoShadowPressable
-                    accessibilityRole="button"
-                    style={styles.noticeButton}
-                    onPress={() => {
-                      prefetchPricing();
-                      router.push({
-                        pathname: '/(tabs)/account/membership',
-                        params: { returnTo: '/(tabs)/resources/exercise-bank' },
-                      });
-                    }}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
-                      {copy.membershipCta}
-                    </AppText>
-                  </NeoShadowPressable>
-                </View>
-              </Card>
-            ) : null}
-
-            <View style={styles.toolbarShell}>
-              <View style={styles.filterRow}>
-                <NeoShadowPressable
-                  accessibilityRole="button"
-                  style={[styles.filterButton, filterMode === 'featured' ? styles.filterButtonActive : null]}
-                  onPress={() => setFilterMode('featured')}>
-                  <AppText language={uiLanguage} variant="caption" style={[styles.filterButtonText, filterMode === 'featured' ? styles.filterButtonTextActive : null]}>
-                    {copy.featuredButton}
-                  </AppText>
-                </NeoShadowPressable>
-                <NeoShadowPressable
-                  accessibilityRole="button"
-                  style={[styles.filterButton, filterMode === 'categories' ? styles.filterButtonActive : null]}
-                  onPress={() => setFilterMode('categories')}>
-                  <AppText language={uiLanguage} variant="caption" style={[styles.filterButtonText, filterMode === 'categories' ? styles.filterButtonTextActive : null]}>
-                    {copy.categoriesButton}
-                  </AppText>
-                </NeoShadowPressable>
-              </View>
-
+          <View style={styles.contentWrap}>
+            <Stack gap="lg">
               <View style={styles.searchShell}>
                 <TextInput
                   accessibilityLabel={copy.searchLabel}
@@ -376,122 +182,115 @@ export function ExerciseBankScreen() {
                 </View>
               </View>
 
-              {filterMode === 'categories' ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-                  {visibleCategoryOptions.map((category) => {
-                    const isActive = category.slug === selectedCategory;
-                    return (
-                      <Pressable
-                        key={category.slug}
-                        accessibilityRole="button"
-                        style={[styles.categoryChip, isActive ? styles.categoryChipActive : null]}
-                        onPress={() => setSelectedCategory(category.slug)}>
-                        <AppText language={uiLanguage} variant="caption" style={[styles.categoryChipText, isActive ? styles.categoryChipTextActive : null]}>
-                          {category.label}
-                        </AppText>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              ) : null}
-            </View>
-
-            {errorMessage ? (
-              <Card padding="lg" radius="lg" style={styles.emptyCard}>
-                <Stack gap="xs">
-                  <AppText language={uiLanguage} variant="body" style={styles.emptyTitle}>
-                    {copy.loadingFallback}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="muted" style={styles.emptyBody}>
-                    {errorMessage}
-                  </AppText>
-                </Stack>
-              </Card>
-            ) : null}
-
-            {!errorMessage && visibleSections.length === 0 ? (
-              <Card padding="lg" radius="lg" style={styles.emptyCard}>
-                <Stack gap="xs">
-                  <AppText language={uiLanguage} variant="body" style={styles.emptyTitle}>
-                    {copy.emptyTitle}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="muted" style={styles.emptyBody}>
-                    {copy.emptyBody}
-                  </AppText>
-                </Stack>
-              </Card>
-            ) : null}
-
-            {!errorMessage ? (
-              <Stack gap="md">
-                {visibleSections.map((section) => {
-                  const isLocked = !canAccessSection(section);
-                  const exerciseCount = Number(section.exercise_count ?? 0);
-                  return (
-                    <Pressable
-                      key={`${section.category_slug}:${section.section_slug}`}
+              {!hasMembership ? (
+                <Card padding="lg" radius="lg" style={styles.noticeCard}>
+                  <View style={styles.noticeRow}>
+                    <View style={styles.noticeCopy}>
+                      <AppText language={uiLanguage} variant="body" style={styles.noticeTitle}>
+                        {hasAccount ? copy.freeTitle : copy.noAccountTitle}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="muted" style={styles.noticeBody}>
+                        {hasAccount ? copy.freeBody : copy.noAccountBody}
+                      </AppText>
+                    </View>
+                    <NeoShadowPressable
                       accessibilityRole="button"
-                      style={styles.sectionCardWrap}
-                      onPress={() => handleSectionPress(section)}>
-                      <AndroidNeoShadowLayer
-                        borderRadius={theme.radii.lg}
-                        color={theme.colors.shadow}
-                        offset={2}
-                      />
-                      <Card padding="lg" radius="lg" style={[styles.sectionCard, isLocked ? styles.sectionCardLocked : null]}>
-                        <Stack gap="sm">
-                          <View style={styles.sectionCardHeader}>
-                            <View style={styles.sectionMetaWrap}>
-                              <View style={styles.sectionChipRow}>
-                                <View style={styles.sectionChip}>
-                                  <AppText language={uiLanguage} variant="caption" style={styles.sectionChipText}>
-                                    {getCategoryLabel({
-                                      category: section.category,
-                                      categoryLabel: section.category_label,
-                                      categorySlug: section.category_slug,
-                                      uiLanguage,
-                                    })}
-                                  </AppText>
-                                </View>
-                                {filterMode === 'featured' ? (
-                                  <View style={[styles.sectionChip, styles.sectionChipFeatured]}>
-                                    <AppText language={uiLanguage} variant="caption" style={styles.sectionChipText}>
-                                      {copy.featuredBadge}
-                                    </AppText>
-                                  </View>
-                                ) : null}
-                              </View>
+                      style={styles.noticeButton}
+                      onPress={() => {
+                        prefetchPricing();
+                        router.push({
+                          pathname: '/(tabs)/account/membership',
+                          params: { returnTo: '/(tabs)/resources/exercise-bank' },
+                        });
+                      }}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
+                        {copy.membershipCta}
+                      </AppText>
+                    </NeoShadowPressable>
+                  </View>
+                </Card>
+              ) : null}
 
-                              <AppText language="en" variant="body" style={styles.sectionTitle}>
-                                {section.section || ''}
-                              </AppText>
+              {errorMessage ? (
+                <Card padding="lg" radius="lg" style={styles.stateCard}>
+                  <Stack gap="xs">
+                    <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>
+                      {copy.loadingFallback}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.stateBody}>
+                      {errorMessage}
+                    </AppText>
+                  </Stack>
+                </Card>
+              ) : null}
 
-                              {uiLanguage === 'th' && section.section_th ? (
-                                <AppText language="th" variant="body" style={styles.sectionThaiTitle}>
-                                  {section.section_th}
-                                </AppText>
-                              ) : null}
-                            </View>
+              {!errorMessage && topics.length === 0 ? (
+                <Card padding="lg" radius="lg" style={styles.stateCard}>
+                  <Stack gap="xs">
+                    <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>
+                      {copy.emptyTitle}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.stateBody}>
+                      {copy.emptyBody}
+                    </AppText>
+                  </Stack>
+                </Card>
+              ) : null}
 
-                            {isLocked ? (
-                              <Image source={lockImage} style={styles.sectionLockIcon} resizeMode="contain" />
-                            ) : null}
-                          </View>
+              {!errorMessage && topics.length > 0 && collections.length === 0 ? (
+                <Card padding="lg" radius="lg" style={styles.stateCard}>
+                  <Stack gap="xs">
+                    <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>
+                      {copy.noResultsTitle}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.stateBody}>
+                      {copy.noResultsBody}
+                    </AppText>
+                  </Stack>
+                </Card>
+              ) : null}
 
-                          <AppText language={uiLanguage} variant="muted" style={styles.sectionCount}>
-                            {`${exerciseCount} ${exerciseCount === 1 ? copy.exercisesSuffixSingle : copy.exercisesSuffixPlural}`}
+              {!errorMessage && collections.length > 0 ? (
+                <View style={styles.collectionGrid}>
+                  {collections.map((collection) => (
+                    <Pressable
+                      key={collection.slug}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${collection.label[uiLanguage]}, ${collection.topicCount} ${
+                        collection.topicCount === 1 ? copy.topicSingle : copy.topicPlural
+                      }`}
+                      style={styles.collectionCardWrap}
+                      onPress={() => handleCollectionPress(collection)}>
+                      <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
+                      <View style={styles.collectionCard}>
+                        <AppText language="en" variant="body" style={styles.collectionEmoji}>
+                          {collection.emoji}
+                        </AppText>
+                        <View style={styles.collectionCopy}>
+                          <AppText
+                            language={uiLanguage}
+                            variant="body"
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.78}
+                            style={styles.collectionTitle}>
+                            {collection.label[uiLanguage]}
                           </AppText>
-                        </Stack>
-                      </Card>
+                          <AppText language={uiLanguage} variant="muted" style={styles.collectionCount}>
+                            {`${collection.topicCount} ${
+                              collection.topicCount === 1 ? copy.topicSingle : copy.topicPlural
+                            }`}
+                          </AppText>
+                        </View>
+                      </View>
                     </Pressable>
-                  );
-                })}
-              </Stack>
-            ) : null}
-          </Stack>
-        </View>
-      </Stack>
-          </ResponsivePageShell>
+                  ))}
+                </View>
+              ) : null}
+            </Stack>
+          </View>
+        </Stack>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -507,6 +306,49 @@ const styles = StyleSheet.create({
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
+  },
+  exerciseBankHeaderTitle: {
+    fontSize: 27,
+    lineHeight: 31,
+  },
+  searchShell: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: theme.radii.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingLeft: theme.spacing.md,
+    paddingRight: theme.spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    alignSelf: 'center',
+    height: 24,
+    paddingLeft: 0,
+    paddingRight: theme.spacing.sm,
+    paddingVertical: 0,
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 19,
+    textAlignVertical: 'center',
+  },
+  searchInputEnglish: {
+    fontFamily: theme.typography.fontFaces.en.regular,
+  },
+  searchInputThai: {
+    fontFamily: theme.typography.fontFaces.th.regular,
+  },
+  searchIconWrap: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchIcon: {
+    color: theme.colors.text,
+    fontSize: 25,
+    lineHeight: 25,
   },
   noticeCard: {
     backgroundColor: '#FFF4E8',
@@ -543,129 +385,29 @@ const styles = StyleSheet.create({
     color: theme.colors.surface,
     fontWeight: theme.typography.weights.bold,
   },
-  toolbarShell: {
-    gap: theme.spacing.md,
-  },
-  filterRow: {
+  collectionGrid: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: theme.spacing.lg,
   },
-  filterButton: {
+  collectionCardWrap: {
+    position: 'relative',
+    width: '47.5%',
+    minHeight: 132,
+  },
+  collectionCard: {
     flex: 1,
-    minHeight: 48,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: '#132042',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    shadowColor: '#132042',
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  filterButtonActive: {
-    backgroundColor: '#8EC5FF',
-    borderColor: '#132042',
-  },
-  filterButtonText: {
-    color: '#132042',
-    fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.2,
-  },
-  filterButtonTextActive: {
-    color: '#132042',
-  },
-  searchShell: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: '#132042',
-    backgroundColor: theme.colors.surface,
-    paddingLeft: theme.spacing.md,
-    paddingRight: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  searchInput: {
-    flex: 1,
-    alignSelf: 'center',
-    height: 24,
-    paddingLeft: 0,
-    paddingRight: theme.spacing.sm,
-    paddingVertical: 0,
-    marginTop: 0,
-    color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: 20,
-    textAlignVertical: 'center',
-  },
-  searchInputEnglish: {
-    fontFamily: theme.typography.fontFaces.en.regular,
-  },
-  searchInputThai: {
-    fontFamily: theme.typography.fontFaces.th.regular,
-  },
-  searchIconWrap: {
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchIcon: {
-    color: '#132042',
-    fontSize: 28,
-    lineHeight: 28,
-  },
-  categoryRow: {
-    gap: theme.spacing.sm,
-    paddingRight: theme.spacing.md,
-  },
-  categoryChip: {
-    borderWidth: 1,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  categoryChipActive: {
-    backgroundColor: theme.colors.accent,
-  },
-  categoryChipText: {
-    color: theme.colors.text,
-  },
-  categoryChipTextActive: {
-    color: theme.colors.surface,
-  },
-  loadingWrap: {
-    paddingVertical: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyCard: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  emptyTitle: {
-    color: theme.colors.text,
-  },
-  emptyBody: {
-    color: theme.colors.mutedText,
-  },
-  sectionCard: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    justifyContent: 'flex-start',
     ...Platform.select({
       ios: {
         shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 2, height: 2 },
+        shadowOffset: { width: 4, height: 5 },
         shadowOpacity: 1,
         shadowRadius: 0,
       },
@@ -674,61 +416,33 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  sectionCardWrap: {
-    position: 'relative',
+  collectionEmoji: {
+    fontSize: 28,
+    lineHeight: 32,
   },
-  sectionCardLocked: {
-    opacity: 0.72,
-  },
-  sectionCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: theme.spacing.sm,
-  },
-  sectionMetaWrap: {
-    flex: 1,
+  collectionCopy: {
+    marginTop: theme.spacing.sm,
     gap: theme.spacing.xs,
   },
-  sectionChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
-  },
-  sectionChip: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.warningSurface,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-  },
-  sectionChipFeatured: {
-    backgroundColor: theme.colors.accentMuted,
-  },
-  sectionChipText: {
+  collectionTitle: {
     color: theme.colors.text,
-  },
-  sectionStatusPill: {
-    minWidth: 24,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-  },
-  sectionLockIcon: {
-    width: 18,
-    height: 18,
-  },
-  sectionThaiTitle: {
-    color: theme.colors.mutedText,
-  },
-  sectionTitle: {
-    color: theme.colors.text,
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: theme.typography.weights.bold,
   },
-  sectionCount: {
+  collectionCount: {
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  stateCard: {
+    backgroundColor: theme.colors.surface,
+  },
+  stateTitle: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  stateBody: {
     color: theme.colors.mutedText,
   },
 });

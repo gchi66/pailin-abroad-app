@@ -1,8 +1,10 @@
 import { env } from '@/src/config/env';
+import { supabase } from '@/src/lib/supabase';
 import {
   ExerciseBankCategory,
   ExerciseBankSectionDetail,
   ExerciseBankSectionSummary,
+  ExerciseBankTopic,
 } from '@/src/types/exercise-bank';
 
 type ExerciseBankSectionsResponse = {
@@ -27,6 +29,43 @@ const assertApiBaseUrl = () => {
   }
   return baseUrl;
 };
+
+export async function fetchExerciseBankTopics(
+  filters: { category?: string; featuredOnly?: boolean } = {}
+): Promise<ExerciseBankTopic[]> {
+  let query = supabase
+    .from('exercise_bank_topics')
+    .select(
+      'id, topic, display_title, category, sub_category, lesson_external_id, sort_order, is_featured, featured_sort_order'
+    )
+    .eq('is_active', true);
+
+  if (filters.featuredOnly) {
+    query = query.eq('is_featured', true).order('featured_sort_order', {
+      ascending: true,
+      nullsFirst: false,
+    });
+  }
+
+  if (filters.category) {
+    query = query.eq('category', filters.category);
+  }
+
+  const { data, error } = await query.order('sort_order', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch exercise bank topics');
+  }
+
+  return (Array.isArray(data) ? data : []).filter(
+    (row): row is ExerciseBankTopic =>
+      (typeof row.id === 'number' || typeof row.id === 'string') &&
+      typeof row.topic === 'string' &&
+      typeof row.display_title === 'string' &&
+      typeof row.category === 'string' &&
+      typeof row.lesson_external_id === 'string'
+  );
+}
 
 export async function fetchExerciseBankSections() {
   const baseUrl = assertApiBaseUrl();

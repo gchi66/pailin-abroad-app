@@ -9,59 +9,97 @@ import { AppText } from './AppText';
 type StandardPageHeaderProps = {
   language: 'en' | 'th';
   title: string;
+  eyebrow?: string;
   subtitle?: string;
   titleStyle?: StyleProp<TextStyle>;
+  titleSize?: 'default' | 'compact';
+  hideTitle?: boolean;
+  inlineActions?: boolean;
   onBackPress?: (() => void) | undefined;
   backLabel?: string;
   rightActionLabel?: string;
   onRightActionPress?: (() => void) | undefined;
   rightElement?: ReactNode;
   topInsetOffset?: number;
+  bottomSpacing?: number;
 };
 
 export function StandardPageHeader({
   language,
   title,
+  eyebrow,
   titleStyle,
+  titleSize = 'default',
+  hideTitle = false,
+  inlineActions = false,
   onBackPress,
   backLabel,
   rightActionLabel,
   onRightActionPress,
   rightElement,
   topInsetOffset = 42,
+  bottomSpacing = 4,
 }: StandardPageHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.headerBlock}>
+    <View style={[styles.headerBlock, { paddingBottom: bottomSpacing }]}>
       <View style={{ height: Math.max(insets.top - (topInsetOffset + 12), 0) }} />
-      <View style={styles.actionRow}>
-        {onBackPress ? (
-          <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
-            <AppText language={language} variant="caption" style={styles.actionText}>
-              {backLabel ? `← ${backLabel}` : '←'}
-            </AppText>
-          </Pressable>
-        ) : (
-          <View style={styles.actionSpacer} />
-        )}
+      {inlineActions ? (
+        <View style={styles.inlineRow}>
+          <View style={styles.inlineActionSpacer} />
+          <AppText
+            language={language}
+            variant="title"
+            numberOfLines={1}
+            style={[styles.title, styles.inlineTitle, titleSize === 'compact' ? styles.compactTitle : null, titleStyle]}>
+            {title}
+          </AppText>
+          <View style={styles.inlineRightElement}>{rightElement}</View>
+        </View>
+      ) : (
+        <>
+          <View style={styles.actionRow}>
+            {onBackPress ? (
+              <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
+                <AppText language={language} variant="caption" style={styles.actionText}>
+                  {backLabel ? `← ${backLabel}` : '←'}
+                </AppText>
+              </Pressable>
+            ) : (
+              <View style={styles.actionSpacer} />
+            )}
 
-        {rightElement ? (
-          <View style={styles.rightElementWrap}>{rightElement}</View>
-        ) : rightActionLabel && onRightActionPress ? (
-          <Pressable accessibilityRole="button" style={styles.rightActionButton} onPress={onRightActionPress}>
-            <AppText language={language} variant="caption" style={styles.actionText}>
-              {rightActionLabel}
-            </AppText>
-          </Pressable>
-        ) : (
-          <View style={styles.actionSpacer} />
-        )}
-      </View>
+            {rightElement ? (
+              <View style={styles.rightElementWrap}>{rightElement}</View>
+            ) : rightActionLabel && onRightActionPress ? (
+              <Pressable accessibilityRole="button" style={styles.rightActionButton} onPress={onRightActionPress}>
+                <AppText language={language} variant="caption" style={styles.actionText}>
+                  {rightActionLabel}
+                </AppText>
+              </Pressable>
+            ) : (
+              <View style={styles.actionSpacer} />
+            )}
+          </View>
 
-      <AppText language={language} variant="title" numberOfLines={1} style={[styles.title, titleStyle]}>
-        {title}
-      </AppText>
+          {!hideTitle && eyebrow ? (
+            <AppText language={language} variant="caption" numberOfLines={1} style={styles.eyebrow}>
+              {eyebrow}
+            </AppText>
+          ) : null}
+
+          {!hideTitle ? (
+            <AppText
+              language={language}
+              variant="title"
+              numberOfLines={1}
+              style={[styles.title, titleSize === 'compact' ? styles.compactTitle : null, titleStyle]}>
+              {title}
+            </AppText>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
@@ -70,7 +108,6 @@ const styles = StyleSheet.create({
   headerBlock: {
     marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 4,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -113,5 +150,36 @@ const styles = StyleSheet.create({
     fontSize: 36,
     lineHeight: 40,
     fontWeight: theme.typography.weights.bold,
+  },
+  eyebrow: {
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  compactTitle: {
+    fontSize: 30,
+    lineHeight: 34,
+  },
+  inlineRow: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  inlineActionSpacer: {
+    width: 62,
+  },
+  inlineTitle: {
+    flex: 1,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  inlineRightElement: {
+    width: 62,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    transform: [{ translateY: -3 }],
   },
 });

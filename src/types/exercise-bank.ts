@@ -1,5 +1,17 @@
 import { LessonRichInline } from '@/src/types/lesson';
 
+export type ExerciseBankTopic = {
+  id: number | string;
+  topic: string;
+  display_title: string;
+  category: string;
+  sub_category: string | null;
+  lesson_external_id: string;
+  sort_order: number | null;
+  is_featured: boolean;
+  featured_sort_order: number | null;
+};
+
 export type ExerciseBankSectionSummary = {
   category?: string | null;
   category_label?: string | null;
