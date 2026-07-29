@@ -81,7 +81,14 @@
         }
       ],
       "expo-secure-store",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "color": "#3CA0FE",
+          "defaultChannel": "daily-reminders"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

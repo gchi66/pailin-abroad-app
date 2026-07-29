@@ -12,6 +12,7 @@ import { PostHogProvider } from 'posthog-react-native';
 import { posthog } from '@/src/config/posthog';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { DailyReminderManager } from '@/src/components/DailyReminderManager';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { AppSessionProvider, useAppSession } from '@/src/context/app-session-context';
 import { OnboardingProvider } from '@/src/context/onboarding-context';
@@ -193,6 +194,7 @@ export default function RootLayout() {
       <AppSessionProvider>
         <OnboardingProvider>
           <UiLanguageProvider>
+            <DailyReminderManager />
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <SplashVisibilityGate fontsLoaded={fontsLoaded} />
               <AppRouteGate />
