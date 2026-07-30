@@ -26,9 +26,6 @@ export function DailyReminderManager() {
 
   useEffect(() => {
     languageRef.current = uiLanguage;
-    void scheduleDailyReminder(uiLanguage).catch((error) => {
-      console.warn('[daily-reminder] failed to update reminder language', error);
-    });
   }, [uiLanguage]);
 
   useEffect(() => {
@@ -42,7 +39,6 @@ export function DailyReminderManager() {
       });
     };
 
-    refreshReminder();
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         refreshReminder();
@@ -54,11 +50,10 @@ export function DailyReminderManager() {
 
   useEffect(() => {
     const isEligible = !isLoading && (hasCompletedOnboarding || isGuestMode);
-    if (Platform.OS === 'web' || !isEligible || promptStarted.current) {
+    if (Platform.OS === 'web' || !isEligible) {
       return;
     }
 
-    promptStarted.current = true;
     let isCancelled = false;
 
     void (async () => {
@@ -71,10 +66,11 @@ export function DailyReminderManager() {
         return;
       }
 
-      if (!permissions.canAskAgain || isCancelled) {
+      if (!permissions.canAskAgain || isCancelled || promptStarted.current) {
         return;
       }
 
+      promptStarted.current = true;
       await requestDailyReminderPermission(uiLanguage);
     })().catch((error) => {
       console.warn('[daily-reminder] failed to initialize reminder', error);
