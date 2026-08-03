@@ -15,7 +15,6 @@ import {
   fetchExerciseBankV2Topic,
   submitExerciseBankV2Answer,
 } from '@/src/api/exercise-bank';
-import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
@@ -28,6 +27,7 @@ import {
   ExerciseBankAnswer,
   ExerciseBankAnswerResult,
   ExerciseBankTopicDetail,
+  ExerciseBankV2Example,
   ExerciseBankV2Question,
   ExerciseBankV2Set,
 } from '@/src/types/exercise-bank';
@@ -42,18 +42,30 @@ const getCopy = (language: UiLanguage) => language === 'th' ? {
   backToTopics: 'กลับไปที่หัวข้อ', setFinished: 'จบชุดแบบฝึกหัด', mastered: 'ทำสำเร็จ', chooseSet: 'เลือกชุดแบบฝึกหัด',
   typeAnswer: 'พิมพ์คำตอบ', rewrite: 'เขียนประโยคใหม่', sentenceCorrect: 'ประโยคนี้ถูกต้อง',
   sentenceIncorrect: 'ประโยคนี้ไม่ถูกต้อง', loadError: 'ไม่สามารถโหลดแบบฝึกหัดได้', tryAgain: 'ลองอีกครั้ง',
+  example: 'ตัวอย่าง', answer: 'คำตอบ',
 } : {
   back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'Check answer', checking: 'Checking…',
   continue: 'Continue', correct: 'Correct!', incorrect: 'Not quite yet', retry: 'Retry missed questions',
   backToTopics: 'Back to topics', setFinished: 'Set finished', mastered: 'mastered', chooseSet: 'Choose a set',
   typeAnswer: 'Type your answer', rewrite: 'Rewrite the sentence', sentenceCorrect: 'The sentence is correct',
   sentenceIncorrect: 'The sentence is incorrect', loadError: 'Unable to load this exercise.', tryAgain: 'Try again',
+  example: 'Example', answer: 'Answer',
 };
 
 const hasAnswer = (answer: ExerciseBankAnswer | undefined) => {
   if (typeof answer === 'string') return answer.trim().length > 0;
   if (!answer || typeof answer.marked_as_correct !== 'boolean') return false;
   return answer.marked_as_correct || answer.rewrite.trim().length > 0;
+};
+
+const estimateFillBlankWidth = (containerWidth: number, minLen: number) => {
+  const fontSize = 17;
+  const horizontalPadding = theme.spacing.sm;
+  const safeLength = Math.max(1, minLen);
+  const rawWidth = (safeLength + 1) * fontSize * 0.56 + horizontalPadding * 2;
+  const minimumWidth = fontSize * 4.2;
+  const responsiveMaximum = containerWidth > 0 ? containerWidth * 0.72 : 220;
+  return Math.round(Math.max(minimumWidth, Math.min(220, responsiveMaximum, rawWidth)));
 };
 
 type QuestionInputProps = {
@@ -64,8 +76,72 @@ type QuestionInputProps = {
   question: ExerciseBankV2Question;
 };
 
+type ExamplePanelProps = {
+  example: ExerciseBankV2Example;
+  exerciseType: string;
+  language: UiLanguage;
+};
+
+function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const copy = getCopy(language);
+  const content = example.content;
+  const sourceText = content.stem ?? content.text ?? '';
+  const answer = content.example_answer ?? '';
+
+  const renderFillBlankExample = () => {
+    const parts = sourceText.split(/_{2,}/);
+    if (parts.length < 2) return null;
+    return (
+      <View style={styles.exampleInlineSentence}>
+        <AppText language="en" variant="body" style={styles.exampleSentenceText}>{parts[0]}</AppText>
+        <View style={styles.exampleAnswerPill}>
+          <AppText language="en" variant="body" style={styles.exampleAnswerPillText}>{answer}</AppText>
+        </View>
+        <AppText language="en" variant="body" style={styles.exampleSentenceText}>{parts.slice(1).join(' ')}</AppText>
+      </View>
+    );
+  };
+
+  const correctOption = content.options?.find((option) => option.label === content.example_correct_option);
+  return (
+    <View style={styles.examplePanel}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isExpanded }}
+        style={styles.exampleHeader}
+        onPress={() => setIsExpanded((current) => !current)}>
+        <AppText language={language} variant="caption" style={styles.exampleLabel}>{copy.example}</AppText>
+        <AppText language="en" variant="body" style={styles.exampleArrow}>{isExpanded ? '↑' : '↓'}</AppText>
+      </Pressable>
+      {isExpanded ? (
+        <View style={styles.exampleBody}>
+          {exerciseType === 'fill_blank' && renderFillBlankExample()}
+          {exerciseType !== 'fill_blank' && sourceText ? (
+            <AppText language="en" variant="body" style={styles.exampleSentenceText}>{sourceText}</AppText>
+          ) : null}
+          {typeof content.example_is_correct === 'boolean' ? (
+            <AppText language={language} variant="caption" style={styles.exampleJudgment}>
+              {content.example_is_correct ? copy.sentenceCorrect : copy.sentenceIncorrect}
+            </AppText>
+          ) : null}
+          {exerciseType !== 'fill_blank' && (answer || correctOption) ? (
+            <View style={styles.exampleSolutionRow}>
+              <AppText language={language} variant="caption" style={styles.exampleSolutionLabel}>{copy.answer}:</AppText>
+              <AppText language="en" variant="body" style={styles.exampleSolutionText}>
+                {correctOption ? `${correctOption.label}. ${correctOption.text}` : answer}
+              </AppText>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function QuestionInput({ answer, disabled, language, onChange, question }: QuestionInputProps) {
   const copy = getCopy(language);
+  const [inputContainerWidth, setInputContainerWidth] = useState(0);
   const exerciseType = question.exercise.exercise_type;
   const isJudgment = exerciseType === 'sentence_transform'
     && /correct.*incorrect|incorrect.*correct/i.test(question.exercise.display_type);
@@ -88,6 +164,52 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
             <AppText language="en" variant="body" style={styles.optionText}>{option.text}</AppText>
           </Pressable>
         ))}
+      </View>
+    );
+  }
+
+  if (exerciseType === 'fill_blank') {
+    const sentence = question.content.text ?? question.content.stem ?? '';
+    const sentenceParts = sentence.match(/(_{2,}|[^\s_]+)/g) ?? [sentence];
+    let blankIndex = 0;
+
+    return (
+      <View
+        style={styles.fillBlankSentence}
+        onLayout={(event) => setInputContainerWidth(Math.round(event.nativeEvent.layout.width))}>
+        {sentenceParts.map((part, index) => {
+          if (!/^_{2,}$/.test(part)) {
+            return (
+              <AppText key={`text-${index}`} language="en" variant="body" style={styles.fillBlankSentenceText}>
+                {part}
+              </AppText>
+            );
+          }
+
+          const currentBlankIndex = blankIndex;
+          blankIndex += 1;
+          const authoredMinLength = question.content.blanks?.[currentBlankIndex]?.min_len;
+          const minLength = typeof authoredMinLength === 'number' && authoredMinLength > 0
+            ? authoredMinLength
+            : part.length;
+          return (
+            <TextInput
+              key={`blank-${index}`}
+              accessibilityLabel={copy.typeAnswer}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!disabled}
+              placeholder=""
+              style={[
+                styles.fillBlankInlineInput,
+                language === 'th' ? styles.thaiInput : styles.englishInput,
+                { width: estimateFillBlankWidth(inputContainerWidth, minLength) },
+              ]}
+              value={typeof answer === 'string' ? answer : ''}
+              onChangeText={onChange}
+            />
+          );
+        })}
       </View>
     );
   }
@@ -162,6 +284,7 @@ export function ExerciseBankSessionScreen() {
   const hasSetNumber = Number.isInteger(setNumber) && setNumber > 0;
   const [topicDetail, setTopicDetail] = useState<ExerciseBankTopicDetail | null>(null);
   const [topicTitle, setTopicTitle] = useState('');
+  const [topicName, setTopicName] = useState('');
   const [setData, setSetData] = useState<ExerciseBankV2Set | null>(null);
   const [queue, setQueue] = useState<number[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -184,6 +307,7 @@ export function ExerciseBankSessionScreen() {
         const detail = await fetchExerciseBankV2Topic(topicId);
         setTopicDetail(detail);
         setTopicTitle(detail.display_title);
+        setTopicName(detail.topic);
         if (detail.next_incomplete_set) {
           router.replace({
             pathname: '/(tabs)/resources/exercise-bank/topic/[topicId]',
@@ -195,6 +319,7 @@ export function ExerciseBankSessionScreen() {
 
       const response = await fetchExerciseBankV2Set(topicId, setNumber);
       setTopicTitle(response.topic.display_title);
+      setTopicName(response.topic.topic);
       setSetData(response.set);
       const incompleteIds = response.set.questions
         .filter((question) => !question.progress.has_answered_correctly)
@@ -273,7 +398,7 @@ export function ExerciseBankSessionScreen() {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
-          <StandardPageHeader language={uiLanguage} title="" hideTitle onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
+          <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
           <View style={styles.pickerContent}>
             <AppText language="en" variant="title" style={styles.pickerTitle}>{topicDetail.display_title}</AppText>
             <AppText language={uiLanguage} variant="body" style={styles.pickerSubtitle}>{copy.chooseSet}</AppText>
@@ -308,23 +433,42 @@ export function ExerciseBankSessionScreen() {
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
-          <StandardPageHeader language={uiLanguage} title="" hideTitle onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
+          <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
           <View style={styles.sessionContent}>
             <View style={styles.sessionHeading}>
-              <View>
-                <AppText language={uiLanguage} variant="caption">{copy.set} {setData.set_number}</AppText>
-                <AppText language={uiLanguage} variant="body" style={styles.questionCounter}>{copy.question} {queueIndex + 1} {copy.of} {queue.length}</AppText>
+              <View style={styles.topicHeadingCopy}>
+                <AppText language="en" variant="title" style={styles.topicDisplayTitle}>{topicTitle}</AppText>
+                <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
               </View>
-              <AppText language="en" variant="caption" numberOfLines={1} style={styles.topicTitle}>{topicTitle}</AppText>
+              <View style={styles.questionMeta}>
+                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.set} {setData.set_number}</AppText>
+                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.question} {queueIndex + 1} {copy.of} {queue.length}</AppText>
+              </View>
             </View>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} /></View>
+            <View style={styles.questionSectionDivider} />
 
-            <View style={styles.questionCardWrap}>
-              <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
-              <View style={styles.questionCard}>
+            <View style={styles.questionContent}>
                 <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
-                <AppText language="en" variant="body" style={styles.prompt}>{currentQuestion.exercise.prompt}</AppText>
-                {currentQuestion.content.stem || currentQuestion.content.text ? (
+                <AppText
+                  language="en"
+                  variant="body"
+                  style={[
+                    styles.prompt,
+                    currentQuestion.exercise.exercise_type === 'fill_blank' ? styles.fillBlankPrompt : null,
+                  ]}>
+                  {currentQuestion.exercise.prompt}
+                </AppText>
+                {currentQuestion.exercise.examples?.[0] ? (
+                  <ExamplePanel
+                    key={currentQuestion.id}
+                    example={currentQuestion.exercise.examples[0]}
+                    exerciseType={currentQuestion.exercise.exercise_type}
+                    language={uiLanguage}
+                  />
+                ) : null}
+                {currentQuestion.exercise.exercise_type !== 'fill_blank'
+                  && (currentQuestion.content.stem || currentQuestion.content.text) ? (
                   <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
                 ) : null}
                 <QuestionInput
@@ -341,13 +485,21 @@ export function ExerciseBankSessionScreen() {
                     {feedback ? <AppText language={uiLanguage} variant="caption">{feedback}</AppText> : null}
                   </View>
                 ) : null}
-                <Button
-                  title={currentResult ? copy.continue : isSubmitting ? copy.checking : copy.check}
-                  language={uiLanguage}
+                <Pressable
+                  accessibilityRole="button"
                   disabled={isSubmitting || (!currentResult && !hasAnswer(answers[currentQuestion.id]))}
-                  onPress={currentResult ? advance : () => void submit()}
-                />
-              </View>
+                  style={({ pressed }) => [
+                    styles.practiceCheckButton,
+                    isSubmitting || (!currentResult && !hasAnswer(answers[currentQuestion.id]))
+                      ? styles.practiceCheckButtonDisabled
+                      : null,
+                    pressed ? styles.practiceCheckButtonPressed : null,
+                  ]}
+                  onPress={currentResult ? advance : () => void submit()}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>
+                    {currentResult ? copy.continue : isSubmitting ? copy.checking : copy.check}
+                  </AppText>
+                </Pressable>
             </View>
           </View>
         </ResponsivePageShell>
@@ -360,15 +512,35 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   contentContainer: { flexGrow: 1, paddingBottom: theme.spacing.xl * 2 },
   sessionContent: { paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.md, gap: theme.spacing.md },
-  sessionHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: theme.spacing.md },
-  questionCounter: { fontWeight: theme.typography.weights.bold },
-  topicTitle: { flex: 1, textAlign: 'right', color: theme.colors.mutedText },
+  sessionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.md },
+  topicHeadingCopy: { flex: 1, gap: 2 },
+  topicDisplayTitle: { color: theme.colors.text, fontSize: 25, lineHeight: 30, fontWeight: theme.typography.weights.bold },
+  topicTechnicalName: { color: theme.colors.text, fontSize: 14, lineHeight: 19, fontWeight: theme.typography.weights.semibold },
+  questionMeta: { alignItems: 'flex-end', paddingTop: 2, gap: 1 },
+  questionMetaText: { color: theme.colors.mutedText, fontSize: 11, lineHeight: 15 },
   progressTrack: { height: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.xl, backgroundColor: '#E8E8E8' },
   progressFill: { height: '100%', backgroundColor: theme.colors.accent },
-  questionCardWrap: { position: 'relative', width: '100%' },
-  questionCard: { borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.lg, backgroundColor: theme.colors.surface, padding: theme.spacing.lg, gap: theme.spacing.md, ...Platform.select({ ios: { shadowColor: theme.colors.shadow, shadowOffset: { width: 3, height: 3 }, shadowOpacity: 1, shadowRadius: 0 }, android: { elevation: 0 } }) },
+  questionSectionDivider: { height: 1, marginVertical: theme.spacing.xs, backgroundColor: '#C9CDD2' },
+  questionContent: { width: '100%', paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, gap: theme.spacing.md },
   displayType: { color: '#2D4C7C', fontSize: 12, fontWeight: theme.typography.weights.bold, textTransform: 'uppercase' },
   prompt: { fontSize: 18, lineHeight: 25, fontWeight: theme.typography.weights.bold },
+  fillBlankPrompt: { fontSize: 15, lineHeight: 21, fontWeight: theme.typography.weights.semibold },
+  examplePanel: { overflow: 'hidden', borderRadius: theme.radii.sm, backgroundColor: '#EEEEEE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
+  exampleHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  exampleLabel: { color: theme.colors.mutedText, fontSize: 14, fontWeight: theme.typography.weights.semibold, textDecorationLine: 'underline' },
+  exampleArrow: { color: theme.colors.mutedText, fontSize: 18, lineHeight: 22 },
+  exampleBody: { gap: theme.spacing.sm, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.xs },
+  exampleInlineSentence: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  exampleSentenceText: { fontSize: 15, lineHeight: 23 },
+  exampleAnswerPill: { minHeight: 34, justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.sm, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: 4 },
+  exampleAnswerPillText: { fontSize: 14, lineHeight: 20 },
+  exampleJudgment: { color: theme.colors.mutedText, fontWeight: theme.typography.weights.semibold },
+  exampleSolutionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.sm },
+  exampleSolutionLabel: { paddingTop: 2, color: theme.colors.mutedText, fontWeight: theme.typography.weights.semibold },
+  exampleSolutionText: { flex: 1, fontSize: 15, lineHeight: 22 },
+  fillBlankSentence: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 0, rowGap: 1 },
+  fillBlankSentenceText: { marginRight: 5, fontSize: 17, lineHeight: 24 },
+  fillBlankInlineInput: { height: 34, minHeight: 34, marginRight: 5, borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm, paddingVertical: 0, color: theme.colors.text, fontSize: 17, lineHeight: 21, textAlignVertical: 'center', includeFontPadding: false },
   stem: { fontSize: 17, lineHeight: 26 },
   optionList: { gap: theme.spacing.sm },
   optionButton: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, padding: theme.spacing.md },
@@ -389,6 +561,10 @@ const styles = StyleSheet.create({
   feedbackIncorrect: { backgroundColor: '#FFF0ED' },
   feedbackTitle: { fontWeight: theme.typography.weights.bold },
   errorText: { color: theme.colors.error },
+  practiceCheckButton: { minHeight: 38, width: '100%', borderRadius: 25, borderWidth: 1.5, borderColor: theme.colors.border, backgroundColor: '#91CAFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 5, shadowColor: theme.colors.shadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 3, height: 3 }, elevation: 3 },
+  practiceCheckButtonText: { color: theme.colors.text, fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
+  practiceCheckButtonPressed: { opacity: 0.9 },
+  practiceCheckButtonDisabled: { opacity: 0.55 },
   fullState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md, backgroundColor: theme.colors.background, padding: theme.spacing.xl },
   stateTitle: { textAlign: 'center', fontWeight: theme.typography.weights.bold },
   stateBody: { textAlign: 'center' },

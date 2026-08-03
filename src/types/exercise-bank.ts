@@ -51,7 +51,15 @@ export type ExerciseBankV2QuestionContent = {
   stem?: string;
   options?: ExerciseBankV2Option[];
   blanks?: { id?: string; min_len?: number }[];
+  example_answer?: string;
+  example_is_correct?: boolean;
+  example_correct_option?: string;
   [key: string]: unknown;
+};
+
+export type ExerciseBankV2Example = {
+  id: number;
+  content: ExerciseBankV2QuestionContent;
 };
 
 export type ExerciseBankV2Question = {
@@ -66,6 +74,7 @@ export type ExerciseBankV2Question = {
     display_type: string;
     prompt: string;
     keywords: string[] | string | null;
+    examples: ExerciseBankV2Example[];
   };
   content: ExerciseBankV2QuestionContent;
   progress: {
