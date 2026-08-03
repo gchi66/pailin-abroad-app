@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
-import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
+import { fetchExerciseBankTopics, fetchExerciseBankV2Topics } from '@/src/api/exercise-bank';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
@@ -12,6 +12,7 @@ import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { useAppSession } from '@/src/context/app-session-context';
 import { getExerciseBankCollection } from '@/src/lib/exercise-bank-collections';
 import { theme } from '@/src/theme/theme';
 import { ExerciseBankTopic } from '@/src/types/exercise-bank';
@@ -29,6 +30,8 @@ const getCopy = (language: 'en' | 'th') =>
         emptyTitle: 'ยังไม่มีหัวข้อ',
         emptyBody: 'ยังไม่มีหัวข้อแบบฝึกหัดในหมวดหมู่นี้',
         missingCollection: 'ไม่พบหมวดหมู่แบบฝึกหัดนี้',
+        complete: 'ชุดสำเร็จ',
+        newContent: 'เนื้อหาใหม่',
       }
     : {
         pageTitle: 'Pick a topic',
@@ -37,11 +40,14 @@ const getCopy = (language: 'en' | 'th') =>
         emptyTitle: 'No topics yet',
         emptyBody: 'There are no exercise topics in this collection yet.',
         missingCollection: 'Exercise collection not found.',
+        complete: 'sets complete',
+        newContent: 'new content',
       };
 
 export function ExerciseBankCollectionScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
+  const { hasAccount, hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
   const params = useLocalSearchParams<{
     collectionSlug?: string | string[];
@@ -54,7 +60,7 @@ export function ExerciseBankCollectionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let isMounted = true;
 
     const run = async () => {
@@ -67,11 +73,13 @@ export function ExerciseBankCollectionScreen() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const rows = await fetchExerciseBankTopics(
+        const filters =
           collection.slug === 'featured'
             ? { featuredOnly: true }
-            : { category: collection.category ?? undefined }
-        );
+            : { category: collection.category ?? undefined };
+        const rows = hasAccount
+          ? await fetchExerciseBankV2Topics(filters)
+          : await fetchExerciseBankTopics(filters);
         if (isMounted) {
           setTopics(rows);
         }
@@ -91,7 +99,25 @@ export function ExerciseBankCollectionScreen() {
     return () => {
       isMounted = false;
     };
-  }, [collection, copy.loadingError, copy.missingCollection]);
+  }, [collection, copy.loadingError, copy.missingCollection, hasAccount]));
+
+  const handleTopicPress = (topic: ExerciseBankTopic) => {
+    if (!hasAccount) {
+      router.push('/account/auth');
+      return;
+    }
+    if (!hasMembership && !topic.is_featured) {
+      router.push({
+        pathname: '/(tabs)/account/membership',
+        params: { returnTo: `/(tabs)/resources/exercise-bank/${collectionSlug}` },
+      });
+      return;
+    }
+    router.push({
+      pathname: '/(tabs)/resources/exercise-bank/topic/[topicId]',
+      params: { topicId: String(topic.id) },
+    });
+  };
 
   const visibleTopics = useMemo(() => {
     if (!searchTerm) {
@@ -164,7 +190,8 @@ export function ExerciseBankCollectionScreen() {
                     key={String(topic.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`${topic.display_title}, ${topic.topic}`}
-                    style={styles.topicCardWrap}>
+                    style={styles.topicCardWrap}
+                    onPress={() => handleTopicPress(topic)}>
                     <AndroidNeoShadowLayer
                       borderRadius={TOPIC_CARD_RADIUS}
                       color={theme.colors.shadow}
@@ -177,6 +204,32 @@ export function ExerciseBankCollectionScreen() {
                       <AppText language="en" variant="muted" style={styles.topicTechnicalTitle}>
                         {topic.topic}
                       </AppText>
+                      {topic.progress ? (
+                        <View style={styles.progressBlock}>
+                          <View style={styles.progressCopyRow}>
+                            <AppText language={uiLanguage} variant="caption" style={styles.progressCopy}>
+                              {`${topic.progress.completed_sets}/${topic.progress.total_sets} ${copy.complete}`}
+                            </AppText>
+                            {topic.progress.has_new_content ? (
+                              <AppText language={uiLanguage} variant="caption" style={styles.newContentBadge}>
+                                {copy.newContent}
+                              </AppText>
+                            ) : null}
+                          </View>
+                          <View style={styles.progressTrack}>
+                            <View
+                              style={[
+                                styles.progressFill,
+                                {
+                                  width: `${topic.progress.total_sets > 0
+                                    ? (topic.progress.completed_sets / topic.progress.total_sets) * 100
+                                    : 0}%`,
+                                },
+                              ]}
+                            />
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
                   </Pressable>
                 ))}
@@ -259,6 +312,41 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 14,
     lineHeight: 18,
+  },
+  progressBlock: {
+    marginTop: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  progressCopyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  progressCopy: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+  },
+  newContentBadge: {
+    overflow: 'hidden',
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#FFD66B',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    fontSize: 10,
+    fontWeight: theme.typography.weights.bold,
+  },
+  progressTrack: {
+    height: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#EEEEEE',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.accent,
   },
   stateCard: {
     backgroundColor: theme.colors.surface,

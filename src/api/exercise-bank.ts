@@ -5,6 +5,10 @@ import {
   ExerciseBankSectionDetail,
   ExerciseBankSectionSummary,
   ExerciseBankTopic,
+  ExerciseBankTopicDetail,
+  ExerciseBankV2Set,
+  ExerciseBankAnswer,
+  ExerciseBankAnswerResult,
 } from '@/src/types/exercise-bank';
 
 type ExerciseBankSectionsResponse = {
@@ -29,6 +33,71 @@ const assertApiBaseUrl = () => {
   }
   return baseUrl;
 };
+
+async function exerciseBankV2Request<T>(path: string, init?: RequestInit): Promise<T> {
+  const baseUrl = assertApiBaseUrl();
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  if (sessionError || !accessToken) {
+    throw new Error('Please sign in to use the Exercise Bank.');
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+  const json = (await response.json().catch(() => null)) as T | { error?: string } | null;
+
+  if (!response.ok) {
+    const message = json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
+      ? json.error
+      : 'Unable to load the Exercise Bank.';
+    throw new Error(message);
+  }
+
+  return (json ?? {}) as T;
+}
+
+export async function fetchExerciseBankV2Topics(
+  filters: { category?: string; featuredOnly?: boolean } = {}
+): Promise<ExerciseBankTopic[]> {
+  const query = new URLSearchParams();
+  if (filters.category) query.set('category', filters.category);
+  if (filters.featuredOnly) query.set('featured', 'true');
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const response = await exerciseBankV2Request<{ topics?: ExerciseBankTopic[] }>(
+    `/api/exercise-bank-v2/topics${suffix}`
+  );
+  return Array.isArray(response.topics) ? response.topics : [];
+}
+
+export async function fetchExerciseBankV2Topic(topicId: number | string): Promise<ExerciseBankTopicDetail> {
+  const response = await exerciseBankV2Request<{ topic?: ExerciseBankTopicDetail }>(
+    `/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}`
+  );
+  if (!response.topic) throw new Error('Exercise topic not found.');
+  return response.topic;
+}
+
+export async function fetchExerciseBankV2Set(topicId: number | string, setNumber: number) {
+  return exerciseBankV2Request<{
+    topic: Pick<ExerciseBankTopic, 'id' | 'topic' | 'display_title' | 'category' | 'content_version'>;
+    set: ExerciseBankV2Set;
+  }>(`/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/sets/${setNumber}`);
+}
+
+export async function submitExerciseBankV2Answer(questionId: number, answer: ExerciseBankAnswer) {
+  return exerciseBankV2Request<ExerciseBankAnswerResult>(
+    `/api/exercise-bank-v2/questions/${questionId}/answer`,
+    { method: 'POST', body: JSON.stringify({ user_answer: answer }) }
+  );
+}
 
 export async function fetchExerciseBankTopics(
   filters: { category?: string; featuredOnly?: boolean } = {}
