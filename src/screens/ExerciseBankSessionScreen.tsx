@@ -45,7 +45,7 @@ const getCopy = (language: UiLanguage) => language === 'th' ? {
   typeAnswer: 'พิมพ์คำตอบ', rewrite: 'เขียนประโยคใหม่', sentenceCorrect: 'ประโยคนี้ถูกต้อง',
   sentenceIncorrect: 'ประโยคนี้ไม่ถูกต้อง', loadError: 'ไม่สามารถโหลดแบบฝึกหัดได้', tryAgain: 'ลองอีกครั้ง',
   example: 'ตัวอย่าง', answer: 'คำตอบ', exampleCorrect: 'ถูกต้อง', exampleIncorrect: 'ไม่ถูกต้อง', showAnswer: 'ดูคำตอบ', hideAnswer: 'ซ่อนคำตอบ', answerUnavailable: 'ยังไม่สามารถแสดงคำตอบได้',
-  greatWork: 'เยี่ยมมาก!', greatProgress: 'พัฒนาได้ดีมาก!', keepPracticing: 'ฝึกต่อไป!', gotCorrect: 'คุณตอบถูก', perfectBody: 'คุณตอบถูกทุกข้อ! พร้อมสำหรับความท้าทายต่อไปแล้ว', progressBody: 'ใกล้เข้าใจหัวข้อนี้แล้ว ลองอีกครั้งหรือฝึกต่อไป', practiceBody: 'ไวยากรณ์ต้องใช้เวลา ทบทวนแบบฝึกหัดแล้วลองอีกครั้ง คุณทำได้!', goNextSet: 'ไปชุดถัดไป', reviewAnswers: 'ทบทวนคำตอบ', backToBank: 'กลับคลังแบบฝึกหัด',
+  greatWork: 'เยี่ยมมาก!', greatProgress: 'พัฒนาได้ดีมาก!', keepPracticing: 'ฝึกต่อไป!', gotCorrect: 'คุณตอบถูก', perfectBody: 'คุณตอบถูกทุกข้อ! พร้อมสำหรับความท้าทายต่อไปแล้ว', progressBody: 'ใกล้เข้าใจหัวข้อนี้แล้ว ลองอีกครั้งหรือฝึกต่อไป', practiceBody: 'ไวยากรณ์ต้องใช้เวลา ทบทวนแบบฝึกหัดแล้วลองอีกครั้ง คุณทำได้!', goNextSet: 'ไปชุดถัดไป', chooseNewTopic: 'เลือกหัวข้อใหม่', backToBank: 'กลับคลังแบบฝึกหัด',
 } : {
   back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'CHECK ANSWER', checking: 'CHECKING…',
   continue: 'NEXT →', answerTryAgain: 'TRY AGAIN', correct: 'Correct!', incorrect: 'Try again', retry: 'Retry missed questions',
@@ -53,7 +53,7 @@ const getCopy = (language: UiLanguage) => language === 'th' ? {
   typeAnswer: 'Type your answer', rewrite: 'Rewrite the sentence', sentenceCorrect: 'The sentence is correct',
   sentenceIncorrect: 'The sentence is incorrect', loadError: 'Unable to load this exercise.', tryAgain: 'Try again',
   example: 'Example', answer: 'Answer', exampleCorrect: 'Correct', exampleIncorrect: 'Incorrect', showAnswer: 'Show Answer', hideAnswer: 'Hide Answer', answerUnavailable: 'The answer is not available yet.',
-  greatWork: 'Great Work!', greatProgress: 'Great Progress!', keepPracticing: 'Keep Practicing!', gotCorrect: 'You got', perfectBody: "You nailed every single question! You're ready for the next challenge.", progressBody: "You're super close to mastering this concept! Give it another shot or keep moving.", practiceBody: "Grammar takes time to master. Review the exercise and try again. You've got this!", goNextSet: 'Go to Next Set', reviewAnswers: 'Review Answers', backToBank: 'Back to Exercise Bank',
+  greatWork: 'Great Work!', greatProgress: 'Great Progress!', keepPracticing: 'Keep Practicing!', gotCorrect: 'You got', perfectBody: "You nailed every single question! You're ready for the next challenge.", progressBody: "You're super close to mastering this concept! Give it another shot or keep moving.", practiceBody: "Grammar takes time to master. Review the exercise and try again. You've got this!", goNextSet: 'Go to Next Set', chooseNewTopic: 'Choose a New Topic', backToBank: 'Back to Exercise Bank',
 };
 
 const hasAnswer = (answer: ExerciseBankAnswer | undefined) => {
@@ -342,24 +342,23 @@ export function ExerciseBankSessionScreen() {
     setResults({});
     try {
       if (!topicId) throw new Error(copy.loadError);
-      if (!hasSetNumber) {
-        const detail = await fetchExerciseBankV2Topic(topicId);
+      let resolvedSetNumber = hasSetNumber ? setNumber : null;
+      let detail: ExerciseBankTopicDetail | null = null;
+
+      if (resolvedSetNumber === null) {
+        detail = await fetchExerciseBankV2Topic(topicId);
         setTopicDetail(detail);
         setTopicTitle(detail.display_title);
         setTopicName(detail.topic);
-        if (detail.next_incomplete_set) {
-          router.replace({
-            pathname: '/(tabs)/resources/exercise-bank/topic/[topicId]',
-            params: { topicId, setNumber: String(detail.next_incomplete_set) },
-          });
-        }
-        return;
+        resolvedSetNumber = detail.next_incomplete_set;
+        if (resolvedSetNumber === null) return;
       }
 
-      const [response, detail] = await Promise.all([
-        fetchExerciseBankV2Set(topicId, setNumber),
-        fetchExerciseBankV2Topic(topicId).catch(() => null),
+      const [response, fetchedDetail] = await Promise.all([
+        fetchExerciseBankV2Set(topicId, resolvedSetNumber),
+        detail ? Promise.resolve(detail) : fetchExerciseBankV2Topic(topicId).catch(() => null),
       ]);
+      detail = fetchedDetail;
       if (detail) setTopicDetail(detail);
       setTopicTitle(response.topic.display_title);
       setTopicName(response.topic.topic);
@@ -395,7 +394,7 @@ export function ExerciseBankSessionScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [copy.loadError, hasSetNumber, router, setNumber, topicId]);
+  }, [copy.loadError, hasSetNumber, setNumber, topicId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -474,15 +473,10 @@ export function ExerciseBankSessionScreen() {
     setErrorMessage(null);
   };
 
-  const reviewSetAnswers = () => {
-    setQueueIndex(0);
-    setIsFinished(false);
-    setErrorMessage(null);
-  };
-
   const goToNextSet = () => {
+    const currentSetNumber = setData?.set_number ?? setNumber;
     const nextSet = topicDetail?.sets
-      .filter((item) => item.set_number > setNumber)
+      .filter((item) => item.set_number > currentSetNumber)
       .sort((a, b) => a.set_number - b.set_number)[0];
     if (nextSet) {
       router.setParams({ setNumber: String(nextSet.set_number) });
@@ -504,7 +498,7 @@ export function ExerciseBankSessionScreen() {
     );
   }
 
-  if (!hasSetNumber && topicDetail) {
+  if (!setData && topicDetail) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
@@ -531,7 +525,7 @@ export function ExerciseBankSessionScreen() {
     const isProgress = latestCorrectCount >= 3 && !isPerfect;
     const completionTitle = isPerfect ? copy.greatWork : isProgress ? copy.greatProgress : copy.keepPracticing;
     const completionBody = isPerfect ? copy.perfectBody : isProgress ? copy.progressBody : copy.practiceBody;
-    const hasNextSet = Boolean(topicDetail?.sets.some((item) => item.set_number > setNumber));
+    const hasNextSet = Boolean(topicDetail?.sets.some((item) => item.set_number > setData.set_number));
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
@@ -568,9 +562,9 @@ export function ExerciseBankSessionScreen() {
                 <Pressable
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.completionButton, styles.completionNextButton, pressed ? styles.practiceCheckButtonPressed : null]}
-                  onPress={isPerfect ? reviewSetAnswers : goToNextSet}>
+                  onPress={isPerfect ? () => router.replace('/(tabs)/resources/exercise-bank') : goToNextSet}>
                   <AppText language={uiLanguage} variant="caption" style={styles.completionButtonText}>
-                    {isPerfect ? copy.reviewAnswers : hasNextSet ? copy.goNextSet : copy.backToBank}
+                    {isPerfect ? copy.chooseNewTopic : hasNextSet ? copy.goNextSet : copy.backToBank}
                   </AppText>
                 </Pressable>
               </View>
@@ -583,6 +577,7 @@ export function ExerciseBankSessionScreen() {
 
   const isJudgmentQuestion = currentQuestion.exercise.exercise_type === 'sentence_transform'
     && /correct.*incorrect|incorrect.*correct/i.test(currentQuestion.exercise.display_type);
+  const isFillBlankQuestion = currentQuestion.exercise.exercise_type === 'fill_blank';
   const feedback = uiLanguage === 'th' ? currentResult?.feedback_th : currentResult?.feedback_en;
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -638,11 +633,12 @@ export function ExerciseBankSessionScreen() {
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} /></View>
             <View style={styles.questionSectionDivider} />
 
-            <View style={[styles.questionContent, isJudgmentQuestion ? styles.judgmentQuestionContent : null]}>
-              <View style={isJudgmentQuestion ? styles.questionInstructions : styles.questionPanel}>
-                {!isJudgmentQuestion ? (
-                  <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
-                ) : null}
+            <View style={[styles.questionContent, styles.judgmentQuestionContent]}>
+              <View style={[
+                styles.questionInstructions,
+                currentResult?.correct ? styles.questionInstructionsCorrect : null,
+                currentResult && !currentResult.correct ? styles.questionInstructionsIncorrect : null,
+              ]}>
                 <AppText
                   language="en"
                   variant="body"
@@ -661,7 +657,18 @@ export function ExerciseBankSessionScreen() {
                     language={uiLanguage}
                   />
                 ) : null}
-                {isJudgmentQuestion ? (
+                {isFillBlankQuestion ? (
+                  <View style={styles.questionWorkPanel}>
+                    <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                    <QuestionInput
+                      answer={answers[currentQuestion.id]}
+                      disabled={Boolean(currentResult)}
+                      language={uiLanguage}
+                      question={currentQuestion}
+                      onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
+                    />
+                  </View>
+                ) : isJudgmentQuestion ? (
                   <>
                     <View style={styles.questionWorkPanel}>
                       <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
@@ -679,10 +686,12 @@ export function ExerciseBankSessionScreen() {
                   </>
                 ) : (
                   <>
-                    {currentQuestion.exercise.exercise_type !== 'fill_blank'
-                      && (currentQuestion.content.stem || currentQuestion.content.text) ? (
-                      <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
-                    ) : null}
+                    <View style={styles.questionWorkPanel}>
+                      <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                      {currentQuestion.content.stem || currentQuestion.content.text ? (
+                        <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                      ) : null}
+                    </View>
                     <QuestionInput
                       answer={answers[currentQuestion.id]}
                       disabled={Boolean(currentResult)}
@@ -770,9 +779,7 @@ export function ExerciseBankSessionScreen() {
                     </Pressable>
                     {revealedAnswerIds[currentQuestion.id] ? (
                       <AppText language={currentResult.review_answer ? 'en' : uiLanguage} variant="body" style={styles.revealedAnswer}>
-                        {currentResult.review_answer
-                          ? `${copy.answer}: ${currentResult.review_answer}`
-                          : copy.answerUnavailable}
+                        {currentResult.review_answer || copy.answerUnavailable}
                       </AppText>
                     ) : null}
                   </View>
@@ -810,11 +817,13 @@ const styles = StyleSheet.create({
   judgmentQuestionContent: { paddingHorizontal: 0 },
   questionPanel: { width: '100%', borderRadius: theme.radii.md, backgroundColor: '#D6ECFF', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.md, gap: theme.spacing.md },
   questionInstructions: { width: '100%', paddingHorizontal: theme.spacing.sm, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.md, gap: theme.spacing.md },
+  questionInstructionsCorrect: { paddingBottom: theme.spacing.xs },
+  questionInstructionsIncorrect: { paddingBottom: 0 },
   questionWorkPanel: { width: '100%', borderRadius: theme.radii.md, backgroundColor: '#D6ECFF', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.md, gap: theme.spacing.md },
   displayType: { color: '#2D4C7C', fontSize: 12, fontWeight: theme.typography.weights.bold, textTransform: 'uppercase' },
-  prompt: { fontSize: 18, lineHeight: 25, fontWeight: theme.typography.weights.bold },
+  prompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
   judgmentPrompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
-  fillBlankPrompt: { fontSize: 15, lineHeight: 21, fontWeight: theme.typography.weights.semibold },
+  fillBlankPrompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
   examplePanel: { overflow: 'hidden', borderRadius: theme.radii.sm, backgroundColor: '#EEEEEE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
   judgmentExamplePanel: { borderRadius: 6, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.sm },
   exampleHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -867,7 +876,7 @@ const styles = StyleSheet.create({
   multilineInput: { minHeight: 110, textAlignVertical: 'top' },
   englishInput: { fontFamily: theme.typography.fontFaces.en.regular },
   thaiInput: { fontFamily: theme.typography.fontFaces.th.regular },
-  feedback: { gap: theme.spacing.xs, borderRadius: theme.radii.md, padding: theme.spacing.md },
+  feedback: { gap: theme.spacing.xs, borderRadius: theme.radii.md, paddingHorizontal: theme.spacing.sm },
   correctResult: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
   correctResultIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#3CA0FE' },
   correctResultCheck: { color: theme.colors.surface, fontSize: 21, lineHeight: 24, fontWeight: theme.typography.weights.bold, includeFontPadding: false },
@@ -897,7 +906,7 @@ const styles = StyleSheet.create({
   completionActions: { width: '100%', gap: theme.spacing.md, marginTop: theme.spacing.lg },
   completionButton: { minHeight: 46, width: '100%', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: 24, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, shadowColor: theme.colors.shadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 3, height: 4 }, elevation: 4 },
   completionPracticeButton: { backgroundColor: '#B9E671' },
-  completionRetryButton: { backgroundColor: '#F65555' },
+  completionRetryButton: { backgroundColor: '#FFD66B' },
   completionNextButton: { backgroundColor: theme.colors.surface },
   completionButtonText: { color: theme.colors.text, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.semibold, textTransform: 'uppercase' },
   fullState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md, backgroundColor: theme.colors.background, padding: theme.spacing.xl },
