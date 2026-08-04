@@ -38,18 +38,18 @@ const getParam = (value?: string | string[]) => (Array.isArray(value) ? value[0]
 
 const getCopy = (language: UiLanguage) => language === 'th' ? {
   back: 'กลับ', set: 'ชุดที่', question: 'คำถาม', of: 'จาก', check: 'ตรวจคำตอบ', checking: 'กำลังตรวจ…',
-  continue: 'ต่อไป', correct: 'ถูกต้อง!', incorrect: 'ยังไม่ถูกต้อง', retry: 'ลองคำถามที่พลาดอีกครั้ง',
+  continue: 'ถัดไป →', answerTryAgain: 'ลองอีกครั้ง', correct: 'ถูกต้อง!', incorrect: 'ลองอีกครั้ง', retry: 'ลองคำถามที่พลาดอีกครั้ง',
   backToTopics: 'กลับไปที่หัวข้อ', setFinished: 'จบชุดแบบฝึกหัด', mastered: 'ทำสำเร็จ', chooseSet: 'เลือกชุดแบบฝึกหัด',
   typeAnswer: 'พิมพ์คำตอบ', rewrite: 'เขียนประโยคใหม่', sentenceCorrect: 'ประโยคนี้ถูกต้อง',
   sentenceIncorrect: 'ประโยคนี้ไม่ถูกต้อง', loadError: 'ไม่สามารถโหลดแบบฝึกหัดได้', tryAgain: 'ลองอีกครั้ง',
-  example: 'ตัวอย่าง', answer: 'คำตอบ',
+  example: 'ตัวอย่าง', answer: 'คำตอบ', showAnswer: 'ดูคำตอบ', hideAnswer: 'ซ่อนคำตอบ', answerUnavailable: 'ยังไม่สามารถแสดงคำตอบได้',
 } : {
-  back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'Check answer', checking: 'Checking…',
-  continue: 'Continue', correct: 'Correct!', incorrect: 'Not quite yet', retry: 'Retry missed questions',
+  back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'CHECK ANSWER', checking: 'CHECKING…',
+  continue: 'NEXT →', answerTryAgain: 'TRY AGAIN', correct: 'Correct!', incorrect: 'Try again', retry: 'Retry missed questions',
   backToTopics: 'Back to topics', setFinished: 'Set finished', mastered: 'mastered', chooseSet: 'Choose a set',
   typeAnswer: 'Type your answer', rewrite: 'Rewrite the sentence', sentenceCorrect: 'The sentence is correct',
   sentenceIncorrect: 'The sentence is incorrect', loadError: 'Unable to load this exercise.', tryAgain: 'Try again',
-  example: 'Example', answer: 'Answer',
+  example: 'Example', answer: 'Answer', showAnswer: 'Show Answer', hideAnswer: 'Hide Answer', answerUnavailable: 'The answer is not available yet.',
 };
 
 const hasAnswer = (answer: ExerciseBankAnswer | undefined) => {
@@ -193,21 +193,21 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
             ? authoredMinLength
             : part.length;
           return (
-            <TextInput
+            <View
               key={`blank-${index}`}
-              accessibilityLabel={copy.typeAnswer}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!disabled}
-              placeholder=""
-              style={[
-                styles.fillBlankInlineInput,
-                language === 'th' ? styles.thaiInput : styles.englishInput,
-                { width: estimateFillBlankWidth(inputContainerWidth, minLength) },
-              ]}
-              value={typeof answer === 'string' ? answer : ''}
-              onChangeText={onChange}
-            />
+              style={[styles.fillBlankInlineInputShell, { width: estimateFillBlankWidth(inputContainerWidth, minLength) }]}>
+              <TextInput
+                accessibilityLabel={copy.typeAnswer}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!disabled}
+                numberOfLines={1}
+                placeholder=""
+                style={styles.fillBlankInlineInput}
+                value={typeof answer === 'string' ? answer : ''}
+                onChangeText={onChange}
+              />
+            </View>
           );
         })}
       </View>
@@ -293,12 +293,16 @@ export function ExerciseBankSessionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [isQuestionNavigatorOpen, setIsQuestionNavigatorOpen] = useState(false);
+  const [revealedAnswerIds, setRevealedAnswerIds] = useState<Record<number, boolean>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     setIsFinished(false);
+    setIsQuestionNavigatorOpen(false);
+    setRevealedAnswerIds({});
     setAnswers({});
     setResults({});
     try {
@@ -321,11 +325,32 @@ export function ExerciseBankSessionScreen() {
       setTopicTitle(response.topic.display_title);
       setTopicName(response.topic.topic);
       setSetData(response.set);
-      const incompleteIds = response.set.questions
-        .filter((question) => !question.progress.has_answered_correctly)
-        .map((question) => question.id);
-      setQueue(incompleteIds.length ? incompleteIds : response.set.questions.map((question) => question.id));
-      setQueueIndex(0);
+      setAnswers(Object.fromEntries(
+        response.set.questions
+          .filter((question) => question.progress.latest_user_answer != null)
+          .map((question) => [question.id, question.progress.latest_user_answer as ExerciseBankAnswer])
+      ));
+      setResults(Object.fromEntries(
+        response.set.questions
+          .filter((question) => typeof question.progress.latest_is_correct === 'boolean')
+          .map((question) => [question.id, {
+            question_id: question.id,
+            topic_id: Number(response.topic.id),
+            correct: Boolean(question.progress.latest_is_correct),
+            score: question.progress.latest_score ?? 0,
+            feedback_en: question.progress.latest_feedback_en ?? '',
+            feedback_th: question.progress.latest_feedback_th ?? '',
+            review_answer: question.progress.review_answer ?? '',
+            grading_method: 'deterministic' as const,
+            progress: { has_answered_correctly: question.progress.has_answered_correctly },
+          }])
+      ));
+      const allQuestionIds = response.set.questions.map((question) => question.id);
+      const firstIncompleteIndex = response.set.questions.findIndex(
+        (question) => !question.progress.has_answered_correctly
+      );
+      setQueue(allQuestionIds);
+      setQueueIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : copy.loadError);
     } finally {
@@ -366,15 +391,46 @@ export function ExerciseBankSessionScreen() {
   };
 
   const advance = () => {
+    setIsQuestionNavigatorOpen(false);
+    setErrorMessage(null);
     if (queueIndex < queue.length - 1) setQueueIndex((current) => current + 1);
     else setIsFinished(true);
+  };
+
+  const navigateToQuestion = (index: number) => {
+    const questionId = queue[index];
+    if (questionId === undefined) return;
+    setQueueIndex(index);
+    setIsFinished(false);
+    setIsQuestionNavigatorOpen(false);
+    setErrorMessage(null);
+  };
+
+  const retryCurrentQuestion = () => {
+    if (!currentQuestion) return;
+    setAnswers((current) => {
+      const next = { ...current };
+      delete next[currentQuestion.id];
+      return next;
+    });
+    setResults((current) => {
+      const next = { ...current };
+      delete next[currentQuestion.id];
+      return next;
+    });
+    setRevealedAnswerIds((current) => {
+      const next = { ...current };
+      delete next[currentQuestion.id];
+      return next;
+    });
+    setErrorMessage(null);
   };
 
   const retryMissed = () => {
     if (!setData) return;
     const missed = setData.questions.filter((question) => !question.progress.has_answered_correctly).map((question) => question.id);
-    setQueue(missed);
-    setQueueIndex(0);
+    const firstMissedIndex = queue.findIndex((questionId) => missed.includes(questionId));
+    setQueueIndex(firstMissedIndex >= 0 ? firstMissedIndex : 0);
     setAnswers((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !missed.includes(Number(id)))));
     setResults((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !missed.includes(Number(id)))));
     setIsFinished(false);
@@ -428,6 +484,8 @@ export function ExerciseBankSessionScreen() {
     );
   }
 
+  const isJudgmentQuestion = currentQuestion.exercise.exercise_type === 'sentence_transform'
+    && /correct.*incorrect|incorrect.*correct/i.test(currentQuestion.exercise.display_type);
   const feedback = uiLanguage === 'th' ? currentResult?.feedback_th : currentResult?.feedback_en;
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -440,15 +498,51 @@ export function ExerciseBankSessionScreen() {
                 <AppText language="en" variant="title" style={styles.topicDisplayTitle}>{topicTitle}</AppText>
                 <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
               </View>
-              <View style={styles.questionMeta}>
-                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.set} {setData.set_number}</AppText>
-                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.question} {queueIndex + 1} {copy.of} {queue.length}</AppText>
+              <View style={styles.questionMetaWrap}>
+                <View style={styles.questionMeta}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.set} {setData.set_number}</AppText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isQuestionNavigatorOpen }}
+                    style={styles.questionNavigatorTrigger}
+                    onPress={() => setIsQuestionNavigatorOpen((current) => !current)}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>
+                      {copy.question} {queueIndex + 1} {copy.of} {queue.length}
+                    </AppText>
+                    <AppText language="en" variant="caption" style={styles.questionNavigatorChevron}>
+                      {isQuestionNavigatorOpen ? '▲' : '▼'}
+                    </AppText>
+                  </Pressable>
+                </View>
+                {isQuestionNavigatorOpen ? (
+                  <View style={styles.questionNavigatorMenu}>
+                    {queue.map((questionId, index) => {
+                      const question = questionsById.get(questionId);
+                      const isCurrent = index === queueIndex;
+                      return (
+                        <Pressable
+                          key={questionId}
+                          accessibilityRole="button"
+                          style={[styles.questionNavigatorItem, isCurrent ? styles.questionNavigatorItemCurrent : null]}
+                          onPress={() => navigateToQuestion(index)}>
+                          <AppText language={uiLanguage} variant="caption" style={styles.questionNavigatorItemText}>
+                            {copy.question} {index + 1}
+                          </AppText>
+                          {question?.progress.has_answered_correctly ? (
+                            <AppText language="en" variant="caption" style={styles.questionNavigatorCompleted}>✓</AppText>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
             </View>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} /></View>
             <View style={styles.questionSectionDivider} />
 
-            <View style={styles.questionContent}>
+            <View style={[styles.questionContent, isJudgmentQuestion ? styles.judgmentQuestionContent : null]}>
+              <View style={isJudgmentQuestion ? styles.questionInstructions : styles.questionPanel}>
                 <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
                 <AppText
                   language="en"
@@ -456,6 +550,7 @@ export function ExerciseBankSessionScreen() {
                   style={[
                     styles.prompt,
                     currentQuestion.exercise.exercise_type === 'fill_blank' ? styles.fillBlankPrompt : null,
+                    isJudgmentQuestion ? styles.judgmentPrompt : null,
                   ]}>
                   {currentQuestion.exercise.prompt}
                 </AppText>
@@ -467,39 +562,111 @@ export function ExerciseBankSessionScreen() {
                     language={uiLanguage}
                   />
                 ) : null}
-                {currentQuestion.exercise.exercise_type !== 'fill_blank'
-                  && (currentQuestion.content.stem || currentQuestion.content.text) ? (
-                  <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
-                ) : null}
-                <QuestionInput
-                  answer={answers[currentQuestion.id]}
-                  disabled={Boolean(currentResult)}
-                  language={uiLanguage}
-                  question={currentQuestion}
-                  onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
-                />
+                {isJudgmentQuestion ? (
+                  <View style={styles.questionWorkPanel}>
+                    {currentQuestion.content.stem || currentQuestion.content.text ? (
+                      <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                    ) : null}
+                    <QuestionInput
+                      answer={answers[currentQuestion.id]}
+                      disabled={Boolean(currentResult)}
+                      language={uiLanguage}
+                      question={currentQuestion}
+                      onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    {currentQuestion.exercise.exercise_type !== 'fill_blank'
+                      && (currentQuestion.content.stem || currentQuestion.content.text) ? (
+                      <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                    ) : null}
+                    <QuestionInput
+                      answer={answers[currentQuestion.id]}
+                      disabled={Boolean(currentResult)}
+                      language={uiLanguage}
+                      question={currentQuestion}
+                      onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
+                    />
+                  </>
+                )}
+              </View>
                 {errorMessage ? <AppText language={uiLanguage} variant="caption" style={styles.errorText}>{errorMessage}</AppText> : null}
-                {currentResult ? (
-                  <View style={[styles.feedback, currentResult.correct ? styles.feedbackCorrect : styles.feedbackIncorrect]}>
-                    <AppText language={uiLanguage} variant="body" style={styles.feedbackTitle}>{currentResult.correct ? copy.correct : copy.incorrect}</AppText>
+                {currentResult?.correct ? (
+                  <View style={styles.correctResult}>
+                    <View style={styles.correctResultIcon}>
+                      <AppText language="en" variant="body" style={styles.correctResultCheck}>✓</AppText>
+                    </View>
+                    <AppText language={uiLanguage} variant="body" style={styles.correctResultText}>{copy.correct}</AppText>
+                  </View>
+                ) : null}
+                {currentResult && !currentResult.correct ? (
+                  <View style={styles.feedback}>
+                    <View style={styles.incorrectResult}>
+                      <View style={styles.incorrectResultIcon}>
+                        <AppText language="en" variant="body" style={styles.incorrectResultMark}>✕</AppText>
+                      </View>
+                      <AppText language={uiLanguage} variant="body" style={styles.incorrectResultText}>{copy.incorrect}</AppText>
+                    </View>
                     {feedback ? <AppText language={uiLanguage} variant="caption">{feedback}</AppText> : null}
                   </View>
                 ) : null}
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={isSubmitting || (!currentResult && !hasAnswer(answers[currentQuestion.id]))}
-                  style={({ pressed }) => [
-                    styles.practiceCheckButton,
-                    isSubmitting || (!currentResult && !hasAnswer(answers[currentQuestion.id]))
-                      ? styles.practiceCheckButtonDisabled
-                      : null,
-                    pressed ? styles.practiceCheckButtonPressed : null,
-                  ]}
-                  onPress={currentResult ? advance : () => void submit()}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>
-                    {currentResult ? copy.continue : isSubmitting ? copy.checking : copy.check}
-                  </AppText>
-                </Pressable>
+                {!currentResult ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isSubmitting || !hasAnswer(answers[currentQuestion.id])}
+                    style={({ pressed }) => [
+                      styles.practiceCheckButton,
+                      isSubmitting || !hasAnswer(answers[currentQuestion.id]) ? styles.practiceCheckButtonDisabled : null,
+                      pressed ? styles.practiceCheckButtonPressed : null,
+                    ]}
+                    onPress={() => void submit()}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>
+                      {isSubmitting ? copy.checking : copy.check}
+                    </AppText>
+                  </Pressable>
+                ) : currentResult.correct ? (
+                  <View style={styles.resultActionsRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.practiceCheckButton, styles.practiceRetryButton, styles.resultActionButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                      onPress={retryCurrentQuestion}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.answerTryAgain}</AppText>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.practiceCheckButton, styles.practiceNextButton, styles.resultActionButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                      onPress={advance}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.continue}</AppText>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.incorrectActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.practiceCheckButton, styles.practiceIncorrectRetryButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                      onPress={retryCurrentQuestion}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.answerTryAgain}</AppText>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setRevealedAnswerIds((current) => ({
+                        ...current,
+                        [currentQuestion.id]: !current[currentQuestion.id],
+                      }))}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.showAnswerLink}>
+                        {revealedAnswerIds[currentQuestion.id] ? copy.hideAnswer : copy.showAnswer}
+                      </AppText>
+                    </Pressable>
+                    {revealedAnswerIds[currentQuestion.id] ? (
+                      <AppText language={currentResult.review_answer ? 'en' : uiLanguage} variant="body" style={styles.revealedAnswer}>
+                        {currentResult.review_answer
+                          ? `${copy.answer}: ${currentResult.review_answer}`
+                          : copy.answerUnavailable}
+                      </AppText>
+                    ) : null}
+                  </View>
+                )}
             </View>
           </View>
         </ResponsivePageShell>
@@ -516,14 +683,27 @@ const styles = StyleSheet.create({
   topicHeadingCopy: { flex: 1, gap: 2 },
   topicDisplayTitle: { color: theme.colors.text, fontSize: 25, lineHeight: 30, fontWeight: theme.typography.weights.bold },
   topicTechnicalName: { color: theme.colors.text, fontSize: 14, lineHeight: 19, fontWeight: theme.typography.weights.semibold },
+  questionMetaWrap: { position: 'relative', zIndex: 10, alignItems: 'flex-end' },
   questionMeta: { alignItems: 'flex-end', paddingTop: 2, gap: 1 },
   questionMetaText: { color: theme.colors.mutedText, fontSize: 11, lineHeight: 15 },
+  questionNavigatorTrigger: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5, paddingLeft: theme.spacing.sm },
+  questionNavigatorChevron: { color: theme.colors.mutedText, fontSize: 8, lineHeight: 12 },
+  questionNavigatorMenu: { position: 'absolute', top: 47, right: 0, zIndex: 20, minWidth: 150, overflow: 'hidden', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  questionNavigatorItem: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D5D9DE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
+  questionNavigatorItemCurrent: { backgroundColor: '#EAF6FF' },
+  questionNavigatorItemText: { color: theme.colors.text, fontWeight: theme.typography.weights.semibold },
+  questionNavigatorCompleted: { color: '#4E8A14', fontSize: 16, fontWeight: theme.typography.weights.bold },
   progressTrack: { height: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.xl, backgroundColor: '#E8E8E8' },
-  progressFill: { height: '100%', backgroundColor: theme.colors.accent },
+  progressFill: { height: '100%', backgroundColor: '#B9E671' },
   questionSectionDivider: { height: 1, marginVertical: theme.spacing.xs, backgroundColor: '#C9CDD2' },
   questionContent: { width: '100%', paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, gap: theme.spacing.md },
+  judgmentQuestionContent: { paddingHorizontal: 0 },
+  questionPanel: { width: '100%', borderRadius: theme.radii.md, backgroundColor: '#D6ECFF', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.md, gap: theme.spacing.md },
+  questionInstructions: { width: '100%', paddingHorizontal: theme.spacing.sm, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.md, gap: theme.spacing.md },
+  questionWorkPanel: { width: '100%', borderRadius: theme.radii.md, backgroundColor: '#D6ECFF', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.md, gap: theme.spacing.md },
   displayType: { color: '#2D4C7C', fontSize: 12, fontWeight: theme.typography.weights.bold, textTransform: 'uppercase' },
   prompt: { fontSize: 18, lineHeight: 25, fontWeight: theme.typography.weights.bold },
+  judgmentPrompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
   fillBlankPrompt: { fontSize: 15, lineHeight: 21, fontWeight: theme.typography.weights.semibold },
   examplePanel: { overflow: 'hidden', borderRadius: theme.radii.sm, backgroundColor: '#EEEEEE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
   exampleHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -540,7 +720,8 @@ const styles = StyleSheet.create({
   exampleSolutionText: { flex: 1, fontSize: 15, lineHeight: 22 },
   fillBlankSentence: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 0, rowGap: 1 },
   fillBlankSentenceText: { marginRight: 5, fontSize: 17, lineHeight: 24 },
-  fillBlankInlineInput: { height: 34, minHeight: 34, marginRight: 5, borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm, paddingVertical: 0, color: theme.colors.text, fontSize: 17, lineHeight: 21, textAlignVertical: 'center', includeFontPadding: false },
+  fillBlankInlineInputShell: { height: 34, minHeight: 34, marginRight: 5, justifyContent: 'center', borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
+  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontSize: 17, textAlignVertical: 'center', includeFontPadding: false },
   stem: { fontSize: 17, lineHeight: 26 },
   optionList: { gap: theme.spacing.sm },
   optionButton: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, padding: theme.spacing.md },
@@ -557,12 +738,25 @@ const styles = StyleSheet.create({
   englishInput: { fontFamily: theme.typography.fontFaces.en.regular },
   thaiInput: { fontFamily: theme.typography.fontFaces.th.regular },
   feedback: { gap: theme.spacing.xs, borderRadius: theme.radii.md, padding: theme.spacing.md },
-  feedbackCorrect: { backgroundColor: '#DCF7E8' },
-  feedbackIncorrect: { backgroundColor: '#FFF0ED' },
-  feedbackTitle: { fontWeight: theme.typography.weights.bold },
+  correctResult: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
+  correctResultIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#3CA0FE' },
+  correctResultCheck: { color: theme.colors.surface, fontSize: 21, lineHeight: 24, fontWeight: theme.typography.weights.bold, includeFontPadding: false },
+  correctResultText: { color: '#3CA0FE', fontSize: 24, lineHeight: 30, fontWeight: theme.typography.weights.bold },
+  incorrectResult: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  incorrectResultIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: '#F65555' },
+  incorrectResultMark: { color: theme.colors.surface, fontSize: 16, lineHeight: 18, fontWeight: theme.typography.weights.semibold, includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
+  incorrectResultText: { color: '#F65555', fontSize: 20, lineHeight: 26, fontWeight: theme.typography.weights.bold },
   errorText: { color: theme.colors.error },
   practiceCheckButton: { minHeight: 38, width: '100%', borderRadius: 25, borderWidth: 1.5, borderColor: theme.colors.border, backgroundColor: '#91CAFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 5, shadowColor: theme.colors.shadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 3, height: 3 }, elevation: 3 },
-  practiceCheckButtonText: { color: theme.colors.text, fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
+  practiceNextButton: { backgroundColor: '#B9E671' },
+  practiceRetryButton: { backgroundColor: '#FFD66B' },
+  practiceIncorrectRetryButton: { backgroundColor: '#F65555' },
+  incorrectActions: { width: '100%', alignItems: 'center', gap: theme.spacing.md },
+  showAnswerLink: { color: theme.colors.mutedText, fontSize: 14, textDecorationLine: 'underline' },
+  revealedAnswer: { width: '100%', textAlign: 'center', fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.semibold },
+  resultActionsRow: { width: '100%', flexDirection: 'row', gap: theme.spacing.sm },
+  resultActionButton: { flex: 1, width: 'auto' },
+  practiceCheckButtonText: { color: theme.colors.text, fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.semibold, textTransform: 'uppercase' },
   practiceCheckButtonPressed: { opacity: 0.9 },
   practiceCheckButtonDisabled: { opacity: 0.55 },
   fullState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md, backgroundColor: theme.colors.background, padding: theme.spacing.xl },

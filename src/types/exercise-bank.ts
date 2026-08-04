@@ -80,6 +80,12 @@ export type ExerciseBankV2Question = {
   progress: {
     attempt_count: number;
     has_answered_correctly: boolean;
+    latest_user_answer?: ExerciseBankAnswer | null;
+    latest_is_correct?: boolean | null;
+    latest_score?: number;
+    latest_feedback_en?: string;
+    latest_feedback_th?: string;
+    review_answer?: string;
     last_attempted_at: string | null;
   };
 };
@@ -104,6 +110,7 @@ export type ExerciseBankAnswerResult = {
   score: number;
   feedback_en: string;
   feedback_th: string;
+  review_answer?: string;
   grading_method: 'deterministic' | 'ai';
   progress: Record<string, unknown> & {
     has_answered_correctly?: boolean;
