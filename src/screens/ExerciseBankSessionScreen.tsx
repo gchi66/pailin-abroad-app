@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 
 import {
   fetchExerciseBankV2Set,
@@ -23,6 +24,7 @@ import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
+import pailinBlueThumbsUpImage from '@/assets/images/pailin-blue-circle-thumbs-up.webp';
 import {
   ExerciseBankAnswer,
   ExerciseBankAnswerResult,
@@ -42,14 +44,16 @@ const getCopy = (language: UiLanguage) => language === 'th' ? {
   backToTopics: 'กลับไปที่หัวข้อ', setFinished: 'จบชุดแบบฝึกหัด', mastered: 'ทำสำเร็จ', chooseSet: 'เลือกชุดแบบฝึกหัด',
   typeAnswer: 'พิมพ์คำตอบ', rewrite: 'เขียนประโยคใหม่', sentenceCorrect: 'ประโยคนี้ถูกต้อง',
   sentenceIncorrect: 'ประโยคนี้ไม่ถูกต้อง', loadError: 'ไม่สามารถโหลดแบบฝึกหัดได้', tryAgain: 'ลองอีกครั้ง',
-  example: 'ตัวอย่าง', answer: 'คำตอบ', showAnswer: 'ดูคำตอบ', hideAnswer: 'ซ่อนคำตอบ', answerUnavailable: 'ยังไม่สามารถแสดงคำตอบได้',
+  example: 'ตัวอย่าง', answer: 'คำตอบ', exampleCorrect: 'ถูกต้อง', exampleIncorrect: 'ไม่ถูกต้อง', showAnswer: 'ดูคำตอบ', hideAnswer: 'ซ่อนคำตอบ', answerUnavailable: 'ยังไม่สามารถแสดงคำตอบได้',
+  greatWork: 'เยี่ยมมาก!', greatProgress: 'พัฒนาได้ดีมาก!', keepPracticing: 'ฝึกต่อไป!', gotCorrect: 'คุณตอบถูก', perfectBody: 'คุณตอบถูกทุกข้อ! พร้อมสำหรับความท้าทายต่อไปแล้ว', progressBody: 'ใกล้เข้าใจหัวข้อนี้แล้ว ลองอีกครั้งหรือฝึกต่อไป', practiceBody: 'ไวยากรณ์ต้องใช้เวลา ทบทวนแบบฝึกหัดแล้วลองอีกครั้ง คุณทำได้!', goNextSet: 'ไปชุดถัดไป', reviewAnswers: 'ทบทวนคำตอบ', backToBank: 'กลับคลังแบบฝึกหัด',
 } : {
   back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'CHECK ANSWER', checking: 'CHECKING…',
   continue: 'NEXT →', answerTryAgain: 'TRY AGAIN', correct: 'Correct!', incorrect: 'Try again', retry: 'Retry missed questions',
   backToTopics: 'Back to topics', setFinished: 'Set finished', mastered: 'mastered', chooseSet: 'Choose a set',
   typeAnswer: 'Type your answer', rewrite: 'Rewrite the sentence', sentenceCorrect: 'The sentence is correct',
   sentenceIncorrect: 'The sentence is incorrect', loadError: 'Unable to load this exercise.', tryAgain: 'Try again',
-  example: 'Example', answer: 'Answer', showAnswer: 'Show Answer', hideAnswer: 'Hide Answer', answerUnavailable: 'The answer is not available yet.',
+  example: 'Example', answer: 'Answer', exampleCorrect: 'Correct', exampleIncorrect: 'Incorrect', showAnswer: 'Show Answer', hideAnswer: 'Hide Answer', answerUnavailable: 'The answer is not available yet.',
+  greatWork: 'Great Work!', greatProgress: 'Great Progress!', keepPracticing: 'Keep Practicing!', gotCorrect: 'You got', perfectBody: "You nailed every single question! You're ready for the next challenge.", progressBody: "You're super close to mastering this concept! Give it another shot or keep moving.", practiceBody: "Grammar takes time to master. Review the exercise and try again. You've got this!", goNextSet: 'Go to Next Set', reviewAnswers: 'Review Answers', backToBank: 'Back to Exercise Bank',
 };
 
 const hasAnswer = (answer: ExerciseBankAnswer | undefined) => {
@@ -88,6 +92,8 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
   const content = example.content;
   const sourceText = content.stem ?? content.text ?? '';
   const answer = content.example_answer ?? '';
+  const isJudgmentExample = exerciseType === 'sentence_transform'
+    && typeof content.example_is_correct === 'boolean';
 
   const renderFillBlankExample = () => {
     const parts = sourceText.split(/_{2,}/);
@@ -105,7 +111,7 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
 
   const correctOption = content.options?.find((option) => option.label === content.example_correct_option);
   return (
-    <View style={styles.examplePanel}>
+    <View style={[styles.examplePanel, isJudgmentExample ? styles.judgmentExamplePanel : null]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: isExpanded }}
@@ -115,25 +121,44 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
         <AppText language="en" variant="body" style={styles.exampleArrow}>{isExpanded ? '↑' : '↓'}</AppText>
       </Pressable>
       {isExpanded ? (
-        <View style={styles.exampleBody}>
-          {exerciseType === 'fill_blank' && renderFillBlankExample()}
-          {exerciseType !== 'fill_blank' && sourceText ? (
-            <AppText language="en" variant="body" style={styles.exampleSentenceText}>{sourceText}</AppText>
-          ) : null}
-          {typeof content.example_is_correct === 'boolean' ? (
-            <AppText language={language} variant="caption" style={styles.exampleJudgment}>
-              {content.example_is_correct ? copy.sentenceCorrect : copy.sentenceIncorrect}
-            </AppText>
-          ) : null}
-          {exerciseType !== 'fill_blank' && (answer || correctOption) ? (
-            <View style={styles.exampleSolutionRow}>
-              <AppText language={language} variant="caption" style={styles.exampleSolutionLabel}>{copy.answer}:</AppText>
-              <AppText language="en" variant="body" style={styles.exampleSolutionText}>
-                {correctOption ? `${correctOption.label}. ${correctOption.text}` : answer}
-              </AppText>
+        isJudgmentExample ? (
+          <View style={styles.judgmentExampleBody}>
+            {sourceText ? <AppText language="en" variant="body" style={styles.judgmentExampleSentence}>{sourceText}</AppText> : null}
+            <View style={styles.judgmentExampleChoices}>
+              <View style={[styles.judgmentExampleChoice, content.example_is_correct ? styles.judgmentExampleChoiceCorrect : null]}>
+                <AppText language={language} variant="caption" style={[styles.judgmentExampleChoiceText, content.example_is_correct ? styles.judgmentExampleChoiceTextActive : null]}>
+                  {copy.exampleCorrect} ✓
+                </AppText>
+              </View>
+              <View style={[styles.judgmentExampleChoice, !content.example_is_correct ? styles.judgmentExampleChoiceIncorrect : null]}>
+                <AppText language={language} variant="caption" style={[styles.judgmentExampleChoiceText, !content.example_is_correct ? styles.judgmentExampleChoiceTextActive : null]}>
+                  {copy.exampleIncorrect} X
+                </AppText>
+              </View>
             </View>
-          ) : null}
-        </View>
+            <View style={styles.judgmentExampleAnswerShell}>
+              <AppText language="en" variant="body" style={styles.judgmentExampleAnswerText}>{answer || sourceText}</AppText>
+              <View style={styles.judgmentExampleAnswerBadge}>
+                <AppText language="en" variant="caption" style={styles.judgmentExampleAnswerBadgeText}>✓</AppText>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.exampleBody}>
+            {exerciseType === 'fill_blank' && renderFillBlankExample()}
+            {exerciseType !== 'fill_blank' && sourceText ? (
+              <AppText language="en" variant="body" style={styles.exampleSentenceText}>{sourceText}</AppText>
+            ) : null}
+            {exerciseType !== 'fill_blank' && (answer || correctOption) ? (
+              <View style={styles.exampleSolutionRow}>
+                <AppText language={language} variant="caption" style={styles.exampleSolutionLabel}>{copy.answer}:</AppText>
+                <AppText language="en" variant="body" style={styles.exampleSolutionText}>
+                  {correctOption ? `${correctOption.label}. ${correctOption.text}` : answer}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+        )
       ) : null}
     </View>
   );
@@ -224,30 +249,40 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
             accessibilityRole="radio"
             accessibilityState={{ checked: judgment === true, disabled }}
             disabled={disabled}
-            style={[styles.judgmentButton, judgment === true ? styles.optionButtonSelected : null]}
+            style={[
+              styles.judgmentButton,
+              judgment === true ? styles.judgmentButtonCorrect : null,
+              judgment === false ? styles.judgmentButtonMuted : null,
+            ]}
             onPress={() => onChange({ marked_as_correct: true, rewrite: '' })}>
-            <AppText language={language} variant="caption" style={styles.judgmentText}>{copy.sentenceCorrect}</AppText>
+            <AppText language={language} variant="caption" style={[styles.judgmentText, judgment === true ? styles.judgmentTextActive : null, judgment === false ? styles.judgmentTextMuted : null]}>{copy.exampleCorrect} ✓</AppText>
           </Pressable>
           <Pressable
             accessibilityRole="radio"
             accessibilityState={{ checked: judgment === false, disabled }}
             disabled={disabled}
-            style={[styles.judgmentButton, judgment === false ? styles.optionButtonSelected : null]}
+            style={[
+              styles.judgmentButton,
+              judgment === false ? styles.judgmentButtonIncorrect : null,
+              judgment === true ? styles.judgmentButtonMuted : null,
+            ]}
             onPress={() => onChange({ marked_as_correct: false, rewrite })}>
-            <AppText language={language} variant="caption" style={styles.judgmentText}>{copy.sentenceIncorrect}</AppText>
+            <AppText language={language} variant="caption" style={[styles.judgmentText, judgment === false ? styles.judgmentTextActive : null, judgment === true ? styles.judgmentTextMuted : null]}>{copy.exampleIncorrect} X</AppText>
           </Pressable>
         </View>
         {judgment === false ? (
-          <TextInput
-            accessibilityLabel={copy.rewrite}
-            editable={!disabled}
-            multiline
-            placeholder={copy.rewrite}
-            placeholderTextColor={theme.colors.mutedText}
-            style={[styles.textInput, styles.multilineInput, language === 'th' ? styles.thaiInput : styles.englishInput]}
-            value={rewrite}
-            onChangeText={(value) => onChange({ marked_as_correct: false, rewrite: value })}
-          />
+          <View style={styles.judgmentRewriteInputShell}>
+            <TextInput
+              accessibilityLabel={copy.rewrite}
+              editable={!disabled}
+              numberOfLines={1}
+              placeholder={copy.rewrite}
+              placeholderTextColor={theme.colors.mutedText}
+              style={[styles.judgmentRewriteInput, language === 'th' ? styles.thaiInput : styles.englishInput]}
+              value={rewrite}
+              onChangeText={(value) => onChange({ marked_as_correct: false, rewrite: value })}
+            />
+          </View>
         ) : null}
       </View>
     );
@@ -321,7 +356,11 @@ export function ExerciseBankSessionScreen() {
         return;
       }
 
-      const response = await fetchExerciseBankV2Set(topicId, setNumber);
+      const [response, detail] = await Promise.all([
+        fetchExerciseBankV2Set(topicId, setNumber),
+        fetchExerciseBankV2Topic(topicId).catch(() => null),
+      ]);
+      if (detail) setTopicDetail(detail);
       setTopicTitle(response.topic.display_title);
       setTopicName(response.topic.topic);
       setSetData(response.set);
@@ -366,7 +405,7 @@ export function ExerciseBankSessionScreen() {
   );
   const currentQuestion = questionsById.get(queue[queueIndex]);
   const currentResult = currentQuestion ? results[currentQuestion.id] : undefined;
-  const masteredCount = setData?.questions.filter((question) => question.progress.has_answered_correctly).length ?? 0;
+  const latestCorrectCount = queue.filter((questionId) => results[questionId]?.correct === true).length;
 
   const submit = async () => {
     if (!currentQuestion || !hasAnswer(answers[currentQuestion.id])) return;
@@ -426,15 +465,30 @@ export function ExerciseBankSessionScreen() {
     setErrorMessage(null);
   };
 
-  const retryMissed = () => {
-    if (!setData) return;
-    const missed = setData.questions.filter((question) => !question.progress.has_answered_correctly).map((question) => question.id);
-    const firstMissedIndex = queue.findIndex((questionId) => missed.includes(questionId));
-    setQueueIndex(firstMissedIndex >= 0 ? firstMissedIndex : 0);
-    setAnswers((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !missed.includes(Number(id)))));
-    setResults((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !missed.includes(Number(id)))));
+  const restartSet = () => {
+    setAnswers({});
+    setResults({});
+    setRevealedAnswerIds({});
+    setQueueIndex(0);
     setIsFinished(false);
     setErrorMessage(null);
+  };
+
+  const reviewSetAnswers = () => {
+    setQueueIndex(0);
+    setIsFinished(false);
+    setErrorMessage(null);
+  };
+
+  const goToNextSet = () => {
+    const nextSet = topicDetail?.sets
+      .filter((item) => item.set_number > setNumber)
+      .sort((a, b) => a.set_number - b.set_number)[0];
+    if (nextSet) {
+      router.setParams({ setNumber: String(nextSet.set_number) });
+      return;
+    }
+    router.replace('/(tabs)/resources/exercise-bank');
   };
 
   if (isLoading) return <PageLoadingState language={uiLanguage} />;
@@ -473,14 +527,57 @@ export function ExerciseBankSessionScreen() {
   if (!setData || !currentQuestion) return <PageLoadingState language={uiLanguage} />;
 
   if (isFinished) {
+    const isPerfect = setData.question_count === 5 && latestCorrectCount === 5;
+    const isProgress = latestCorrectCount >= 3 && !isPerfect;
+    const completionTitle = isPerfect ? copy.greatWork : isProgress ? copy.greatProgress : copy.keepPracticing;
+    const completionBody = isPerfect ? copy.perfectBody : isProgress ? copy.progressBody : copy.practiceBody;
+    const hasNextSet = Boolean(topicDetail?.sets.some((item) => item.set_number > setNumber));
     return (
-      <View style={styles.fullState}>
-        <View style={styles.completeIcon}><AppText language="en" variant="title" style={styles.completeIconText}>✓</AppText></View>
-        <AppText language={uiLanguage} variant="title" style={styles.completeTitle}>{copy.setFinished}</AppText>
-        <AppText language={uiLanguage} variant="body">{masteredCount}/{setData.question_count} {copy.mastered}</AppText>
-        {masteredCount < setData.question_count ? <Button title={copy.retry} language={uiLanguage} onPress={retryMissed} /> : null}
-        <Button title={copy.backToTopics} language={uiLanguage} variant="outline" onPress={() => router.back()} />
-      </View>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+        <ResponsivePageShell>
+          <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
+          <View style={styles.sessionContent}>
+            <View style={styles.sessionHeading}>
+              <View style={styles.topicHeadingCopy}>
+                <AppText language="en" variant="title" style={styles.topicDisplayTitle}>{topicTitle}</AppText>
+                <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
+              </View>
+              <View style={styles.questionMeta}>
+                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.set} {setData.set_number}</AppText>
+                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{setData.question_count} / {setData.question_count}</AppText>
+              </View>
+            </View>
+            <View style={styles.progressTrack}><View style={[styles.progressFill, { width: '100%' }]} /></View>
+            <View style={styles.questionSectionDivider} />
+            <View style={styles.completionCard}>
+              {isPerfect ? <Image source={pailinBlueThumbsUpImage} contentFit="contain" style={styles.completionImage} /> : null}
+              <AppText language={uiLanguage} variant="title" style={styles.completionTitle}>{completionTitle}</AppText>
+              <AppText language={uiLanguage} variant="body" style={styles.completionScore}>
+                {copy.gotCorrect} {latestCorrectCount} / {setData.question_count}{uiLanguage === 'en' ? ' correct!' : ' ข้อ'}
+              </AppText>
+              <AppText language={uiLanguage} variant="caption" style={styles.completionBody}>{completionBody}</AppText>
+              <View style={styles.completionActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.completionButton, isPerfect ? styles.completionPracticeButton : styles.completionRetryButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                  onPress={isPerfect ? goToNextSet : restartSet}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.completionButtonText}>
+                    {isPerfect ? (hasNextSet ? copy.goNextSet : copy.backToBank) : copy.answerTryAgain}
+                  </AppText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.completionButton, styles.completionNextButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                  onPress={isPerfect ? reviewSetAnswers : goToNextSet}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.completionButtonText}>
+                    {isPerfect ? copy.reviewAnswers : hasNextSet ? copy.goNextSet : copy.backToBank}
+                  </AppText>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </ResponsivePageShell>
+      </ScrollView>
     );
   }
 
@@ -543,7 +640,9 @@ export function ExerciseBankSessionScreen() {
 
             <View style={[styles.questionContent, isJudgmentQuestion ? styles.judgmentQuestionContent : null]}>
               <View style={isJudgmentQuestion ? styles.questionInstructions : styles.questionPanel}>
-                <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                {!isJudgmentQuestion ? (
+                  <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                ) : null}
                 <AppText
                   language="en"
                   variant="body"
@@ -563,10 +662,13 @@ export function ExerciseBankSessionScreen() {
                   />
                 ) : null}
                 {isJudgmentQuestion ? (
-                  <View style={styles.questionWorkPanel}>
-                    {currentQuestion.content.stem || currentQuestion.content.text ? (
-                      <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
-                    ) : null}
+                  <>
+                    <View style={styles.questionWorkPanel}>
+                      <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                      {currentQuestion.content.stem || currentQuestion.content.text ? (
+                        <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                      ) : null}
+                    </View>
                     <QuestionInput
                       answer={answers[currentQuestion.id]}
                       disabled={Boolean(currentResult)}
@@ -574,7 +676,7 @@ export function ExerciseBankSessionScreen() {
                       question={currentQuestion}
                       onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
                     />
-                  </View>
+                  </>
                 ) : (
                   <>
                     {currentQuestion.exercise.exercise_type !== 'fill_blank'
@@ -642,12 +744,20 @@ export function ExerciseBankSessionScreen() {
                   </View>
                 ) : (
                   <View style={styles.incorrectActions}>
-                    <Pressable
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.practiceCheckButton, styles.practiceIncorrectRetryButton, pressed ? styles.practiceCheckButtonPressed : null]}
-                      onPress={retryCurrentQuestion}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.answerTryAgain}</AppText>
-                    </Pressable>
+                    <View style={styles.resultActionsRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.practiceCheckButton, styles.practiceIncorrectRetryButton, styles.resultActionButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                        onPress={retryCurrentQuestion}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.answerTryAgain}</AppText>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.practiceCheckButton, styles.practiceNextButton, styles.resultActionButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                        onPress={advance}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.continue}</AppText>
+                      </Pressable>
+                    </View>
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => setRevealedAnswerIds((current) => ({
@@ -706,6 +816,7 @@ const styles = StyleSheet.create({
   judgmentPrompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
   fillBlankPrompt: { fontSize: 15, lineHeight: 21, fontWeight: theme.typography.weights.semibold },
   examplePanel: { overflow: 'hidden', borderRadius: theme.radii.sm, backgroundColor: '#EEEEEE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
+  judgmentExamplePanel: { borderRadius: 6, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.sm },
   exampleHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   exampleLabel: { color: theme.colors.mutedText, fontSize: 14, fontWeight: theme.typography.weights.semibold, textDecorationLine: 'underline' },
   exampleArrow: { color: theme.colors.mutedText, fontSize: 18, lineHeight: 22 },
@@ -718,6 +829,18 @@ const styles = StyleSheet.create({
   exampleSolutionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.sm },
   exampleSolutionLabel: { paddingTop: 2, color: theme.colors.mutedText, fontWeight: theme.typography.weights.semibold },
   exampleSolutionText: { flex: 1, fontSize: 15, lineHeight: 22 },
+  judgmentExampleBody: { gap: theme.spacing.sm, paddingTop: 2, paddingBottom: theme.spacing.xs },
+  judgmentExampleSentence: { fontSize: 14.5, lineHeight: 21, fontWeight: theme.typography.weights.regular },
+  judgmentExampleChoices: { width: '100%', flexDirection: 'row', gap: theme.spacing.sm },
+  judgmentExampleChoice: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#999999', borderRadius: 20, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm, paddingVertical: 5 },
+  judgmentExampleChoiceCorrect: { borderColor: theme.colors.border, backgroundColor: '#E9F8D3' },
+  judgmentExampleChoiceIncorrect: { borderColor: theme.colors.border, backgroundColor: '#FFF4C7' },
+  judgmentExampleChoiceText: { color: '#989898', fontSize: 13, lineHeight: 17, textAlign: 'center' },
+  judgmentExampleChoiceTextActive: { color: theme.colors.text, fontWeight: theme.typography.weights.bold },
+  judgmentExampleAnswerShell: { minHeight: 40, width: '100%', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: theme.radii.sm, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm, paddingVertical: 6 },
+  judgmentExampleAnswerText: { flex: 1, minWidth: 0, color: '#62656D', fontSize: 14, lineHeight: 20 },
+  judgmentExampleAnswerBadge: { width: 14, height: 14, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 4, backgroundColor: '#3CA0FE' },
+  judgmentExampleAnswerBadgeText: { color: theme.colors.surface, fontSize: 8, lineHeight: 8, fontWeight: theme.typography.weights.bold, includeFontPadding: false },
   fillBlankSentence: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 0, rowGap: 1 },
   fillBlankSentenceText: { marginRight: 5, fontSize: 17, lineHeight: 24 },
   fillBlankInlineInputShell: { height: 34, minHeight: 34, marginRight: 5, justifyContent: 'center', borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
@@ -731,8 +854,15 @@ const styles = StyleSheet.create({
   optionText: { flex: 1 },
   inputGroup: { gap: theme.spacing.md },
   judgmentRow: { flexDirection: 'row', gap: theme.spacing.sm },
-  judgmentButton: { flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, padding: theme.spacing.sm },
-  judgmentText: { textAlign: 'center', fontWeight: theme.typography.weights.semibold },
+  judgmentButton: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: 22, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm, paddingVertical: 6 },
+  judgmentButtonCorrect: { borderColor: theme.colors.border, backgroundColor: '#E9F8D3' },
+  judgmentButtonIncorrect: { borderColor: theme.colors.border, backgroundColor: '#FFF4C7' },
+  judgmentButtonMuted: { borderColor: '#B7B7B7' },
+  judgmentText: { color: theme.colors.text, textAlign: 'center', fontSize: 13, lineHeight: 17, fontWeight: theme.typography.weights.semibold },
+  judgmentTextActive: { color: theme.colors.text, fontWeight: theme.typography.weights.bold },
+  judgmentTextMuted: { color: '#989898', fontWeight: theme.typography.weights.regular },
+  judgmentRewriteInputShell: { height: 42, width: '100%', justifyContent: 'center', borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: theme.radii.sm, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
+  judgmentRewriteInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontSize: 14, textAlignVertical: 'center', includeFontPadding: false },
   textInput: { minHeight: 50, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, color: theme.colors.text, fontSize: 16 },
   multilineInput: { minHeight: 110, textAlignVertical: 'top' },
   englishInput: { fontFamily: theme.typography.fontFaces.en.regular },
@@ -759,6 +889,17 @@ const styles = StyleSheet.create({
   practiceCheckButtonText: { color: theme.colors.text, fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.semibold, textTransform: 'uppercase' },
   practiceCheckButtonPressed: { opacity: 0.9 },
   practiceCheckButtonDisabled: { opacity: 0.55 },
+  completionCard: { width: '100%', maxWidth: 520, alignSelf: 'center', alignItems: 'center', gap: theme.spacing.sm, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.xl, shadowColor: theme.colors.shadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 5, height: 6 }, elevation: 6 },
+  completionImage: { width: 128, height: 128, marginBottom: theme.spacing.xs },
+  completionTitle: { color: theme.colors.text, textAlign: 'center', fontSize: 28, lineHeight: 34, fontWeight: theme.typography.weights.bold },
+  completionScore: { color: theme.colors.text, textAlign: 'center', fontSize: 17, lineHeight: 23, fontWeight: theme.typography.weights.semibold },
+  completionBody: { maxWidth: 300, color: theme.colors.text, textAlign: 'center', fontSize: 13, lineHeight: 18 },
+  completionActions: { width: '100%', gap: theme.spacing.md, marginTop: theme.spacing.lg },
+  completionButton: { minHeight: 46, width: '100%', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: 24, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, shadowColor: theme.colors.shadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 3, height: 4 }, elevation: 4 },
+  completionPracticeButton: { backgroundColor: '#B9E671' },
+  completionRetryButton: { backgroundColor: '#F65555' },
+  completionNextButton: { backgroundColor: theme.colors.surface },
+  completionButtonText: { color: theme.colors.text, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.semibold, textTransform: 'uppercase' },
   fullState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md, backgroundColor: theme.colors.background, padding: theme.spacing.xl },
   stateTitle: { textAlign: 'center', fontWeight: theme.typography.weights.bold },
   stateBody: { textAlign: 'center' },
