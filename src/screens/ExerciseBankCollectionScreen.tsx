@@ -18,6 +18,9 @@ import { theme } from '@/src/theme/theme';
 import { ExerciseBankTopic } from '@/src/types/exercise-bank';
 
 const TOPIC_CARD_RADIUS = 16;
+type TenseFilter = 'past_tense' | 'present_tense' | 'future_tense';
+
+const TENSE_FILTERS: TenseFilter[] = ['past_tense', 'present_tense', 'future_tense'];
 
 const getParam = (value?: string | string[]) => (Array.isArray(value) ? value[0] ?? '' : value ?? '');
 
@@ -32,6 +35,11 @@ const getCopy = (language: 'en' | 'th') =>
         missingCollection: 'ไม่พบหมวดหมู่แบบฝึกหัดนี้',
         complete: 'ชุดสำเร็จ',
         newContent: 'เนื้อหาใหม่',
+        tenseFilters: {
+          past_tense: 'อดีตกาล',
+          present_tense: 'ปัจจุบันกาล',
+          future_tense: 'อนาคตกาล',
+        },
       }
     : {
         pageTitle: 'Pick a topic',
@@ -42,6 +50,11 @@ const getCopy = (language: 'en' | 'th') =>
         missingCollection: 'Exercise collection not found.',
         complete: 'sets complete',
         newContent: 'new content',
+        tenseFilters: {
+          past_tense: 'Past Tense',
+          present_tense: 'Present Tense',
+          future_tense: 'Future Tense',
+        },
       };
 
 export function ExerciseBankCollectionScreen() {
@@ -57,6 +70,7 @@ export function ExerciseBankCollectionScreen() {
   const searchTerm = getParam(params.search).trim();
   const collection = getExerciseBankCollection(collectionSlug);
   const [topics, setTopics] = useState<ExerciseBankTopic[]>([]);
+  const [tenseFilter, setTenseFilter] = useState<TenseFilter>('present_tense');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -120,17 +134,19 @@ export function ExerciseBankCollectionScreen() {
   };
 
   const visibleTopics = useMemo(() => {
-    if (!searchTerm) {
-      return topics;
-    }
+    const collectionTopics = collection?.category === 'verbs_and_tenses'
+      ? topics.filter((topic) => topic.sub_category === tenseFilter)
+      : topics;
+    if (!searchTerm) return collectionTopics;
+
     const normalizedSearch = searchTerm.toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en');
-    return topics.filter((topic) =>
+    return collectionTopics.filter((topic) =>
       [topic.topic, topic.display_title]
         .join(' ')
         .toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en')
         .includes(normalizedSearch)
     );
-  }, [searchTerm, topics, uiLanguage]);
+  }, [collection?.category, searchTerm, tenseFilter, topics, uiLanguage]);
 
   if (isLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -159,6 +175,29 @@ export function ExerciseBankCollectionScreen() {
                 <AppText language={uiLanguage} variant="title" style={styles.pageTitle}>
                   {copy.pageTitle}
                 </AppText>
+              </View>
+            ) : null}
+
+            {collection?.category === 'verbs_and_tenses' ? (
+              <View accessibilityRole="tablist" style={styles.tenseFilterRow}>
+                {TENSE_FILTERS.map((filter) => {
+                  const isSelected = tenseFilter === filter;
+                  return (
+                    <Pressable
+                      key={filter}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: isSelected }}
+                      style={[styles.tenseFilterButton, isSelected ? styles.tenseFilterButtonActive : null]}
+                      onPress={() => setTenseFilter(filter)}>
+                      <AppText
+                        language={uiLanguage}
+                        variant="body"
+                        style={[styles.tenseFilterText, isSelected ? styles.tenseFilterTextActive : null]}>
+                        {copy.tenseFilters[filter]}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
               </View>
             ) : null}
 
@@ -271,6 +310,38 @@ const styles = StyleSheet.create({
     fontSize: 27,
     lineHeight: 31,
     fontWeight: '800',
+  },
+  tenseFilterRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  tenseFilterButton: {
+    flex: 1,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.25,
+    borderColor: '#C8C8C8',
+    borderRadius: 22,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+  },
+  tenseFilterButtonActive: {
+    borderColor: '#6A6A6A',
+    backgroundColor: '#F0F0F0',
+  },
+  tenseFilterText: {
+    color: '#6A6A6A',
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.regular,
+  },
+  tenseFilterTextActive: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
   },
   topicCardWrap: {
     position: 'relative',

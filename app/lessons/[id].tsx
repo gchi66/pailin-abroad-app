@@ -9676,7 +9676,7 @@ const mergeAdjacentPracticeRowTokens = (
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
               const markState = practiceMarkedCorrect[answerKey];
               const answerValue = item.isExample
-                ? item.answer || item.text
+                ? item.answer || item.keywords || item.text
                 : isSentenceTransformExercise && markState === true
                   ? item.text
                   : isOpenExercise
@@ -9740,21 +9740,68 @@ const mergeAdjacentPracticeRowTokens = (
                     <View style={[styles.practiceExampleContent, useCompactPracticeMediaLayout ? styles.practiceExampleContentStacked : null]}>
                       {renderPracticeItemAudioButton(item.audioKey, answerKey)}
                       {item.orderedContent ? (
-                        <AppText
-                          language="th"
-                          variant="body"
-                          style={[
-                            styles.practiceQuestionText,
-                            styles.practiceExamplePromptText,
-                            shouldUseSentenceExampleShell ? styles.practiceSentenceTransformQuestionText : null,
-                            isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
-                          ]}>
-                          {renderRichInlines(
-                            orderedPracticeContentToInlines(item.orderedContent),
-                            `${answerKey}-ordered-example`,
-                            { enableHighlights: true }
+                        <>
+                          <AppText
+                            language="th"
+                            variant="body"
+                            style={[
+                              styles.practiceQuestionText,
+                              styles.practiceExamplePromptText,
+                              shouldUseSentenceExampleShell ? styles.practiceSentenceTransformQuestionText : null,
+                              isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                            ]}>
+                            {renderRichInlines(
+                              orderedPracticeContentToInlines(item.orderedContent),
+                              `${answerKey}-ordered-example`,
+                              { enableHighlights: true }
+                            )}
+                          </AppText>
+                          {shouldUseSentenceExampleShell ? (
+                            <View style={styles.practiceExampleSentenceAnswerRow}>
+                              <View
+                                style={[
+                                  styles.practiceExampleSentenceAnswerShell,
+                                  (practiceExampleAnswerLineCounts[answerKey] ?? 1) === 2
+                                    ? styles.practiceExampleSentenceAnswerShellTwoLine
+                                    : styles.practiceExampleSentenceAnswerShellOneLine,
+                                ]}>
+                                <AppText
+                                  language={contentLang === 'th' ? 'th' : 'en'}
+                                  variant="body"
+                                  onTextLayout={(event) => handlePracticeExampleAnswerTextLayout(answerKey, event)}
+                                  style={[
+                                    styles.practiceExampleAnswerText,
+                                    styles.practiceSentenceTransformQuestionText,
+                                    contentLang === 'th'
+                                      ? styles.practiceOpenInputThai
+                                      : styles.practiceOpenInputEnglish,
+                                  ]}>
+                                  {answerValue}
+                                </AppText>
+                                {resolvedExampleAnswerMarkState !== null ? (
+                                  <View
+                                    style={[
+                                      styles.practiceExampleSentenceCorrectBadge,
+                                      resolvedExampleAnswerMarkState === false ? styles.practiceExampleSentenceIncorrectBadge : null,
+                                    ]}>
+                                    <Text style={styles.practiceExampleSentenceCorrectBadgeText}>
+                                      {resolvedExampleAnswerMarkState ? '✓' : 'X'}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                            </View>
+                          ) : (
+                            <TextInput
+                              multiline
+                              numberOfLines={3}
+                              style={[styles.practiceOpenInput, practiceOpenInputStyle, styles.practiceExampleInput]}
+                              value={answerValue}
+                              editable={false}
+                              textAlignVertical="top"
+                            />
                           )}
-                        </AppText>
+                        </>
                       ) : abPromptLayout ? (
                         <View style={styles.practiceAbPromptStack}>
                           <AppText

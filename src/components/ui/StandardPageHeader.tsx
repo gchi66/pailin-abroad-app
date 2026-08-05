@@ -47,7 +47,15 @@ export function StandardPageHeader({
       <View style={{ height: Math.max(insets.top - (topInsetOffset + 12), 0) }} />
       {inlineActions ? (
         <View style={styles.inlineRow}>
-          <View style={styles.inlineActionSpacer} />
+          <View style={styles.inlineLeftElement}>
+            {onBackPress ? (
+              <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
+                <AppText language={language} variant="caption" style={styles.actionText}>
+                  {backLabel ? `← ${backLabel}` : '←'}
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
           <AppText
             language={language}
             variant="title"
@@ -168,8 +176,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
   },
-  inlineActionSpacer: {
+  inlineLeftElement: {
     width: 62,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   inlineTitle: {
     flex: 1,

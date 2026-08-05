@@ -158,7 +158,13 @@ export function ExerciseBankScreen() {
             titleStyle={styles.exerciseBankHeaderTitle}
             topInsetOffset={30}
             inlineActions
-            rightElement={<LanguageToggle compact />}
+            rightElement={(
+              <LanguageToggle
+                compact
+                style={styles.exerciseBankLanguageToggle}
+                textStyle={styles.exerciseBankLanguageToggleText}
+              />
+            )}
           />
 
           <View style={styles.contentWrap}>
@@ -308,8 +314,17 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
   },
   exerciseBankHeaderTitle: {
-    fontSize: 27,
+    fontSize: 26,
     lineHeight: 31,
+  },
+  exerciseBankLanguageToggle: {
+    minWidth: 54,
+    minHeight: 30,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  exerciseBankLanguageToggleText: {
+    fontSize: 12,
+    lineHeight: 12,
   },
   searchShell: {
     minHeight: 48,

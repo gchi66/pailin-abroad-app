@@ -87,7 +87,7 @@ type ExamplePanelProps = {
 };
 
 function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const copy = getCopy(language);
   const content = example.content;
   const sourceText = content.stem ?? content.text ?? '';
@@ -529,7 +529,7 @@ export function ExerciseBankSessionScreen() {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
-          <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
+          <StandardPageHeader language={uiLanguage} title={`${copy.set} ${setData.set_number}`} titleSize="compact" titleStyle={styles.setHeaderTitle} inlineActions bottomSpacing={6} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
           <View style={styles.sessionContent}>
             <View style={styles.sessionHeading}>
               <View style={styles.topicHeadingCopy}>
@@ -537,7 +537,6 @@ export function ExerciseBankSessionScreen() {
                 <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
               </View>
               <View style={styles.questionMeta}>
-                <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.set} {setData.set_number}</AppText>
                 <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{setData.question_count} / {setData.question_count}</AppText>
               </View>
             </View>
@@ -583,23 +582,25 @@ export function ExerciseBankSessionScreen() {
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
-          <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
+          <StandardPageHeader language={uiLanguage} title={`${copy.set} ${setData.set_number}`} titleSize="compact" titleStyle={styles.setHeaderTitle} inlineActions bottomSpacing={6} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
           <View style={styles.sessionContent}>
             <View style={styles.sessionHeading}>
               <View style={styles.topicHeadingCopy}>
                 <AppText language="en" variant="title" style={styles.topicDisplayTitle}>{topicTitle}</AppText>
                 <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
               </View>
+            </View>
+            <View style={styles.progressRow}>
+              <View style={[styles.progressTrack, styles.progressTrackInline]}><View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} /></View>
               <View style={styles.questionMetaWrap}>
                 <View style={styles.questionMeta}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{copy.set} {setData.set_number}</AppText>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityState={{ expanded: isQuestionNavigatorOpen }}
                     style={styles.questionNavigatorTrigger}
                     onPress={() => setIsQuestionNavigatorOpen((current) => !current)}>
                     <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>
-                      {copy.question} {queueIndex + 1} {copy.of} {queue.length}
+                      {queueIndex + 1} {copy.of} {queue.length}
                     </AppText>
                     <AppText language="en" variant="caption" style={styles.questionNavigatorChevron}>
                       {isQuestionNavigatorOpen ? '▲' : '▼'}
@@ -630,8 +631,6 @@ export function ExerciseBankSessionScreen() {
                 ) : null}
               </View>
             </View>
-            <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} /></View>
-            <View style={styles.questionSectionDivider} />
 
             <View style={[styles.questionContent, styles.judgmentQuestionContent]}>
               <View style={[
@@ -737,20 +736,12 @@ export function ExerciseBankSessionScreen() {
                     </AppText>
                   </Pressable>
                 ) : currentResult.correct ? (
-                  <View style={styles.resultActionsRow}>
-                    <Pressable
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.practiceCheckButton, styles.practiceRetryButton, styles.resultActionButton, pressed ? styles.practiceCheckButtonPressed : null]}
-                      onPress={retryCurrentQuestion}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.answerTryAgain}</AppText>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.practiceCheckButton, styles.practiceNextButton, styles.resultActionButton, pressed ? styles.practiceCheckButtonPressed : null]}
-                      onPress={advance}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.continue}</AppText>
-                    </Pressable>
-                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.practiceCheckButton, styles.practiceNextButton, pressed ? styles.practiceCheckButtonPressed : null]}
+                    onPress={advance}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.practiceCheckButtonText}>{copy.continue}</AppText>
+                  </Pressable>
                 ) : (
                   <View style={styles.incorrectActions}>
                     <View style={styles.resultActionsRow}>
@@ -796,21 +787,24 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   contentContainer: { flexGrow: 1, paddingBottom: theme.spacing.xl * 2 },
   sessionContent: { paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.md, gap: theme.spacing.md },
+  setHeaderTitle: { fontSize: 26, lineHeight: 31 },
   sessionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.md },
   topicHeadingCopy: { flex: 1, gap: 2 },
   topicDisplayTitle: { color: theme.colors.text, fontSize: 25, lineHeight: 30, fontWeight: theme.typography.weights.bold },
   topicTechnicalName: { color: theme.colors.text, fontSize: 14, lineHeight: 19, fontWeight: theme.typography.weights.semibold },
   questionMetaWrap: { position: 'relative', zIndex: 10, alignItems: 'flex-end' },
-  questionMeta: { alignItems: 'flex-end', paddingTop: 2, gap: 1 },
-  questionMetaText: { color: theme.colors.mutedText, fontSize: 11, lineHeight: 15 },
-  questionNavigatorTrigger: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5, paddingLeft: theme.spacing.sm },
-  questionNavigatorChevron: { color: theme.colors.mutedText, fontSize: 8, lineHeight: 12 },
-  questionNavigatorMenu: { position: 'absolute', top: 47, right: 0, zIndex: 20, minWidth: 150, overflow: 'hidden', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  questionMeta: { alignItems: 'flex-end' },
+  questionMetaText: { color: theme.colors.mutedText, fontSize: 11, lineHeight: 18 },
+  questionNavigatorTrigger: { height: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5, paddingLeft: theme.spacing.sm },
+  questionNavigatorChevron: { color: theme.colors.mutedText, fontSize: 8, lineHeight: 18 },
+  questionNavigatorMenu: { position: 'absolute', top: 28, right: 0, zIndex: 20, minWidth: 150, overflow: 'hidden', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
   questionNavigatorItem: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D5D9DE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
   questionNavigatorItemCurrent: { backgroundColor: '#EAF6FF' },
   questionNavigatorItemText: { color: theme.colors.text, fontWeight: theme.typography.weights.semibold },
   questionNavigatorCompleted: { color: '#4E8A14', fontSize: 16, fontWeight: theme.typography.weights.bold },
-  progressTrack: { height: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.xl, backgroundColor: '#E8E8E8' },
+  progressRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, zIndex: 10, marginTop: -3 },
+  progressTrack: { width: '100%', height: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.xl, backgroundColor: '#E8E8E8' },
+  progressTrackInline: { flex: 1, width: 'auto' },
   progressFill: { height: '100%', backgroundColor: '#B9E671' },
   questionSectionDivider: { height: 1, marginVertical: theme.spacing.xs, backgroundColor: '#C9CDD2' },
   questionContent: { width: '100%', paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, gap: theme.spacing.md },
@@ -851,10 +845,10 @@ const styles = StyleSheet.create({
   judgmentExampleAnswerBadge: { width: 14, height: 14, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 4, backgroundColor: '#3CA0FE' },
   judgmentExampleAnswerBadgeText: { color: theme.colors.surface, fontSize: 8, lineHeight: 8, fontWeight: theme.typography.weights.bold, includeFontPadding: false },
   fillBlankSentence: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 0, rowGap: 1 },
-  fillBlankSentenceText: { marginRight: 5, fontSize: 17, lineHeight: 24 },
+  fillBlankSentenceText: { marginRight: 5, fontSize: 17, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
   fillBlankInlineInputShell: { height: 34, minHeight: 34, marginRight: 5, justifyContent: 'center', borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
-  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontSize: 17, textAlignVertical: 'center', includeFontPadding: false },
-  stem: { fontSize: 17, lineHeight: 26 },
+  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.semibold, fontSize: 17, fontWeight: theme.typography.weights.semibold, textAlignVertical: 'center', includeFontPadding: false },
+  stem: { fontSize: 17, lineHeight: 26, fontWeight: theme.typography.weights.semibold },
   optionList: { gap: theme.spacing.sm },
   optionButton: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, padding: theme.spacing.md },
   optionButtonSelected: { backgroundColor: theme.colors.accentMuted, borderColor: '#2D4C7C' },
@@ -871,11 +865,11 @@ const styles = StyleSheet.create({
   judgmentTextActive: { color: theme.colors.text, fontWeight: theme.typography.weights.bold },
   judgmentTextMuted: { color: '#989898', fontWeight: theme.typography.weights.regular },
   judgmentRewriteInputShell: { height: 42, width: '100%', justifyContent: 'center', borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: theme.radii.sm, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
-  judgmentRewriteInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontSize: 14, textAlignVertical: 'center', includeFontPadding: false },
-  textInput: { minHeight: 50, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, color: theme.colors.text, fontSize: 16 },
+  judgmentRewriteInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontSize: 14, fontWeight: theme.typography.weights.semibold, textAlignVertical: 'center', includeFontPadding: false },
+  textInput: { minHeight: 50, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, color: theme.colors.text, fontSize: 16, fontWeight: theme.typography.weights.semibold },
   multilineInput: { minHeight: 110, textAlignVertical: 'top' },
-  englishInput: { fontFamily: theme.typography.fontFaces.en.regular },
-  thaiInput: { fontFamily: theme.typography.fontFaces.th.regular },
+  englishInput: { fontFamily: theme.typography.fontFaces.en.semibold },
+  thaiInput: { fontFamily: theme.typography.fontFaces.th.semibold },
   feedback: { gap: theme.spacing.xs, borderRadius: theme.radii.md, paddingHorizontal: theme.spacing.sm },
   correctResult: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
   correctResultIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#3CA0FE' },
@@ -888,7 +882,6 @@ const styles = StyleSheet.create({
   errorText: { color: theme.colors.error },
   practiceCheckButton: { minHeight: 38, width: '100%', borderRadius: 25, borderWidth: 1.5, borderColor: theme.colors.border, backgroundColor: '#91CAFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 5, shadowColor: theme.colors.shadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 3, height: 3 }, elevation: 3 },
   practiceNextButton: { backgroundColor: '#B9E671' },
-  practiceRetryButton: { backgroundColor: '#FFD66B' },
   practiceIncorrectRetryButton: { backgroundColor: '#F65555' },
   incorrectActions: { width: '100%', alignItems: 'center', gap: theme.spacing.md },
   showAnswerLink: { color: theme.colors.mutedText, fontSize: 14, textDecorationLine: 'underline' },

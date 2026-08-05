@@ -345,7 +345,16 @@ export function LessonsLibraryScreen() {
           language={uiLanguage}
           title={title}
           titleSize="compact"
-          rightElement={<LanguageToggle compact />}
+          titleStyle={styles.libraryHeaderTitle}
+          topInsetOffset={30}
+          inlineActions
+          rightElement={(
+            <LanguageToggle
+              compact
+              style={styles.libraryLanguageToggle}
+              textStyle={styles.libraryLanguageToggleText}
+            />
+          )}
         />
 
         {!hasMembership ? (
@@ -579,6 +588,19 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: theme.spacing.xl,
+  },
+  libraryHeaderTitle: {
+    fontSize: 26,
+    lineHeight: 31,
+  },
+  libraryLanguageToggle: {
+    minWidth: 54,
+    minHeight: 30,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  libraryLanguageToggleText: {
+    fontSize: 12,
+    lineHeight: 12,
   },
   noticeWrap: {
     paddingHorizontal: theme.spacing.md,
