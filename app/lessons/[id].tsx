@@ -279,6 +279,26 @@ type NormalizedPracticeOption = {
   imageKey: string | null;
   altText: string;
   altTextTh: string;
+  orderedContent: OrderedPracticeContent | null;
+};
+
+type OrderedPracticeTextStyle = {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  link?: string | null;
+  highlight?: string | null;
+  color?: string | null;
+};
+
+type OrderedPracticeToken =
+  | { type: 'text'; text: string; style?: OrderedPracticeTextStyle }
+  | { type: 'line_break' }
+  | { type: 'blank'; id: string; minLen: number };
+
+type OrderedPracticeContent = {
+  version: 1;
+  blocks: { type: 'paragraph'; tokens: OrderedPracticeToken[] }[];
 };
 
 type NormalizedPracticeItem = {
@@ -307,6 +327,7 @@ type NormalizedPracticeItem = {
   answersV2: string[][];
   inputCount: number;
   isExample: boolean;
+  orderedContent: OrderedPracticeContent | null;
 };
 
 type NormalizedPracticePromptBlock =
@@ -1318,6 +1339,67 @@ const splitMixedPracticeField = (value: string) => {
   };
 };
 
+const parseOrderedPracticeContent = (value: unknown): OrderedPracticeContent | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (raw.version !== 1 || !Array.isArray(raw.blocks) || !raw.blocks.length) return null;
+  const blocks: OrderedPracticeContent['blocks'] = [];
+  for (const rawBlock of raw.blocks) {
+    if (!rawBlock || typeof rawBlock !== 'object') return null;
+    const block = rawBlock as Record<string, unknown>;
+    if (block.type !== 'paragraph' || !Array.isArray(block.tokens)) return null;
+    const tokens: OrderedPracticeToken[] = [];
+    for (const rawToken of block.tokens) {
+      if (!rawToken || typeof rawToken !== 'object') return null;
+      const token = rawToken as Record<string, unknown>;
+      if (token.type === 'text' && typeof token.text === 'string') {
+        const rawStyle = token.style && typeof token.style === 'object'
+          ? (token.style as Record<string, unknown>)
+          : null;
+        tokens.push({
+          type: 'text',
+          text: token.text,
+          ...(rawStyle ? {
+            style: {
+              bold: rawStyle.bold === true,
+              italic: rawStyle.italic === true,
+              underline: rawStyle.underline === true,
+              link: typeof rawStyle.link === 'string' ? rawStyle.link : null,
+              highlight: typeof rawStyle.highlight === 'string' ? rawStyle.highlight : null,
+              color: typeof rawStyle.color === 'string' ? rawStyle.color : null,
+            },
+          } : {}),
+        });
+      } else if (token.type === 'line_break') {
+        tokens.push({ type: 'line_break' });
+      } else if (
+        token.type === 'blank' &&
+        typeof token.id === 'string' &&
+        typeof token.min_len === 'number' &&
+        token.min_len > 0
+      ) {
+        tokens.push({ type: 'blank', id: token.id, minLen: token.min_len });
+      } else {
+        return null;
+      }
+    }
+    blocks.push({ type: 'paragraph', tokens });
+  }
+  return { version: 1, blocks };
+};
+
+const orderedPracticeContentToInlines = (content: OrderedPracticeContent): LessonRichInline[] => {
+  const inlines: LessonRichInline[] = [];
+  content.blocks.forEach((block, blockIndex) => {
+    if (blockIndex > 0) inlines.push({ text: '\n' });
+    block.tokens.forEach((token) => {
+      if (token.type === 'line_break') inlines.push({ text: '\n' });
+      if (token.type === 'text') inlines.push({ text: token.text, ...(token.style ?? {}) });
+    });
+  });
+  return inlines;
+};
+
 const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
   if (typeof option === 'string') {
     const match = option.match(/^([A-Z])\.\s*(.*)$/s);
@@ -1334,6 +1416,7 @@ const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
       imageKey,
       altText: en || th,
       altTextTh: th || en,
+      orderedContent: null,
     };
   }
 
@@ -1347,6 +1430,7 @@ const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
       imageKey: null,
       altText: '',
       altTextTh: '',
+      orderedContent: null,
     };
   }
 
@@ -1386,6 +1470,7 @@ const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
     imageKey,
     altText,
     altTextTh,
+    orderedContent: parseOrderedPracticeContent(raw.content),
   };
 };
 
@@ -1639,7 +1724,17 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       ? raw.items
       : [];
   const thaiItemsSource = Array.isArray(raw.items_th) ? raw.items_th : [];
-  const itemsSource = englishItemsSource.length ? englishItemsSource : thaiItemsSource;
+  const hasOrderedThaiItems =
+    contentLang === 'th' &&
+    thaiItemsSource.length > 0 &&
+    thaiItemsSource.every(
+      (item) => item && typeof item === 'object' && parseOrderedPracticeContent((item as Record<string, unknown>).content)
+    );
+  const itemsSource = hasOrderedThaiItems
+    ? thaiItemsSource
+    : englishItemsSource.length
+      ? englishItemsSource
+      : thaiItemsSource;
 
   const items = itemsSource.map((item, index) => {
     const current = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
@@ -1664,7 +1759,10 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
           : {};
 
     const text = stripInlineMediaTagsPreserveLineBreaks(
-      getPracticeFieldByLang(current, 'text', 'en') || getPracticeFieldByLang(englishFallback, 'text', 'en')
+      (hasOrderedThaiItems
+        ? getPracticeFieldByLang(englishFallback, 'text', 'en')
+        : getPracticeFieldByLang(current, 'text', 'en')) ||
+        getPracticeFieldByLang(englishFallback, 'text', 'en')
     );
     const textTh = stripInlineMediaTagsPreserveLineBreaks(
       getPracticeFieldByLang(thaiFallback, 'text', 'th') || getPracticeExactLocalizedField(current, 'text', 'th')
@@ -1869,6 +1967,7 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
         typeof current.is_example === 'boolean'
           ? current.is_example
           : ['example', 'ex', 'ตัวอย่าง'].includes(String(current.number ?? '').trim().toLowerCase()),
+      orderedContent: hasOrderedThaiItems ? parseOrderedPracticeContent(current.content) : null,
     };
 
     return normalizedItem;
@@ -2189,6 +2288,7 @@ const getRichInlineSegmentStyle = (
   },
   options?.isSubheader ? styles.richInlineSubheaderText : null,
   inline.underline ? styles.richInlineUnderline : null,
+  typeof inline.color === 'string' && inline.color.trim() ? { color: inline.color.trim() } : null,
   options?.shouldShowHighlight ? styles.richInlineHighlight : null,
   options?.shouldShowHighlight && options.highlightColor === '#f4cccc' ? styles.richInlineHighlightPink : null,
   options?.shouldShowHighlight && options.highlightColor === '#d9ead3' ? styles.richInlineHighlightGreen : null,
@@ -9302,7 +9402,22 @@ const mergeAdjacentPracticeRowTokens = (
                         </View>
                       ) : null}
                       {renderPracticeItemAudioButton(item.audioKey, selectionKey)}
-                      {localizedMultilineText ? (
+                      {item.orderedContent ? (
+                        <AppText
+                          language="th"
+                          variant="body"
+                          style={[
+                            styles.practiceQuestionText,
+                            styles.practiceMultipleChoiceQuestionText,
+                            isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                          ]}>
+                          {renderRichInlines(
+                            orderedPracticeContentToInlines(item.orderedContent),
+                            `${selectionKey}-ordered-question`,
+                            { enableHighlights: true }
+                          )}
+                        </AppText>
+                      ) : localizedMultilineText ? (
                         <AppText
                           language="th"
                           variant="body"
@@ -9455,7 +9570,22 @@ const mergeAdjacentPracticeRowTokens = (
                                 />
                               </View>
                             ) : null}
-                            {option.text || option.textJsonb.length ? (
+                            {option.orderedContent ? (
+                              <AppText
+                                language="th"
+                                variant="body"
+                                style={[
+                                  styles.practiceOptionText,
+                                  styles.practiceMultipleChoiceOptionText,
+                                  isInlineQuickPractice ? styles.practiceOptionTextCompact : null,
+                                ]}>
+                                {renderRichInlines(
+                                  orderedPracticeContentToInlines(option.orderedContent),
+                                  `${selectionKey}-${option.label}-ordered`,
+                                  { enableHighlights: true }
+                                )}
+                              </AppText>
+                            ) : option.text || option.textJsonb.length ? (
                               <AppText
                                 language="en"
                                 variant="body"
@@ -9467,7 +9597,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 {option.textJsonb.length ? renderRichInlines(option.textJsonb, `${selectionKey}-${option.label}`) : option.text}
                               </AppText>
                             ) : null}
-                            {contentLang === 'th' && (option.textTh || option.textJsonbTh.length) ? (
+                            {!option.orderedContent && contentLang === 'th' && (option.textTh || option.textJsonbTh.length) ? (
                               <AppText
                                 language="th"
                                 variant="body"
@@ -9575,7 +9705,7 @@ const mergeAdjacentPracticeRowTokens = (
               const openAnswerKeys = Array.from({ length: inputCount }, (_, inputIndex) =>
                 getPracticeOpenAnswerKey(exercise.id, item.key, inputIndex)
               );
-              const abPromptLayout = isOpenExercise && inputCount === 1
+              const abPromptLayout = !item.orderedContent && isOpenExercise && inputCount === 1
                 ? parsePracticeAbPromptLayout(item, { stripBlankPlaceholders: true })
                 : null;
               const isPromptOnlyImage = isPracticePromptOnlyImageItem(exercise, item);
@@ -9609,7 +9739,23 @@ const mergeAdjacentPracticeRowTokens = (
 
                     <View style={[styles.practiceExampleContent, useCompactPracticeMediaLayout ? styles.practiceExampleContentStacked : null]}>
                       {renderPracticeItemAudioButton(item.audioKey, answerKey)}
-                      {abPromptLayout ? (
+                      {item.orderedContent ? (
+                        <AppText
+                          language="th"
+                          variant="body"
+                          style={[
+                            styles.practiceQuestionText,
+                            styles.practiceExamplePromptText,
+                            shouldUseSentenceExampleShell ? styles.practiceSentenceTransformQuestionText : null,
+                            isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                          ]}>
+                          {renderRichInlines(
+                            orderedPracticeContentToInlines(item.orderedContent),
+                            `${answerKey}-ordered-example`,
+                            { enableHighlights: true }
+                          )}
+                        </AppText>
+                      ) : abPromptLayout ? (
                         <View style={styles.practiceAbPromptStack}>
                           <AppText
                             language="en"
@@ -9800,7 +9946,22 @@ const mergeAdjacentPracticeRowTokens = (
 
                     <View style={styles.practiceQuestionTextWrap}>
                       {renderPracticeItemAudioButton(item.audioKey, answerKey)}
-                      {abPromptLayout ? (
+                      {item.orderedContent ? (
+                        <AppText
+                          language="th"
+                          variant="body"
+                          style={[
+                            styles.practiceQuestionText,
+                            isSentenceTransformExercise ? styles.practiceSentenceTransformQuestionText : null,
+                            isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                          ]}>
+                          {renderRichInlines(
+                            orderedPracticeContentToInlines(item.orderedContent),
+                            `${answerKey}-ordered-stem`,
+                            { enableHighlights: true }
+                          )}
+                        </AppText>
+                      ) : abPromptLayout ? (
                         <View style={styles.practiceAbPromptStack}>
                           <AppText
                             language="en"
@@ -9849,7 +10010,7 @@ const mergeAdjacentPracticeRowTokens = (
                           </Pressable>
                         </View>
                       ) : null}
-                      {contentLang === 'th' && !abPromptLayout && (item.promptTh || item.textTh || (isSentenceTransformExercise && item.textJsonbTh.length)) ? (
+                      {!item.orderedContent && contentLang === 'th' && !abPromptLayout && (item.promptTh || item.textTh || (isSentenceTransformExercise && item.textJsonbTh.length)) ? (
                         <AppText
                           language="th"
                           variant="muted"
@@ -10079,7 +10240,7 @@ const mergeAdjacentPracticeRowTokens = (
               const itemImageUrl = resolveLessonImageUrl(item.imageKey ? lesson?.images?.[item.imageKey] : null, item.imageKey);
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
-              const abPromptLayout = item.blanks.length === 1
+              const abPromptLayout = !item.orderedContent && item.blanks.length === 1
                 ? parsePracticeAbPromptLayout(item, { stripBlankPlaceholders: true })
                 : null;
               const abBlank = abPromptLayout ? item.blanks[0] ?? null : null;
@@ -10103,13 +10264,29 @@ const mergeAdjacentPracticeRowTokens = (
               const thaiBlankText = thaiBlankLines.join('\n');
               const thaiCompanionText = thaiOnlyText.trim();
               const thaiCompanionHasVisibleThai = THAI_TEXT_RE.test(thaiCompanionText);
-              const englishSourceTokens = item.textJsonb.length
-                ? segmentPracticeInlinesWithBlanks(item.textJsonb)
-                : segmentPracticeTextWithBlanks(englishDisplayText);
+              const englishSourceTokens = item.orderedContent
+                ? item.orderedContent.blocks.flatMap((block, blockIndex) => [
+                    ...(blockIndex > 0 ? [{ type: 'line_break' as const }] : []),
+                    ...block.tokens.map((token) =>
+                      token.type === 'blank'
+                        ? { type: 'blank' as const, length: token.minLen }
+                        : token.type === 'line_break'
+                          ? { type: 'line_break' as const }
+                          : {
+                              type: 'text' as const,
+                              text: token.text,
+                              style: token.style ? ({ text: token.text, ...token.style } as LessonRichInline) : null,
+                            }
+                    ),
+                  ])
+                : item.textJsonb.length
+                  ? segmentPracticeInlinesWithBlanks(item.textJsonb)
+                  : segmentPracticeTextWithBlanks(englishDisplayText);
               const styledRuns = item.textJsonb.length
                 ? buildPracticeStyledRunsFromInlines(item.textJsonb, contentLang)
                 : null;
               const shouldShowThaiCompanion =
+                !item.orderedContent &&
                 contentLang === 'th' &&
                 !abPromptLayout &&
                 thaiCompanionHasVisibleThai &&
@@ -10135,7 +10312,7 @@ const mergeAdjacentPracticeRowTokens = (
                       type: 'blank',
                       length: token.length,
                       blankId: blank?.id ?? `blank-${nextBlankCursor + 1}`,
-                      minLen: blank?.minLen ?? token.length,
+                      minLen: item.orderedContent ? token.length : blank?.minLen ?? token.length,
                     });
                     nextBlankCursor += 1;
                     return;
@@ -10171,6 +10348,7 @@ const mergeAdjacentPracticeRowTokens = (
                 .map((token) => token.text)
                 .join(' ');
               const shouldUseThaiBlankRows =
+                !item.orderedContent &&
                 contentLang === 'th' &&
                 !abPromptLayout &&
                 englishRows.length > 1 &&
