@@ -13,6 +13,7 @@ import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer
 import { Card } from '@/src/components/ui/Card';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -340,7 +341,12 @@ export function LessonsLibraryScreen() {
     <ScrollView ref={scrollViewRef} style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={title} />
+        <StandardPageHeader
+          language={uiLanguage}
+          title={title}
+          titleSize="compact"
+          rightElement={<LanguageToggle compact />}
+        />
 
         {!hasMembership ? (
           <View style={styles.noticeWrap}>

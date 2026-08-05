@@ -8,6 +8,7 @@ import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
@@ -273,8 +274,10 @@ export function TopicLibraryScreen() {
         <StandardPageHeader
           language={uiLanguage}
           title={copy.title}
+          titleSize="compact"
           onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
           backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
+          rightElement={<LanguageToggle compact />}
         />
 
         <View style={styles.contentWrap}>
