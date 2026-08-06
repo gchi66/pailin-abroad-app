@@ -7,7 +7,6 @@ import { prefetchPricing } from '@/src/api/pricing';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -154,17 +153,6 @@ export function ExerciseBankScreen() {
           <StandardPageHeader
             language={uiLanguage}
             title={copy.title}
-            titleSize="compact"
-            titleStyle={styles.exerciseBankHeaderTitle}
-            topInsetOffset={30}
-            inlineActions
-            rightElement={(
-              <LanguageToggle
-                compact
-                style={styles.exerciseBankLanguageToggle}
-                textStyle={styles.exerciseBankLanguageToggleText}
-              />
-            )}
           />
 
           <View style={styles.contentWrap}>
@@ -312,19 +300,6 @@ const styles = StyleSheet.create({
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
-  },
-  exerciseBankHeaderTitle: {
-    fontSize: 26,
-    lineHeight: 31,
-  },
-  exerciseBankLanguageToggle: {
-    minWidth: 54,
-    minHeight: 30,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  exerciseBankLanguageToggleText: {
-    fontSize: 12,
-    lineHeight: 12,
   },
   searchShell: {
     minHeight: 48,

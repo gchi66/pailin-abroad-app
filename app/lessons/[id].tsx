@@ -447,12 +447,13 @@ type PracticeStyledRunCursor = {
 const getPracticeInlineTextStyle = (
   inline: LessonRichInline | null | undefined,
   compact = false,
-  includeUnderline = true
+  includeUnderline = true,
+  scriptLanguage: ScriptLanguage = 'en'
 ) => [
   styles.practiceInlineText,
   compact ? styles.practiceInlineTextCompact : null,
   {
-    fontFamily: getInlineFontFamily('en', {
+    fontFamily: getInlineFontFamily(scriptLanguage, {
       bold: inline?.bold === true,
       italic: inline?.italic === true,
     }),
@@ -637,8 +638,45 @@ const renderPracticeTokenWithStyles = (
 };
 
 const splitPracticeMeasureTextTokens = (text: string) => {
-  const matches = text.match(/(\[[^\]]+\]|\s+|[^\s\[]+)/g);
-  return matches ?? [text];
+  const normalized = normalizeRichText(text);
+  return normalized.match(/(\[[^\]]+\]|\s+|[^\s\[]+)/g) ?? [normalized];
+};
+
+const renderPracticeWrappingTextRow = (
+  row: { type: 'text'; text: string; style?: LessonRichInline | null }[],
+  keyPrefix: string,
+  compact: boolean
+) => {
+  const normalizedText = row.map((token) => normalizeRichText(token.text)).join('');
+  const language: UiLanguage = THAI_TEXT_RE.test(normalizedText) ? 'th' : 'en';
+
+  return (
+    <AppText
+      language={language}
+      variant="body"
+      style={[styles.practiceFillBlankWrappingText, compact ? styles.practiceInlineTextCompact : null]}>
+      {row.flatMap((token, tokenIndex) =>
+        splitTextByScript(normalizeRichText(token.text)).map((segment, segmentIndex) => {
+          const bracketParts = splitPracticeBracketTokens(segment.text);
+          return (
+            <Text
+              key={`${keyPrefix}-${tokenIndex}-${segmentIndex}`}
+              style={getPracticeInlineTextStyle(token.style, compact, true, segment.language)}>
+              {bracketParts.map((part, partIndex) =>
+                isPracticeBracketToken(part) ? (
+                  <Text key={`${keyPrefix}-${tokenIndex}-${segmentIndex}-${partIndex}`} style={styles.practiceInlineBracketText}>
+                    {part}
+                  </Text>
+                ) : (
+                  <React.Fragment key={`${keyPrefix}-${tokenIndex}-${segmentIndex}-${partIndex}`}>{part}</React.Fragment>
+                )
+              )}
+            </Text>
+          );
+        })
+      )}
+    </AppText>
+  );
 };
 
 const computePracticeBlankWidth = (containerWidth: number, minLen: number, compact: boolean) => {
@@ -650,6 +688,11 @@ const computePracticeBlankWidth = (containerWidth: number, minLen: number, compa
     maxWidthRatio: compact ? 0.64 : 0.72,
     hardMaxWidth: compact ? 180 : 220,
   });
+};
+
+const shouldUseMultilinePracticeBlank = (minLen: number, compact: boolean) => {
+  void compact;
+  return minLen > 40;
 };
 
 const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
@@ -693,6 +736,7 @@ function PracticeFillBlankMeasuredRows(props: {
   const [containerWidth, setContainerWidth] = useState(0);
   const [measurementState, setMeasurementState] = useState<'measuring' | 'stable'>('measuring');
   const [measureVersion, setMeasureVersion] = useState(0);
+  const [multilineInputHeights, setMultilineInputHeights] = useState<Record<string, number>>({});
   const mirrorLayoutsRef = useRef<Record<string, PracticeFillBlankMirrorLayout>>({});
   const measureVersionRef = useRef(0);
   const measurementStateRef = useRef<'measuring' | 'stable'>('measuring');
@@ -736,7 +780,9 @@ function PracticeFillBlankMeasuredRows(props: {
     () =>
       measureTokens.reduce<Record<string, number>>((acc, token) => {
         if (token.type === 'blank' && containerWidth > 0) {
-          acc[token.id] = computePracticeBlankWidth(containerWidth, token.minLen, compact);
+          acc[token.id] = shouldUseMultilinePracticeBlank(token.minLen, compact)
+            ? Math.max(80, containerWidth - 12)
+            : computePracticeBlankWidth(containerWidth, token.minLen, compact);
         }
         return acc;
       }, {}),
@@ -850,6 +896,10 @@ function PracticeFillBlankMeasuredRows(props: {
   };
 
   const visibleLines = lineTokens.length ? lineTokens : [measureTokens];
+  const getBlankValue = (blankId: string) =>
+    isExample
+      ? exampleAnswersByBlank[blankId] ?? ''
+      : practiceBlankAnswers[getPracticeBlankKey(exerciseId, itemKey, blankId)] ?? '';
   const styledCursor =
     styledRuns && styledRuns.length
       ? { runs: styledRuns, index: 0, offset: 0, disabled: false }
@@ -910,8 +960,17 @@ function PracticeFillBlankMeasuredRows(props: {
                   style={[
                     styles.practiceFillBlankInputShell,
                     compact ? styles.practiceFillBlankInputShellCompact : null,
+                    shouldUseMultilinePracticeBlank(token.minLen, compact)
+                      ? styles.practiceFillBlankInputShellMultiline
+                      : null,
                     {
                       width: blankWidths[token.id] ?? computePracticeBlankWidth(containerWidth || rawContainerWidth, token.minLen, compact),
+                      ...(shouldUseMultilinePracticeBlank(token.minLen, compact)
+                        ? {
+                            height: multilineInputHeights[token.id] ?? (compact ? 26 : 30),
+                            minHeight: compact ? 26 : 30,
+                          }
+                        : null),
                     },
                   ]}>
                   <TextInput
@@ -919,19 +978,38 @@ function PracticeFillBlankMeasuredRows(props: {
                       practiceInputRefsMap.current[`${answerKey}:${token.id}`] = ref;
                     }}
                     value={
-                      isExample
-                        ? exampleAnswersByBlank[token.blankId] ?? ''
-                        : practiceBlankAnswers[getPracticeBlankKey(exerciseId, itemKey, token.blankId)] ?? ''
+                      getBlankValue(token.blankId)
                     }
                     onChangeText={(value) => onBlankAnswerChange(exerciseId, itemKey, token.blankId, value)}
                     onBlur={() => onInputBlur(`${answerKey}:${token.id}`)}
                     onFocus={() => onInputFocus(`${answerKey}:${token.id}`)}
                     onSubmitEditing={onDismissKeyboard}
                     editable={!isExample && editable}
-                    blurOnSubmit
+                    multiline={shouldUseMultilinePracticeBlank(token.minLen, compact)}
+                    numberOfLines={1}
+                    blurOnSubmit={!shouldUseMultilinePracticeBlank(token.minLen, compact)}
+                    onContentSizeChange={
+                      shouldUseMultilinePracticeBlank(token.minLen, compact)
+                        ? (event) => {
+                            const baseHeight = compact ? 26 : 30;
+                            const twoLineHeight = compact ? 48 : 54;
+                            const hasValue = getBlankValue(token.blankId).trim().length > 0;
+                            const hasWrapped = hasValue && event.nativeEvent.contentSize.height > 28;
+                            const nextHeight = hasWrapped ? twoLineHeight : baseHeight;
+                            setMultilineInputHeights((current) =>
+                              current[token.id] === nextHeight
+                                ? current
+                                : { ...current, [token.id]: nextHeight }
+                            );
+                          }
+                        : undefined
+                    }
                     style={[
                       styles.practiceFillBlankInputField,
                       compact ? styles.practiceFillBlankInputFieldCompact : null,
+                      shouldUseMultilinePracticeBlank(token.minLen, compact)
+                        ? styles.practiceFillBlankInputFieldMultiline
+                        : null,
                     ]}
                   />
                 </View>
@@ -2577,6 +2655,11 @@ const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
     '9.2',
     'th',
     'แต่ในช่วงหลายปีที่ผ่านมา การเปลี่ยนแปลงทางสังคมได้นำไปสู่ ทัศนคติที่เปิดกว้างและยอมรับความหลากหลายมากขึ้น ในหลายพื้นที่ของประเทศ และก้าวสำคัญอย่างหนึ่งคือ การทำให้การแต่งงานเพศเดียวกันถูกกฎหมายในสหรัฐอเมริกาในปี 2015 โดยปัจจุบัน เมืองใหญ่หลายแห่งในอเมริกายังมีย่านชุมชนเกย์ ที่เป็นที่รู้จักและมีความมั่นคง แต่ถึงแม้ว่าหลายคนจะยอมรับแล้ว แต่ก็ยังมี ชุมชนศาสนาบางส่วนที่ยังคัดค้านสิทธิของ LGBTQ+ อยู่ เช่น การแต่งงานของเพศเดียวกัน'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '12.chp',
+    'th',
+    'ในวัฒนธรรมการเดทปัจจุบัน คุณอาจได้ยินคำย่อว่า DTR ซึ่งหมายถึง ‘การกำหนดความสัมพันธ์’ ซึ่งนี่หมายถึงบทสนทนาเฉพาะ ที่คนสองคนที่กำลังคบกัน ตัดสินใจพูดคุยอย่างชัดเจนว่าพวกเขาเป็นอะไรกันแน่'
   ),
 ]);
 
@@ -9756,6 +9839,26 @@ const mergeAdjacentPracticeRowTokens = (
                               { enableHighlights: true }
                             )}
                           </AppText>
+                          {showMarkButtons ? (
+                            <View style={styles.practiceSentenceToggleRow}>
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled
+                                style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
+                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                                  ✓
+                                </AppText>
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled
+                                style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
+                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                                  X
+                                </AppText>
+                              </Pressable>
+                            </View>
+                          ) : null}
                           {shouldUseSentenceExampleShell ? (
                             <View style={styles.practiceExampleSentenceAnswerRow}>
                               <View
@@ -10466,11 +10569,6 @@ const mergeAdjacentPracticeRowTokens = (
                 return acc;
               }, {});
               const shouldBaselineAlignFillBlankHeader = !itemImageUrl;
-              const exampleStyledCursor =
-                styledRuns && styledRuns.length
-                  ? { runs: styledRuns, index: 0, offset: 0, disabled: false }
-                  : null;
-
               return (
                 <View key={answerKey} style={item.isExample ? styles.practiceExampleCard : styles.practiceQuestionCard}>
                   {item.isExample ? (
@@ -10566,49 +10664,21 @@ const mergeAdjacentPracticeRowTokens = (
                             </View>
                           </View>
                         ) : (
-                          rows.map((row, rowIndex) => (
-                            item.isExample ? (
-                              <View key={`${answerKey}-row-${rowIndex}`} style={styles.practiceFillBlankRow}>
-                                {row.map((token, tokenIndex) =>
-                                  token.type === 'text' ? (
-                                    <React.Fragment key={`${answerKey}-text-${rowIndex}-${tokenIndex}`}>
-                                      {exampleStyledCursor
-                                        ? renderPracticeTokenWithStyles(
-                                            token.text,
-                                            exampleStyledCursor,
-                                            `${answerKey}-text-${rowIndex}-${tokenIndex}`,
-                                            isInlineQuickPractice
-                                          )
-                                        : renderPracticeInlineTextToken(
-                                            token,
-                                            `${answerKey}-text-${rowIndex}-${tokenIndex}`,
-                                            isInlineQuickPractice
-                                          )}
-                                    </React.Fragment>
-                                  ) : (
-                                    <View
-                                      key={`${answerKey}-blank-${rowIndex}-${tokenIndex}`}
-                                      style={[
-                                        styles.practiceFillBlankInputShell,
-                                        isInlineQuickPractice ? styles.practiceFillBlankInputShellCompact : null,
-                                        {
-                                          width: computePracticeBlankWidth(0, token.minLen, isInlineQuickPractice),
-                                          maxWidth: '100%',
-                                        },
-                                      ]}>
-                                      <TextInput
-                                        value={exampleAnswersByBlank[token.blankId] ?? ''}
-                                        editable={false}
-                                        style={[
-                                          styles.practiceFillBlankInputField,
-                                          isInlineQuickPractice ? styles.practiceFillBlankInputFieldCompact : null,
-                                        ]}
-                                      />
-                                    </View>
-                                  )
-                                )}
-                              </View>
-                            ) : (
+                          rows.map((row, rowIndex) => {
+                            const rowHasBlank = row.some((token) => token.type === 'blank');
+                            if (!rowHasBlank) {
+                              return (
+                                <React.Fragment key={`${answerKey}-row-${rowIndex}`}>
+                                  {renderPracticeWrappingTextRow(
+                                    row as { type: 'text'; text: string; style?: LessonRichInline | null }[],
+                                    `${answerKey}-wrapping-row-${rowIndex}`,
+                                    isInlineQuickPractice
+                                  )}
+                                </React.Fragment>
+                              );
+                            }
+
+                            return (
                               <PracticeFillBlankMeasuredRows
                                 key={`${answerKey}-row-${rowIndex}`}
                                 rowTokens={row}
@@ -10627,8 +10697,8 @@ const mergeAdjacentPracticeRowTokens = (
                                 onInputFocus={handlePracticeInputFocus}
                                 onDismissKeyboard={dismissLessonKeyboard}
                               />
-                            )
-                          ))
+                            );
+                          })
                         )}
                         {shouldShowThaiCompanion && !shouldUseThaiBlankRows ? (
                           <AppText
@@ -14080,6 +14150,14 @@ const styles = StyleSheet.create({
     columnGap: 0,
     rowGap: 1,
   },
+  practiceFillBlankWrappingText: {
+    width: '100%',
+    minWidth: 0,
+    flexShrink: 1,
+    color: theme.colors.text,
+    fontSize: 14.5,
+    lineHeight: 21,
+  },
   practiceFillBlankMeasuredRow: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
@@ -14174,6 +14252,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: theme.spacing.xs,
   },
+  practiceFillBlankInputShellMultiline: {
+    borderRadius: 12,
+  },
   practiceFillBlankInputField: {
     width: '100%',
     minWidth: 0,
@@ -14189,6 +14270,12 @@ const styles = StyleSheet.create({
   },
   practiceFillBlankInputFieldCompact: {
     fontSize: 14.5,
+  },
+  practiceFillBlankInputFieldMultiline: {
+    minHeight: 28,
+    lineHeight: 21,
+    paddingVertical: 3,
+    textAlignVertical: 'center',
   },
   practiceFillBlankInputShort: {
     minWidth: 80,

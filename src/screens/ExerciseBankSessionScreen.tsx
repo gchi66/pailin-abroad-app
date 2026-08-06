@@ -12,8 +12,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
 import {
+  advanceExerciseBankV2Set,
   fetchExerciseBankV2Set,
   fetchExerciseBankV2Topic,
+  saveExerciseBankV2Cursor,
   submitExerciseBankV2Answer,
 } from '@/src/api/exercise-bank';
 import { AppText } from '@/src/components/ui/AppText';
@@ -387,8 +389,22 @@ export function ExerciseBankSessionScreen() {
       const firstIncompleteIndex = response.set.questions.findIndex(
         (question) => !question.progress.has_answered_correctly
       );
+      const resume = detail?.resume;
+      const resumesThisSet = resume?.set_number === resolvedSetNumber;
+      const resumeIndex = resumesThisSet && resume
+        ? Math.min(Math.max(resume.set_position - 1, 0), allQuestionIds.length - 1)
+        : firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
+      const resumeView = resumesThisSet && resume ? resume.view : 'question';
       setQueue(allQuestionIds);
-      setQueueIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
+      setQueueIndex(resumeIndex);
+      setIsFinished(resumeView === 'results');
+      if (!resumesThisSet) {
+        void saveExerciseBankV2Cursor(topicId, {
+          setNumber: resolvedSetNumber,
+          setPosition: resumeIndex + 1,
+          view: 'question',
+        }).catch(() => undefined);
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : copy.loadError);
     } finally {
@@ -428,11 +444,28 @@ export function ExerciseBankSessionScreen() {
     }
   };
 
+  const persistCursor = (position: number, view: 'question' | 'results') => {
+    if (!topicId || !setData) return;
+    void saveExerciseBankV2Cursor(topicId, {
+      setNumber: setData.set_number,
+      setPosition: position,
+      view,
+    }).catch((error) => {
+      console.warn('[exercise-bank] failed to save position', error);
+    });
+  };
+
   const advance = () => {
     setIsQuestionNavigatorOpen(false);
     setErrorMessage(null);
-    if (queueIndex < queue.length - 1) setQueueIndex((current) => current + 1);
-    else setIsFinished(true);
+    if (queueIndex < queue.length - 1) {
+      const nextIndex = queueIndex + 1;
+      setQueueIndex(nextIndex);
+      persistCursor(nextIndex + 1, 'question');
+    } else {
+      setIsFinished(true);
+      persistCursor(queue.length, 'results');
+    }
   };
 
   const navigateToQuestion = (index: number) => {
@@ -442,6 +475,7 @@ export function ExerciseBankSessionScreen() {
     setIsFinished(false);
     setIsQuestionNavigatorOpen(false);
     setErrorMessage(null);
+    persistCursor(index + 1, 'question');
   };
 
   const retryCurrentQuestion = () => {
@@ -471,18 +505,29 @@ export function ExerciseBankSessionScreen() {
     setQueueIndex(0);
     setIsFinished(false);
     setErrorMessage(null);
+    persistCursor(1, 'question');
   };
 
-  const goToNextSet = () => {
+  const goToNextSet = async () => {
+    if (!topicId || !setData || isSubmitting) return;
     const currentSetNumber = setData?.set_number ?? setNumber;
     const nextSet = topicDetail?.sets
       .filter((item) => item.set_number > currentSetNumber)
       .sort((a, b) => a.set_number - b.set_number)[0];
-    if (nextSet) {
-      router.setParams({ setNumber: String(nextSet.set_number) });
-      return;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await advanceExerciseBankV2Set(topicId, currentSetNumber);
+      if (nextSet) {
+        router.setParams({ setNumber: String(nextSet.set_number) });
+        return;
+      }
+      router.replace('/(tabs)/resources/exercise-bank');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : copy.loadError);
+    } finally {
+      setIsSubmitting(false);
     }
-    router.replace('/(tabs)/resources/exercise-bank');
   };
 
   if (isLoading) return <PageLoadingState language={uiLanguage} />;
@@ -631,6 +676,7 @@ export function ExerciseBankSessionScreen() {
                 ) : null}
               </View>
             </View>
+            <View style={styles.questionSectionDivider} />
 
             <View style={[styles.questionContent, styles.judgmentQuestionContent]}>
               <View style={[

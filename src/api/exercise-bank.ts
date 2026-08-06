@@ -92,6 +92,30 @@ export async function fetchExerciseBankV2Set(topicId: number | string, setNumber
   }>(`/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/sets/${setNumber}`);
 }
 
+export async function saveExerciseBankV2Cursor(
+  topicId: number | string,
+  cursor: { setNumber: number; setPosition: number; view: 'question' | 'results' }
+) {
+  return exerciseBankV2Request<{ progress: Record<string, unknown> }>(
+    `/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/cursor`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        set_number: cursor.setNumber,
+        set_position: cursor.setPosition,
+        view: cursor.view,
+      }),
+    }
+  );
+}
+
+export async function advanceExerciseBankV2Set(topicId: number | string, setNumber: number) {
+  return exerciseBankV2Request<{ progress: Record<string, unknown> }>(
+    `/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/sets/${setNumber}/advance`,
+    { method: 'POST' }
+  );
+}
+
 export async function submitExerciseBankV2Answer(questionId: number, answer: ExerciseBankAnswer) {
   return exerciseBankV2Request<ExerciseBankAnswerResult>(
     `/api/exercise-bank-v2/questions/${questionId}/answer`,

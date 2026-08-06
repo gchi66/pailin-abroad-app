@@ -25,6 +25,10 @@ export type ExerciseBankTopicProgress = {
   first_completed_at: string | null;
   completed_content_version: number | null;
   version_completed_at: string | null;
+  active_set_number: number;
+  active_set_position: number;
+  active_view: 'question' | 'results';
+  last_advanced_set_number: number;
 };
 
 export type ExerciseBankSetSummary = {
@@ -38,6 +42,11 @@ export type ExerciseBankSetSummary = {
 export type ExerciseBankTopicDetail = ExerciseBankTopic & {
   sets: ExerciseBankSetSummary[];
   next_incomplete_set: number | null;
+  resume: {
+    set_number: number;
+    set_position: number;
+    view: 'question' | 'results';
+  };
   progress: ExerciseBankTopicProgress;
 };
 

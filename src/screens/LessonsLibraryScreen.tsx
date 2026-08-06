@@ -13,7 +13,6 @@ import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer
 import { Card } from '@/src/components/ui/Card';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -344,17 +343,6 @@ export function LessonsLibraryScreen() {
         <StandardPageHeader
           language={uiLanguage}
           title={title}
-          titleSize="compact"
-          titleStyle={styles.libraryHeaderTitle}
-          topInsetOffset={30}
-          inlineActions
-          rightElement={(
-            <LanguageToggle
-              compact
-              style={styles.libraryLanguageToggle}
-              textStyle={styles.libraryLanguageToggleText}
-            />
-          )}
         />
 
         {!hasMembership ? (
@@ -588,19 +576,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: theme.spacing.xl,
-  },
-  libraryHeaderTitle: {
-    fontSize: 26,
-    lineHeight: 31,
-  },
-  libraryLanguageToggle: {
-    minWidth: 54,
-    minHeight: 30,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  libraryLanguageToggleText: {
-    fontSize: 12,
-    lineHeight: 12,
   },
   noticeWrap: {
     paddingHorizontal: theme.spacing.md,
