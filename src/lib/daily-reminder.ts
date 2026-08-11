@@ -2,6 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import {
+  getCheckpointReminderCopy,
+  getGenericReminderCopy,
+  getInactivityReminderCopy,
+  getLessonReminderCopy,
+} from '@/src/copy/daily-reminders';
+
 const DAILY_REMINDER_ID_STORAGE_KEY = 'pailin-abroad.daily-reminder-id';
 const DAILY_REMINDER_ENABLED_STORAGE_KEY = 'pailin-abroad.daily-reminder-enabled';
 const DAILY_REMINDER_CHANNEL_ID = 'daily-reminders';
@@ -12,7 +19,7 @@ let dailyReminderOperation: Promise<void> = Promise.resolve();
 
 export type ReminderLanguage = 'en' | 'th';
 
-const reminderCopy: Record<ReminderLanguage, { title: string; body: string }> = {
+const legacyReminderCopy: Record<ReminderLanguage, { title: string; body: string }> = {
   en: {
     title: 'A little English every day',
     body: 'Keep your momentum going with a quick lesson today.',
@@ -34,7 +41,7 @@ const runDailyReminderOperation = <T,>(operation: () => Promise<T>) => {
 
 const isLegacyDailyReminder = (request: Notifications.NotificationRequest) => {
   const { data, title } = request.content;
-  const knownTitles = Object.values(reminderCopy).map((copy) => copy.title);
+  const knownTitles = Object.values(legacyReminderCopy).map((copy) => copy.title);
 
   return data?.destination === '/(tabs)' && typeof title === 'string' && knownTitles.includes(title);
 };
@@ -90,7 +97,41 @@ export const disableDailyReminder = () =>
     await cancelAllDailyReminders();
   });
 
-export const scheduleDailyReminder = (language: ReminderLanguage) =>
+export type DailyReminderLesson = {
+  id: string;
+  lessonExternalId?: string | null;
+  level?: number | null;
+  isCheckpoint?: boolean;
+};
+
+const getReminderCopy = (
+  inactiveDays: number,
+  genericIndex: number,
+  language: ReminderLanguage,
+  lesson?: DailyReminderLesson | null,
+) => {
+  const inactivityCopy = getInactivityReminderCopy(inactiveDays, language);
+  if (inactiveDays === 2 || inactiveDays === 5 || (inactiveDays >= 7 && inactiveDays % 7 === 0)) {
+    return inactivityCopy;
+  }
+
+  if (lesson?.isCheckpoint && typeof lesson.level === 'number') {
+    const checkpointCopy = getCheckpointReminderCopy(lesson.level, language);
+    if (checkpointCopy) return checkpointCopy;
+  }
+
+  if (lesson?.lessonExternalId) {
+    const lessonCopy = getLessonReminderCopy(lesson.lessonExternalId, language);
+    if (lessonCopy) return lessonCopy;
+  }
+
+  return getGenericReminderCopy(genericIndex, language);
+};
+
+export const scheduleDailyReminder = (
+  language: ReminderLanguage,
+  lesson?: DailyReminderLesson | null,
+) =>
   runDailyReminderOperation(async () => {
     if (Platform.OS === 'web') {
       return false;
@@ -106,28 +147,42 @@ export const scheduleDailyReminder = (language: ReminderLanguage) =>
 
     await configureAndroidChannel();
 
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
-        ...reminderCopy[language],
-        data: {
-          destination: '/(tabs)',
-          [DAILY_REMINDER_DATA_KEY]: true,
-        },
-        sound: 'default',
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: DAILY_REMINDER_HOUR,
-        minute: DAILY_REMINDER_MINUTE,
-        channelId: Platform.OS === 'android' ? DAILY_REMINDER_CHANNEL_ID : undefined,
-      },
-    });
+    const identifiers: string[] = [];
+    const now = new Date();
+    for (let inactiveDays = 1; inactiveDays <= 28; inactiveDays += 1) {
+      const notificationDate = new Date(now);
+      notificationDate.setDate(now.getDate() + inactiveDays);
+      notificationDate.setHours(DAILY_REMINDER_HOUR, DAILY_REMINDER_MINUTE, 0, 0);
+      const calendarDayIndex = Math.floor(notificationDate.getTime() / 86_400_000);
+      const copy = getReminderCopy(inactiveDays, calendarDayIndex, language, lesson);
+      if (!copy) continue;
 
-    await AsyncStorage.setItem(DAILY_REMINDER_ID_STORAGE_KEY, identifier);
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          ...copy,
+          data: {
+            destination: lesson?.id ? `/lessons/${lesson.id}` : '/(tabs)',
+            [DAILY_REMINDER_DATA_KEY]: true,
+          },
+          sound: 'default',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: notificationDate,
+          channelId: Platform.OS === 'android' ? DAILY_REMINDER_CHANNEL_ID : undefined,
+        },
+      });
+      identifiers.push(identifier);
+    }
+
+    await AsyncStorage.setItem(DAILY_REMINDER_ID_STORAGE_KEY, JSON.stringify(identifiers));
     return true;
   });
 
-export const requestDailyReminderPermission = async (language: ReminderLanguage) => {
+export const requestDailyReminderPermission = async (
+  language: ReminderLanguage,
+  lesson?: DailyReminderLesson | null,
+) => {
   if (Platform.OS === 'web') {
     return false;
   }
@@ -156,5 +211,5 @@ export const requestDailyReminderPermission = async (language: ReminderLanguage)
   }
 
   await AsyncStorage.setItem(DAILY_REMINDER_ENABLED_STORAGE_KEY, 'true');
-  return scheduleDailyReminder(language);
+  return scheduleDailyReminder(language, lesson);
 };
