@@ -196,7 +196,7 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     audioTrayStatus: 'Audio ready',
     audioTrayPlaying: 'Now playing',
     audioTrayLoading: 'Loading audio',
-    conversationIntroEyebrow: 'Before You Begin',
+    conversationIntroEyebrow: 'Listen to the Conversation',
     conversationIntroBody: 'Listen to the full conversation first. The questions in this lesson are based on what you hear.',
     conversationIntroHint: 'Tap Play to begin. If you want to skip for now, close this screen and use the audio bar at the bottom later.',
     translatingContent: 'Translating...',

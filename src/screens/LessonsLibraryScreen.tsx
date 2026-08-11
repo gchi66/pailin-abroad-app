@@ -176,15 +176,25 @@ export function LessonsLibraryScreen() {
   const levelsForSelectedStage = useMemo(() => {
     return levelsByStage.get(selectedStage) ?? [];
   }, [levelsByStage, selectedStage]);
+  const isSelectionReady = hasHydratedSelection && !isLoading && items.length > 0;
 
   useEffect(() => {
+    // Do not validate a restored selection against the temporary empty level
+    // list while lessons or the persisted selection are still loading. Doing
+    // so clears (for example) level 11 and later falls back to level 9.
+    if (!isSelectionReady) {
+      return;
+    }
     if (availableStages.includes(selectedStage)) {
       return;
     }
     setSelectedStage(availableStages[0] ?? 'Beginner');
-  }, [availableStages, selectedStage]);
+  }, [availableStages, isSelectionReady, selectedStage]);
 
   useEffect(() => {
+    if (!isSelectionReady) {
+      return;
+    }
     if (levelsForSelectedStage.length === 0) {
       setSelectedLevel(null);
       return;
@@ -193,10 +203,14 @@ export function LessonsLibraryScreen() {
       return;
     }
     setSelectedLevel(levelsForSelectedStage[0]);
-  }, [levelsForSelectedStage, selectedLevel]);
+  }, [isSelectionReady, levelsForSelectedStage, selectedLevel]);
 
   useEffect(() => {
-    if (!hasHydratedSelection) {
+    if (
+      !isSelectionReady ||
+      selectedLevel === null ||
+      !levelsForSelectedStage.includes(selectedLevel)
+    ) {
       return;
     }
 
@@ -204,7 +218,7 @@ export function LessonsLibraryScreen() {
       stage: selectedStage,
       level: selectedLevel,
     });
-  }, [hasHydratedSelection, selectedLevel, selectedStage]);
+  }, [isSelectionReady, levelsForSelectedStage, selectedLevel, selectedStage]);
 
   const lessonsForSelection = useMemo(() => {
     if (selectedLevel === null) {

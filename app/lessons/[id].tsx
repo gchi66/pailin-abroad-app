@@ -391,6 +391,8 @@ type PrepareItem = {
 type PracticeAbPromptLayout = {
   aLine: string;
   bLine: string;
+  aInlines: LessonRichInline[];
+  bInlines: LessonRichInline[];
   thaiLine: string | null;
 };
 
@@ -459,6 +461,7 @@ const getPracticeInlineTextStyle = (
     }),
   },
   includeUnderline && inline?.underline ? styles.practiceInlineUnderline : null,
+  typeof inline?.color === 'string' && inline.color.trim() ? { color: inline.color.trim() } : null,
 ];
 
 const PRACTICE_BRACKET_TOKEN_RE = /(\[[^\]]+\])/g;
@@ -1098,6 +1101,35 @@ const hasLessonPhrases = (phrases: ResolvedLessonPayload['phrases']) =>
     return Boolean(content || contentMd);
   });
 
+const slicePracticeRichInlines = (
+  inlines: LessonRichInline[],
+  startOffset: number,
+  endOffset: number
+) => {
+  const sliced: LessonRichInline[] = [];
+  let cursor = 0;
+
+  inlines.forEach((inline) => {
+    const text = typeof inline?.text === 'string' ? inline.text : '';
+    const inlineStart = cursor;
+    const inlineEnd = inlineStart + text.length;
+    cursor = inlineEnd;
+
+    const overlapStart = Math.max(startOffset, inlineStart);
+    const overlapEnd = Math.min(endOffset, inlineEnd);
+    if (overlapStart >= overlapEnd) {
+      return;
+    }
+
+    sliced.push({
+      ...inline,
+      text: text.slice(overlapStart - inlineStart, overlapEnd - inlineStart),
+    });
+  });
+
+  return sliced;
+};
+
 const parsePracticeAbPromptLayout = (
   item: NormalizedPracticeItem,
   options?: { stripBlankPlaceholders?: boolean }
@@ -1180,10 +1212,21 @@ const parsePracticeAbPromptLayout = (
     .filter(Boolean);
   const thaiSource = thaiCandidates[0] ?? '';
   const thaiLine = extractAbThaiLine(thaiSource);
+  const richText = textJsonbToString(item.textJsonb);
+  const aRichStart = richText.indexOf(aLine);
+  const bLine = bSuffix ? `B: ${bSuffix}` : 'B:';
+  const bRichStart = richText.indexOf(bLine, Math.max(0, aRichStart + aLine.length));
+  const canPreserveRichLines = !shouldStripBlankPlaceholders && aRichStart >= 0 && bRichStart >= 0;
 
   return {
     aLine,
-    bLine: bSuffix ? `B: ${bSuffix}` : 'B:',
+    bLine,
+    aInlines: canPreserveRichLines
+      ? slicePracticeRichInlines(item.textJsonb, aRichStart, aRichStart + aLine.length)
+      : [],
+    bInlines: canPreserveRichLines
+      ? slicePracticeRichInlines(item.textJsonb, bRichStart, bRichStart + bLine.length)
+      : [],
     thaiLine: thaiLine || null,
   };
 };
@@ -1464,6 +1507,41 @@ const parseOrderedPracticeContent = (value: unknown): OrderedPracticeContent | n
     blocks.push({ type: 'paragraph', tokens });
   }
   return { version: 1, blocks };
+};
+
+const parseOrderedPracticeStem = (
+  value: unknown,
+  blanks: { id: string; minLen: number }[]
+): OrderedPracticeContent | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (!Array.isArray(raw.blocks) || !raw.blocks.length) return null;
+
+  const blankLengths = new Map(blanks.map((blank) => [blank.id, blank.minLen]));
+  const normalizedBlocks = raw.blocks.map((rawBlock) => {
+    if (!rawBlock || typeof rawBlock !== 'object') return rawBlock;
+    const block = rawBlock as Record<string, unknown>;
+    if (!Array.isArray(block.tokens)) return rawBlock;
+
+    return {
+      type: 'paragraph',
+      tokens: block.tokens.map((rawToken) => {
+        if (!rawToken || typeof rawToken !== 'object') return rawToken;
+        const token = rawToken as Record<string, unknown>;
+        if (token.type !== 'blank' || typeof token.id !== 'string') return rawToken;
+
+        return {
+          ...token,
+          min_len:
+            typeof token.min_len === 'number' && token.min_len > 0
+              ? token.min_len
+              : blankLengths.get(token.id) ?? 1,
+        };
+      }),
+    };
+  });
+
+  return parseOrderedPracticeContent({ version: 1, blocks: normalizedBlocks });
 };
 
 const orderedPracticeContentToInlines = (content: OrderedPracticeContent): LessonRichInline[] => {
@@ -2045,7 +2123,10 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
         typeof current.is_example === 'boolean'
           ? current.is_example
           : ['example', 'ex', 'ตัวอย่าง'].includes(String(current.number ?? '').trim().toLowerCase()),
-      orderedContent: hasOrderedThaiItems ? parseOrderedPracticeContent(current.content) : null,
+      orderedContent:
+        hasOrderedThaiItems
+          ? parseOrderedPracticeContent(current.content)
+          : parseOrderedPracticeStem(current.stem, blanks),
     };
 
     return normalizedItem;
@@ -2344,6 +2425,27 @@ const renderTextWithBlankRuns = (text: string, keyPrefix: string, blankStyle: ob
   });
 };
 
+const renderTranslationMultilineWithBlankRuns = (
+  text: string,
+  keyPrefix: string,
+  blankStyle: object
+) =>
+  String(text)
+    .split('\n')
+    .flatMap((line, lineIndex, lines) => {
+      const renderedLine = (
+        <Text
+          key={`${keyPrefix}-line-${lineIndex}`}
+          style={THAI_TEXT_RE.test(line) ? { color: THAI_TRANSLATION_TEXT_COLOR } : null}>
+          {renderTextWithBlankRuns(line, `${keyPrefix}-line-${lineIndex}`, blankStyle)}
+        </Text>
+      );
+
+      return lineIndex < lines.length - 1
+        ? [renderedLine, <React.Fragment key={`${keyPrefix}-break-${lineIndex}`}>{'\n'}</React.Fragment>]
+        : [renderedLine];
+    });
+
 const getRichInlineSegmentStyle = (
   scriptLanguage: ScriptLanguage,
   inline: LessonRichInline,
@@ -2355,6 +2457,7 @@ const getRichInlineSegmentStyle = (
     shouldShowHighlight?: boolean;
     highlightColor?: string;
     extraStyle?: object | null;
+    manualFontScale?: number;
   }
 ) => [
   styles.richInlineText,
@@ -2376,6 +2479,12 @@ const getRichInlineSegmentStyle = (
     : null,
   options?.muted ? styles.richInlineThaiMuted : null,
   options?.isLink ? styles.richInlineLink : null,
+  options?.manualFontScale
+    ? {
+        fontSize: 15 * options.manualFontScale,
+        lineHeight: 25 * options.manualFontScale,
+      }
+    : null,
   options?.extraStyle ?? null,
 ];
 
@@ -2391,6 +2500,7 @@ const renderRichTextScriptSegments = (
     shouldShowHighlight?: boolean;
     highlightColor?: string;
     extraStyle?: object | null;
+    manualFontScale?: number;
   }
 ) =>
   splitTextByScript(text).map((segment, segmentIndex) => (
@@ -2512,6 +2622,7 @@ const getNodeHeadingText = (node: LessonRichNode, contentLang: UiLanguage) => {
 };
 
 const THAI_TEXT_RE = /[\u0E00-\u0E7F]/;
+const THAI_TRANSLATION_TEXT_COLOR = '#8C8D93';
 
 const getApplyNodeText = (node: LessonRichNode, contentLang: UiLanguage) => {
   const inlineText = Array.isArray(node.inlines)
@@ -2606,7 +2717,10 @@ const isBoldParagraphNode = (node: LessonRichNode) => {
 };
 
 const normalizeCultureNoteLeadHeadingExceptionText = (value: string) =>
-  cleanAudioTags(value).replace(/\s+/g, '');
+  // Source copy sometimes alternates between dotted and undotted initialisms
+  // (for example, L.G.B.T.Q+ and LGBTQ+). Treat those forms as equivalent so
+  // a known body paragraph cannot fall through to the ALL-CAPS heading rule.
+  cleanAudioTags(value).replace(/[\s.]+/g, '');
 
 const getCultureNoteLeadHeadingExceptionKey = (
   lessonNumber: string,
@@ -2634,7 +2748,17 @@ const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
   getCultureNoteLeadHeadingExceptionKey(
     '6.4',
     'th',
+    'วิธีที่เราสามารถแปลงตัวเลขจากฟาเรนไฮต์เป็นเซลเซียสแบบคร่าวๆด้วยความรวดเร็ว คือ เอา °F ลบด้วย 30 แล้วหารด้วยสอง ตัวอย่างเช่น'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '6.4',
+    'th',
     'อากาศในฝันของคุณเป็นแบบไหน? สำหรับไพลิน คือ 78°F หรือ 25°C'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '7.12',
+    'th',
+    'เป็นย่านสนุกสนานและทันสมัย มีชื่อเสียงด้านสถานบันเทิงยามค่ำคืน และเป็น ที่รู้จักในชุมชน L.G.B.T.Q.+'
   ),
   getCultureNoteLeadHeadingExceptionKey(
     '8.3',
@@ -2649,12 +2773,22 @@ const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
   getCultureNoteLeadHeadingExceptionKey(
     '9.2',
     'th',
+    'คำว่า LGBTQ+ จึงเป็นคำรวมที่ใช้เรียกกลุ่มคนที่มีความหลากหลายทางเพศ ในด้านรสนิยมทางเพศและอัตลักษณ์ทางเพศของตนเอง บทความทางวัฒนธรรมนี้จะอธิบายคำศัพท์สำคัญที่เกี่ยวข้องกับชุมชน LGBTQ+'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '9.2',
+    'th',
     'ทัศนคติต่อชุมชน LGBTQ+ ในอเมริกา ได้ผ่านการเปลี่ยนแปลงครั้งใหญ่หลายครั้งในประวัติศาสตร์ยุคใหม่ ในอดีต ความสัมพันธ์ระหว่างคนเพศเดียวกันไม่ได้รับการยอมรับอย่างเปิดเผย และผู้ที่อยู่ในความสัมพันธ์แบบนี้อาจเผชิญกับอคติ หรือแม้กระทั่งความรุนแรงได้ สาเหตุหนึ่งมาจากการที่อเมริกาเป็นประเทศที่มีรากฐานศาสนาคริสต์เข้มแข็ง การตีความบางอย่างจากในคัมภีร์ไบเบิลกำหนดว่า การแต่งงานควรเกิดขึ้นระหว่างชายและหญิงเท่านั้น ดังนั้น ชาวคริสต์หลายคนจึงคัดค้านการแต่งงานเพศเดียวกัน เพราะขัดต่อความเชื่อของพวกเขา'
   ),
   getCultureNoteLeadHeadingExceptionKey(
     '9.2',
     'th',
     'แต่ในช่วงหลายปีที่ผ่านมา การเปลี่ยนแปลงทางสังคมได้นำไปสู่ ทัศนคติที่เปิดกว้างและยอมรับความหลากหลายมากขึ้น ในหลายพื้นที่ของประเทศ และก้าวสำคัญอย่างหนึ่งคือ การทำให้การแต่งงานเพศเดียวกันถูกกฎหมายในสหรัฐอเมริกาในปี 2015 โดยปัจจุบัน เมืองใหญ่หลายแห่งในอเมริกายังมีย่านชุมชนเกย์ ที่เป็นที่รู้จักและมีความมั่นคง แต่ถึงแม้ว่าหลายคนจะยอมรับแล้ว แต่ก็ยังมี ชุมชนศาสนาบางส่วนที่ยังคัดค้านสิทธิของ LGBTQ+ อยู่ เช่น การแต่งงานของเพศเดียวกัน'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '12.5',
+    'th',
+    'นี่เป็นความสัมพันธ์ที่เหนือกว่าระดับ FWB. ซึ่งเป็นความสัมพันธ์ที่มากกว่าเพื่อนแต่ก็ยังไม่ใช่แฟนกัน โดยมีความรู้สึกเข้ามาเกี่ยวข้อง แต่ว่าไม่มีการตีตราตั้งสถานะหรือมีอนาคตร่วมกัน'
   ),
   getCultureNoteLeadHeadingExceptionKey(
     '12.chp',
@@ -3135,6 +3269,9 @@ const millisToSeconds = (millis: number) => Math.max(0, millis / 1000);
 const PITCH_CORRECTION_QUALITY = 'medium';
 const ANDROID_LESSON_COVER_BOTTOM_BUFFER = 16;
 const ANDROID_LESSON_CTA_BOTTOM_BUFFER = 16;
+const IOS_BROKEN_LESSON_FONT_SCALE_MIN = 0.935;
+const IOS_BROKEN_LESSON_FONT_SCALE_MAX = 0.947;
+const IOS_LESSON_FONT_SCALE_FALLBACK = 0.95;
 const elapsedMs = (start: number) => Math.max(0, Math.round(performance.now() - start));
 
 export default function LessonDetailShellScreen() {
@@ -3146,7 +3283,7 @@ export default function LessonDetailShellScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, user } = useAppSession();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
   const isTabletLessonLayout = windowWidth >= 768;
   const insets = useSafeAreaInsets();
   const menuOverlayBottomInset = APP_TAB_BAR_HEIGHT + insets.bottom;
@@ -4071,6 +4208,17 @@ export default function LessonDetailShellScreen() {
   const isCultureNoteTab = activeTab?.type === 'culture_note';
   const isPracticeTab = activeTab?.type === 'practice';
   const isPhrasesTab = activeTab?.type === 'phrases_verbs';
+  const iosLessonBodyManualFontScale =
+    Platform.OS === 'ios' &&
+    fontScale >= IOS_BROKEN_LESSON_FONT_SCALE_MIN &&
+    fontScale <= IOS_BROKEN_LESSON_FONT_SCALE_MAX &&
+    (isUnderstandTab ||
+      isExtraTipTab ||
+      isCommonMistakeTab ||
+      isCultureNoteTab ||
+      isPhrasesTab)
+      ? IOS_LESSON_FONT_SCALE_FALLBACK
+      : undefined;
   const activePageKey = useMemo(
     () => (activeTab?.type ? buildAppPageKey(activeTab.type) : null),
     [activeTab?.type]
@@ -7521,6 +7669,7 @@ export default function LessonDetailShellScreen() {
         firstThaiCharIndex,
       };
     });
+    const manualAudioFontScales = lineMetadata.map(() => iosLessonBodyManualFontScale);
 
     const shouldShowHighlightFor = (inline: LessonRichInline) => {
       const highlightColor = typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
@@ -7529,6 +7678,7 @@ export default function LessonDetailShellScreen() {
 
     const renderLineContent = (lineSpans: LessonRichInline[], lineIndex: number) => {
       const lineMeta = lineMetadata[lineIndex];
+      const manualFontScale = manualAudioFontScales[lineIndex];
       const lineText = lineMeta?.lineText ?? lineSpans.map((span) => String(span.text ?? '')).join('');
       const isThaiLine = options?.isPhraseCard
         ? Boolean(lineMeta?.isThaiLineForPhraseCard)
@@ -7580,6 +7730,7 @@ export default function LessonDetailShellScreen() {
                     shouldShowHighlight,
                     highlightColor,
                     isLink,
+                    manualFontScale,
                   }),
                   styles.richInlineMarker,
                   markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
@@ -7621,6 +7772,7 @@ export default function LessonDetailShellScreen() {
                     shouldShowHighlight,
                     highlightColor,
                     extraStyle,
+                    manualFontScale,
                   })}
                 </React.Fragment>
               );
@@ -7655,6 +7807,7 @@ export default function LessonDetailShellScreen() {
             key={`${keyPrefix}-row-${lineIndex}`}
             language={contentLang}
             variant="body"
+            allowFontScaling={manualAudioFontScales[lineIndex] ? false : undefined}
             style={[
               styles.understandAudioText,
               contentLang === 'th' ? styles.richThaiTextCompact : null,
@@ -7665,6 +7818,16 @@ export default function LessonDetailShellScreen() {
               options?.isPhraseCard && lineMetadata[lineIndex]?.isEnglishSpeakerLine ? styles.phraseDialogueEnglishTurn : null,
               options?.isPhraseCard && lineMetadata[lineIndex]?.isThaiLineForPhraseCard ? styles.phraseDialogueThaiTurn : null,
               options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
+              manualAudioFontScales[lineIndex]
+                ? {
+                    fontSize:
+                      (options?.isPhraseCard ? 15 : options?.compactBody ? 14 : 15) *
+                      (manualAudioFontScales[lineIndex] as number),
+                    lineHeight:
+                      (options?.isPhraseCard ? 15 : 18) *
+                      (manualAudioFontScales[lineIndex] as number),
+                  }
+                : null,
             ]}>
             {renderLineContent(lineSpans, lineIndex)}
           </AppText>
@@ -7679,9 +7842,11 @@ export default function LessonDetailShellScreen() {
     options?: {
       enableHighlights?: boolean;
       muteThaiInAudioRow?: boolean;
+      muteThaiTranslationLines?: boolean;
       lineIsThaiOverride?: boolean;
       isSubheader?: boolean;
       forceSemibold?: boolean;
+      manualFontScale?: number;
     }
   ) => {
     const mergedInlines = mergeAdjacentRichInlines(inlines, contentLang);
@@ -7689,7 +7854,34 @@ export default function LessonDetailShellScreen() {
       return null;
     }
 
-    return mergedInlines.map((inline, index) => {
+    const translationLineFlags =
+      options?.muteThaiTranslationLines === true && contentLang === 'th'
+        ? mergedInlines
+            .map((inline) => String(inline.text ?? ''))
+            .join('')
+            .split('\n')
+            .map((line) => THAI_TEXT_RE.test(line))
+        : null;
+    let translationLineIndex = 0;
+    const renderInlines = translationLineFlags
+      ? mergedInlines.flatMap((inline) =>
+          String(inline.text ?? '')
+            .split(/(\n)/)
+            .filter((part) => part.length > 0)
+            .map((part) => {
+              const shouldMuteLine = translationLineFlags[translationLineIndex] === true;
+              const nextInline = shouldMuteLine
+                ? { ...inline, text: part, color: THAI_TRANSLATION_TEXT_COLOR }
+                : { ...inline, text: part };
+              if (part === '\n') {
+                translationLineIndex += 1;
+              }
+              return nextInline;
+            })
+        )
+      : mergedInlines;
+
+    return renderInlines.map((inline, index) => {
       const textValue = String(inline.text ?? '');
       if (!textValue) {
         return null;
@@ -7699,13 +7891,18 @@ export default function LessonDetailShellScreen() {
         typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
       const shouldShowHighlight = options?.enableHighlights === true && UNDERSTAND_HIGHLIGHTS.has(highlightColor);
       const renderThaiSegments = (part: string, partKey: string) => {
-        if (options?.muteThaiInAudioRow !== true && options?.lineIsThaiOverride !== true) {
+        if (
+          options?.muteThaiInAudioRow !== true &&
+          options?.muteThaiTranslationLines !== true &&
+          options?.lineIsThaiOverride !== true
+        ) {
           return renderRichTextScriptSegments(part, `${partKey}-plain`, inline, {
             isSubheader: options?.isSubheader,
             forceSemibold: options?.forceSemibold,
             shouldShowHighlight,
             highlightColor,
             isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+            manualFontScale: options?.manualFontScale,
           });
         }
 
@@ -7714,7 +7911,8 @@ export default function LessonDetailShellScreen() {
         return lines.flatMap((line, lineIndex) => {
           const lineKey = `${partKey}-line-${lineIndex}`;
           const isThaiLine =
-            options?.lineIsThaiOverride === true || (contentLang === 'th' && THAI_TEXT_RE.test(line));
+            options?.lineIsThaiOverride === true ||
+            (contentLang === 'th' && THAI_TEXT_RE.test(line));
           const speakerPrefixMatch = line.match(SPEAKER_PREFIX_RE);
           const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
           const bodyText = speakerPrefix ? line.slice(speakerPrefix.length) : line;
@@ -7735,6 +7933,7 @@ export default function LessonDetailShellScreen() {
                           shouldShowHighlight,
                           highlightColor,
                           isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                          manualFontScale: options?.manualFontScale,
                         }),
                         styles.richInlineMarker,
                         markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
@@ -7785,6 +7984,7 @@ export default function LessonDetailShellScreen() {
                     shouldShowHighlight,
                     highlightColor,
                     isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                    manualFontScale: options?.manualFontScale,
                   })}
                 </React.Fragment>
               );
@@ -7805,6 +8005,7 @@ export default function LessonDetailShellScreen() {
                     shouldShowHighlight,
                     highlightColor,
                     isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                    manualFontScale: options?.manualFontScale,
                   }),
                   styles.richSpeakerPrefix,
                   isEnglishSpeaker ? null : styles.richSpeakerPrefixThai,
@@ -7827,6 +8028,7 @@ export default function LessonDetailShellScreen() {
                     shouldShowHighlight,
                     highlightColor,
                     isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                    manualFontScale: options?.manualFontScale,
                   }),
                   options?.muteThaiInAudioRow === true ? styles.richAudioLineBreakGap : null,
                 ]}>
@@ -7841,7 +8043,17 @@ export default function LessonDetailShellScreen() {
       const textParts = textValue.split(INLINE_MARKER_RE).filter(Boolean);
       const renderedText =
         textParts.some((part) => getInlineMarkerColor(part)) ? (
-          <Text key={`${keyPrefix}-${index}`} style={styles.richInlineText}>
+          <Text
+            key={`${keyPrefix}-${index}`}
+            style={[
+              styles.richInlineText,
+              options?.manualFontScale
+                ? {
+                    fontSize: 15 * options.manualFontScale,
+                    lineHeight: 25 * options.manualFontScale,
+                  }
+                : null,
+            ]}>
             {textParts.map((part, partIndex) => {
               const markerColor = getInlineMarkerColor(part);
 
@@ -7859,6 +8071,7 @@ export default function LessonDetailShellScreen() {
                       shouldShowHighlight,
                       highlightColor,
                       isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
+                      manualFontScale: options?.manualFontScale,
                     }),
                     styles.richInlineMarker,
                     markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
@@ -7871,7 +8084,17 @@ export default function LessonDetailShellScreen() {
             })}
           </Text>
         ) : (
-          <Text key={`${keyPrefix}-${index}`} style={styles.richInlineText}>
+          <Text
+            key={`${keyPrefix}-${index}`}
+            style={[
+              styles.richInlineText,
+              options?.manualFontScale
+                ? {
+                    fontSize: 15 * options.manualFontScale,
+                    lineHeight: 25 * options.manualFontScale,
+                  }
+                : null,
+            ]}>
             {renderThaiSegments(textValue, `${keyPrefix}-${index}`)}
           </Text>
         );
@@ -8108,6 +8331,7 @@ export default function LessonDetailShellScreen() {
       isHeaderRow?: boolean;
     }
   ) => {
+    const manualTableBodyFontScale = options?.isHeaderRow ? undefined : iosLessonBodyManualFontScale;
     const normalizedCell = (() => {
       if (cell && typeof cell === 'object') {
         const record = cell as Record<string, unknown>;
@@ -8194,10 +8418,21 @@ export default function LessonDetailShellScreen() {
             <AppText
               language={contentLang}
               variant="body"
-              style={[styles.richTableAudioText, contentLang === 'th' ? styles.richThaiTableTextCompact : null]}>
+              allowFontScaling={manualTableBodyFontScale ? false : undefined}
+              style={[
+                styles.richTableAudioText,
+                contentLang === 'th' ? styles.richThaiTableTextCompact : null,
+                manualTableBodyFontScale
+                  ? {
+                      fontSize: 14 * manualTableBodyFontScale,
+                      lineHeight: (contentLang === 'th' ? 16 : 18) * manualTableBodyFontScale,
+                    }
+                  : null,
+              ]}>
               {hasText
                 ? renderRichInlines(line.inlines, `${cellKey}-audio-line-${lineIndex}`, {
                     forceSemibold: options?.isHeaderRow,
+                    manualFontScale: manualTableBodyFontScale,
                   })
                 : textValue || ' '}
             </AppText>
@@ -8214,14 +8449,22 @@ export default function LessonDetailShellScreen() {
           key={`${cellKey}-line-${lineIndex}`}
           language={contentLang}
           variant="body"
+          allowFontScaling={manualTableBodyFontScale ? false : undefined}
           style={[
             styles.richTableCellText,
             contentLang === 'th' ? styles.richThaiTableTextCompact : null,
             options?.isHeaderRow ? styles.richTableHeaderText : null,
+            manualTableBodyFontScale
+              ? {
+                  fontSize: 14 * manualTableBodyFontScale,
+                  lineHeight: (contentLang === 'th' ? 16 : 18) * manualTableBodyFontScale,
+                }
+              : null,
           ]}>
           {renderRichInlines(line.inlines, `${cellKey}-line-${lineIndex}`, {
             forceSemibold: options?.isHeaderRow,
             lineIsThaiOverride,
+            manualFontScale: manualTableBodyFontScale,
           })}
         </AppText>
       );
@@ -8313,9 +8556,26 @@ export default function LessonDetailShellScreen() {
 
       return Math.max(1, headerColumns || columnCount || 1);
     })();
+    const headerTexts = (normalizedRows[0] ?? []).map((cell) =>
+      getRawCellText(cell).replace(/\s+/g, ' ').trim().toUpperCase()
+    );
+    const isIndefinitePronounsTable =
+      preferredColumnCount === 4 &&
+      headerTexts[0] === '' &&
+      headerTexts[1] === 'PEOPLE' &&
+      headerTexts[2] === 'THINGS' &&
+      headerTexts[3] === 'PLACES';
+    const isLesson156CommonMistakesMobileTable =
+      preferredColumnCount === 3 &&
+      (activeLessonNumber === '15.6' || coverLessonNumber === '15.6') &&
+      String(node.table_label ?? '').trim().toUpperCase() === 'TABLE-12-M:';
+    const columnWidthFractions = isLesson156CommonMistakesMobileTable
+      ? [0.17, 0.28, 0.55]
+      : isIndefinitePronounsTable
+        ? [0.18, 0.82 / 3, 0.82 / 3, 0.82 / 3]
+        : Array.from({ length: preferredColumnCount }, () => 1 / preferredColumnCount);
     const shouldConstrainToViewport = !isTabletLessonLayout;
     const minTableWidth = Math.max(340, preferredColumnCount * 116);
-    const columnPixelWidth = minTableWidth / preferredColumnCount;
     const tableContent = (
       <View
         style={[
@@ -8386,7 +8646,11 @@ export default function LessonDetailShellScreen() {
                         ? remainingColumns
                         : Math.min(colSpan, maxAllowedColSpan);
 
+                  const firstConsumedColumn = consumedColumns;
                   consumedColumns += effectiveColSpan;
+                  const cellWidthFraction = columnWidthFractions
+                    .slice(firstConsumedColumn, firstConsumedColumn + effectiveColSpan)
+                    .reduce((sum, fraction) => sum + fraction, 0);
 
                   return (
                     <View
@@ -8394,8 +8658,8 @@ export default function LessonDetailShellScreen() {
                       style={[
                         styles.richTableCell,
                         shouldConstrainToViewport
-                          ? { width: `${(100 * effectiveColSpan) / Math.max(preferredColumnCount, 1)}%` }
-                          : { width: columnPixelWidth * effectiveColSpan },
+                          ? { width: `${100 * cellWidthFraction}%` }
+                          : { width: minTableWidth * cellWidthFraction },
                         cellIndex === normalizedRow.length - 1 ? styles.richTableCellLast : null,
                         isHeaderRow ? styles.richTableHeaderCell : null,
                         options?.enableHighlights && cellBackground === '#f4cccc' ? styles.richTableCellPink : null,
@@ -8555,13 +8819,27 @@ export default function LessonDetailShellScreen() {
           <AppText
             language={contentLang}
             variant="body"
+            allowFontScaling={iosLessonBodyManualFontScale ? false : undefined}
             style={[
               styles.richParagraph,
               contentLang === 'th' ? styles.richThaiTextCompact : null,
               options?.compactBody ? styles.richBodyTextCompact : null,
               options?.isPhraseCard ? styles.phraseBodyText : null,
+              iosLessonBodyManualFontScale
+                ? {
+                    fontSize:
+                      (options?.isPhraseCard ? 15 : options?.compactBody ? 14 : 15) *
+                      iosLessonBodyManualFontScale,
+                    lineHeight:
+                      (options?.isPhraseCard ? 22 : options?.compactBody ? 23 : 25) *
+                      iosLessonBodyManualFontScale,
+                  }
+                : null,
             ]}>
-            {renderRichInlines(node.inlines, nodeKey, options)}
+            {renderRichInlines(node.inlines, nodeKey, {
+              ...options,
+              manualFontScale: iosLessonBodyManualFontScale,
+            })}
           </AppText>
         </View>
       );
@@ -8585,13 +8863,27 @@ export default function LessonDetailShellScreen() {
           <AppText
             language={contentLang}
             variant="body"
+            allowFontScaling={iosLessonBodyManualFontScale ? false : undefined}
             style={[
               styles.richListText,
               contentLang === 'th' ? styles.richThaiTextCompact : null,
               options?.compactBody ? styles.richBodyTextCompact : null,
               options?.isPhraseCard ? styles.phraseBodyText : null,
+              iosLessonBodyManualFontScale
+                ? {
+                    fontSize:
+                      (options?.isPhraseCard ? 15 : options?.compactBody ? 14 : 15) *
+                      iosLessonBodyManualFontScale,
+                    lineHeight:
+                      (options?.isPhraseCard ? 22 : options?.compactBody ? 23 : 25) *
+                      iosLessonBodyManualFontScale,
+                  }
+                : null,
             ]}>
-            {renderRichInlines(node.inlines, nodeKey, options)}
+            {renderRichInlines(node.inlines, nodeKey, {
+              ...options,
+              manualFontScale: iosLessonBodyManualFontScale,
+            })}
           </AppText>
         </View>
       );
@@ -8610,11 +8902,13 @@ export default function LessonDetailShellScreen() {
         options?.forceSubheader === true ||
         forceSubheaderByLessonOverride ||
         (isBoldParagraphNode(node) && !isLesson1013ThaiCultureNoteDdParagraph);
+      const manualFontScale = isSubheader ? undefined : iosLessonBodyManualFontScale;
       const paragraphText = (
         <AppText
           key={`${nodeKey}-text`}
           language={contentLang}
           variant="body"
+          allowFontScaling={manualFontScale ? false : undefined}
           style={[
             styles.richParagraph,
             contentLang === 'th' ? styles.richThaiTextCompact : null,
@@ -8622,11 +8916,18 @@ export default function LessonDetailShellScreen() {
             options?.isPhraseCard ? styles.phraseBodyText : null,
             isSubheader ? styles.richSubheader : null,
             isSubheader && options?.isPhraseCard ? styles.phraseSubheader : null,
+            manualFontScale
+              ? {
+                  fontSize: (options?.compactBody ? 14 : 15) * manualFontScale,
+                  lineHeight: (options?.compactBody ? 23 : 25) * manualFontScale,
+                }
+              : null,
           ]}>
           {renderRichInlines(node.inlines, nodeKey, {
             ...options,
             isSubheader,
             forceSemibold: options?.forceSubheader === true || forceSubheaderByLessonOverride,
+            manualFontScale,
           })}
         </AppText>
       );
@@ -8650,6 +8951,12 @@ export default function LessonDetailShellScreen() {
           options?.isPhraseCard ? styles.phraseBodyText : null,
           isSubheader ? styles.richSubheader : null,
           isSubheader && options?.isPhraseCard ? styles.phraseSubheader : null,
+          manualFontScale
+            ? {
+                fontSize: (options?.compactBody ? 14 : 15) * manualFontScale,
+                lineHeight: (options?.compactBody ? 23 : 25) * manualFontScale,
+              }
+            : null,
         ],
       });
     }
@@ -9044,7 +9351,20 @@ export default function LessonDetailShellScreen() {
                 {pageCopy.phrasesPlainFallbackLabel}
               </AppText>
               {splitTextLines(phrase.markdown).map((line, index) => (
-                <AppText key={`${phrase.id}-markdown-${index}`} language={contentLang} variant="body" style={styles.phraseBodyText}>
+                <AppText
+                  key={`${phrase.id}-markdown-${index}`}
+                  language={contentLang}
+                  variant="body"
+                  allowFontScaling={iosLessonBodyManualFontScale ? false : undefined}
+                  style={[
+                    styles.phraseBodyText,
+                    iosLessonBodyManualFontScale
+                      ? {
+                          fontSize: 15 * iosLessonBodyManualFontScale,
+                          lineHeight: 22 * iosLessonBodyManualFontScale,
+                        }
+                      : null,
+                  ]}>
                   {line}
                 </AppText>
               ))}
@@ -9497,7 +9817,7 @@ const mergeAdjacentPracticeRowTokens = (
                           {renderRichInlines(
                             orderedPracticeContentToInlines(item.orderedContent),
                             `${selectionKey}-ordered-question`,
-                            { enableHighlights: true }
+                            { enableHighlights: true, muteThaiTranslationLines: true }
                           )}
                         </AppText>
                       ) : localizedMultilineText ? (
@@ -9510,7 +9830,7 @@ const mergeAdjacentPracticeRowTokens = (
                             styles.practiceLocalizedMultilineQuestionText,
                             isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                           ]}>
-                          {renderTextWithBlankRuns(
+                          {renderTranslationMultilineWithBlankRuns(
                             localizedMultilineText,
                             `${selectionKey}-localized-multiline`,
                             styles.practiceInlineBlank
@@ -9526,7 +9846,9 @@ const mergeAdjacentPracticeRowTokens = (
                               styles.practiceMultipleChoiceQuestionText,
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
-                            {renderTextWithBlankRuns(abPromptLayout.aLine, `${selectionKey}-ab-a`, styles.practiceInlineBlank)}
+                            {abPromptLayout.aInlines.length
+                              ? renderRichInlines(abPromptLayout.aInlines, `${selectionKey}-ab-a`)
+                              : renderTextWithBlankRuns(abPromptLayout.aLine, `${selectionKey}-ab-a`, styles.practiceInlineBlank)}
                           </AppText>
                           <AppText
                             language="en"
@@ -9536,7 +9858,9 @@ const mergeAdjacentPracticeRowTokens = (
                               styles.practiceMultipleChoiceQuestionText,
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
-                            {renderTextWithBlankRuns(abPromptLayout.bLine, `${selectionKey}-ab-b`, styles.practiceInlineBlank)}
+                            {abPromptLayout.bInlines.length
+                              ? renderRichInlines(abPromptLayout.bInlines, `${selectionKey}-ab-b`)
+                              : renderTextWithBlankRuns(abPromptLayout.bLine, `${selectionKey}-ab-b`, styles.practiceInlineBlank)}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
                             <AppText
@@ -9665,7 +9989,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 {renderRichInlines(
                                   orderedPracticeContentToInlines(option.orderedContent),
                                   `${selectionKey}-${option.label}-ordered`,
-                                  { enableHighlights: true }
+                                  { enableHighlights: true, muteThaiTranslationLines: true }
                                 )}
                               </AppText>
                             ) : option.text || option.textJsonb.length ? (
@@ -9690,7 +10014,7 @@ const mergeAdjacentPracticeRowTokens = (
                                   isInlineQuickPractice ? styles.practiceOptionThaiTextCompact : null,
                                 ]}>
                                 {option.textJsonbTh.length
-                                  ? renderRichInlines(option.textJsonbTh, `${selectionKey}-${option.label}-th`)
+                                  ? renderRichInlines(option.textJsonbTh, `${selectionKey}-${option.label}-th`, { lineIsThaiOverride: true })
                                   : option.textTh}
                               </AppText>
                             ) : null}
@@ -9836,7 +10160,7 @@ const mergeAdjacentPracticeRowTokens = (
                             {renderRichInlines(
                               orderedPracticeContentToInlines(item.orderedContent),
                               `${answerKey}-ordered-example`,
-                              { enableHighlights: true }
+                              { enableHighlights: true, muteThaiTranslationLines: true }
                             )}
                           </AppText>
                           {showMarkButtons ? (
@@ -9917,7 +10241,9 @@ const mergeAdjacentPracticeRowTokens = (
                               shouldUseSentenceExampleShell ? styles.practiceSentenceTransformQuestionText : null,
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
-                            {abPromptLayout.aLine}
+                            {abPromptLayout.aInlines.length
+                              ? renderRichInlines(abPromptLayout.aInlines, `${answerKey}-example-ab-a`)
+                              : abPromptLayout.aLine}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
                             <AppText
@@ -9958,7 +10284,9 @@ const mergeAdjacentPracticeRowTokens = (
                                 shouldUseSentenceExampleShell ? styles.practiceSentenceTransformQuestionText : null,
                                 isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                               ]}>
-                              {abPromptLayout.bLine}
+                              {abPromptLayout.bInlines.length
+                                ? renderRichInlines(abPromptLayout.bInlines, `${answerKey}-example-ab-b`)
+                                : abPromptLayout.bLine}
                             </AppText>
                             <View style={styles.practiceExampleSentenceAnswerRow}>
                               <View
@@ -10108,7 +10436,7 @@ const mergeAdjacentPracticeRowTokens = (
                           {renderRichInlines(
                             orderedPracticeContentToInlines(item.orderedContent),
                             `${answerKey}-ordered-stem`,
-                            { enableHighlights: true }
+                            { enableHighlights: true, muteThaiTranslationLines: true }
                           )}
                         </AppText>
                       ) : abPromptLayout ? (
@@ -10117,7 +10445,9 @@ const mergeAdjacentPracticeRowTokens = (
                             language="en"
                             variant="body"
                             style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                            {abPromptLayout.aLine}
+                            {abPromptLayout.aInlines.length
+                              ? renderRichInlines(abPromptLayout.aInlines, `${answerKey}-ab-a`)
+                              : abPromptLayout.aLine}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
                             <AppText
@@ -10192,7 +10522,9 @@ const mergeAdjacentPracticeRowTokens = (
                             language="en"
                             variant="body"
                             style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                            {abPromptLayout.bLine}
+                            {abPromptLayout.bInlines.length
+                              ? renderRichInlines(abPromptLayout.bInlines, `${answerKey}-ab-b`)
+                              : abPromptLayout.bLine}
                           </AppText>
                           <View
                             style={[
@@ -10432,7 +10764,7 @@ const mergeAdjacentPracticeRowTokens = (
                 : item.textJsonb.length
                   ? segmentPracticeInlinesWithBlanks(item.textJsonb)
                   : segmentPracticeTextWithBlanks(englishDisplayText);
-              const styledRuns = item.textJsonb.length
+              const styledRuns = !item.orderedContent && item.textJsonb.length
                 ? buildPracticeStyledRunsFromInlines(item.textJsonb, contentLang)
                 : null;
               const shouldShowThaiCompanion =
@@ -10533,12 +10865,47 @@ const mergeAdjacentPracticeRowTokens = (
                     if (token?.type === 'text') {
                       nextRow[tokenIndex] = {
                         ...token,
-                        text: `${token.text} ${wrappedThaiLeadLine}`,
+                        text: token.text,
                       };
+                      nextRow.splice(tokenIndex + 1, 0, {
+                        type: 'text',
+                        text: ` ${wrappedThaiLeadLine}`,
+                        style: { text: wrappedThaiLeadLine, color: THAI_TRANSLATION_TEXT_COLOR },
+                      });
                       break;
                     }
                   }
                   return nextRow;
+                });
+              }
+
+              if (item.orderedContent || shouldUseThaiBlankRows) {
+                rows = rows.map((row, rowIndex) => {
+                  const isThaiTranslationRow =
+                    contentLang === 'th' &&
+                    THAI_TEXT_RE.test(
+                      row
+                        .filter((token): token is { type: 'text'; text: string; style?: LessonRichInline | null } => token.type === 'text')
+                        .map((token) => token.text)
+                        .join('')
+                    ) &&
+                    (Boolean(item.orderedContent) || rowIndex > 0);
+
+                  if (!isThaiTranslationRow) {
+                    return row;
+                  }
+
+                  return row.map((token) =>
+                    token.type === 'text'
+                      ? {
+                          ...token,
+                          style: {
+                            ...(token.style ?? { text: token.text }),
+                            color: THAI_TRANSLATION_TEXT_COLOR,
+                          },
+                        }
+                      : token
+                  );
                 });
               }
 
@@ -10612,7 +10979,9 @@ const mergeAdjacentPracticeRowTokens = (
                               language="en"
                               variant="body"
                               style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                              {renderTextWithBlankRuns(abPromptLayout.aLine, `${answerKey}-ab-a-line`, styles.practiceInlineBlank)}
+                              {abPromptLayout.aInlines.length
+                                ? renderRichInlines(abPromptLayout.aInlines, `${answerKey}-ab-a-line`)
+                                : renderTextWithBlankRuns(abPromptLayout.aLine, `${answerKey}-ab-a-line`, styles.practiceInlineBlank)}
                             </AppText>
                             {contentLang === 'th' && abPromptLayout.thaiLine ? (
                               <AppText
@@ -10627,7 +10996,9 @@ const mergeAdjacentPracticeRowTokens = (
                                 language="en"
                                 variant="body"
                                 style={[styles.practiceQuestionText, isInlineQuickPractice ? styles.practiceQuestionTextCompact : null]}>
-                                {renderTextWithBlankRuns(abPromptLayout.bLine, `${answerKey}-ab-b-line`, styles.practiceInlineBlank)}
+                                {abPromptLayout.bInlines.length
+                                  ? renderRichInlines(abPromptLayout.bInlines, `${answerKey}-ab-b-line`)
+                                  : renderTextWithBlankRuns(abPromptLayout.bLine, `${answerKey}-ab-b-line`, styles.practiceInlineBlank)}
                               </AppText>
                               <View
                                 style={[
@@ -11275,12 +11646,20 @@ const mergeAdjacentPracticeRowTokens = (
                           {studyLessonLabel}
                         </AppText>
 
-                        <AppText language="en" variant="title" style={styles.coverTitle}>
+                        <AppText
+                          language="en"
+                          variant="title"
+                          maxFontSizeMultiplier={1.5}
+                          style={styles.coverTitle}>
                           {englishTitle ?? 'Untitled lesson'}
                         </AppText>
 
                         {thaiTitle && !isCheckpointCoverLesson ? (
-                          <AppText language="th" variant="body" style={styles.coverThaiTitle}>
+                          <AppText
+                            language="th"
+                            variant="body"
+                            maxFontSizeMultiplier={1.5}
+                            style={styles.coverThaiTitle}>
                             {thaiTitle}
                           </AppText>
                         ) : null}
@@ -12463,7 +12842,8 @@ const styles = StyleSheet.create({
   coverThaiTitle: {
     color: '#54565C',
     fontSize: theme.typography.sizes.lg,
-    lineHeight: Platform.OS === 'android' ? 28 : theme.typography.lineHeights.md,
+    lineHeight: theme.typography.lineHeights.lg,
+    paddingVertical: 2,
   },
   coverFocusBlock: {
     borderRadius: theme.radii.lg,
@@ -14098,7 +14478,7 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.sm,
   },
   practiceQuestionThaiText: {
-    color: theme.colors.mutedText,
+    color: THAI_TRANSLATION_TEXT_COLOR,
   },
   practiceMultipleChoiceQuestionThaiText: {
     fontSize: 14,
@@ -14607,7 +14987,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   practiceOptionThaiText: {
-    color: theme.colors.mutedText,
+    color: THAI_TRANSLATION_TEXT_COLOR,
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
     flexShrink: 1,
