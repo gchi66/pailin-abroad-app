@@ -328,11 +328,15 @@ export function PlacementTestScreen() {
                             language="th"
                             title={isResultLessonLoading ? 'กำลังโหลด...' : 'เริ่มบทเรียนแรกของคุณ!'}
                             disabled={isResultLessonLoading || !resultLessonId}
+                            disabledStyle={styles.resultButtonDisabledOpacity}
                             onPress={openResultLesson}
                             onPressIn={() => setIsResultButtonPressed(true)}
                             onPressOut={() => setIsResultButtonPressed(false)}
                             style={[
                               styles.resultButton,
+                              isResultLessonLoading || !resultLessonId
+                                ? styles.resultButtonDisabled
+                                : null,
                               isResultButtonPressed ? styles.resultButtonPressed : null,
                             ]}
                             textStyle={styles.resultButtonText}
@@ -620,6 +624,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accent,
   },
   resultButtonPressed: { transform: [{ translateX: 4 }, { translateY: 5 }] },
+  resultButtonDisabled: { backgroundColor: '#CFCFCF' },
+  resultButtonDisabledOpacity: { opacity: 1 },
   resultButtonText: { fontSize: 14, lineHeight: 20, fontWeight: theme.typography.weights.medium },
   resultErrorText: { marginTop: 12, color: theme.colors.primary, textAlign: 'center' },
   audioCardWrap: {

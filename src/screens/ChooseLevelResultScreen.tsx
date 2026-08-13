@@ -102,13 +102,14 @@ export function ChooseLevelResultScreen() {
                   language="th"
                   title={isLoading ? 'กำลังโหลด...' : 'เริ่มบทเรียนแรกของคุณ!'}
                   disabled={isLoading || !lessonId}
+                  disabledStyle={styles.buttonDisabledOpacity}
                   onPress={openLesson}
                   onPressIn={() => setIsPressed(true)}
                   onPressOut={() => setIsPressed(false)}
                   style={[
                     styles.button,
                     isPressed ? styles.buttonPressed : null,
-                    !lessonId ? styles.buttonDisabled : null,
+                    isLoading || !lessonId ? styles.buttonDisabled : null,
                   ]}
                   textStyle={styles.buttonText}
                 />
@@ -220,8 +221,9 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 4 }, { translateY: 5 }],
   },
   buttonDisabled: {
-    opacity: 0.65,
+    backgroundColor: '#CFCFCF',
   },
+  buttonDisabledOpacity: { opacity: 1 },
   buttonText: {
     color: theme.colors.surface,
     fontSize: 14,

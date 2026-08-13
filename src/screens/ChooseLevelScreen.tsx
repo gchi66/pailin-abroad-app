@@ -25,7 +25,7 @@ const LEVEL_OPTIONS = [
 export function ChooseLevelScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedOption, setSelectedOption] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isStartPressed, setIsStartPressed] = useState(false);
 
   return (
@@ -81,16 +81,24 @@ export function ChooseLevelScreen() {
               <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
               <Button
                 language="th"
-                title="เริ่มต้นที่นี่!"
+                title={selectedOption === null ? 'เลือกตัวเลือก' : 'เริ่มต้นที่นี่!'}
+                disabled={selectedOption === null}
+                disabledStyle={styles.startButtonDisabledOpacity}
                 onPress={() =>
-                  router.push({
-                    pathname: '/choose-level-result',
-                    params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
-                  })
+                  selectedOption === null
+                    ? undefined
+                    : router.push({
+                        pathname: '/choose-level-result',
+                        params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
+                      })
                 }
                 onPressIn={() => setIsStartPressed(true)}
                 onPressOut={() => setIsStartPressed(false)}
-                style={[styles.startButton, isStartPressed ? styles.startButtonPressed : null]}
+                style={[
+                  styles.startButton,
+                  selectedOption === null ? styles.startButtonDisabled : null,
+                  isStartPressed ? styles.startButtonPressed : null,
+                ]}
                 textStyle={styles.startButtonText}
               />
             </View>
@@ -250,6 +258,8 @@ const styles = StyleSheet.create({
   startButtonPressed: {
     transform: [{ translateX: 4 }, { translateY: 5 }],
   },
+  startButtonDisabled: { backgroundColor: '#CFCFCF' },
+  startButtonDisabledOpacity: { opacity: 1 },
   shadowPressed: {
     opacity: 0,
   },
