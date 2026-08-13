@@ -29,6 +29,7 @@ type LessonAudioTrayProps = {
   onSkip: (millis: number) => void;
   onSeek: (ratio: number) => void;
   onSetRate: (rate: number) => void;
+  showRateControl?: boolean;
   autoCollapseSignal?: string | null;
   autoExpandSignal?: string | null;
 };
@@ -65,6 +66,7 @@ export function LessonAudioTray({
   onSkip,
   onSeek,
   onSetRate,
+  showRateControl = true,
   autoCollapseSignal = null,
   autoExpandSignal = null,
 }: LessonAudioTrayProps) {
@@ -267,7 +269,7 @@ export function LessonAudioTray({
               <View
                 style={[
                   styles.copyBlock,
-                  usesFloatingRateMenu && showRates ? styles.copyBlockRateMenuOpenAndroid : null,
+                usesFloatingRateMenu && showRateControl && showRates ? styles.copyBlockRateMenuOpenAndroid : null,
                 ]}>
                 <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
                   {title}
@@ -326,7 +328,7 @@ export function LessonAudioTray({
               <MaterialIcons name="forward-10" size={34} color={theme.colors.text} />
             </Pressable>
 
-            {usesFloatingRateMenu ? (
+            {usesFloatingRateMenu && showRateControl ? (
               <View style={styles.rateControlsWrapAndroid}>
                 <Pressable
                   accessibilityRole="button"
@@ -365,7 +367,7 @@ export function LessonAudioTray({
               {formatTime(currentMillis)}
             </AppText>
 
-            {!usesFloatingRateMenu ? (
+            {!usesFloatingRateMenu && showRateControl ? (
               <View style={styles.rateWrap}>
                 <Pressable
                   accessibilityRole="button"
@@ -422,7 +424,7 @@ export function LessonAudioTray({
         trayContent
       )}
 
-      {usesFloatingRateMenu && showRates ? (
+      {usesFloatingRateMenu && showRateControl && showRates ? (
         <View style={styles.rateMenuAndroid}>
           {rates.map((option) => (
             <Pressable

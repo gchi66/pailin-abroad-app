@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
@@ -7,25 +7,17 @@ import { Button } from '@/src/components/ui/Button';
 import { theme } from '@/src/theme/theme';
 
 type PlacementTestIntroCardProps = {
-  onClose: () => void;
   onChooseManually: () => void;
   onStart: () => void;
 };
 
-export function PlacementTestIntroCard({ onChooseManually, onClose, onStart }: PlacementTestIntroCardProps) {
+export function PlacementTestIntroCard({ onChooseManually, onStart }: PlacementTestIntroCardProps) {
+  const [isStartPressed, setIsStartPressed] = useState(false);
+
   return (
     <View style={styles.cardWrap}>
       <View pointerEvents="none" style={styles.cardShadow} />
       <View style={styles.card}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="ปิดหน้าทดสอบวัดระดับ"
-          hitSlop={12}
-          onPress={onClose}
-          style={styles.closeButton}>
-          <MaterialIcons name="close" size={23} color={theme.colors.text} />
-        </Pressable>
-
         <AppText language="th" variant="title" style={styles.title}>
           มาค้นหาระดับของคุณกัน!
         </AppText>
@@ -55,12 +47,14 @@ export function PlacementTestIntroCard({ onChooseManually, onClose, onStart }: P
         </View>
 
         <View style={styles.buttonWrap}>
-          <View pointerEvents="none" style={styles.buttonShadow} />
+          <View pointerEvents="none" style={[styles.buttonShadow, isStartPressed ? styles.shadowPressed : null]} />
           <Button
             language="th"
             title="เริ่มทำแบบทดสอบวัดระดับ"
             onPress={onStart}
-            style={styles.button}
+            onPressIn={() => setIsStartPressed(true)}
+            onPressOut={() => setIsStartPressed(false)}
+            style={[styles.button, isStartPressed ? styles.buttonPressed : null]}
             textStyle={styles.buttonText}
           />
         </View>
@@ -80,6 +74,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     position: 'relative',
+    transform: [{ translateY: -26 }],
   },
   cardShadow: {
     ...StyleSheet.absoluteFillObject,
@@ -89,22 +84,12 @@ const styles = StyleSheet.create({
   },
   card: {
     paddingHorizontal: 30,
-    paddingTop: 47,
+    paddingTop: 30,
     paddingBottom: 16,
     borderWidth: 2,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surface,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.sm,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
   },
   title: {
     fontSize: 25,
@@ -159,6 +144,12 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
     backgroundColor: theme.colors.accent,
+  },
+  buttonPressed: {
+    transform: [{ translateX: 4 }, { translateY: 4 }],
+  },
+  shadowPressed: {
+    opacity: 0,
   },
   buttonText: {
     fontSize: 13,

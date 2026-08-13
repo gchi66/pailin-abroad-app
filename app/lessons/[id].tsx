@@ -15330,12 +15330,14 @@ const styles = StyleSheet.create({
   stickyFooter: {
     position: 'relative',
     zIndex: 1,
+    marginTop: -28,
     backgroundColor: 'transparent',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
   stickyFooterAndroid: {
     zIndex: 1,
     position: 'relative',
-    marginTop: -28,
     backgroundColor: 'transparent',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

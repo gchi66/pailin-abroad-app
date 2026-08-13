@@ -18,7 +18,7 @@ const LEVEL_OPTIONS = [
   { label: 'ฉันเพิ่งเริ่มเรียนภาษาอังกฤษ!', bars: placementTest0Bars, level: 1 },
   { label: 'ฉันรู้คำศัพท์และประโยคง่ายๆ บางคำ', bars: placementTest1Bar, level: 2 },
   { label: 'ฉันสามารถสนทนาพื้นฐานได้', bars: placementTest2Bars, level: 5 },
-  { label: 'ฉันสามารถพูดคุยเกี่ยวกับความคิดเห็นและประสบการณ์ของตัวเองได้', bars: placementTest3Bars, level: 7 },
+  { label: 'ฉันสามารถพูดคุยเกี่ยวกับความคิดเห็นและประสบการณ์ของตัวเองได้', bars: placementTest3Bars, level: 6 },
   { label: 'ฉันสามารถอภิปรายเกี่ยวกับความคิดเห็น ธรรมเนียม และเหตุการณ์ปัจจุบันได้', bars: placementTest4Bars, level: 9 },
 ] as const;
 

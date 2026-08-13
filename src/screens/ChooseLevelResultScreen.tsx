@@ -10,7 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { theme } from '@/src/theme/theme';
 
-const VALID_LEVELS = new Set([1, 2, 5, 7, 9]);
+const VALID_LEVELS = new Set([1, 2, 5, 6, 9]);
 
 const getLevelStageLabel = (level: number) => {
   if (level <= 4) return 'ระดับเริ่มต้น';

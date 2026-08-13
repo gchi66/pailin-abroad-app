@@ -18,6 +18,7 @@ type ButtonProps = Omit<PressableProps, 'style'> & {
   variant?: ButtonVariant;
   language?: 'en' | 'th';
   style?: StyleProp<ViewStyle>;
+  disabledStyle?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
 
@@ -47,6 +48,7 @@ export function Button({
   language = 'en',
   disabled,
   style,
+  disabledStyle,
   textStyle,
   ...rest
 }: ButtonProps) {
@@ -59,7 +61,7 @@ export function Button({
       style={({ pressed }) => [
         resolvedBaseStyle,
         pressed && !disabled ? styles.pressed : null,
-        disabled ? styles.disabled : null,
+        disabled ? [styles.disabled, disabledStyle] : null,
       ]}
       {...rest}>
       <AppText language={language} variant="caption" style={[styles.label, textVariantStyles[variant], textStyle]}>

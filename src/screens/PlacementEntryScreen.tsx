@@ -31,8 +31,6 @@ export function PlacementEntryScreen() {
           (typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null)
       ) || pailinAvatar;
 
-  const goToPathway = () => router.replace('/(tabs)');
-
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -46,7 +44,7 @@ export function PlacementEntryScreen() {
               <View style={styles.headerCopy}>
                 <View style={styles.welcomeRow}>
                   <AppText language="th" variant="title" style={styles.welcomeText}>
-                    ยินดีต้อนรับ{firstName && !isGuest ? ',' : '!'}
+                    {isGuest ? 'สวัสดีค่ะ!' : `ยินดีต้อนรับ${firstName ? ',' : '!'}`}
                   </AppText>
                   {firstName && !isGuest ? (
                     <AppText language="th" variant="title" style={styles.nameText}>
@@ -65,7 +63,6 @@ export function PlacementEntryScreen() {
         <ResponsivePageShell style={styles.cardShell}>
           <PlacementTestIntroCard
             onChooseManually={() => router.push('/choose-level')}
-            onClose={goToPathway}
             onStart={() => router.push('/placement-test')}
           />
         </ResponsivePageShell>
@@ -86,5 +83,12 @@ const styles = StyleSheet.create({
   welcomeText: { fontSize: 22, lineHeight: 28, fontWeight: theme.typography.weights.bold },
   nameText: { fontSize: 22, lineHeight: 28, color: theme.colors.accent, fontWeight: theme.typography.weights.bold },
   subheader: { fontSize: 14, lineHeight: 20 },
-  cardShell: { flex: 1, width: '100%', alignItems: 'center', paddingHorizontal: 10, paddingTop: 70, paddingBottom: theme.spacing.xl },
+  cardShell: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: theme.spacing.xl,
+  },
 });
