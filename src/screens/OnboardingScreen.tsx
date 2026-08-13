@@ -783,7 +783,7 @@ export function OnboardingScreen() {
         skipped_password_step: skipPasswordStep,
         skipped_benefits_step: skipBenefitsStep,
       });
-      router.replace('/(tabs)');
+      router.replace('/placement-entry');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to complete onboarding.');
     } finally {

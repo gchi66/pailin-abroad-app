@@ -8569,7 +8569,13 @@ export default function LessonDetailShellScreen() {
       preferredColumnCount === 3 &&
       (activeLessonNumber === '15.6' || coverLessonNumber === '15.6') &&
       String(node.table_label ?? '').trim().toUpperCase() === 'TABLE-12-M:';
-    const columnWidthFractions = isLesson156CommonMistakesMobileTable
+    const isLesson167RelativeClausesMobileTable =
+      preferredColumnCount === 3 &&
+      (activeLessonNumber === '16.7' || coverLessonNumber === '16.7') &&
+      String(node.table_label ?? '').trim().toUpperCase() === 'TABLE-8-M:';
+    const columnWidthFractions = isLesson167RelativeClausesMobileTable
+      ? [0.24, 0.36, 0.4]
+      : isLesson156CommonMistakesMobileTable
       ? [0.17, 0.28, 0.55]
       : isIndefinitePronounsTable
         ? [0.18, 0.82 / 3, 0.82 / 3, 0.82 / 3]

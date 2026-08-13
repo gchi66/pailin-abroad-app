@@ -108,6 +108,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       joinedLabel: 'เข้าร่วมเมื่อ',
       signOut: 'ออกจากระบบ',
       signOutSuccess: 'ออกจากระบบแล้ว',
+      placementPreview: 'ทำแบบประเมินระดับ',
       avatarLabel: 'PP',
     };
   }
@@ -132,6 +133,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     joinedLabel: 'Joined',
     signOut: 'Log Out',
     signOutSuccess: 'Signed out successfully.',
+    placementPreview: 'Take placement test',
     avatarLabel: 'PP',
   };
 };
@@ -380,6 +382,15 @@ export function ProfileScreen() {
             )}
           </Stack>
         </Card>
+
+        {!isEditing && profile?.is_admin === true ? (
+          <Button
+            title={copy.placementPreview}
+            language={uiLanguage}
+            variant="outline"
+            onPress={() => router.push('/placement-entry')}
+          />
+        ) : null}
 
         <Pressable
           accessibilityRole="button"

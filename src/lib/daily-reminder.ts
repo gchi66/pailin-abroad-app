@@ -149,7 +149,13 @@ export const scheduleDailyReminder = (
 
     const identifiers: string[] = [];
     const now = new Date();
-    for (let inactiveDays = 1; inactiveDays <= 28; inactiveDays += 1) {
+    const todayAtReminderTime = new Date(now);
+    todayAtReminderTime.setHours(DAILY_REMINDER_HOUR, DAILY_REMINDER_MINUTE, 0, 0);
+    const firstInactiveDay = todayAtReminderTime.getTime() > now.getTime() ? 0 : 1;
+
+    // Keep today's reminder when 7 PM has not passed. The foreground notification
+    // handler suppresses it only when the learner is actively using the app at 7 PM.
+    for (let inactiveDays = firstInactiveDay; inactiveDays <= 28; inactiveDays += 1) {
       const notificationDate = new Date(now);
       notificationDate.setDate(now.getDate() + inactiveDays);
       notificationDate.setHours(DAILY_REMINDER_HOUR, DAILY_REMINDER_MINUTE, 0, 0);

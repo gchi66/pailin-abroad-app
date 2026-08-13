@@ -244,6 +244,7 @@ export function AuthScreen() {
     posthog.capture('guest_mode_started');
     try {
       await continueAsGuest();
+      router.replace('/placement-entry');
     } catch {
       setIsGuestSubmitting(false);
     }

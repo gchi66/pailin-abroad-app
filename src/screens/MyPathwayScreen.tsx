@@ -833,6 +833,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
             </Card>
           </View>
         ) : null}
+
       </View>
           </ResponsivePageShell>
     </ScrollView>

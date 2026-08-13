@@ -32,6 +32,7 @@ export function PrimaryScreen() {
           <PageLoadingState />
         </View>
       ) : null}
+
     </View>
   );
 }
