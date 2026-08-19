@@ -3837,7 +3837,7 @@ export default function LessonDetailShellScreen() {
           elapsedMs: elapsedMs(lessonLoadStartedAtRef.current),
           message,
         });
-        setErrorMessage(message);
+        setErrorMessage(uiCopy.loadingErrorBody);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -3850,7 +3850,7 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [contentLang, lessonId, uiCopy.fetchLessonFailed, uiCopy.missingLessonId]);
+  }, [contentLang, lessonId, uiCopy.fetchLessonFailed, uiCopy.loadingErrorBody, uiCopy.missingLessonId]);
 
   useEffect(() => {
     setLesson(null);

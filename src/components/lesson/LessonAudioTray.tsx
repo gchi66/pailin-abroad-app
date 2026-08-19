@@ -246,7 +246,11 @@ export function LessonAudioTray({
                 accessibilityRole="button"
                 accessibilityLabel={playButtonLabel}
                 disabled={isDisabled}
-                onPress={onTogglePlay}
+                hitSlop={12}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onTogglePlay();
+                }}
                 style={[styles.collapsedPlayButton, isDisabled ? styles.disabledControl : null]}>
                 <View style={styles.playButtonInner}>
                   {isPlaying ? (
@@ -301,6 +305,7 @@ export function LessonAudioTray({
               accessibilityRole="button"
               accessibilityLabel={playButtonLabel}
               disabled={isDisabled}
+              hitSlop={10}
               onPress={() => {
                 setShowRates(false);
                 onTogglePlay();

@@ -15,6 +15,8 @@ const LESSON_SELECT_FIELDS =
   'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
 const LESSONS_INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 const RESOLVED_LESSON_CACHE_TTL_MS = 5 * 60 * 1000;
+const RESOLVED_LESSON_MAX_ATTEMPTS = 3;
+const RESOLVED_LESSON_RETRY_DELAYS_MS = [300, 900];
 const lessonsIndexCache = new Map<string, { payload: LessonListItem[]; timestamp: number }>();
 const inflightLessonsIndexRequests = new Map<string, Promise<LessonListItem[]>>();
 const resolvedLessonCache = new Map<string, { payload: ResolvedLessonPayload; timestamp: number }>();
@@ -75,6 +77,70 @@ const setCachedResolvedLesson = (lessonId: string, lang: 'en' | 'th', payload: R
 };
 
 const elapsedMs = (start: number) => Math.max(0, Math.round(performance.now() - start));
+
+const isTransientLessonFetchError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return (
+    message.includes('ConnectionTerminated') ||
+    message.includes('PROTOCOL_ERROR') ||
+    message.includes('COMPRESSION_ERROR') ||
+    message.includes('last_stream_id:') ||
+    message.includes('Network request failed') ||
+    message.includes('The network connection was lost') ||
+    message.includes('Load failed') ||
+    message.includes('timed out')
+  );
+};
+
+const isRetryableLessonResponse = (response: Response) =>
+  response.status === 408 || response.status === 429 || response.status >= 500;
+
+const wait = (delayMs: number) => new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+
+type ResolvedLessonResponseBody = ResolvedLessonPayload | { error?: string } | null;
+
+async function fetchResolvedLessonResponse(
+  url: string,
+  headers: Record<string, string>,
+  lessonId: string,
+  lang: 'en' | 'th'
+) {
+  for (let attempt = 1; attempt <= RESOLVED_LESSON_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+
+      if (isRetryableLessonResponse(response) && attempt < RESOLVED_LESSON_MAX_ATTEMPTS) {
+        console.info('[lesson-load] resolved lesson retrying response', {
+          lessonId,
+          lang,
+          attempt,
+          status: response.status,
+        });
+      } else {
+        const json = (await response.json()) as ResolvedLessonResponseBody;
+        return { response, json };
+      }
+    } catch (error) {
+      if (!isTransientLessonFetchError(error) || attempt === RESOLVED_LESSON_MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      console.info('[lesson-load] resolved lesson retrying transport error', {
+        lessonId,
+        lang,
+        attempt,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    await wait(RESOLVED_LESSON_RETRY_DELAYS_MS[attempt - 1] ?? 900);
+  }
+
+  throw new Error('Failed to fetch lesson.');
+}
 
 async function getLessonAuthHeaders() {
   const {
@@ -220,18 +286,13 @@ export async function fetchResolvedLesson(
     const headers = await getLessonAuthHeaders();
     const authElapsedMs = elapsedMs(authStartedAt);
     const fetchStartedAt = performance.now();
-    const response = await fetch(`${baseUrl}/api/lessons/${lessonId}/resolved?lang=${lang}`, {
-      method: 'GET',
+    const { response, json } = await fetchResolvedLessonResponse(
+      `${baseUrl}/api/lessons/${lessonId}/resolved?lang=${lang}`,
       headers,
-    });
+      lessonId,
+      lang
+    );
     const fetchElapsedMs = elapsedMs(fetchStartedAt);
-
-    const jsonStartedAt = performance.now();
-    const json = (await response.json().catch(() => null)) as
-      | ResolvedLessonPayload
-      | { error?: string }
-      | null;
-    const jsonElapsedMs = elapsedMs(jsonStartedAt);
 
     if (!response.ok) {
       const message =
@@ -244,7 +305,6 @@ export async function fetchResolvedLesson(
         status: response.status,
         authElapsedMs,
         fetchElapsedMs,
-        jsonElapsedMs,
         elapsedMs: elapsedMs(requestStartedAt),
       });
       throw new Error(message);
@@ -257,7 +317,6 @@ export async function fetchResolvedLesson(
       lang,
       authElapsedMs,
       fetchElapsedMs,
-      jsonElapsedMs,
       elapsedMs: elapsedMs(requestStartedAt),
       sectionCount: Array.isArray(payload.sections) ? payload.sections.length : 0,
     });
