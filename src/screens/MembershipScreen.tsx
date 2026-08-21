@@ -739,6 +739,11 @@ export function MembershipScreen() {
   }, [allPlans, selectedPlanId]);
 
   const selectedPlan = allPlans.find((plan) => plan.id === selectedPlanId) ?? null;
+  const selectedPlanTotalDisplayPrice = selectedPlan
+    ? selectedPlan.isLifetime
+      ? selectedPlan.price
+      : buildPriceWithSymbol(selectedPlan.billingPeriod || pricingState.currency, selectedPlan.totalPrice)
+    : null;
   const isCompactLayout = width < 768;
   const selectedPackage = selectedPlan ? availablePackages[selectedPlan.id as PlanId] ?? null : null;
   const alreadyHasRevenueCatAccess = hasRevenueCatFullAccess(customerInfo);
@@ -926,11 +931,11 @@ export function MembershipScreen() {
           <View style={styles.pricingSummary}>
             {selectedPlan.originalPrice ? (
               <AppText language={uiLanguage} variant="muted" style={styles.summaryOriginalPrice}>
-                {buildPriceWithSymbol(pricingState.currency, selectedPlan.originalPrice)}
+                {buildPriceWithSymbol(selectedPlan.billingPeriod || pricingState.currency, selectedPlan.originalPrice)}
               </AppText>
             ) : null}
             <AppText language={uiLanguage} variant="title" style={styles.summaryFinalPrice}>
-              {buildPriceWithSymbol(pricingState.currency, selectedPlan.totalPrice)}
+              {selectedPlanTotalDisplayPrice}
             </AppText>
           </View>
         ) : null}
@@ -1015,7 +1020,7 @@ export function MembershipScreen() {
                 {stickyPlanLabel}
               </AppText>
               <AppText language={uiLanguage} variant="body" style={styles.stickyBarPrice}>
-                {buildPriceWithSymbol(pricingState.currency, selectedPlan.totalPrice)}
+                {selectedPlanTotalDisplayPrice}
               </AppText>
             </View>
             <Button

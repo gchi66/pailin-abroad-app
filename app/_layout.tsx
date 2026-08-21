@@ -47,7 +47,7 @@ function AppRouteGate() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useGlobalSearchParams<{ devtools?: string }>();
-  const { hasAccount, hasCompletedOnboarding, isGuestMode, isLoading } = useAppSession();
+  const { authError, hasAccount, hasCompletedOnboarding, isGuestMode, isLoading } = useAppSession();
   const previousPathname = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -61,9 +61,15 @@ function AppRouteGate() {
 
   const isOnOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
   const isOnAuthRoute = pathname === '/account/auth';
+  const isOnAuthCallbackRoute = pathname === '/auth/callback';
   const isOnProtectedAccountRoute = pathname === '/account' || (pathname.startsWith('/account/') && pathname !== '/account/auth');
   const isOnboardingDevtoolsMode = isOnOnboardingRoute && params.devtools === '1';
-  const shouldRedirectToOnboarding = !isLoading && hasAccount && !hasCompletedOnboarding && !isOnOnboardingRoute;
+  const shouldRedirectToOnboarding =
+    !isLoading &&
+    hasAccount &&
+    !hasCompletedOnboarding &&
+    !isOnOnboardingRoute &&
+    !(isOnAuthCallbackRoute && authError);
   const shouldRedirectToApp = !isLoading && hasAccount && hasCompletedOnboarding && isOnOnboardingRoute && !isOnboardingDevtoolsMode;
   const shouldRedirectAuthenticatedAuthRoute = !isLoading && hasAccount && isOnAuthRoute;
   const shouldRedirectSignedOutUser =
@@ -77,7 +83,7 @@ function AppRouteGate() {
       isLoading,
       pathname,
     });
-  }, [hasAccount, hasCompletedOnboarding, isGuestMode, isLoading, pathname]);
+  }, [authError, hasAccount, hasCompletedOnboarding, isGuestMode, isLoading, pathname]);
 
   useEffect(() => {
     if (isLoading) {

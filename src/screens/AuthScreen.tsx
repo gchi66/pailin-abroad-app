@@ -73,7 +73,7 @@ export function AuthScreen() {
             divider: 'or email',
             email: 'อีเมล',
             password: 'รหัสผ่าน',
-            submitSignUp: 'สร้างบัญชี ->',
+            submitSignUp: 'ดำเนินการต่อด้วยอีเมล ->',
             submitSignIn: 'เข้าสู่ระบบ ->',
             footerSignupPrefix: 'เป็นสมาชิกอยู่แล้ว? ',
             footerSignupAction: 'เข้าสู่ระบบ',
@@ -83,7 +83,7 @@ export function AuthScreen() {
             continueGuestAction: 'เข้าใช้งานแบบผู้เยี่ยมชม',
             authSuccessTitle: 'สำเร็จ',
             authSuccess: 'เข้าสู่ระบบสำเร็จ',
-            signupConfirm: 'กรุณาตรวจสอบอีเมล แล้วกดลิงก์เพื่อยืนยันและดำเนินการต่อ',
+            signupConfirm: 'กรุณาตรวจสอบอีเมลเพื่อดำเนินการต่อ หากมีบัญชีอยู่แล้ว ลิงก์จะพาคุณเข้าสู่ระบบ',
             authErrorTitle: 'เกิดข้อผิดพลาด',
             termsPrefix: 'การสมัครถือว่าคุณยอมรับ ',
             termsTerms: 'ข้อกำหนด',
@@ -105,7 +105,7 @@ export function AuthScreen() {
             divider: 'or email',
             email: 'Email',
             password: 'Password',
-            submitSignUp: 'Create account ->',
+            submitSignUp: 'Continue with email ->',
             submitSignIn: 'Log in ->',
             footerSignupPrefix: 'Already a member? ',
             footerSignupAction: 'Log in',
@@ -115,7 +115,7 @@ export function AuthScreen() {
             continueGuestAction: 'continue as guest',
             authSuccessTitle: 'Success',
             authSuccess: 'Signed in successfully.',
-            signupConfirm: 'Check your email, then tap the link to confirm and continue.',
+            signupConfirm: 'Check your email to continue. If you already have an account, the link will sign you in.',
             authErrorTitle: 'Error',
             termsPrefix: 'By signing up you agree to our ',
             termsTerms: 'Terms',
@@ -203,7 +203,7 @@ export function AuthScreen() {
         return;
       }
 
-      posthog.capture('sign_up_completed', { method: 'email' });
+      posthog.capture('email_access_link_requested', { mode: 'signup' });
       router.replace({
         pathname: '/email-confirmation',
         params: { email: email.trim() },

@@ -31,6 +31,24 @@ WebBrowser.maybeCompleteAuthSession();
 const APP_BOOTSTRAP_LABEL = '[app-bootstrap]';
 const GUEST_MODE_STORAGE_KEY = 'pailin-abroad.guest-mode';
 const GUEST_REVENUECAT_USER_ID_STORAGE_KEY = 'pailin-abroad.guest-revenuecat-user-id';
+const AUTH_REQUEST_TIMEOUT_MS = 12000;
+
+const withAuthTimeout = async <T,>(request: PromiseLike<T>, message: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      Promise.resolve(request),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), AUTH_REQUEST_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
 
 const getBootstrapStartedAt = () =>
   (globalThis as typeof globalThis & { __pailinAppBootstrapStartedAt?: number }).__pailinAppBootstrapStartedAt ?? null;
@@ -307,13 +325,23 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   }, [persistGuestRevenueCatUserId]);
 
   const fetchUsersRow = useCallback(async (userId: string) => {
-    return supabase
-      .from('users')
-      .select(
-        'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, billing_provider, membership_source, current_period_end, cancel_at_period_end, cancel_at'
-      )
-      .eq('id', userId)
-      .maybeSingle<AppUserRow>();
+    try {
+      return await withAuthTimeout(
+        supabase
+          .from('users')
+          .select(
+            'id, username, email, avatar_image, is_admin, created_at, is_paid, onboarding_completed, subscription_status, billing_provider, membership_source, current_period_end, cancel_at_period_end, cancel_at'
+          )
+          .eq('id', userId)
+          .maybeSingle<AppUserRow>(),
+        'Account details took too long to load. Please try again.'
+      );
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error('Could not load account details.'),
+      };
+    }
   }, []);
 
   const persistAppleDisplayName = useCallback(
@@ -488,10 +516,13 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     const authorizationCode = typeof params.code === 'string' ? params.code : null;
 
     if (accessToken && refreshToken) {
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
+      const { error } = await withAuthTimeout(
+        supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        }),
+        'Sign-in took too long. Please request a new email link.'
+      );
 
       if (error) {
         logAuth('createSessionFromUrl:setSessionError', error.message);
@@ -505,7 +536,10 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
 
     if (authorizationCode) {
-      const { error } = await supabase.auth.exchangeCodeForSession(authorizationCode);
+      const { error } = await withAuthTimeout(
+        supabase.auth.exchangeCodeForSession(authorizationCode),
+        'Sign-in took too long. Please request a new email link.'
+      );
 
       if (error) {
         logAuth('createSessionFromUrl:exchangeCodeError', error.message);
@@ -1048,21 +1082,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   };
 
   const resendSignUpEmail = async (email: string) => {
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim(),
-      options: {
-        emailRedirectTo: 'https://www.pailinabroad.com/auth/callback',
-      },
-    });
-
-    if (error) {
-      setAuthError(error.message);
-      return { error: error.message };
-    }
-
-    setAuthError(null);
-    return { error: null };
+    return signUp({ email });
   };
 
   const signInWithApple = async () => {
