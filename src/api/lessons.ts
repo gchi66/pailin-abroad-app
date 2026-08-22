@@ -506,12 +506,26 @@ const toTryLessonPublicAudioUrl = (path: string) => {
 };
 
 export async function fetchLessonAudioUrls(
-  lesson: Pick<ResolvedLessonPayload, 'id' | 'conversation_audio_url'>
+  lesson: Pick<
+    ResolvedLessonPayload,
+    | 'id'
+    | 'conversation_audio_url'
+    | 'conversation_audio_signed_url'
+  >
 ): Promise<LessonAudioUrls> {
   const basePath = lesson.conversation_audio_url?.trim();
   if (!lesson.id || !basePath) {
     return {
       main: null,
+      noBg: null,
+      bg: null,
+    };
+  }
+
+  const resolvedSignedUrl = lesson.conversation_audio_signed_url?.trim() || null;
+  if (resolvedSignedUrl) {
+    return {
+      main: resolvedSignedUrl,
       noBg: null,
       bg: null,
     };

@@ -165,6 +165,7 @@ export type ResolvedLessonPayload = LessonListItem & {
   backstory_en?: string | null;
   image_url?: string | null;
   conversation_audio_url?: string | null;
+  conversation_audio_signed_url?: string | null;
   lesson_external_id?: string | null;
   header_image_path?: string | null;
   header_image_url?: string | null;

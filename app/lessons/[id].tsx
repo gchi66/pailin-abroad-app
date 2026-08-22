@@ -12462,9 +12462,7 @@ const mergeAdjacentPracticeRowTokens = (
                     style={[
                       styles.stickyFooter,
                       Platform.OS === 'android' ? styles.stickyFooterAndroid : null,
-                      Platform.OS === 'android' && shouldShowBottomPagerDock
-                        ? styles.stickyFooterAndroidWithPager
-                        : null,
+                      shouldShowBottomPagerDock ? styles.stickyFooterWithPager : null,
                     ]}>
                     <View
                       style={[
@@ -13224,13 +13222,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 2,
     paddingHorizontal: theme.spacing.sm,
-    paddingTop: 2,
-    paddingBottom: 0,
+    paddingVertical: 8,
   },
   bottomPagerDock: {
     backgroundColor: 'transparent',
     paddingTop: 0,
-    marginBottom: -4,
+    marginBottom: 0,
     position: 'relative',
     zIndex: 2,
   },
@@ -15342,7 +15339,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
   },
-  stickyFooterAndroidWithPager: {
+  stickyFooterWithPager: {
     marginTop: 0,
   },
   stickyFooterShell: {
