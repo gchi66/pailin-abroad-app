@@ -344,56 +344,6 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     }
   }, []);
 
-  const persistAppleDisplayName = useCallback(
-    async (displayName: NonNullable<ReturnType<typeof getAppleDisplayName>>) => {
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-
-      if (!currentUser) {
-        return;
-      }
-
-      try {
-        await supabase.auth.updateUser({
-          data: {
-            full_name: displayName.fullName,
-            name: displayName.fullName,
-            username: displayName.fullName,
-            given_name: displayName.givenName,
-            family_name: displayName.familyName,
-          },
-        });
-      } catch (updateError) {
-        logAuth('apple:updateUser:error', updateError instanceof Error ? updateError.message : 'Unknown error');
-      }
-
-      try {
-        const { data: userRow } = await fetchUsersRow(currentUser.id);
-        const currentUsername = userRow?.username?.trim() ?? '';
-        const shouldReplaceUsername = !currentUsername || isEmailLike(currentUsername) || isPrivateRelayEmail(currentUsername);
-
-        const updatePayload: Partial<AppUserRow> & { avatar_image?: string | null } = {};
-
-        if (shouldReplaceUsername) {
-          updatePayload.username = displayName.fullName;
-        }
-
-        if (Object.keys(updatePayload).length > 0) {
-          const { error: usersUpdateError } = await supabase.from('users').update(updatePayload).eq('id', currentUser.id);
-          if (usersUpdateError) {
-            logAuth('apple:updateUsersRow:error', usersUpdateError.message);
-          }
-        }
-      } catch (usersRowError) {
-        logAuth('apple:updateUsersRow:error', usersRowError instanceof Error ? usersRowError.message : 'Unknown error');
-      }
-
-      await fetchProfile(currentUser, { waitForEnrichment: true });
-    },
-    [fetchProfile, fetchUsersRow]
-  );
-
   const buildMinimalProfile = useCallback((currentUser: User, userRow: AppUserRow | null): AppProfile => {
     const preferredMetadataName = getPreferredMetadataName(currentUser);
     const rowUsername = userRow?.username?.trim() ?? null;
@@ -669,6 +619,56 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       }
     }
   }, [buildMinimalProfile, enrichProfile, fetchUsersRow]);
+
+  const persistAppleDisplayName = useCallback(
+    async (displayName: NonNullable<ReturnType<typeof getAppleDisplayName>>) => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      if (!currentUser) {
+        return;
+      }
+
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: displayName.fullName,
+            name: displayName.fullName,
+            username: displayName.fullName,
+            given_name: displayName.givenName,
+            family_name: displayName.familyName,
+          },
+        });
+      } catch (updateError) {
+        logAuth('apple:updateUser:error', updateError instanceof Error ? updateError.message : 'Unknown error');
+      }
+
+      try {
+        const { data: userRow } = await fetchUsersRow(currentUser.id);
+        const currentUsername = userRow?.username?.trim() ?? '';
+        const shouldReplaceUsername = !currentUsername || isEmailLike(currentUsername) || isPrivateRelayEmail(currentUsername);
+
+        const updatePayload: Partial<AppUserRow> & { avatar_image?: string | null } = {};
+
+        if (shouldReplaceUsername) {
+          updatePayload.username = displayName.fullName;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: usersUpdateError } = await supabase.from('users').update(updatePayload).eq('id', currentUser.id);
+          if (usersUpdateError) {
+            logAuth('apple:updateUsersRow:error', usersUpdateError.message);
+          }
+        }
+      } catch (usersRowError) {
+        logAuth('apple:updateUsersRow:error', usersRowError instanceof Error ? usersRowError.message : 'Unknown error');
+      }
+
+      await fetchProfile(currentUser, { waitForEnrichment: true });
+    },
+    [fetchProfile, fetchUsersRow]
+  );
 
   const syncMembershipForAuthenticatedUser = useCallback(async (source: string) => {
     const syncStartedAt = Date.now();

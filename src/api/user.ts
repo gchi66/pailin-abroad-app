@@ -55,7 +55,8 @@ export type CompletedLessonProgress = {
 
 export type LessonEngagementProgress = {
   lesson_id: string;
-  last_visited_at?: string | null;
+  last_visited_at: string | null;
+  unit_key: string | null;
 };
 
 type CompletedLessonsResponse = {

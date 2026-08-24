@@ -114,11 +114,12 @@ const isListLikeNode = (node: LessonRichNode | null | undefined) =>
   node?.kind === 'numbered_item' || node?.kind === 'list_item' || node?.kind === 'misc_item';
 
 const getHeadingText = (node: LessonRichNode | null) => {
-  if (!node || !hasRenderableInlines(node.inlines)) {
+  const inlines = node?.inlines;
+  if (!Array.isArray(inlines) || !hasRenderableInlines(inlines)) {
     return '';
   }
 
-  return node.inlines
+  return inlines
     .map((inline) => String(inline?.text ?? ''))
     .join('')
     .replace(/\s+/g, ' ')
@@ -301,19 +302,22 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
             typeof inline.link === 'string' && inline.link.trim() ? styles.inlineLink : null,
           ]}>
           {hasInlineMarker
-            ? parts.map((part, partIndex) => (
-                <Text
-                  key={`${keyPrefix}-${index}-${partIndex}`}
-                  style={[
-                    styles.inlineText,
-                    inline.italic ? styles.inlineItalic : null,
-                    inline.underline ? styles.inlineUnderline : null,
-                    getInlineMarkerColor(part) ? styles.inlineMarker : null,
-                    getInlineMarkerColor(part) ? { color: getInlineMarkerColor(part) } : null,
-                  ]}>
-                  {renderSegments(getInlineMarkerDisplay(part) ?? part, `${keyPrefix}-${index}-${partIndex}`, getInlineMarkerColor(part) ?? undefined)}
-                </Text>
-              ))
+            ? parts.map((part, partIndex) => {
+                const markerColor = getInlineMarkerColor(part);
+                return (
+                  <Text
+                    key={`${keyPrefix}-${index}-${partIndex}`}
+                    style={[
+                      styles.inlineText,
+                      inline.italic ? styles.inlineItalic : null,
+                      inline.underline ? styles.inlineUnderline : null,
+                      markerColor ? styles.inlineMarker : null,
+                      markerColor ? { color: markerColor } : null,
+                    ]}>
+                    {renderSegments(getInlineMarkerDisplay(part) ?? part, `${keyPrefix}-${index}-${partIndex}`, markerColor ?? undefined)}
+                  </Text>
+                );
+              })
             : renderSegments(textValue, `${keyPrefix}-${index}`)}
         </Text>
       );

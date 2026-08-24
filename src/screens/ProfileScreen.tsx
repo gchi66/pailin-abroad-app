@@ -159,7 +159,7 @@ export function ProfileScreen() {
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
   const profileData = getProfileDisplayData(uiLanguage, {
     displayName,
-    email,
+    email: email ?? '',
     hasMembership,
     createdAt: profile?.created_at ?? null,
   });

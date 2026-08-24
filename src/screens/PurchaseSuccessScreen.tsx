@@ -91,7 +91,7 @@ export function PurchaseSuccessScreen() {
 
         if (attempt < MAX_SYNC_ATTEMPTS - 1) {
           await new Promise((resolve) => {
-            timeoutId = setTimeout(resolve, SYNC_INTERVAL_MS);
+            timeoutId = setTimeout(() => resolve(undefined), SYNC_INTERVAL_MS);
           });
         }
       }

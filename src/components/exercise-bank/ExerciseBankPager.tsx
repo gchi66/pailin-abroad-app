@@ -933,7 +933,10 @@ export function ExerciseBankPager({
           exercise,
           item,
           userAnswer,
-          exerciseType: exercise.kind,
+          exerciseType:
+            exercise.kind === 'fill_blank' || exercise.kind === 'sentence_transform'
+              ? exercise.kind
+              : 'open',
         });
       })
     );

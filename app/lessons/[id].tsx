@@ -872,7 +872,7 @@ function PracticeFillBlankMeasuredRows(props: {
     setMeasurementState('stable');
   };
 
-  const handleMirrorTokenLayout = (tokenId: string, version: number) => (event: { nativeEvent: { layout: { x: number; y: number } } }) => {
+  const handleMirrorTokenLayout = (tokenId: string, version: number) => (event: { nativeEvent: { layout: PracticeFillBlankMirrorLayout } }) => {
     if (version !== measureVersionRef.current || measurementStateRef.current !== 'measuring') {
       return;
     }
@@ -1710,7 +1710,7 @@ const stripInlineMediaTagsPreserveLineBreaks = (value: string) =>
     .join('\n')
     .trim();
 
-const getInlineImageKey = (...values: unknown[]) => {
+const getInlineImageKey = (...values: unknown[]): string | null => {
   for (const value of values) {
     if (typeof value === 'string') {
       const match = value.match(INLINE_IMAGE_TAG_RE);
@@ -1722,7 +1722,7 @@ const getInlineImageKey = (...values: unknown[]) => {
     }
 
     if (Array.isArray(value)) {
-      const key = getInlineImageKey(
+      const key: string | null = getInlineImageKey(
         ...value.map((inline) =>
           inline && typeof inline === 'object' && 'text' in inline
             ? (inline as { text?: unknown }).text
@@ -1738,7 +1738,7 @@ const getInlineImageKey = (...values: unknown[]) => {
   return null;
 };
 
-const getInlineAudioKey = (...values: unknown[]) => {
+const getInlineAudioKey = (...values: unknown[]): string | null => {
   for (const value of values) {
     if (typeof value === 'string') {
       const match = value.match(INLINE_AUDIO_TAG_RE);
@@ -1750,7 +1750,7 @@ const getInlineAudioKey = (...values: unknown[]) => {
     }
 
     if (Array.isArray(value)) {
-      const key = getInlineAudioKey(
+      const key: string | null = getInlineAudioKey(
         ...value.map((inline) =>
           inline && typeof inline === 'object' && 'text' in inline
             ? (inline as { text?: unknown }).text
@@ -3921,20 +3921,6 @@ export default function LessonDetailShellScreen() {
   const isLessonReady = Boolean(lesson);
   const pageLanguage = hasStartedLesson ? contentLang : uiLanguage;
 
-  useEffect(() => {
-    if (!lessonId || !isLessonReady || lessonReadyLoggedRef.current) {
-      return;
-    }
-
-    lessonReadyLoggedRef.current = true;
-    console.info('[lesson-load] start lesson ready', {
-      lessonId,
-      contentLang,
-      elapsedMs: elapsedMs(lessonLoadStartedAtRef.current),
-      sectionCount,
-    });
-  }, [contentLang, isLessonReady, lessonId, sectionCount]);
-
   const englishTitle = useMemo(() => {
     return lesson?.title_en?.trim() || lesson?.title?.trim() || coverLesson?.title?.trim() || lesson?.title_th?.trim() || coverLesson?.title_th?.trim() || null;
   }, [coverLesson, lesson]);
@@ -4003,6 +3989,10 @@ export default function LessonDetailShellScreen() {
     [coverLesson?.header_img, lesson?.header_image_path, lesson?.header_image_url, lesson?.header_img]
   );
   const lessonTabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
+  const prepareSectionIndex = useMemo(
+    () => lessonTabs.findIndex((tab) => tab.type === 'prepare'),
+    [lessonTabs]
+  );
   const activeTab = lessonTabs[activeSectionIndex] ?? null;
   const activeSection = activeTab?.section ?? null;
   const normalizedQuestions = useMemo(
@@ -4333,6 +4323,20 @@ export default function LessonDetailShellScreen() {
   );
   const activePracticeExercise = isPracticeTab ? normalizedPracticeExercises[activePracticeCardIndex] ?? null : null;
   const sectionCount = lessonTabs.length;
+
+  useEffect(() => {
+    if (!lessonId || !isLessonReady || lessonReadyLoggedRef.current) {
+      return;
+    }
+
+    lessonReadyLoggedRef.current = true;
+    console.info('[lesson-load] start lesson ready', {
+      lessonId,
+      contentLang,
+      elapsedMs: elapsedMs(lessonLoadStartedAtRef.current),
+      sectionCount,
+    });
+  }, [contentLang, isLessonReady, lessonId, sectionCount]);
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
   const hasPracticePagerCards = isPracticeTab && normalizedPracticeExercises.length > 0;
@@ -4407,6 +4411,13 @@ export default function LessonDetailShellScreen() {
     () => (currentCardUnitKey ?? activePageKey ?? null),
     [activePageKey, currentCardUnitKey]
   );
+  const trackLessonPersistence = useCallback(<T,>(promise: Promise<T>) => {
+    const trackedPromise = promise.finally(() => {
+      pendingLessonPersistenceRef.current.delete(trackedPromise);
+    });
+    pendingLessonPersistenceRef.current.add(trackedPromise);
+    return trackedPromise;
+  }, []);
   const writeProgressUnit = useCallback(
     async (unitType: 'page' | 'card' | 'exercise' | 'example_reveal', unitKey: string, sectionKey?: string | null) => {
       if (!user?.id || !lessonId || !unitKey || writtenAppProgressUnitKeysRef.current.has(unitKey)) {
@@ -4617,10 +4628,6 @@ export default function LessonDetailShellScreen() {
       hasMultiplePagerCards,
       richPagerTranslateX,
     ]
-  );
-  const prepareSectionIndex = useMemo(
-    () => lessonTabs.findIndex((tab) => tab.type === 'prepare'),
-    [lessonTabs]
   );
   const conversationIntroAnimatedStyle = useAnimatedStyle(() => ({
     opacity: conversationIntroOpacity.value,
@@ -4834,7 +4841,7 @@ export default function LessonDetailShellScreen() {
   const isTranslatingContent = isLoading && Boolean(lesson);
   const audioTrayTitle = resolvedFocus || englishTitle || thaiTitle || activeSectionTitle || 'Lesson audio';
   const audioTraySubtitle =
-    isPrepareTab || activeSectionTitle === 'Prepare' || activeSectionTitle === pageCopy.prepare
+    isPrepareTab || activeSectionTitle === 'Prepare' || activeSectionTitle === getLessonSectionLabel(pageLanguage, 'prepare')
       ? null
       : activeSectionTitle || thaiTitle || englishTitle || null;
   const shouldShowConversationIntroOverlay =
@@ -5266,14 +5273,6 @@ export default function LessonDetailShellScreen() {
 
   const closeCompletionModal = useCallback(() => {
     setCompletionModalState(null);
-  }, []);
-
-  const trackLessonPersistence = useCallback(<T,>(promise: Promise<T>) => {
-    const trackedPromise = promise.finally(() => {
-      pendingLessonPersistenceRef.current.delete(trackedPromise);
-    });
-    pendingLessonPersistenceRef.current.add(trackedPromise);
-    return trackedPromise;
   }, []);
 
   const flushPendingLessonPersistence = useCallback(async () => {
@@ -6501,10 +6500,14 @@ export default function LessonDetailShellScreen() {
         }
         conversationAudioSourceKeyRef.current = nextSourceKey;
         setAudioUrls(urls);
-      } catch {
+      } catch (error) {
         if (!isMounted) {
           return;
         }
+        console.warn('[lesson-audio] failed to resolve conversation audio', {
+          lessonId: lesson.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
         conversationAudioSourceKeyRef.current = null;
         setAudioUrls({ main: null, noBg: null, bg: null });
       }
@@ -6679,8 +6682,12 @@ export default function LessonDetailShellScreen() {
         }
 
         voiceSoundRef.current = voiceSound;
-      } catch {
+      } catch (error) {
         if (isActive) {
+          console.warn('[lesson-audio] failed to create conversation player', {
+            lessonId,
+            message: error instanceof Error ? error.message : String(error),
+          });
           setIsAudioPlaying(false);
           setAudioPositionMillis(0);
           setAudioDurationMillis(0);
@@ -6756,10 +6763,10 @@ export default function LessonDetailShellScreen() {
   }, [lessonId]);
 
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      // Preparing many snippet players keeps Android decoder/audio resources
-      // allocated and can prevent the main lesson player from creating its
-      // AudioTrack (especially on emulators). Snippets still load on demand.
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      // Preparing many snippet players keeps native decoder/audio resources
+      // allocated and can prevent the main lesson player from becoming ready,
+      // especially on emulators and simulators. Snippets still load on demand.
       Object.values(preloadedSnippetPlayersRef.current).forEach((player) => {
         try {
           player.remove();
@@ -7020,7 +7027,7 @@ export default function LessonDetailShellScreen() {
             renderedLine.push(
               <Text
                 key={`${lineKey}-break`}
-                style={[baseApplyTextStyle, options?.treatAsDialogue ? styles.richAudioLineBreakGap : null]}>
+                style={baseApplyTextStyle}>
                 {'\n'}
               </Text>
             );
@@ -7485,6 +7492,7 @@ export default function LessonDetailShellScreen() {
       isPhraseCard?: boolean;
       phraseShowDivider?: boolean;
       phraseIsLeadAudio?: boolean;
+      compactBody?: boolean;
     }
   ) => {
     if (!Array.isArray(inlines) || !inlines.length) {
@@ -8030,7 +8038,6 @@ export default function LessonDetailShellScreen() {
                     isLink: typeof inline.link === 'string' && inline.link.trim().length > 0,
                     manualFontScale: options?.manualFontScale,
                   }),
-                  options?.muteThaiInAudioRow === true ? styles.richAudioLineBreakGap : null,
                 ]}>
                 {'\n'}
               </Text>

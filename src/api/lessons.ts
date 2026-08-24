@@ -353,6 +353,7 @@ export type EvaluateLessonAnswerInput = {
   exerciseId: string;
   questionNumber?: number | string;
   questionPrompt?: string;
+  extra?: Record<string, unknown>;
 };
 
 export type EvaluateLessonAnswerResult = {
@@ -360,6 +361,7 @@ export type EvaluateLessonAnswerResult = {
   score?: number | null;
   feedback_en?: string | null;
   feedback_th?: string | null;
+  feedback?: string | null;
 };
 
 export async function evaluateLessonAnswer(
@@ -375,6 +377,7 @@ export async function evaluateLessonAnswer(
   }
 
   const payload: Record<string, unknown> = {
+    ...(input.extra ?? {}),
     user_id: userId,
     exercise_type: input.exerciseType,
     user_answer: input.userAnswer,
