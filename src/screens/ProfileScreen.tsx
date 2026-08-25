@@ -109,6 +109,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       signOut: 'ออกจากระบบ',
       signOutSuccess: 'ออกจากระบบแล้ว',
       placementPreview: 'ทำแบบประเมินระดับ',
+      speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       avatarLabel: 'PP',
     };
   }
@@ -134,6 +135,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     signOut: 'Log Out',
     signOutSuccess: 'Signed out successfully.',
     placementPreview: 'Take placement test',
+    speakingCoachPreview: 'Open speaking coach preview',
     avatarLabel: 'PP',
   };
 };
@@ -384,12 +386,20 @@ export function ProfileScreen() {
         </Card>
 
         {!isEditing && profile?.is_admin === true ? (
-          <Button
-            title={copy.placementPreview}
-            language={uiLanguage}
-            variant="outline"
-            onPress={() => router.push('/placement-entry')}
-          />
+          <Stack gap="sm">
+            <Button
+              title={copy.placementPreview}
+              language={uiLanguage}
+              variant="outline"
+              onPress={() => router.push('/placement-entry')}
+            />
+            <Button
+              title={copy.speakingCoachPreview}
+              language={uiLanguage}
+              variant="outline"
+              onPress={() => router.push('/speaking-coach?lesson=4.1')}
+            />
+          </Stack>
         ) : null}
 
         <Pressable
