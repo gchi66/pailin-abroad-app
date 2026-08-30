@@ -275,6 +275,10 @@ export default function SpeakingCoachTestScreen() {
       const nextSession = await createOrResumeSpeakingSession(lessonId, { forceNew: true });
       resetQuestion();
       setSession(nextSession);
+      const freshQuestionIndex = questions.findIndex(
+        ({ question }) => question.id === nextSession.current_question_id
+      );
+      setQuestionIndex(freshQuestionIndex >= 0 ? freshQuestionIndex : 0);
     } catch (error) {
       Alert.alert(
         'Could not restart test session',
@@ -454,6 +458,7 @@ export default function SpeakingCoachTestScreen() {
   }
 
   const { practiceSet, question } = activeQuestion;
+  const sessionResetDisabled = phase === 'recording' || phase === 'evaluating';
   const typeCopy = TYPE_COPY[practiceSet.practice_type];
   const hasPromptAudio = Boolean(question.prompt_audio_url) && practiceSet.practice_type !== 'translation';
   const pailinPlaybackLabel = practiceSet.practice_type === 'pronunciation' ? 'Pailin’s version' : 'Replay question';
@@ -630,7 +635,7 @@ export default function SpeakingCoachTestScreen() {
                 <TargetSentenceAssessment tokens={evaluation.pronunciation.assessment_tokens ?? []} />
                 <View style={styles.divider} />
               </>
-            ) : evaluation.transcript ? (
+            ) : practiceSet.practice_type !== 'open' && evaluation.transcript ? (
               <>
                 <AppText variant="muted">Transcript</AppText>
                 <AppText variant="body">{evaluation.transcript}</AppText>
@@ -652,7 +657,9 @@ export default function SpeakingCoachTestScreen() {
             ) : null}
             {evaluation.corrected_answer ? (
               <>
-                <AppText variant="muted">Corrected answer</AppText>
+                <AppText variant="muted">
+                  {practiceSet.practice_type === 'open' ? 'A clearer version' : 'Corrected answer'}
+                </AppText>
                 <AppText variant="body">{evaluation.corrected_answer}</AppText>
               </>
             ) : null}
@@ -684,9 +691,25 @@ export default function SpeakingCoachTestScreen() {
             </Pressable>
           ))}
         </View>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
-          <MaterialIcons name="close" size={28} color={theme.colors.text} />
-        </Pressable>
+        <View style={styles.topBarActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start a new speaking coach test session"
+            disabled={sessionResetDisabled}
+            onPress={() => void retestInFreshSession()}
+            style={({ pressed }) => [
+              styles.newSessionButton,
+              pressed && !sessionResetDisabled ? styles.newSessionButtonPressed : null,
+              sessionResetDisabled ? styles.newSessionButtonDisabled : null,
+            ]}
+          >
+            <MaterialIcons name="refresh" size={17} color={theme.colors.accent} />
+            <AppText variant="caption" style={styles.newSessionLabel}>New session</AppText>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
+            <MaterialIcons name="close" size={28} color={theme.colors.text} />
+          </Pressable>
+        </View>
       </View>
 
       {renderQuestionNavigation()}
@@ -719,6 +742,11 @@ const styles = StyleSheet.create({
   lessonSwitch: { flexDirection: 'row', gap: theme.spacing.sm },
   lessonChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: theme.radii.xl, borderWidth: 1, borderColor: '#C9D2DC', backgroundColor: theme.colors.surface },
   lessonChipActive: { borderColor: theme.colors.accent, backgroundColor: theme.colors.accentMuted },
+  topBarActions: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+  newSessionButton: { minHeight: 36, paddingHorizontal: 10, borderRadius: theme.radii.xl, borderWidth: 1, borderColor: theme.colors.accent, backgroundColor: theme.colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  newSessionButtonPressed: { backgroundColor: theme.colors.accentMuted },
+  newSessionButtonDisabled: { opacity: 0.4 },
+  newSessionLabel: { color: theme.colors.accent, fontWeight: theme.typography.weights.semibold },
   closeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   questionNavigation: { width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
   questionNavigationButton: { flex: 1, minHeight: 42, paddingVertical: theme.spacing.xs },
