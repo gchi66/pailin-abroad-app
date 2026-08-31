@@ -1,6 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Asset } from 'expo-asset';
 import {
+  AudioQuality,
+  IOSOutputFormat,
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
@@ -15,6 +17,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createOrResumeSpeakingSession,
   evaluateSpeakingRecording,
+  fetchAvailableSpeakingCoachLessons,
   fetchSpeakingCoachLesson,
 } from '@/src/api/speaking-coach';
 import { AppText } from '@/src/components/ui/AppText';
@@ -36,6 +40,7 @@ import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { theme } from '@/src/theme/theme';
 import {
   SpeakingCoachLesson,
+  SpeakingCoachLessonSummary,
   SpeakingCoachPracticeSet,
   SpeakingCoachQuestion,
   SpeakingCoachSession,
@@ -51,6 +56,31 @@ type ActiveQuestion = {
   practiceSet: SpeakingCoachPracticeSet;
   question: SpeakingCoachQuestion;
 };
+
+const IOS_AZURE_RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  extension: '.wav',
+  sampleRate: 16000,
+  numberOfChannels: 1,
+  bitRate: 256000,
+  ios: {
+    ...RecordingPresets.HIGH_QUALITY.ios,
+    extension: '.wav',
+    sampleRate: 16000,
+    outputFormat: IOSOutputFormat.LINEARPCM,
+    audioQuality: AudioQuality.HIGH,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+};
+
+const SPEAKING_RECORDING_OPTIONS =
+  Platform.OS === 'ios' ? IOS_AZURE_RECORDING_OPTIONS : RecordingPresets.HIGH_QUALITY;
+const SPEAKING_RECORDING_FILE =
+  Platform.OS === 'ios'
+    ? { name: 'speaking-recording.wav', mimeType: 'audio/wav' }
+    : { name: 'speaking-recording.m4a', mimeType: 'audio/mp4' };
 
 const TYPE_COPY: Record<
   SpeakingPracticeType,
@@ -88,6 +118,13 @@ const formatDuration = (durationMillis: number) => {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+const lessonLevel = (lessonExternalId: string) => lessonExternalId.split('.', 1)[0] || lessonExternalId;
+
+const lessonOptionLabel = (lessonExternalId: string) => {
+  const [, suffix = lessonExternalId] = lessonExternalId.split('.', 2);
+  return suffix.toLowerCase() === 'chp' ? 'Checkpoint' : lessonExternalId;
 };
 
 const switchAudioSession = async (allowsRecording: boolean) => {
@@ -157,6 +194,10 @@ export default function SpeakingCoachTestScreen() {
   const params = useLocalSearchParams<{ lesson?: string }>();
   const initialLessonId = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '4.1';
   const [lessonId, setLessonId] = useState(initialLessonId);
+  const [selectedLevel, setSelectedLevel] = useState(lessonLevel(initialLessonId));
+  const [lessonOptions, setLessonOptions] = useState<SpeakingCoachLessonSummary[]>([]);
+  const [lessonOptionsLoading, setLessonOptionsLoading] = useState(true);
+  const [lessonOptionsError, setLessonOptionsError] = useState<string | null>(null);
   const [lesson, setLesson] = useState<SpeakingCoachLesson | null>(null);
   const [session, setSession] = useState<SpeakingCoachSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,18 +206,25 @@ export default function SpeakingCoachTestScreen() {
   const [phase, setPhase] = useState<ScreenPhase>('prompt');
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [recordedDurationMillis, setRecordedDurationMillis] = useState(0);
-  const [recordedFile, setRecordedFile] = useState({
-    name: 'speaking-recording.m4a',
-    mimeType: 'audio/mp4',
-  });
+  const [recordedFile, setRecordedFile] = useState(SPEAKING_RECORDING_FILE);
   const [evaluation, setEvaluation] = useState<SpeakingEvaluation | null>(null);
   const [instructionalAttemptNumber, setInstructionalAttemptNumber] = useState<1 | 2>(1);
   const [previousAttemptId, setPreviousAttemptId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showExample, setShowExample] = useState(false);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(SPEAKING_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 200);
+
+  const levelOptions = useMemo(
+    () => Array.from(new Set(lessonOptions.map((option) => lessonLevel(option.lesson_external_id)))),
+    [lessonOptions]
+  );
+  const lessonsForSelectedLevel = useMemo(
+    () => lessonOptions.filter((option) => lessonLevel(option.lesson_external_id) === selectedLevel),
+    [lessonOptions, selectedLevel]
+  );
+  const lessonSelectionDisabled = loading || phase === 'recording' || phase === 'evaluating';
 
   const questions = useMemo<ActiveQuestion[]>(
     () =>
@@ -191,6 +239,35 @@ export default function SpeakingCoachTestScreen() {
   const promptPlayerStatus = useAudioPlayerStatus(promptPlayer);
   const recordingPlayer = useAudioPlayer(recordedUri, { updateInterval: 200 });
   const recordingPlayerStatus = useAudioPlayerStatus(recordingPlayer);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLessonOptionsLoading(true);
+    setLessonOptionsError(null);
+    void fetchAvailableSpeakingCoachLessons()
+      .then((options) => {
+        if (cancelled) return;
+        setLessonOptions(options);
+        const selected = options.find((option) => option.lesson_external_id === initialLessonId);
+        if (selected) {
+          setSelectedLevel(lessonLevel(selected.lesson_external_id));
+        } else if (options[0]) {
+          setSelectedLevel(lessonLevel(options[0].lesson_external_id));
+          setLessonId(options[0].lesson_external_id);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLessonOptionsError(error instanceof Error ? error.message : 'Could not load speaking lessons.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLessonOptionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialLessonId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -246,7 +323,7 @@ export default function SpeakingCoachTestScreen() {
     setPhase('prompt');
     setRecordedUri(null);
     setRecordedDurationMillis(0);
-    setRecordedFile({ name: 'speaking-recording.m4a', mimeType: 'audio/mp4' });
+    setRecordedFile(SPEAKING_RECORDING_FILE);
     setShowExample(false);
     setEvaluation(null);
     setInstructionalAttemptNumber(1);
@@ -347,10 +424,13 @@ export default function SpeakingCoachTestScreen() {
       recordingPlayer.pause();
       setRecordedUri(null);
       setRecordedDurationMillis(0);
-      setRecordedFile({ name: 'speaking-recording.m4a', mimeType: 'audio/mp4' });
+      setRecordedFile(SPEAKING_RECORDING_FILE);
       setSubmitError(null);
       await switchAudioSession(true);
-      await recorder.prepareToRecordAsync();
+      // Passing the options forces iOS to create a fresh AVAudioRecorder and
+      // output URL. Reusing the stopped WAV recorder fails after its file has
+      // been opened for review playback.
+      await recorder.prepareToRecordAsync(SPEAKING_RECORDING_OPTIONS);
       recorder.record();
       setPhase('recording');
     } catch (error) {
@@ -400,6 +480,7 @@ export default function SpeakingCoachTestScreen() {
     if (!recordedUri || !session || !activeQuestion) return;
     setPhase('evaluating');
     setSubmitError(null);
+    const evaluationStarted = Date.now();
     try {
       const response = await evaluateSpeakingRecording({
         uri: recordedUri,
@@ -411,6 +492,13 @@ export default function SpeakingCoachTestScreen() {
         previousAttemptId,
       });
       if (__DEV__ && response.attempt.debug) {
+        const evaluatorTimings = response.attempt.debug.provider_response.timings_ms;
+        console.log('[Speaking Coach] Evaluation timing summary', {
+          client_total_ms: Date.now() - evaluationStarted,
+          provider_latency_ms: response.attempt.debug.latency_ms,
+          backend_stages_ms: response.attempt.debug.request_timings_ms,
+          evaluator_stages_ms: evaluatorTimings,
+        });
         console.log(
           '[Speaking Coach] Evaluator diagnostics\n',
           JSON.stringify(response.attempt.debug, null, 2)
@@ -436,7 +524,7 @@ export default function SpeakingCoachTestScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageLoadingState showImage={false} />
+        <PageLoadingState loadingTitle="Loading speaking coach…" />
       </View>
     );
   }
@@ -587,9 +675,10 @@ export default function SpeakingCoachTestScreen() {
 
   const renderEvaluating = () => (
     <View style={styles.fullState}>
-      <ActivityIndicator size="large" color={theme.colors.accent} />
-      <AppText variant="title" style={styles.stateTitle}>Evaluating your answer…</AppText>
-      <AppText variant="muted" style={styles.centerText}>The AI checker will listen to your original recording.</AppText>
+      <PageLoadingState
+        loadingTitle="Evaluating your answer…"
+        loadingBody="The AI checker will listen to your original recording."
+      />
     </View>
   );
 
@@ -684,12 +773,9 @@ export default function SpeakingCoachTestScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.topBar}>
-        <View style={styles.lessonSwitch}>
-          {['4.1', '4.9'].map((id) => (
-            <Pressable key={id} onPress={() => setLessonId(id)} style={[styles.lessonChip, id === lessonId ? styles.lessonChipActive : null]}>
-              <AppText variant="caption">Lesson {id}</AppText>
-            </Pressable>
-          ))}
+        <View style={styles.screenTitleBlock}>
+          <AppText variant="caption" style={styles.screenEyebrow}>SPEAKING COACH TEST</AppText>
+          <AppText variant="body" style={styles.selectedLessonTitle}>Lesson {lessonOptionLabel(lessonId)}</AppText>
         </View>
         <View style={styles.topBarActions}>
           <Pressable
@@ -710,6 +796,58 @@ export default function SpeakingCoachTestScreen() {
             <MaterialIcons name="close" size={28} color={theme.colors.text} />
           </Pressable>
         </View>
+      </View>
+
+      <View style={styles.lessonSelector}>
+        {lessonOptionsLoading ? (
+          <View style={styles.selectorLoadingRow}>
+            <ActivityIndicator size="small" color={theme.colors.accent} />
+            <AppText variant="caption">Loading available lessons…</AppText>
+          </View>
+        ) : lessonOptionsError ? (
+          <AppText variant="caption" style={styles.selectorError}>{lessonOptionsError}</AppText>
+        ) : (
+          <>
+            <View style={styles.selectorRow}>
+              <AppText variant="caption" style={styles.selectorLabel}>LEVEL</AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorChips}>
+                {levelOptions.map((level) => (
+                  <Pressable
+                    key={level}
+                    disabled={lessonSelectionDisabled}
+                    onPress={() => setSelectedLevel(level)}
+                    style={[
+                      styles.lessonChip,
+                      level === selectedLevel ? styles.lessonChipActive : null,
+                      lessonSelectionDisabled ? styles.lessonChipDisabled : null,
+                    ]}
+                  >
+                    <AppText variant="caption">Level {level}</AppText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={styles.selectorRow}>
+              <AppText variant="caption" style={styles.selectorLabel}>LESSON</AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorChips}>
+                {lessonsForSelectedLevel.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    disabled={lessonSelectionDisabled}
+                    onPress={() => setLessonId(option.lesson_external_id)}
+                    style={[
+                      styles.lessonChip,
+                      option.lesson_external_id === lessonId ? styles.lessonChipActive : null,
+                      lessonSelectionDisabled ? styles.lessonChipDisabled : null,
+                    ]}
+                  >
+                    <AppText variant="caption">{lessonOptionLabel(option.lesson_external_id)}</AppText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          </>
+        )}
       </View>
 
       {renderQuestionNavigation()}
@@ -739,9 +877,18 @@ export default function SpeakingCoachTestScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F5F8FC' },
   topBar: { minHeight: 64, paddingHorizontal: theme.spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  lessonSwitch: { flexDirection: 'row', gap: theme.spacing.sm },
+  screenTitleBlock: { gap: 1 },
+  screenEyebrow: { color: theme.colors.accent, fontWeight: theme.typography.weights.bold, letterSpacing: 0.5 },
+  selectedLessonTitle: { fontWeight: theme.typography.weights.semibold },
+  lessonSelector: { width: '100%', maxWidth: 720, alignSelf: 'center', gap: theme.spacing.xs, paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.md },
+  selectorRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  selectorLabel: { width: 52, color: '#66717D', fontWeight: theme.typography.weights.bold, fontSize: 10, letterSpacing: 0.6 },
+  selectorChips: { alignItems: 'center', gap: theme.spacing.xs, paddingRight: theme.spacing.md },
+  selectorLoadingRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm },
+  selectorError: { minHeight: 38, color: theme.colors.error, textAlign: 'center' },
   lessonChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: theme.radii.xl, borderWidth: 1, borderColor: '#C9D2DC', backgroundColor: theme.colors.surface },
   lessonChipActive: { borderColor: theme.colors.accent, backgroundColor: theme.colors.accentMuted },
+  lessonChipDisabled: { opacity: 0.5 },
   topBarActions: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
   newSessionButton: { minHeight: 36, paddingHorizontal: 10, borderRadius: theme.radii.xl, borderWidth: 1, borderColor: theme.colors.accent, backgroundColor: theme.colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   newSessionButtonPressed: { backgroundColor: theme.colors.accentMuted },
