@@ -11,6 +11,7 @@ export type SpeakingCoachQuestion = {
   lesson_position: number;
   prompt_en: string | null;
   prompt_th: string | null;
+  test_answer_en?: string | null;
   examples: SpeakingCoachExample[];
   prompt_audio_url: string | null;
 };
@@ -33,6 +34,15 @@ export type SpeakingCoachLesson = {
   practice_set_count: number;
   question_count: number;
   practice_sets: SpeakingCoachPracticeSet[];
+};
+
+export type SpeakingCoachLessonSummary = {
+  id: string;
+  lesson_external_id: string;
+  title: string | null;
+  title_th: string | null;
+  practice_set_count: number;
+  question_count: number;
 };
 
 export type SpeakingCoachSession = {
@@ -97,6 +107,14 @@ export type SpeakingEvaluationResponse = {
       latency_ms: number;
       usage: Record<string, unknown>;
       provider_response: Record<string, unknown>;
+      request_timings_ms?: {
+        auth: number;
+        setup: number;
+        audio_storage: number;
+        evaluator: number;
+        persistence: number;
+        total: number;
+      };
     };
   };
   session: SpeakingCoachSession;

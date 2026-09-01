@@ -8,23 +8,26 @@ The curriculum parser, importer, Supabase foundation, backend vertical slice, an
 
 - The backend parser is `backend/app/tools/speaking_coach_parser.py` in the backend repository.
 - The backend importer is `backend/app/tools/speaking_coach_importer.py`. Its default mode is a read-only dry run; database writes require `--apply`.
-- The current Google Doc parses successfully into 2 lessons, 4 practice sets, and 13 questions with no parser errors or warnings.
-- The importer dry run validates all current content and successfully matches both authored lessons to the live `lessons` table.
-- The current curriculum has been imported and verified in the live database: 4 active practice sets and 13 active questions match the parsed JSON without field or relationship mismatches.
+- The current `Level 1 - AI` Google Doc tab parses successfully into 17 lessons, 33 practice sets, and 81 questions with no parser errors or warnings.
+- The importer dry run validates all current content and successfully matches all 17 authored lessons to the live `lessons` table, including the `1.CHP` checkpoint lesson.
+- The current Level 1 speaking curriculum has been imported and verified in the live database: 33 active practice sets, 81 active questions, and 259 ordered focus items match the parsed JSON without field or relationship mismatches.
 - The four speaking-coach tables described below exist in the live Supabase database.
 - The private `speaking-coach-audio` Storage bucket exists.
 - The public `speaking-coach-prompts` Storage bucket contains the 13 prerecorded prompt audio files for test Lessons 4.1 and 4.9.
 - Imported pronunciation and open-speaking questions have deterministic `prompt_audio_key` values. Translation questions intentionally store `null` because Thai-to-English prompts do not use Pailin audio. Every referenced public prompt URL has been verified reachable.
 - The backend exposes authenticated learner-facing lesson content at `GET /api/speaking/lessons/{lesson_external_id}`. It returns ordered practice sets, prompts, tips, examples, progress positions, and public prompt-audio URLs without querying or exposing private `FOCUS` or target-answer fields.
 - The profile screen includes an admin-only `Open speaking coach preview` button immediately below the placement-test trigger. It opens the barebones speaking-coach test route for Lesson 4.1.
-- The React Native test route loads real Lesson 4.1 or 4.9 curriculum, renders all three practice types and evaluation states, plays the appropriate Pailin audio, and records, uploads, and replays learner audio.
+- The React Native test route discovers every active speaking lesson through an admin-only catalog, provides lightweight level and lesson selectors, renders all three practice types and evaluation states, plays Pailin audio when available, and records, uploads, and replays learner audio.
 - The test route is connected to the Azure Speech plus text-only Gemini evaluator through the real session and evaluation endpoints. It supports private learner-audio upload, persisted attempts, retry feedback, back/forward question navigation, and replay of both learner and Pailin audio.
 - The earlier Gemini-only audio evaluator failed testing because it treated a noisy transcript as ground truth, including hearing `is` when the learner said `isn't`. It has been replaced rather than retained as a fallback.
 - Learner-audio cleanup and evaluator-diagnostic retention are implemented: session-completion deletion, 24-hour unfinished-audio expiry, and 90-day raw diagnostic redaction.
-- The Azure hybrid replacement is implemented. Uploaded audio keeps its real MIME type and is normalized with a bounded FFmpeg process to mono 16 kHz, 16-bit PCM WAV. Azure performs every recognition request and scripted Pronunciation Assessment; Gemini receives text only for open and translation exercises.
-- Provider results are parsed into typed internal models, persisted as namespaced Azure/Gemini diagnostics, and composed into the existing provider-independent response contract. Pronunciation decisions and bilingual feedback are deterministic and do not use transcript mismatch as a failure condition.
-- Pronunciation feedback uses focus-first ranking with up to two bullet-point issues. The admin UI presents Azure's scripted result as a target-sentence assessment, underlining problem words in red, rather than presenting reference-aligned text as a literal learner transcript.
-- Unit and route coverage includes normalization failures, Azure response variants, provider configuration and failures, low-confidence audio, Azure-only pronunciation, text-only Gemini routing, supported miscues, and the rule that transcript mismatch alone cannot fail pronunciation. A live request against the configured `southeastasia` Speech resource returned recognition and pronunciation-assessment data successfully.
+- The Azure hybrid replacement is implemented. On iOS, the application records Azure-ready mono 16 kHz, 16-bit PCM WAV and the backend validates it before bypassing FFmpeg. Other supported formats, and WAV files that fail the exact-format check, use bounded FFmpeg normalization. Azure performs every recognition request and scripted Pronunciation Assessment; Gemini receives text only for open and translation exercises.
+- Provider results are parsed into typed internal models, persisted as namespaced Azure/Gemini diagnostics, and composed into the existing provider-independent response contract. Pronunciation decisions and bilingual feedback are deterministic. Scripted pronunciation now uses a no-reference phoneme pass before reference-guided assessment. The short-P1 gate may reject focused divergence early; the general target aligner compares the unbiased continuous phoneme stream with the scripted target phonemes across Azure word boundaries before the backend trusts either transcript.
+- Pronunciation feedback uses evidence-first, authored-priority ranking with up to two bullet-point issues. Among supported authored findings it prefers P1, then P2, then P3, preserving document order within a tier; independently supported fallback findings remain eligible for any remaining slot. The admin UI presents Azure's scripted result as a target-sentence assessment, underlining problem words in red, rather than presenting reference-aligned text as a literal learner transcript.
+- Strong word-final consonant mismatches can override contradictory aggregate Azure word labels when the expected final consonant scores at or below `15`, a different leading candidate scores at least `90`, and the expected sound is not leading. Word-final rhotic compounds such as `/ʊɹ/` and `/ɔɹ/` have a parallel catalog-backed rule when a vowel-only candidate scores at least `90` and no credible rhotic candidate appears.
+- Scripted pronunciation also recognizes strong local phoneme substitutions without requiring an authored prediction: an expected phoneme scoring at or below `45` is eligible when a different leading NBest phoneme scores at least `90` and either the leading candidate exceeds the expected candidate by at least 30 points or the expected phoneme is absent from a populated NBest list. This compound local-evidence route does not lower the strict final-consonant threshold or treat word, syllable, and completeness aggregates as necessary corroboration for a localized substitution.
+- Development timing diagnostics split authentication, curriculum/setup queries, private audio storage, audio normalization, Azure, Gemini, deterministic policy, persistence, and total request time. Initial iOS PCM testing removed the observed multi-second FFmpeg conversion from the critical path.
+- Unit and route coverage includes normalization failures, Azure response variants, provider configuration and failures, low-confidence audio, Azure-only pronunciation, text-only Gemini routing, supported miscues, the scoped short-P1 force-alignment gate, and the rule that a scripted transcript mismatch alone cannot fail pronunciation. A live request against the configured `southeastasia` Speech resource returned recognition and pronunciation-assessment data successfully.
 - Production benchmarking, threshold calibration, and integration into the normal lesson path remain to be completed.
 
 ## Product Goal
@@ -42,9 +45,10 @@ The central technical question for V1 is:
 V1 uses two specialized providers behind one backend-owned evaluation contract:
 
 ```text
-learner M4A recording
+learner recording
         ↓
-backend validates and normalizes to mono 16 kHz PCM WAV
+iOS: validate Azure-ready mono 16 kHz PCM WAV and pass through
+other/incompatible input: bounded FFmpeg normalization to that format
         ↓
 Azure Speech
   - speech recognition for every exercise
@@ -60,14 +64,14 @@ backend validates, applies conservative decision rules, persists, and responds
 
 Provider responsibilities are intentionally narrow:
 
-- Azure is the only provider allowed to make claims about what the learner audibly pronounced. It receives normalized learner audio and, for scripted pronunciation, the exact reference text.
+- Azure is the only provider allowed to make claims about what the learner audibly pronounced. It receives normalized learner audio, the exact reference text for reference-guided pronunciation assessment, and no reference text for the independent phoneme pass used by scripted, open, and translation answers.
 - Gemini receives text only. It evaluates meaning, relevance, grammar, vocabulary, and target-language usage for open and translation exercises. It must never infer phonemes or pronunciation quality from a transcript.
 - The backend owns exercise routing, thresholds, confidence handling, issue prioritization, retry behavior, the final normalized status, and all learner-facing safety rules.
 - Pailin's prerecorded audio remains the learner-facing reference voice. Azure's built-in sample voices, avatar, GPT-4o demonstration, and generated reference audio are not part of the application.
 
 The former Gemini audio call has been removed. The core problem was not merely prompting: one generative audio model was being asked to transcribe, diagnose speech, judge content, and write feedback, and a single uncertain transcript could incorrectly fail the answer.
 
-Uncertainty must favor the learner. A transcript mismatch alone cannot fail a pronunciation answer. Low-confidence or contradictory evidence produces `unclear_audio`, a neutral retry, or a pass depending on the available acoustic evidence; it must not produce confident corrective criticism.
+Uncertainty must favor the learner. A scripted transcript mismatch alone cannot fail a pronunciation answer. The scoped short-P1 gate requires either clearly unrelated no-reference recognition or localized P1 phoneme divergence. The general target aligner may reconstruct target-like speech across incorrect Azure word boundaries only from scored phoneme evidence; ambiguous alignment produces `unclear_audio`, and unrelated alignment cannot be overridden by a scripted pass.
 
 ## Product Flow
 
@@ -99,41 +103,60 @@ Each exercise may contain:
 
 ```text
 PRACTICE_TYPE
-FOCUS
+QUESTION
 prompt in English and/or Thai
 target answer, when applicable
 model or example answers, when applicable
+FOCUS
 prerecorded prompt audio, when applicable
 ```
 
 ### FOCUS rubric
 
-Curriculum authors provide exercise-specific evaluation instructions in `FOCUS`. This is the primary private rubric used by the backend and, where applicable, the text evaluator.
+Curriculum authors provide question-specific evaluation instructions in `FOCUS`. This is the primary private rubric used by the backend and, where applicable, the text evaluator. A question may contain as many focus items as are useful. Do not impose an authoring limit of one or two items merely because learner-facing feedback is capped. The response limit is a presentation rule, not a curriculum-authoring limit.
+
+Each focus item must be assigned one of three pedagogical priorities:
+
+- `[P1]` — an essential target or a particularly important, common, or meaning-affecting problem for Thai learners;
+- `[P2]` — an important secondary problem that should be preferred after supported P1 findings; or
+- `[P3]` — a lower-priority refinement that is still useful and reliably detectable.
+
+Priority ranks supported findings; it does not create evidence. The evaluator must first apply the centralized acoustic, recognition, language, confidence, and uncertainty rules. Only findings with sufficient independent evidence are eligible to affect the learner. Among eligible findings, a lower priority number is preferred. The centralized rubric continues to decide whether an issue is significant enough to cause a retry, and the learner-facing response remains separately capped.
+
+Write every item as a concrete, self-contained instruction. Name the exact word or phrase, the sound or language feature to check, and the likely incorrect realization when that contrast is useful. Plain language is acceptable and often preferable; IPA may be added when it makes the intended contrast clearer. For example, `In “are,” check that the /r/ is pronounced and that the word does not sound like “ah”` is valid evaluator guidance. Avoid vague instructions such as `check that everything is clear` when the likely problems can be named.
+
+Include all realistic, pedagogically useful, and currently detectable issues for the expected response. Do not attempt to enumerate every theoretically possible phonetic deviation. Confidence thresholds, retry rules, provider behavior, and uncertainty handling remain centralized and must not be copied into individual focus items.
+
+Treat every question independently. If the same word or construction appears in several questions, repeat every applicable focus item in each question. Never assume that an issue was covered by an earlier question. Do not, however, copy an item into a question where its target word or construction is absent. For open responses, write conditional items such as `If the learner says “It’s,” ...` when the relevant word is optional.
+
+For `PRACTICE_TYPE: pronunciation`, author pronunciation and articulation items only. Do not use the focus to test grammar, word order, semantic relevance, or communicative naturalness. General scripted completeness may still be handled by the evaluator, but it is not a pronunciation focus. For `open` and `translation`, focus items may cover meaning, relevance, grammar, vocabulary, target structures, and conditional pronunciation checks that the current evaluator can support.
+
+Use a single `FOCUS` label followed by one item per paragraph. The first item may appear on the same line as the label. Use bracketed priority markers without a colon so the current parser treats subsequent items as continuations of the active field:
+
+```text
+FOCUS: [P1] In “are,” check that the /r/ is pronounced and that the word does not sound like “ah.”
+[P2] In “how,” check that the initial /h/ is clearly pronounced.
+[P2] In “you,” check that the vowel is clearly articulated.
+```
+
+Do not use standalone `P1:`, `P2:`, or `P3:` labels in the current authored document. The parser interprets all-uppercase text followed by a colon as a structural field label. Parser schema v3 validates the bracketed form and emits both ordered structured priority data and the combined focus text used for backward compatibility.
 
 Example:
 
 ```text
-PRACTICE_TYPE: pronunciation
-
-FOCUS:
-Evaluate speech accuracy for present continuous tense
-(Subject + am/is/are + verb-ing).
-
-1. Structure Check:
-Verify the correct auxiliary verb follows the subject and the main
-verb includes the -ing suffix.
-
-2. Thai Transfer Errors:
-Watch for missing be verbs or missing -ing endings.
-
-3. Word Order:
-Ensure correct affirmative, negative, or interrogative syntax.
-
-4. Pronunciation Focus:
-Verify clear final /ɪŋ/ sounds and linked contractions.
+PRACTICE_TYPE: open
+QUESTION: 1
+OPEN_ENGLISH: How old are you?
+OPEN_THAI: คุณอายุเท่าไหร่คะ?
+EXAMPLE_ENGLISH: I’m 34.
+EXAMPLE_THAI: ฉันอายุ 34 ปี
+FOCUS: [P1] Check that the response gives an age using a natural structure such as “I’m 34” or “I am 34.”
+[P1] If the learner uses “I’m,” check that the final /m/ is pronounced and that it does not sound like “I” followed directly by the age.
 ```
 
-A centralized error taxonomy is not required for V1. Detailed per-exercise `FOCUS` instructions are sufficient. A canonical library can be introduced later for analytics, personalization, cross-lesson tracking, or standardized internal naming.
+A legacy practice-level `FOCUS` remains accepted and is inherited by questions that do not define their own focus. New content must use question-level `FOCUS`. The importer stores the effective focus on each question and retains a combined practice-level value only for database compatibility and rollback.
+
+Do not author learner-facing `FOCUS` checks for intonation, pitch contour, tonal transfer, rhythm, prosody, word or syllable stress, glottalization, or precise segment duration. Those signals are not reliable enough for current learner decisions. Do not ask the evaluator to distinguish accent quality, native-likeness, emotion, or subtle sound differences that Azure does not support reliably. A centralized error taxonomy is not required for authored focus fields; the existing runtime Thai-transfer catalog supplies secondary pronunciation checks. Authors must nevertheless repeat an applicable issue in every question where it should receive authored priority rather than relying on its appearance in a previous question.
 
 ### Authored document format and parser
 
@@ -144,7 +167,6 @@ Recognized structural labels include:
 ```text
 LESSON
 PRACTICE_TYPE
-FOCUS
 TIP_ENGLISH
 TIP_THAI
 QUESTION
@@ -162,9 +184,12 @@ EXAMPLE_THAI
 TRANSLATE_ENGLISH
 TRANSLATE_THAI
 ANSWER_1, ANSWER_2, ...
+FOCUS
 ```
 
-`FOCUS` may span several paragraphs. Numbered rubric paragraphs are appended to the active `FOCUS` field until the next recognized label. Translation answers use dynamic `ANSWER_n` labels and must be numbered from 1.
+`FOCUS` belongs to the active question and may span several paragraphs. A `FOCUS` placed after `PRACTICE_TYPE` but before the first `QUESTION` is treated as a legacy practice-level default. Translation answers use dynamic `ANSWER_n` labels and must be numbered from 1. `open_chp`, `CHP_ENGLISH`, `CHP_THAI`, `FOR_EXAMPLE_ENG`, and `FOR_EXAMPLE_TH` are normalized into the ordinary `open` question contract.
+
+Ranked focus items use `[P1]`, `[P2]`, and `[P3]` markers within that multiline `FOCUS` value. These markers are content, not structural labels. Parser schema v3 requires a valid marker on every new question-level item, emits an ordered `focus_items` collection, and continues to generate the combined focus text for backward compatibility. A legacy unranked practice-level focus is normalized to one P1 item when inherited by a question.
 
 The normalized hierarchy is:
 
@@ -238,7 +263,42 @@ Do not attempt custom model training for V1. First collect a consented benchmark
 
 ### Pronunciation and repeat-after-me
 
-Use Azure Speech scripted Pronunciation Assessment with the exact English target sentence as `ReferenceText`. Request detailed recognition plus overall, word, and phoneme scoring. The initial request should use HundredMark scoring, word/phoneme granularity, and miscue reporting; prosody is optional and must not affect pass/fail until benchmarked.
+Use an unbiased Azure Speech phoneme assessment without `ReferenceText`, followed by scripted Pronunciation Assessment with the exact English target sentence as `ReferenceText`. A clearly diverged or unrelated eligible short-P1 attempt may stop after the unbiased call. Request detailed recognition plus overall, word, and phoneme scoring. The scripted and open-answer assessment requests use HundredMark scoring, phoneme granularity, and `EnableProsodyAssessment: "True"`; scripted attempts also enable miscue reporting. Parse and retain Azure's prosody score plus word-level break and intonation evidence as diagnostic evidence, but do not let aggregate prosody affect pass/fail until benchmarked. Admin policy diagnostics normalize break confidences above Azure's provisional `0.75` threshold and monotone evidence only for utterances with at least five assessed words; they mark future benchmark candidates without creating learner feedback. The unbiased scripted pass deliberately omits prosody.
+
+#### Short-P1 force-alignment gate
+
+Reference-guided assessment can force-align a materially different recording onto the supplied sentence and report expected phonemes as present. The general target aligner therefore gives every scripted pronunciation attempt a no-reference pass. For very short, high-priority items, the backend can also use that pass as an early gate and skip the scripted call when the evidence is already decisive. The early gate runs only when all of the following are true:
+
+- the exercise is `pronunciation`;
+- the reference contains three lexical words or fewer;
+- at least one P1 pronunciation focus identifies exactly one target word and an expected `/IPA/` segment that can be parsed safely from the authored instruction.
+
+The gate converts those safe P1 conventions into internal structured targets containing the target word, reference position, expected segment, initial/medial/final placement, focus order, and source instruction. It does not maintain word-specific lists of forbidden realizations. A short P1 item that cannot be parsed unambiguously skips this early gate and continues through the general target aligner rather than being guessed.
+
+For an eligible attempt:
+
+1. Normalize the learner audio once.
+2. Request Azure unscripted Pronunciation Assessment with no `ReferenceText`, phoneme granularity, and NBest phonemes. Prosody is disabled for this gate because it is not used in the decision and would add an unnecessary paid add-on.
+3. Expand common contractions only inside the gate's alignment representation, such as `you’re → you + are`, while retaining the original Azure word and phoneme indexes. This does not rewrite curriculum text, learner-visible text, accepted answers, or the `ReferenceText` sent to scripted assessment. It lets the gate detect that a learner produced only `you` while still aligning an explicitly spoken `you are` without inventing a missing contraction part.
+4. Align the short recognized word sequence with the target and compare Azure's unbiased leading phoneme sequence with each expected P1 segment at its authored position.
+5. Only request the ordinary detailed scripted assessment when the unbiased result is plausible or ambiguous. Clear focused divergence and unrelated speech stop after the first call.
+
+Gate decisions are:
+
+- **Plausible:** every parseable P1 segment is present at its expected position. Continue to scripted assessment; both stages must allow the answer before returning `pass`.
+- **Diverged:** a focused contraction part, word, or expected P1 segment is clearly missing or substituted. Skip scripted assessment and return focused `Not quite` feedback, displaying up to two affected words.
+- **Unrelated:** the expanded unbiased transcript has provisional text similarity below `0.45` and does not resemble the target. Skip scripted assessment and use the separate whole-sentence mismatch message instead of pretending a particular P1 sound caused the failure.
+- **Ambiguous:** recognition confidence, word alignment, or unbiased phoneme evidence cannot decide safely. Run scripted assessment. A supported scripted correction remains actionable, but a scripted pass cannot override the uncertainty; return `unclear_audio` and ask for a new recording.
+
+The three-word limit and `0.45` unrelated-similarity threshold are initial benchmark constants. Four-word and longer prompts, short prompts without P1 focus, and P1 instructions without safely parseable target metadata skip the early gate but still use the general target aligner below. Diagnostics record eligibility, decision, reason, unbiased transcript and confidence, text similarity, per-target phoneme evidence, request count, combined billed duration, and separate unbiased/scripted raw responses. The gate is deterministic and never calls Gemini.
+
+#### General target-aware phoneme alignment
+
+Every scripted pronunciation attempt that reaches reference-guided assessment also runs the versioned target aligner in `backend/app/speaking_coach_target_alignment.py`. Tunable costs and thresholds live in `backend/app/speaking_coach_alignment_policy.json`; the algorithm and validation remain in code.
+
+The aligner flattens Azure's unbiased leading phoneme candidates across recognized word boundaries and compares them with the ordered target phonemes returned by the scripted assessment. Exact matches cost nothing. Locally supported catalog substitutions, a target phoneme scoring at least `75` and within `25` points of Azure's leading candidate, and `/s/ + vowel + consonant/` cluster epenthesis receive smaller costs. Ordinary substitutions, insertions, and deletions receive full costs. It produces a normalized score, target coverage, unsupported-change count, ordered operation trace, and one of `target_like`, `ambiguous`, or `unrelated`. Cluster epenthesis may support sentence reconstruction at any measured duration, but it becomes learner-facing coaching only when the inserted vowel lasts at least 80 ms; shorter segments remain diagnostic evidence.
+
+Target-like cross-word findings may create deterministic word-level coaching, such as identifying that Azure's `use / a / map` phoneme stream resembles an attempt at `you are smart` with an inserted vowel in `/sm/` and an uncertain final consonant. The aligner does not invent missing words. Ambiguous alignment cannot be converted into a pass by the scripted result, and unrelated alignment prevents a scripted pass. Admin diagnostics include the policy version and complete score breakdown. The two captured `Use a map` and `You some app` failures are retained as regression fixtures.
 
 The backend considers:
 
@@ -253,17 +313,20 @@ The currently implemented pre-benchmark rules are provisional and intentionally 
 
 - A supplied recognition confidence below `0.35`, a non-success recognition status, or no usable transcript produces `unclear_audio`.
 - A focus-related word is eligible when its word accuracy is at or below `70`.
-- A focus-related phoneme is eligible at or below `45` only when at least two independent Azure signals corroborate it: syllable accuracy at or below `50`, word accuracy at or below `70`, completeness below `85`, or Azure's leading phoneme candidate not matching the expected phoneme.
+- A focus-related phoneme is eligible at or below `45` when at least two Azure support signals corroborate it: syllable accuracy at or below `50`, word accuracy at or below `70`, completeness below `85`, or Azure's leading phoneme candidate not matching the expected phoneme. It is also eligible through the strong local-substitution route described below, which is evaluated as one compound observation rather than double-counting related NBest facts as independent signals.
+- In scripted assessment, an expected phoneme at or below `45` is independently eligible when Azure's leading NBest candidate is a different phoneme scoring at least `90` and either the expected phoneme has a returned candidate score at least 30 points below the leader or the expected phoneme is absent from an NBest list containing at least three alternatives. This applies to both authored-focus and fallback words. `FOCUS` controls ranking and coaching specificity after eligibility; it need not predict the substitution. The rule is not automatically applied to unrestricted open speech, whose reference and alignment assumptions differ.
+- A strong word-final consonant mismatch is independently eligible when the expected final consonant scores at or below `15`, Azure's leading candidate is a different sound scoring at least `90`, and the expected sound is not the leading candidate. This narrow exception applies both to focus and fallback words because Azure can assign a high aggregate word score and `ErrorType: None` while its own final-phoneme evidence clearly shows deletion or substitution.
+- A final rhotic represented as a compound phoneme, such as `/ʊɹ/`, `/ɔɹ/`, `/ɑɹ/`, `/ɚ/`, or `/ɝ/`, is eligible through the `r_l_confusion` catalog rule when the aligned word-final segment has a vowel-only leading candidate scoring at least `90` and no credible `/r/` or `/ɹ/` candidate. This is a general final-r rule, not a word-specific `your` validator.
 - An off-focus word is severe enough to display when its word accuracy is at or below `45` and Azure also reports `Mispronunciation` or a phoneme at or below `15`.
 - An overall accuracy score at or below `45` is a fallback retry signal only when no clearer word-level issue exists.
 - Completeness below `70` is a fallback retry signal when no more specific supported issue exists. Completeness may also corroborate a focus-related phoneme issue.
 - Azure `Omission` and `Insertion` retain those exact documented meanings.
-- Transcript text disagreement with the reference is diagnostic only and cannot independently produce a retry.
-- The first displayed issue is the strongest supported `FOCUS` issue when one exists. One severe off-focus issue is also included when available, with two displayed issues maximum.
+- Scripted transcript text disagreement with the reference is diagnostic only and cannot independently produce a retry. The separate short-P1 gate may reject a clearly unrelated no-reference transcript or a locally corroborated P1 phoneme divergence under the rules above.
+- Display selection is capped at two. After the normal evidence thresholds have determined eligibility, authored findings are ordered by P1, P2, and P3, then by their order in the source document. It selects the highest-ranked supported authored issue first, then the strongest severe off-focus issue when available, then fills any remaining slot from the next supported candidate. A fallback issue is therefore not hidden merely because a focus issue exists, and priority never makes weak evidence eligible.
 
 These values are initial engineering thresholds, not production acceptance thresholds. They must be calibrated against the labeled Thai-speaker benchmark.
 
-The transcript is diagnostic evidence, not an exact-answer oracle. A text mismatch by itself cannot fail an answer, and Azure's `Omission`/`Insertion` labels must retain their documented meaning rather than being rewritten as unsupported phonetic claims.
+The scripted transcript is diagnostic evidence, not an exact-answer oracle. A scripted text mismatch by itself cannot fail an answer, and Azure's `Omission`/`Insertion` labels must retain their documented meaning rather than being rewritten as unsupported phonetic claims. The scoped gate is different: it uses a separate no-reference request, whole-utterance resemblance only to separate unrelated speech, and localized phoneme evidence to support P1 corrections.
 
 Gemini is not called in the normal pronunciation path. Feedback comes from deterministic English/Thai templates populated with high-confidence Azure results. This keeps the fastest and most frequent exercise inexpensive and prevents a generative model from inventing pronunciation diagnoses.
 
@@ -280,7 +343,7 @@ This is a content and structure error even if the remaining words are pronounced
 
 Open-ended answers must not use exact-string matching. Multiple relevant responses may be valid.
 
-Azure first performs detailed English speech recognition. The backend passes only the transcript, useful alternatives, recognition confidence, prompt, examples, private `FOCUS`, and prior retry context to Gemini. Raw audio is not sent to Gemini.
+Azure performs unscripted Pronunciation Assessment with phoneme granularity and no reference text in the same request used to recognize an open answer. The backend passes only the transcript, useful alternatives, recognition confidence, prompt, examples, private combined `FOCUS`, ordered `focus_items`, and prior retry context to Gemini. Raw audio and Azure phoneme evidence are not sent to Gemini; deterministic backend rules own pronunciation claims.
 
 Gemini considers:
 
@@ -291,7 +354,19 @@ Gemini considers:
 - Vocabulary
 - Whether a correction is material enough to justify a retry
 
-The exercise `FOCUS` determines which dimensions receive the highest priority. Gemini returns validated structured language findings and bilingual feedback, but the backend derives the final status and caps displayed issues. Azure recognition failure may produce `unclear_audio`; Gemini may not turn transcript uncertainty into pronunciation criticism.
+The exercise `focus_items` determine which dimensions receive the highest priority. Gemini may apply P1, P2, P3, and same-tier document ordering only after a language finding is supported by the text evidence. It returns validated structured language findings and bilingual feedback, but the backend derives the final status and caps displayed issues. Azure recognition failure may produce `unclear_audio`; Gemini may not turn transcript uncertainty into pronunciation criticism.
+
+The unscripted acoustic policy uses the versioned, machine-readable Thai-English transfer catalog in `backend/app/speaking_coach_thai_patterns.json`, with research rationale in `backend/SPEAKING_COACH_THAI_PRONUNCIATION_REFERENCE.md`. Catalog v3 consolidates the expanded Thai-English issue sheet into 24 non-duplicative patterns, preserving stable IDs for the original families and adding distinct checks for grammatical endings, final clusters, specific vowel contrasts, connected speech, final SH-to-stop substitution, and corroborated post-vocalic R deletion. It operates independently of authored `FOCUS` and can surface supported pronunciation risks as fallback findings. Curriculum authors must still repeat a common risk in every question where it should receive authored priority. A phoneme score at or below `45` may produce a pronunciation issue when Azure's leading spoken-phoneme candidate is a cataloged transfer substitution for the expected phoneme. For `/s/ + consonant/` clusters, a consonant score through `60` may qualify when the second-ranked vowel scores at least `80` and at least two timing/word/syllable signals corroborate insertion. A narrow high-confidence path also accepts a central vowel scoring at least `90` within 10 points of the leading consonant when the aligned segment lasts at least 200 ms. A phoneme at or below `30` may also produce a generic word-level correction when the leading candidate differs and the word is marked as a mispronunciation or has accuracy at or below `65`. A supported catalog-specific finding replaces a generic finding for the same word. The authored pronunciation `FOCUS` raises priority when it names the affected word or sound; grammar-only references to contractions do not create pronunciation focus.
+
+The first contextual cluster rule detects an `/s/ + vowel + /t/` spoken-phoneme sequence when the prompt, examples, target answer, or `FOCUS` contains an expected word beginning with `st`, such as `study` or `studying`. It then teaches the learner to keep `/s/` and `/t/` together without inserting a vowel. This combines a reusable Thai-transfer pattern with exercise context without treating the pattern itself as proof.
+
+Contextual `st-` evidence is duration-sensitive: an aligned inserted vowel below 80 ms is retained only in admin diagnostics, while longer insertions receive progressively stronger evidence instead of a fixed score. When Azure turns a supported within-cluster sound into a spurious recognized word immediately before the intended `st-` word, the backend preserves the raw transcript for diagnostics but removes that artifact from the text used for deterministic focus validation and Gemini language evaluation. Pronunciation evidence must not manufacture a missing-grammar finding.
+
+Objective authored language requirements also receive deterministic validation. When `FOCUS` requires present continuous and Azure confidence is at least `0.55`, the recognized answer must contain `am/is/are` or a contraction followed by a verb ending in `-ing`; Gemini cannot override an absent required structure with a pass. Open and translation answers display at most two findings. A supported `FOCUS` issue ranks first, followed by the strongest independently supported catalog or language issue. Semantically equivalent deterministic and Gemini findings are deduplicated before this limit is applied.
+
+Each catalog match has separate internal `evidence_score` and `priority_score` values from 0–100. Evidence strength comes only from the current Azure response and contextual alignment; catalog prevalence never increases it. Priority adds authored `FOCUS` and the catalog's pedagogical weight only after evidence is sufficient. Scores, pattern IDs, phoneme candidates, syllables, offsets, and durations remain in admin diagnostics and are not exposed as a learner grade. Learner-facing feedback remains word-level.
+
+Low recognition confidence still blocks Gemini, but a strongly supported acoustic finding may produce a pronunciation-only retry. Otherwise it produces `unclear_audio`. Azure transcript guesses for open and translation answers remain available only in admin diagnostics because a best-effort recognition hypothesis is evidence for the checker, not a trustworthy learner-facing transcript. Open-answer corrections are labeled **A clearer version** rather than **Corrected answer**; pronunciation and translation retain their existing correction-label presentation.
 
 ### Translation
 
@@ -307,23 +382,25 @@ Acceptable:
 - My stomach hurts.
 ```
 
-Azure first transcribes the English response. Gemini receives the transcript and alternatives, the Thai prompt, accepted target answers, private `FOCUS`, examples, and prior retry context. It judges semantic equivalence and natural English rather than exact wording.
+Azure first performs unscripted Pronunciation Assessment and recognition without a reference sentence, using the same Thai-transfer acoustic policy as open speaking. When accepted target answers are available and the audio is usable, the backend chooses the expanded accepted variant with the most spoken words, makes a second reference-guided request to obtain its canonical phoneme sequence, and runs the general target-aware aligner against the original unbiased phoneme stream. This reference is an acoustic hypothesis, not an exact-string requirement: an ambiguous or unrelated alignment leaves the original transcript for Gemini, so other natural translations remain eligible. A target-like alignment replaces Azure's provisional text only inside language evaluation and may add deterministic pronunciation coaching. Raw and reconstructed forms remain visible in admin diagnostics; neither transcript is shown to the learner.
 
-Gemini may identify meaning, grammar, vocabulary, or target-usage problems. It may not assess pronunciation. The backend validates the response and owns the final pass/retry decision.
+Gemini receives the selected evaluation transcript and alternatives, the Thai prompt, all accepted target answers, private `FOCUS`, examples, and prior retry context. It judges semantic equivalence and natural English rather than exact wording. For example, if Azure recognizes `Use a map` but the cross-word phoneme stream strongly aligns to `You are smart` through supported Thai-transfer patterns, Gemini evaluates the reconstructed target-like hypothesis rather than treating `Use a map` as the learner's intended meaning.
+
+Gemini may identify meaning, grammar, vocabulary, or target-usage problems. It may not assess pronunciation. The backend combines validated language findings with independently supported Azure acoustic findings, prioritizes material meaning and `FOCUS` problems, applies the shared retry policy, and owns the final status. Recognition uncertainty favors `unclear_audio`, and the learner-facing response omits Azure's transcript guess.
 
 ### Provider-use matrix
 
 | Exercise type | Azure input and output | Gemini input and output | Backend decision |
 | --- | --- | --- | --- |
-| Pronunciation | WAV + exact target; transcript, confidence, overall/word/phoneme scores, miscues | Normally not called | Conservative acoustic thresholds and authored focus |
-| Open | WAV; transcript, alternatives, confidence | Text context; relevance, grammar, vocabulary, target usage, bilingual feedback | Validates materiality and chooses status |
-| Translation | WAV; transcript, alternatives, confidence | Text context; semantic equivalence, grammar, naturalness, bilingual feedback | Validates materiality and chooses status |
+| Pronunciation | Unbiased WAV assessment plus exact-target scripted assessment; provisional transcript, leading candidates, target phonemes, scores, and miscues | Normally not called | Target-aware cross-word alignment, conservative acoustic thresholds, and authored focus |
+| Open | WAV without reference text; transcript, alternatives, confidence, overall/word/syllable/phoneme scores and spoken-phoneme candidates | Text context; relevance, grammar, vocabulary, target usage, bilingual feedback | Combines conservative Thai-transfer acoustic rules with validated language materiality |
+| Translation | Unbiased WAV assessment plus one expanded accepted-answer reference assessment when usable; provisional transcript, target phonemes, scores, and candidates | Reconstructed target-like text or the original transcript when alignment is ambiguous/unrelated; semantic equivalence, grammar, naturalness, bilingual feedback | Target-aware arbitration before combining acoustic coaching with validated translation materiality |
 
 Gemini remains useful because Azure Speech provides speech recognition and acoustic scoring, not curriculum-aware semantic grading and tailored bilingual language feedback. The Microsoft language-learning demo combines several products, including GPT-4o; the application does not need to reproduce that bundle or pay for GPT-4o when low-cost text-only Gemini is sufficient.
 
 ## Attempt and Retry Rules
 
-During evaluator testing, follow-up retries are unlimited so the same question can be exercised repeatedly. The schema continues to use instructional attempt `1` for the initial answer and `2` for every follow-up recording. Completed questions may also be reopened from the admin test path.
+During evaluator testing, blocking failures may still be exercised repeatedly. Coaching-only accent findings now request at most one retry: the schema uses instructional attempt `1` for the initial answer and `2` for the follow-up, after which the question completes. Completed questions may still be reopened from the admin test path.
 
 Before production, restore the intended learner policy below or replace it with an explicitly tested policy. The original product target is a maximum of two instructional attempts:
 
@@ -335,21 +412,16 @@ Before production, restore the intended learner policy below or replace it with 
 ### Attempt 2
 
 - Primarily re-check the issues identified during Attempt 1.
-- If corrected, return `pass`, show positive feedback, and continue.
-- If still incorrect, return `continue_with_correction`, show the correction, and continue anyway.
+- If a coaching issue resolves or its composite evidence score improves by at least five points and no new supported issue appears, return `pass`, show positive feedback, and continue.
+- If a new supported issue appears, return `continue_with_correction`, show the new or strongest current correction, and continue anyway. Record new issues separately from resolved and improved retry targets so improvement cannot hide a newly introduced problem.
+- If a coaching issue remains without measurable improvement, return `continue_with_correction`, show the correction, and continue anyway.
 - Do not trap the learner in an exercise.
 
-Attempt 2 may detect new issues internally, but it should surface a new issue only if it is high severity, such as:
-
-- The meaning changed materially
-- The response became unintelligible
-- A major target-language failure appeared
-
-The principal Attempt 2 question is: did the learner fix the issue they were asked to fix?
+Attempt 2 still primarily asks whether the learner fixed the requested issue, but every newly surfaced correction must already satisfy the ordinary evidence thresholds. New supported issues do not trigger a third attempt; they use `continue_with_correction` so the learner receives accurate feedback without becoming trapped in the exercise.
 
 ## Feedback Rules
 
-The evaluator may detect several issues, but the learner normally sees only one or two. Three displayed issues are allowed only when clearly justified.
+The evaluator may detect several issues internally, but the learner sees at most two.
 
 Prioritize feedback in this order:
 
@@ -472,7 +544,7 @@ Backend flow:
 2. Load the speaking exercise.
 3. Load `PRACTICE_TYPE`, `FOCUS`, prompt, and target data.
 4. Load the prior attempt when evaluating Attempt 2.
-5. Validate the MIME type and normalize supported input to mono, 16 kHz, 16-bit PCM WAV.
+5. Validate the upload type and bytes. Pass through an already compatible mono 16 kHz, 16-bit PCM WAV; otherwise normalize supported input to that format with bounded FFmpeg.
 6. Call Azure Speech with a server-side API key.
 7. For pronunciation, parse Azure Pronunciation Assessment and apply conservative deterministic rules.
 8. For open or translation, construct a text-only Gemini request from validated Azure text and private curriculum context.
@@ -550,7 +622,7 @@ The admin-only profile entry point opens:
 /speaking-coach?lesson=4.1
 ```
 
-The test route may switch between test Lessons 4.1 and 4.9. It uses the authenticated learner-facing curriculum endpoint and supports:
+The test route uses an admin-only `GET /api/speaking/lessons` catalog to discover lessons with active speaking content, then groups them into lightweight level and lesson selectors. It loads the selected lesson through the authenticated learner-facing curriculum endpoint and supports:
 
 - All three current practice types
 - Authored English and Thai prompts
@@ -559,25 +631,144 @@ The test route may switch between test Lessons 4.1 and 4.9. It uses the authenti
 - No Pailin audio for translation questions
 - Microphone permission handling
 - Local recording, stop, replay, and re-record controls
+- A fresh native recorder and output URL for every initial or retry recording; a stopped WAV recorder is never reused after its file has been opened for review playback
 - A review-before-submission state
 - Real evaluating, correct, retry, final-correction, and unclear-audio states
+- The shared pulsing Pailin loading state while the lesson or evaluator response is loading
 - Type-appropriate playback labels on feedback screens
 - Bullet-point bilingual issue feedback and an annotated target sentence for pronunciation retries
-- Development-console evaluator diagnostics for authenticated admins. The response includes sanitized provider metadata and the raw Azure JSON result, but excludes audio, credentials, signed URLs, and private evaluator context. Non-admin responses omit this field.
+- Development-console evaluator diagnostics for authenticated admins. The response includes sanitized provider metadata, the raw Azure JSON result, frontend round-trip timing, backend stage timings, and evaluator substage timings, but excludes audio, credentials, signed URLs, and private evaluator context. Non-admin responses omit this field.
 
 The current `Submit recording` action now:
 
 - Creates or resumes an authenticated lesson-scoped speaking session
 - Uploads learner audio to private temporary storage
-- Preserves the recording's real MIME type and normalizes provider-bound audio to mono 16 kHz PCM WAV
-- Sends the normalized audio to Azure Speech for every exercise
-- Uses scripted Azure Pronunciation Assessment and deterministic backend feedback for pronunciation exercises
+- Canonicalizes common WAV MIME aliases, safely recognizes mislabeled WAV uploads by their `RIFF`/`WAVE` signature, and never trusts a MIME label alone
+- Passes validated Azure-ready iOS WAV through without conversion and normalizes other provider-bound formats to mono 16 kHz PCM WAV
+- Sends pronunciation audio through a no-reference phoneme pass first; clear short-P1 divergence may stop early, while other attempts continue to scripted assessment
+- Uses target-aware cross-word phoneme alignment, scripted Azure Pronunciation Assessment, and deterministic backend feedback for pronunciation exercises
+- Uses unscripted Azure Pronunciation Assessment and the shared Thai-transfer acoustic policy for open and translation exercises
 - Sends only Azure transcripts, alternatives, confidence, and private curriculum context to `gemini-3.5-flash-lite` for open and translation exercises
 - Validates typed provider responses and a provider-independent structured evaluation response
 - Persists attempts, feedback, provider metadata, and progress
-- Allows unlimited follow-up retries during evaluator testing while preserving unclear-audio retries
+- Allows repeated admin testing while coaching-only learner attempts complete after one follow-up; unclear-audio retries remain separate
 
 The route remains admin-only while the Azure hybrid evaluator is benchmarked. The backend requires server-side `AZURE_API_KEY`, `AZURE_SPEECH_REGION`, and `GEMINI_API_KEY` values. No provider key is required in the mobile application.
+
+## Frontend Design Reference
+
+This section documents the current Speaking Coach frontend screens, behavior, and implementation decisions.
+
+### Shared development controls
+
+- During standalone Speaking Coach development, keep the existing lesson selector controls (`1.1`, `1.2`, and so on) at the top of every screen being designed.
+- These controls are temporary development/navigation tools and are not part of the supplied screen designs.
+- The Speaking Coach flow will eventually be embedded in the actual lesson page, at which point these temporary controls can be removed.
+
+### Asset location
+
+- Speaking Coach artwork lives in `assets/images/speaking-coach/`.
+- Use `pailin-time-to-speak.webp` for the welcome-page Pailin illustration.
+- Additional artwork and icons will be added to this folder. Do not create final substitutes for missing assets without checking the folder first.
+
+### Welcome page: “Time to speak!”
+
+#### Purpose
+
+Introduce the speaking session, show the two practice stages included in the selected lesson, remind the learner to speak somewhere quiet, and provide one clear entry point into the session.
+
+#### Page structure
+
+From top to bottom, the screenshot shows:
+
+1. The temporary lesson selector controls, above the supplied design while the feature is developed in isolation.
+2. A close button (`×`) aligned to the upper-right of the content area.
+3. The `pailin-time-to-speak.webp` illustration, centered.
+4. Centered heading: `Time to speak!`
+5. Centered supporting copy: `Put what you learned into practice by speaking out loud.`
+6. A two-step vertical practice list. Each step is a bordered, rounded card with a numbered blue circle overlapping its left edge. The cards are visually separate, with no connector line between them.
+7. A pale-green reminder banner with a lightbulb icon and the text: `Make sure you’re in a quiet place and speak clearly!`
+8. A full-width blue primary button with a microphone icon and the label `START SPEAKING!` The dark lower edge/shadow gives the button a pressed, dimensional treatment.
+
+The reminder and primary action sit toward the bottom of the viewport. Preserve comfortable safe-area spacing on mobile and allow the main content to scroll on shorter screens rather than compressing or clipping it.
+
+#### Practice cards
+
+Step 1 is consistent across the shown lesson variants:
+
+- Title: `PRONUNCIATION PRACTICE`
+- Description: `Listen to the sentences and repeat. Focus on getting your pronunciation right!`
+- Visual: `pronunciation-practice.png`
+
+Step 2 is selected from the practice types available in the chosen lesson:
+
+- For `open`: title `CONVERSATION PRACTICE`; description `Answer the questions using what you’ve learned! Use the lesson focus in your answers.`; `conversation-practice.png`.
+- For `translate`: title `THAI TO ENGLISH`; description `Translate the sentences from Thai to English, then speak them out loud!`; `thai-to-english.png`.
+
+If a lesson includes Conversation Practice (`open`), show Conversation as step 2 even when the lesson also includes Thai to English. If the lesson has no Conversation Practice, show Thai to English as step 2. Recalculate this card whenever the temporary lesson selector changes the selected lesson.
+
+The left screenshot is the `pronunciation + open` variant. The right screenshot is the `pronunciation + translate` variant.
+
+#### Initial interactions
+
+- Close button: exits the Speaking Coach welcome flow and returns to the containing lesson experience.
+- `START SPEAKING!`: starts a fresh session at question 1 of step 1, Pronunciation Practice, for the currently selected lesson.
+- The cards communicate the session sequence; the screenshot does not establish them as separate navigation buttons, so treat them as non-interactive until later designs specify otherwise.
+- The temporary lesson selector changes which lesson content and step-2 variant the standalone frontend previews.
+
+#### Visual direction from the screenshot
+
+- Mobile-first, single-column layout.
+- Very light cool-gray page background with white cards.
+- Dark charcoal text and thin dark card outlines.
+- Light-blue numbered circles; the practice cards have no connector line between them.
+- Bright blue primary action, pale-green reminder, rounded corners, and generous vertical spacing.
+- Bold, uppercase labels for practice titles and the primary action; friendly rounded typography elsewhere.
+- Exact spacing, type sizes, colors, radii, and icon dimensions remain provisional until implementation and comparison against the source design.
+
+### Pronunciation Practice flow
+
+Pronunciation Practice uses the existing two-attempt recording and evaluation flow with a dedicated visual presentation.
+
+#### Shared elements
+
+- Question-progress dots and the `PRONUNCIATION PRACTICE` label appear at the top of the practice content.
+- The temporary level and lesson selectors remain above the supplied design during standalone development.
+- Every question displays Pailin, the English target sentence, its Thai translation when available, and model audio.
+- Bookmark icons and the `Bookmark to practice later!` action are intentionally omitted for now.
+
+#### States
+
+1. **Ready:** show `pailin-do-the-task.webp`, `Listen, then repeat!`, the target sentence, Pailin playback, a `YOUR TURN!` recording panel, and `Try 1 of 2`.
+2. **Recording:** replace the microphone with the red stop control and show a live recording timer.
+3. **Review:** allow playback of the learner's recording, submission for evaluation, or recording again. Recording again does not consume a submitted attempt.
+4. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, Pailin and learner playback, positive feedback, and `CONTINUE`.
+5. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, Pailin and learner playback, focused correction feedback, and a `TRY AGAIN!` panel marked `Try 2 of 2`. When the evaluator returns multiple `displayed_issues`, show every returned issue beneath its summary rather than truncating the list to the first issue.
+6. **Second submitted attempt needs work:** keep the final `Not quite!` correction state, remove further recording controls, and show `CONTINUE`.
+
+`SKIP →` remains available while the learner can record or retry. `CONTINUE` advances after a correct result or after final feedback on the second submitted attempt.
+
+### Thai-to-English flow
+
+Thai-to-English reuses the same progress dots, Pailin character states, speech-bubble geometry, two-attempt recording lifecycle, and evaluator-driven result states as Pronunciation Practice.
+
+#### Shared elements
+
+- The practice label is `THAI TO ENGLISH` and Pailin's initial instruction is `Say it in English!`.
+- The prompt card displays the authored Thai sentence and a `Thai → English` direction pill.
+- For temporary checker testing, the admin preview requests a single `test_answer_en` and displays it directly beneath the Thai prompt. The API only supplies this field to authenticated admins who explicitly request it; normal learner lesson responses continue to omit answers.
+- Bookmark controls are omitted.
+- Learner feedback shows a playback control for the recorded answer, the evaluator summary, and every returned `displayed_issue`. It does not display Azure's recognized transcript.
+
+#### States
+
+1. **Ready:** show the Thai prompt and a `TRANSLATE THE SENTENCE` recording panel marked `Try 1 of 2`.
+2. **Recording and review:** reuse the stop, timer, playback, submit, and record-again behavior from Pronunciation Practice.
+3. **Correct:** show the shared green `Correct!` Pailin state, learner-recording playback, positive feedback, the reference answer, and `CONTINUE`.
+4. **First submitted attempt needs work:** show the shared red `Not quite!` Pailin state, learner-recording playback, all returned corrections, and a `TRY AGAIN!` panel marked `Try 2 of 2`.
+5. **Second submitted attempt needs work:** show final correction feedback and `CONTINUE` without another recording attempt.
+
+The design includes a `HEAR PAILIN` control for the reference answer. Translation questions currently have no reference-answer audio URL in the application contract, so the control remains visibly disabled until prerecorded answer audio is supplied by the backend. Do not synthesize or substitute a different voice.
 
 ## Supabase Schema
 
@@ -604,7 +795,6 @@ source_document_id
 source tab and paragraph metadata
 practice_type
 source_practice_type
-focus
 tip_en
 tip_th
 sort_order
@@ -612,7 +802,7 @@ content_hash
 is_active
 ```
 
-`practice_type` is constrained to `pronunciation`, `open`, or `translation`. `FOCUS` is private evaluator configuration and must not be returned directly to the mobile application.
+`practice_type` is constrained to `pronunciation`, `open`, or `translation`. The practice-level `focus` value is retained as a legacy fallback and combined compatibility projection; evaluation uses the question-level focus when present.
 
 ### `speaking_coach_questions`
 
@@ -627,12 +817,14 @@ prompt_en
 prompt_th
 target_answers
 examples
+focus
+focus_items
 prompt_audio_key
 content_hash
 is_active
 ```
 
-The normalized `prompt`, `target_answers`, and `examples` shape supports every current practice type. Target answers are private evaluator references and must not be exposed through direct client queries.
+The normalized `prompt`, `target_answers`, `examples`, question-level `focus`, and ordered `focus_items` shape supports every current practice type. `focus_items` is a validated JSONB array whose entries contain `priority` and `instruction`; the importer also retains the combined `focus` projection for compatibility. The evaluator-only question query loads both fields, while learner-facing queries select neither. Focus data and target answers are private evaluator references and must not be exposed through direct client queries.
 
 ### `user_speaking_coach_sessions`
 
@@ -644,9 +836,11 @@ Stores one learner run through the speaking-coach portion of an entire lesson. S
 
 Only one active session is allowed per user and lesson. A later repeat of a completed lesson creates a new session.
 
+The admin Speaking Coach test screen exposes a persistent **New session** control. It force-creates a fresh session, abandons the prior active session through the backend session API, clears local attempt/evaluation state, and returns to the fresh session's current question (normally question one). Restarting or reloading the app alone resumes the existing active session and is not a testing reset.
+
 ### `user_speaking_coach_attempts`
 
-Stores every submitted recording and its evaluation lifecycle. `evaluation_sequence` increments for every recording, including unclear audio and failed provider calls. `instructional_attempt_number` remains limited to 1 or 2 for schema compatibility: `1` is the initial answer and `2` represents every follow-up retry. Follow-up retries are unlimited during evaluator testing. `unclear_audio` does not change the instructional attempt number.
+Stores every submitted recording and its evaluation lifecycle. `evaluation_sequence` increments for every recording, including unclear audio and failed provider calls. `instructional_attempt_number` remains limited to 1 or 2: `1` is the initial answer and `2` is the coaching follow-up. Coaching-only findings complete after attempt 2 with either `pass` or `continue_with_correction`; blocking failures may remain available for repeated admin evaluation. `unclear_audio` does not change the instructional attempt number.
 
 Processing state and evaluation outcome are separate:
 
@@ -744,12 +938,16 @@ Abandoned recordings should be deleted automatically after approximately 24 hour
 Temporary learner recordings use the private `speaking-coach-audio` bucket. Recommended object paths are:
 
 ```text
-{user_id}/{session_id}/{attempt_id}.m4a
+{user_id}/{session_id}/{attempt_id}.{validated_extension}
 ```
+
+The current iOS path uses `.wav`; supported compressed Android/web recordings retain their validated extension. Storage metadata uses the backend's canonical MIME type rather than an unrecognized client alias.
 
 The bucket is private and has a 10 MB per-object limit. Upload, replay, and deletion must use the backend service role or short-lived signed URLs generated by the backend. No direct `storage.objects` client policies are required for V1.
 
-The React Native recorder currently produces M4A/MP4-family audio. Do not relabel those bytes as `audio/aac`. Preserve the actual upload MIME type, then normalize every provider-bound recording on the backend to the Azure-supported format:
+The React Native iOS recorder uses Linear PCM and produces a mono, 16 kHz, 16-bit `.wav` recording that already matches Azure's required input. It must receive the complete recording options on every `prepareToRecordAsync(...)` call so Expo creates a fresh native recorder and unique output file for retries. Android and web retain supported compressed recording presets until an equivalent direct PCM path is implemented.
+
+Do not relabel compressed bytes as `audio/aac`. Canonicalize known aliases such as `audio/vnd.wave` and `audio/wave` to `audio/wav`. If React Native sends a valid WAV as `application/octet-stream`, accept it only after checking its `RIFF` and `WAVE` byte signature. Before bypassing conversion, validate the WAV channel count, sample rate, sample width, compression type, duration, and size. Any supported recording that is not already compatible must be normalized to:
 
 ```text
 mono
@@ -758,7 +956,7 @@ mono
 WAV container
 ```
 
-Normalization should use a bounded conversion process with fixed arguments, a timeout, temporary-file cleanup, input/output size limits, and safe handling of malformed media. The normalized working file is ephemeral and is not added to permanent storage.
+Fallback normalization uses a bounded conversion process with fixed arguments, a timeout, temporary-file cleanup, input/output size limits, and safe handling of malformed media. The normalized working file is ephemeral and is not added to permanent storage.
 
 Automatic cleanup must be scoped only to the private `speaking-coach-audio` bucket. It must never delete objects from the permanent `speaking-coach-prompts` bucket.
 
@@ -889,7 +1087,7 @@ Evaluate and retain them using:
 The cheapest reliable routing is the default:
 
 - no Gemini request for normal pronunciation attempts;
-- one Azure request per submitted recording;
+- one Azure request for open attempts, unclear translation attempts, and short-P1 pronunciation attempts rejected by the early gate; two sequential Azure requests for usable translation attempts and other scripted pronunciation attempts;
 - one small text-only Gemini request only for open and translation attempts;
 - concise structured output and feedback;
 - no GPT-4o, Azure avatar, neural text-to-speech, or generated reference voice in V1.
@@ -940,15 +1138,21 @@ Completed Gemini prototype and operational foundation:
 Completed Azure hybrid replacement:
 
 1. Added `AZURE_API_KEY` and `AZURE_SPEECH_REGION` backend configuration without exposing either to the client.
-2. Added bounded M4A/MP4-to-mono-16-kHz-PCM-WAV normalization and corrected the MIME-type mislabeling.
+2. Added direct Azure-ready PCM WAV recording on iOS, strict compatible-WAV pass-through, bounded fallback normalization, canonical WAV MIME aliases/signature detection, and corrected compressed-audio MIME handling.
 3. Implemented an Azure Speech REST provider supporting detailed recognition and scripted Pronunciation Assessment.
 4. Parsed Azure recognition, confidence, overall scores, word scores, phonemes, and miscues into an internal typed result.
 5. Routed pronunciation exercises through Azure-only conservative backend rules and bilingual templates.
 6. Refactored Gemini into a text-only evaluator for open and translation exercises; learner audio is never attached.
 7. Passed Gemini Azure transcript alternatives/confidence and private exercise context, then validated its structured language result.
-8. Composed provider evidence into the existing normalized application contract and persisted namespaced hybrid diagnostics.
-9. Expanded unit and route tests across the hybrid paths, provider failures, low confidence, malformed audio, and the rule that transcript mismatch alone cannot fail pronunciation.
-10. Smoke-tested the configured Azure Free Speech resource successfully; the required Fly secrets are configured.
+8. Routed both open and translation exercises through unscripted Azure acoustic assessment and the shared catalog-backed Thai-transfer pronunciation policy while keeping their Gemini language rubrics distinct.
+9. Composed provider evidence into the existing normalized application contract and persisted namespaced hybrid diagnostics.
+10. Expanded unit and route tests across the hybrid paths, provider failures, low confidence, malformed audio, and the rule that scripted transcript mismatch alone cannot fail pronunciation.
+11. Smoke-tested the configured Azure Free Speech resource successfully; the required Fly secrets are configured.
+12. Added focus-first two-issue display selection, catalog-backed final-r deletion for compound rhotic phonemes, and strong final-consonant mismatch handling that is not defeated by contradictory aggregate Azure word scores.
+13. Added the scoped sequential short-P1 force-alignment gate: no-reference phoneme evidence first for parseable P1 targets in prompts of three words or fewer, early focused/unrelated rejection, ambiguity protection, disabled gate prosody, and separate request/evidence diagnostics.
+14. Added frontend/backend stage timing diagnostics, pulsing Pailin loading states, and a fresh-recorder retry lifecycle for PCM WAV recordings.
+15. Added a versioned target-aware phoneme aligner for scripted pronunciation, tunable JSON scoring policy, cross-word cluster reconstruction, final-candidate coaching, complete admin score diagnostics, and regression fixtures for the captured `Use a map` and `You some app` failures.
+16. Extended target-aware alignment to translation before Gemini language grading. Target-like phoneme evidence can now replace a misleading provisional transcript such as `Use a map` with the selected accepted-answer hypothesis while retaining pronunciation coaching and raw admin diagnostics.
 
 After implementation:
 

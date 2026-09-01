@@ -13,6 +13,8 @@ type PageLoadingStateProps = {
   animationDelayMs?: number;
   animate?: boolean;
   showImage?: boolean;
+  loadingTitle?: string | null;
+  loadingBody?: string | null;
 };
 
 export function PageLoadingState({
@@ -22,6 +24,8 @@ export function PageLoadingState({
   animationDelayMs = 0,
   animate = true,
   showImage = true,
+  loadingTitle = null,
+  loadingBody = null,
 }: PageLoadingStateProps) {
   const scale = useRef(new Animated.Value(0.95)).current;
   const opacity = useRef(new Animated.Value(0.85)).current;
@@ -104,6 +108,19 @@ export function PageLoadingState({
               </AppText>
             ) : null}
           </View>
+        ) : loadingTitle || loadingBody ? (
+          <View style={styles.loadingTextBlock}>
+            {loadingTitle ? (
+              <AppText language={language} variant="title" style={styles.loadingTitle}>
+                {loadingTitle}
+              </AppText>
+            ) : null}
+            {loadingBody ? (
+              <AppText language={language} variant="muted" style={styles.loadingBody}>
+                {loadingBody}
+              </AppText>
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>
@@ -136,6 +153,20 @@ const styles = StyleSheet.create({
   errorTextBlock: {
     alignItems: 'center',
     gap: theme.spacing.sm,
+  },
+  loadingTextBlock: {
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  loadingTitle: {
+    textAlign: 'center',
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  loadingBody: {
+    textAlign: 'center',
+    color: theme.colors.mutedText,
+    maxWidth: 320,
   },
   errorTitle: {
     textAlign: 'center',
