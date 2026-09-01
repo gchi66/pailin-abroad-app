@@ -11,6 +11,7 @@ export type SpeakingCoachQuestion = {
   lesson_position: number;
   prompt_en: string | null;
   prompt_th: string | null;
+  test_answer_en?: string | null;
   examples: SpeakingCoachExample[];
   prompt_audio_url: string | null;
 };

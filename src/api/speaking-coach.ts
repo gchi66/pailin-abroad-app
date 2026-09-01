@@ -57,7 +57,7 @@ export async function fetchSpeakingCoachLesson(lessonExternalId: string): Promis
 
   const response = await timedFetch(
     `lesson ${lessonExternalId}`,
-    `${baseUrl}/api/speaking/lessons/${encodeURIComponent(lessonExternalId)}`,
+    `${baseUrl}/api/speaking/lessons/${encodeURIComponent(lessonExternalId)}?include_test_answers=1`,
     {
       headers: {
         Accept: 'application/json',
