@@ -1163,9 +1163,13 @@ export default function SpeakingCoachTestScreen() {
     const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached);
     const showLearnerPlayback = showEvaluation && Boolean(recordedUri);
     const coachTone = correctResult ? 'success' : showEvaluation ? 'error' : 'instruction';
-    const feedbackIssueDescriptions = evaluation?.displayed_issues
-      .map((issue) => issue.description_en)
-      .filter((description) => description !== evaluation.feedback_en) ?? [];
+    const feedbackBulletDescriptions = evaluation
+      ? evaluation.status === 'unclear_audio'
+        ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
+        : evaluation.displayed_issues.length > 0
+          ? evaluation.displayed_issues.map((issue) => issue.description_en)
+          : [evaluation.feedback_en]
+      : [];
     const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady || unclearAudioLimitReached;
 
     const renderAttemptPanel = () => {
@@ -1287,17 +1291,11 @@ export default function SpeakingCoachTestScreen() {
               style={styles.pronunciationFeedbackStars}
             />
             <View style={styles.pronunciationFeedbackCopy}>
-              {correctResult ? (
-                <AppText variant="caption" style={styles.pronunciationFeedbackTitle}>Clean and natural!</AppText>
-              ) : null}
-              <AppText variant="caption" style={styles.pronunciationFeedbackText}>
-                {evaluation.status === 'unclear_audio' ? unclearAudioFeedback : evaluation.feedback_en}
-              </AppText>
-              {!correctResult ? feedbackIssueDescriptions.map((description, index) => (
+              {feedbackBulletDescriptions.map((description, index) => (
                 <AppText key={`${index}-${description}`} variant="caption" style={styles.pronunciationFeedbackText}>
                   • {description}
                 </AppText>
-              )) : null}
+              ))}
             </View>
           </View>
         ) : null}
@@ -1338,9 +1336,13 @@ export default function SpeakingCoachTestScreen() {
     const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
     const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached);
     const coachTone = correctResult ? 'success' : showEvaluation ? 'error' : 'instruction';
-    const feedbackIssueDescriptions = evaluation?.displayed_issues
-      .map((issue) => issue.description_en)
-      .filter((description) => description !== evaluation.feedback_en) ?? [];
+    const feedbackBulletDescriptions = evaluation
+      ? evaluation.status === 'unclear_audio'
+        ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
+        : evaluation.displayed_issues.length > 0
+          ? evaluation.displayed_issues.map((issue) => issue.description_en)
+          : [evaluation.feedback_en]
+      : [];
     const referenceAnswer = evaluation?.corrected_answer
       ?? question.examples.find((example) => example.en)?.en
       ?? null;
@@ -1497,17 +1499,14 @@ export default function SpeakingCoachTestScreen() {
               <Image
                 source={correctResult ? starsGreenImage : starsRedImage}
                 contentFit="contain"
-                style={styles.translationFeedbackStars}
+              style={styles.translationFeedbackStars}
               />
               <View style={styles.translationFeedbackCopy}>
-                <AppText variant="caption" style={styles.translationFeedbackText}>
-                  {evaluation.status === 'unclear_audio' ? unclearAudioFeedback : evaluation.feedback_en}
-                </AppText>
-                {!correctResult ? feedbackIssueDescriptions.map((description, index) => (
+                {feedbackBulletDescriptions.map((description, index) => (
                   <AppText key={`${index}-${description}`} variant="caption" style={styles.translationFeedbackText}>
                     • {description}
                   </AppText>
-                )) : null}
+                ))}
               </View>
             </View>
           </View>
