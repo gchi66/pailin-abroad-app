@@ -106,12 +106,34 @@ export async function createOrResumeSpeakingSession(
   return json.session;
 }
 
+export async function skipSpeakingCoachQuestion(
+  sessionId: string,
+  questionId: number
+): Promise<SpeakingCoachSession> {
+  const { baseUrl, accessToken } = await apiContext();
+  const response = await timedFetch(
+    'skip question',
+    `${baseUrl}/api/speaking/sessions/${encodeURIComponent(sessionId)}/questions/${questionId}/skip`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+  const json = await responseJson<{ session?: SpeakingCoachSession }>(response);
+  if (!json.session) throw new Error('The speaking question could not be skipped.');
+  return json.session;
+}
+
 export async function evaluateSpeakingRecording(input: {
   uri: string;
   fileName?: string;
   mimeType?: string;
   sessionId: string;
   questionId: number;
+  clientSubmissionId: string;
   instructionalAttemptNumber: 1 | 2;
   previousAttemptId: string | null;
 }): Promise<SpeakingEvaluationResponse> {
@@ -126,6 +148,7 @@ export async function evaluateSpeakingRecording(input: {
   const form = new FormData();
   form.append('session_id', input.sessionId);
   form.append('question_id', String(input.questionId));
+  form.append('client_submission_id', input.clientSubmissionId);
   form.append('instructional_attempt_number', String(input.instructionalAttemptNumber));
   if (input.previousAttemptId) form.append('previous_attempt_id', input.previousAttemptId);
   form.append(
