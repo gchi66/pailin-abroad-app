@@ -51,8 +51,11 @@ export type SpeakingCoachSession = {
   status: 'active' | 'completed' | 'abandoned';
   current_question_id: number | null;
   completed_question_ids: number[];
+  skipped_question_ids: number[];
   instructional_attempt_number: 1 | 2;
   previous_attempt_id: string | null;
+  consecutive_unclear_audio_count: number;
+  unclear_audio_retry_limit: number;
 };
 
 export type SpeakingEvaluationStatus =
@@ -62,7 +65,15 @@ export type SpeakingEvaluationStatus =
   | 'unclear_audio';
 
 export type SpeakingEvaluationIssue = {
-  category: string;
+  category:
+    | 'focus'
+    | 'meaning'
+    | 'relevance'
+    | 'grammar'
+    | 'vocabulary'
+    | 'pronunciation'
+    | 'intelligibility'
+    | 'audio_quality';
   description_en: string;
   description_th: string;
 };
@@ -85,7 +96,7 @@ export type SpeakingEvaluation = {
   pronunciation: {
     intelligible: boolean | null;
     issues: SpeakingEvaluationIssue[];
-    assessment_tokens?: PronunciationAssessmentToken[];
+    assessment_tokens: PronunciationAssessmentToken[];
   };
   detected_issues: SpeakingEvaluationIssue[];
   displayed_issues: SpeakingEvaluationIssue[];
@@ -100,6 +111,7 @@ export type SpeakingEvaluationResponse = {
     id: string;
     instructional_attempt_number: 1 | 2;
     evaluation_sequence: number;
+    replayed?: boolean;
     evaluation: SpeakingEvaluation;
     debug?: {
       provider: string;

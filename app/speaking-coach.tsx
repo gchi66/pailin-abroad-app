@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Asset } from 'expo-asset';
+import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
 import {
   AudioQuality,
@@ -32,6 +33,7 @@ import {
   evaluateSpeakingRecording,
   fetchAvailableSpeakingCoachLessons,
   fetchSpeakingCoachLesson,
+  skipSpeakingCoachQuestion,
 } from '@/src/api/speaking-coach';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -338,6 +340,8 @@ export default function SpeakingCoachTestScreen() {
   const [instructionalAttemptNumber, setInstructionalAttemptNumber] = useState<1 | 2>(1);
   const [previousAttemptId, setPreviousAttemptId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [clientSubmissionId, setClientSubmissionId] = useState<string | null>(null);
+  const [skipPending, setSkipPending] = useState(false);
   const [showExample, setShowExample] = useState(false);
 
   const recorder = useAudioRecorder(SPEAKING_RECORDING_OPTIONS);
@@ -428,6 +432,7 @@ export default function SpeakingCoachTestScreen() {
     setInstructionalAttemptNumber(1);
     setPreviousAttemptId(null);
     setSubmitError(null);
+    setClientSubmissionId(null);
 
     void Promise.all([
       fetchSpeakingCoachLesson(lessonId),
@@ -474,6 +479,7 @@ export default function SpeakingCoachTestScreen() {
     setInstructionalAttemptNumber(1);
     setPreviousAttemptId(null);
     setSubmitError(null);
+    setClientSubmissionId(null);
   };
 
   const goToQuestion = (nextIndex: number) => {
@@ -489,6 +495,37 @@ export default function SpeakingCoachTestScreen() {
     resetQuestion();
     setQuestionIndex(0);
     Alert.alert('Test lesson complete', 'This test interface restarts after the final question.');
+  };
+
+  const skipCurrentQuestion = async () => {
+    if (!session || !activeQuestion || skipPending) return;
+    setSkipPending(true);
+    try {
+      if (phase === 'recording') {
+        await recorder.stop();
+        await switchAudioSession(false);
+      }
+      const nextSession = await skipSpeakingCoachQuestion(session.id, activeQuestion.question.id);
+      setSession(nextSession);
+      resetQuestion();
+      if (nextSession.current_question_id === null) {
+        setQuestionIndex(0);
+        setShowWelcome(true);
+        Alert.alert('Test lesson complete', 'Every question was completed or skipped.');
+        return;
+      }
+      const nextIndex = questions.findIndex(
+        ({ question }) => question.id === nextSession.current_question_id
+      );
+      setQuestionIndex(nextIndex >= 0 ? nextIndex : Math.min(questionIndex + 1, questions.length - 1));
+    } catch (error) {
+      Alert.alert(
+        'Could not skip question',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    } finally {
+      setSkipPending(false);
+    }
   };
 
   const retestInFreshSession = async () => {
@@ -591,6 +628,7 @@ export default function SpeakingCoachTestScreen() {
       setRecordedUri(null);
       setRecordedDurationMillis(0);
       setRecordedFile(SPEAKING_RECORDING_FILE);
+      setClientSubmissionId(null);
       setSubmitError(null);
       await switchAudioSession(true);
       // Passing the options forces iOS to create a fresh AVAudioRecorder and
@@ -613,6 +651,7 @@ export default function SpeakingCoachTestScreen() {
       if (!uri) throw new Error('The recording did not produce an audio file.');
       setRecordedUri(uri);
       setRecordedDurationMillis(duration);
+      setClientSubmissionId(Crypto.randomUUID());
       setPhase('review');
     } catch (error) {
       Alert.alert('Could not finish recording', error instanceof Error ? error.message : 'Please try again.');
@@ -632,6 +671,7 @@ export default function SpeakingCoachTestScreen() {
       setRecordedUri(sample.localUri);
       setRecordedFile({ name: 'speaking-simulator-sample.mp3', mimeType: 'audio/mpeg' });
       setRecordedDurationMillis(Math.round((promptPlayerStatus.duration || 0) * 1000));
+      setClientSubmissionId(Crypto.randomUUID());
       setSubmitError(null);
       setPhase('review');
     } catch (error) {
@@ -647,6 +687,8 @@ export default function SpeakingCoachTestScreen() {
     setPhase('evaluating');
     setSubmitError(null);
     const evaluationStarted = Date.now();
+    const submissionId = clientSubmissionId ?? Crypto.randomUUID();
+    if (!clientSubmissionId) setClientSubmissionId(submissionId);
     try {
       const response = await evaluateSpeakingRecording({
         uri: recordedUri,
@@ -654,21 +696,29 @@ export default function SpeakingCoachTestScreen() {
         mimeType: recordedFile.mimeType,
         sessionId: session.id,
         questionId: activeQuestion.question.id,
+        clientSubmissionId: submissionId,
         instructionalAttemptNumber,
         previousAttemptId,
       });
       if (__DEV__ && response.attempt.debug) {
         const evaluatorTimings = response.attempt.debug.provider_response.timings_ms;
+        const clientTotalMs = Date.now() - evaluationStarted;
         console.log('[Speaking Coach] Evaluation timing summary', {
-          client_total_ms: Date.now() - evaluationStarted,
+          client_total_ms: clientTotalMs,
           provider_latency_ms: response.attempt.debug.latency_ms,
           backend_stages_ms: response.attempt.debug.request_timings_ms,
           evaluator_stages_ms: evaluatorTimings,
         });
-        console.log(
-          '[Speaking Coach] Evaluator diagnostics\n',
-          JSON.stringify(response.attempt.debug, null, 2)
-        );
+        console.log(`[SPEAKING_COACH_CAPTURE]${JSON.stringify({
+          captured_at: new Date().toISOString(),
+          lesson_external_id: lessonId,
+          practice_type: activeQuestion.practiceSet.practice_type,
+          question_id: activeQuestion.question.id,
+          question_position: activeQuestion.question.lesson_position,
+          client_total_ms: clientTotalMs,
+          attempt: response.attempt,
+          session: response.session,
+        })}`);
       }
       const nextEvaluation = response.attempt.evaluation;
       setSession(response.session);
@@ -854,6 +904,16 @@ export default function SpeakingCoachTestScreen() {
   const pailinPlaybackLabel = practiceSet.practice_type === 'pronunciation' ? 'Pailin’s version' : 'Replay question';
   const learnerPlaybackLabel = practiceSet.practice_type === 'translation' ? 'Your translation' : practiceSet.practice_type === 'open' ? 'Your answer' : 'Your recording';
   const isCompletedQuestion = session.completed_question_ids.includes(question.id);
+  const unclearAudioCount = session.consecutive_unclear_audio_count;
+  const unclearAudioLimitReached = evaluation?.status === 'unclear_audio'
+    && unclearAudioCount >= session.unclear_audio_retry_limit;
+  const unclearAudioNeedsGuidance = evaluation?.status === 'unclear_audio'
+    && unclearAudioCount >= 3;
+  const unclearAudioFeedback = unclearAudioLimitReached
+    ? 'We’re unable to check another recording for this question. You can skip it or exit practice.'
+    : unclearAudioNeedsGuidance
+      ? 'We’re still unable to hear your audio. Try moving somewhere quieter and make sure your microphone isn’t covered.'
+      : evaluation?.feedback_en;
   const renderPromptCard = () => (
     <Card style={styles.promptCard} padding="lg">
       {practiceSet.practice_type === 'translation' ? (
@@ -968,8 +1028,8 @@ export default function SpeakingCoachTestScreen() {
             <AppText variant="muted" style={styles.sampleText}>Use sample audio (Simulator)</AppText>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" onPress={goNext}>
-          <AppText variant="muted" style={styles.skipText}>Skip</AppText>
+        <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()}>
+          <AppText variant="muted" style={styles.skipText}>{skipPending ? 'Skipping…' : 'Skip'}</AppText>
         </Pressable>
       </UiStack>
     );
@@ -1009,12 +1069,20 @@ export default function SpeakingCoachTestScreen() {
         <View style={styles.feedbackHeading}>
           <AppText variant="caption" style={styles.feedbackStatus}>{OUTCOME_LABELS[evaluation.status]}</AppText>
           <AppText variant="title" style={styles.stateTitle}>
-            {isUnclear ? 'Let’s record that again' : isRetry ? 'Almost—try once more' : 'Here’s the correction'}
+            {unclearAudioLimitReached
+              ? 'Recording unavailable'
+              : isUnclear
+                ? 'Let’s record that again'
+                : isRetry
+                  ? 'Almost—try once more'
+                  : 'Here’s the correction'}
           </AppText>
           <AppText variant="body" style={styles.centerText}>
-            {evaluation.feedback_en}
+            {isUnclear ? unclearAudioFeedback : evaluation.feedback_en}
           </AppText>
-          <AppText language="th" variant="muted" style={styles.centerText}>{evaluation.feedback_th}</AppText>
+          {!isUnclear || !unclearAudioNeedsGuidance ? (
+            <AppText language="th" variant="muted" style={styles.centerText}>{evaluation.feedback_th}</AppText>
+          ) : null}
         </View>
 
         <Card padding="md" style={styles.feedbackCard}>
@@ -1062,8 +1130,18 @@ export default function SpeakingCoachTestScreen() {
           {hasPromptAudio ? <PlaybackButton label={pailinPlaybackLabel} onPress={togglePromptAudio} playing={promptPlayerStatus.playing} /> : null}
         </View>
 
-        {isRetry || isUnclear ? (
-          <Button title={isUnclear ? 'Record again' : 'Try again'} onPress={() => void startRecording()} />
+        {unclearAudioLimitReached ? (
+          <UiStack gap="sm">
+            <Button title={skipPending ? 'Skipping…' : 'Skip question'} disabled={skipPending} onPress={() => void skipCurrentQuestion()} />
+            <Button title="Exit practice" variant="outline" onPress={() => router.back()} />
+          </UiStack>
+        ) : isRetry || isUnclear ? (
+          <UiStack gap="sm">
+            <Button title={isUnclear && !unclearAudioNeedsGuidance ? 'Record again' : 'Try again'} onPress={() => void startRecording()} />
+            {isUnclear && unclearAudioNeedsGuidance ? (
+              <Button title={skipPending ? 'Skipping…' : 'Skip question'} variant="outline" disabled={skipPending} onPress={() => void skipCurrentQuestion()} />
+            ) : null}
+          </UiStack>
         ) : (
           <Button title="Next question" onPress={goNext} />
         )}
@@ -1073,21 +1151,26 @@ export default function SpeakingCoachTestScreen() {
 
   const renderPronunciationExperience = () => {
     const retryReady = phase === 'feedback' && (
-      evaluation?.status === 'retry' || evaluation?.status === 'unclear_audio'
+      evaluation?.status === 'retry'
+      || (evaluation?.status === 'unclear_audio' && !unclearAudioLimitReached)
     );
     const retryInProgress = instructionalAttemptNumber === 2
       && previousAttemptId !== null
       && evaluation?.status === 'retry'
       && (phase === 'recording' || phase === 'review');
     const correctResult = phase === 'correct';
-    const finalResult = phase === 'feedback' && !retryReady;
-    const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress);
+    const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
+    const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached);
     const showLearnerPlayback = showEvaluation && Boolean(recordedUri);
     const coachTone = correctResult ? 'success' : showEvaluation ? 'error' : 'instruction';
-    const feedbackIssueDescriptions = evaluation?.displayed_issues
-      .map((issue) => issue.description_en)
-      .filter((description) => description !== evaluation.feedback_en) ?? [];
-    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady;
+    const feedbackBulletDescriptions = evaluation
+      ? evaluation.status === 'unclear_audio'
+        ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
+        : evaluation.displayed_issues.length > 0
+          ? evaluation.displayed_issues.map((issue) => issue.description_en)
+          : [evaluation.feedback_en]
+      : [];
+    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady || unclearAudioLimitReached;
 
     const renderAttemptPanel = () => {
       if (phase === 'recording') {
@@ -1208,15 +1291,11 @@ export default function SpeakingCoachTestScreen() {
               style={styles.pronunciationFeedbackStars}
             />
             <View style={styles.pronunciationFeedbackCopy}>
-              {correctResult ? (
-                <AppText variant="caption" style={styles.pronunciationFeedbackTitle}>Clean and natural!</AppText>
-              ) : null}
-              <AppText variant="caption" style={styles.pronunciationFeedbackText}>{evaluation.feedback_en}</AppText>
-              {!correctResult ? feedbackIssueDescriptions.map((description, index) => (
+              {feedbackBulletDescriptions.map((description, index) => (
                 <AppText key={`${index}-${description}`} variant="caption" style={styles.pronunciationFeedbackText}>
                   • {description}
                 </AppText>
-              )) : null}
+              ))}
             </View>
           </View>
         ) : null}
@@ -1224,8 +1303,14 @@ export default function SpeakingCoachTestScreen() {
         {renderAttemptPanel()}
 
         {showSkip ? (
-          <Pressable accessibilityRole="button" onPress={goNext} style={styles.pronunciationSkipButton}>
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>SKIP →</AppText>
+          <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
+            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP →'}</AppText>
+          </Pressable>
+        ) : null}
+
+        {unclearAudioLimitReached ? (
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.pronunciationContinueButton}>
+            <AppText variant="caption" style={styles.pronunciationContinueLabel}>EXIT PRACTICE</AppText>
           </Pressable>
         ) : null}
 
@@ -1240,24 +1325,29 @@ export default function SpeakingCoachTestScreen() {
 
   const renderTranslationExperience = () => {
     const retryReady = phase === 'feedback' && (
-      evaluation?.status === 'retry' || evaluation?.status === 'unclear_audio'
+      evaluation?.status === 'retry'
+      || (evaluation?.status === 'unclear_audio' && !unclearAudioLimitReached)
     );
     const retryInProgress = instructionalAttemptNumber === 2
       && previousAttemptId !== null
       && evaluation?.status === 'retry'
       && (phase === 'recording' || phase === 'review');
     const correctResult = phase === 'correct';
-    const finalResult = phase === 'feedback' && !retryReady;
-    const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress);
+    const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
+    const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached);
     const coachTone = correctResult ? 'success' : showEvaluation ? 'error' : 'instruction';
-    const feedbackIssueDescriptions = evaluation?.displayed_issues
-      .map((issue) => issue.description_en)
-      .filter((description) => description !== evaluation.feedback_en) ?? [];
+    const feedbackBulletDescriptions = evaluation
+      ? evaluation.status === 'unclear_audio'
+        ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
+        : evaluation.displayed_issues.length > 0
+          ? evaluation.displayed_issues.map((issue) => issue.description_en)
+          : [evaluation.feedback_en]
+      : [];
     const referenceAnswer = evaluation?.corrected_answer
       ?? question.examples.find((example) => example.en)?.en
       ?? null;
     const hasReferenceAudio = Boolean(question.prompt_audio_url);
-    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady;
+    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady || unclearAudioLimitReached;
 
     const renderHearPailin = (compact = false) => (
       <View style={[styles.translationReferenceBlock, compact ? styles.translationReferenceBlockCompact : null]}>
@@ -1409,15 +1499,14 @@ export default function SpeakingCoachTestScreen() {
               <Image
                 source={correctResult ? starsGreenImage : starsRedImage}
                 contentFit="contain"
-                style={styles.translationFeedbackStars}
+              style={styles.translationFeedbackStars}
               />
               <View style={styles.translationFeedbackCopy}>
-                <AppText variant="caption" style={styles.translationFeedbackText}>{evaluation.feedback_en}</AppText>
-                {!correctResult ? feedbackIssueDescriptions.map((description, index) => (
+                {feedbackBulletDescriptions.map((description, index) => (
                   <AppText key={`${index}-${description}`} variant="caption" style={styles.translationFeedbackText}>
                     • {description}
                   </AppText>
-                )) : null}
+                ))}
               </View>
             </View>
           </View>
@@ -1427,8 +1516,14 @@ export default function SpeakingCoachTestScreen() {
         {renderAttemptPanel()}
 
         {showSkip ? (
-          <Pressable accessibilityRole="button" onPress={goNext} style={styles.pronunciationSkipButton}>
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>SKIP →</AppText>
+          <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
+            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP →'}</AppText>
+          </Pressable>
+        ) : null}
+
+        {unclearAudioLimitReached ? (
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.pronunciationContinueButton}>
+            <AppText variant="caption" style={styles.pronunciationContinueLabel}>EXIT PRACTICE</AppText>
           </Pressable>
         ) : null}
 
