@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Asset } from 'expo-asset';
+import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
 import {
@@ -14,11 +15,12 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Platform,
   Pressable,
   ScrollView,
@@ -40,24 +42,31 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
+import { posthog } from '@/src/config/posthog';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
 import audioRedoImage from '@/assets/images/speaking-coach/audio-redo.png';
+import celebrateWhiteImage from '@/assets/images/speaking-coach/celebrate-white.png';
 import lightBulbImage from '@/assets/images/speaking-coach/light-bulb.png';
 import microphoneWhiteImage from '@/assets/images/speaking-coach/mic-white.png';
+import pailinCantHearImage from '@/assets/images/speaking-coach/pailin-cant-hear.webp';
 import pailinDoTheTaskImage from '@/assets/images/speaking-coach/pailin-do-the-task.webp';
 import pailinGoodJobImage from '@/assets/images/speaking-coach/pailin-good-job.webp';
+import pailinSetCompleteImage from '@/assets/images/speaking-coach/pailin-set-complete.webp';
 import pailinTimeToSpeakImage from '@/assets/images/speaking-coach/pailin-time-to-speak.webp';
 import pailinTryAgainImage from '@/assets/images/speaking-coach/pailin-try-again.webp';
 import pauseBlueImage from '@/assets/images/speaking-coach/pause-blue.png';
+import pauseGreenImage from '@/assets/images/speaking-coach/pause-green.png';
 import pauseRedImage from '@/assets/images/speaking-coach/pause-red.png';
 import playBlueImage from '@/assets/images/speaking-coach/play-blue.png';
+import playGreenImage from '@/assets/images/speaking-coach/play-green.png';
 import playRedImage from '@/assets/images/speaking-coach/play-red.png';
 import pronunciationPracticeImage from '@/assets/images/speaking-coach/pronunciation-practice.png';
 import speakerBlueImage from '@/assets/images/speaking-coach/speaker-blue.png';
 import speakerGreyImage from '@/assets/images/speaking-coach/speaker-grey.png';
 import starsGreenImage from '@/assets/images/speaking-coach/stars-green.png';
 import starsRedImage from '@/assets/images/speaking-coach/stars-red.png';
+import starsYellowImage from '@/assets/images/speaking-coach/stars-yellow.png';
 import stopRecordRedImage from '@/assets/images/speaking-coach/stop-record-red.png';
 import thaiToEnglishImage from '@/assets/images/speaking-coach/thai-to-english.png';
 import {
@@ -77,6 +86,28 @@ type ScreenPhase = 'prompt' | 'recording' | 'review' | 'evaluating' | 'feedback'
 type ActiveQuestion = {
   practiceSet: SpeakingCoachPracticeSet;
   question: SpeakingCoachQuestion;
+};
+
+type RecorderDiagnostic = {
+  canRecord: boolean;
+  isRecording: boolean;
+  durationMillis: number;
+  mediaServicesDidReset: boolean;
+  hasUrl: boolean;
+};
+
+type CaptureTrace = {
+  submissionId: string;
+  recordingOrdinal: number;
+  requestedAt: number;
+  appStateAtStart: string;
+  permissionMs?: number;
+  audioSessionMs?: number;
+  prepareMs?: number;
+  statusBefore?: RecorderDiagnostic;
+  statusAfterAudioSession?: RecorderDiagnostic;
+  statusAfterPrepare?: RecorderDiagnostic;
+  statusAfterRecord?: RecorderDiagnostic;
 };
 
 const IOS_AZURE_RECORDING_OPTIONS = {
@@ -146,6 +177,15 @@ const WELCOME_PRACTICE_COPY = {
   },
 } as const;
 
+const SET_COMPLETION_COPY: Record<
+  SpeakingPracticeType,
+  { action: string; singular: string; plural: string }
+> = {
+  pronunciation: { action: 'pronouncing', singular: 'sentence', plural: 'sentences' },
+  open: { action: 'answering', singular: 'question', plural: 'questions' },
+  translation: { action: 'translating', singular: 'sentence', plural: 'sentences' },
+};
+
 const OUTCOME_LABELS: Record<SpeakingEvaluationStatus, string> = {
   pass: 'Correct',
   retry: 'Needs retry',
@@ -167,6 +207,9 @@ const lessonOptionLabel = (lessonExternalId: string) => {
   return suffix.toLowerCase() === 'chp' ? 'Checkpoint' : lessonExternalId;
 };
 
+const isReleasedAudioObjectError = (error: unknown) =>
+  error instanceof Error && error.message.includes('NativeSharedObjectNotFoundException');
+
 const switchAudioSession = async (allowsRecording: boolean) => {
   // Simulator and iOS hardware can retain the previous input/output route when
   // changing categories on an active session. Deactivate before changing modes.
@@ -179,13 +222,20 @@ function PlaybackButton({
   label,
   onPress,
   playing,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   playing: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.playbackButton}>
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.playbackButton, disabled ? styles.playbackButtonDisabled : null]}
+    >
       <View style={styles.playbackIcon}>
         <MaterialIcons name={playing ? 'pause' : 'play-arrow'} size={22} color={theme.colors.surface} />
       </View>
@@ -205,6 +255,19 @@ function PracticeProgress({ practiceSet, question }: ActiveQuestion) {
           <View
             style={[styles.progressDot, index + 1 === question.position ? styles.progressDotActive : null]}
           />
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
+
+function CompletedSetProgress({ questionCount }: { questionCount: number }) {
+  return (
+    <View style={styles.progressRow} accessibilityLabel={`All ${questionCount} questions completed`}>
+      {Array.from({ length: questionCount }, (_, index) => (
+        <React.Fragment key={index}>
+          {index > 0 ? <View style={[styles.progressConnector, styles.progressConnectorComplete]} /> : null}
+          <View style={[styles.progressDot, styles.progressDotActive]} />
         </React.Fragment>
       ))}
     </View>
@@ -240,11 +303,13 @@ function PronunciationPlaybackButton({
   label,
   playing,
   tone = 'blue',
+  disabled = false,
   onPress,
 }: {
   label: string;
   playing: boolean;
   tone?: 'blue' | 'red';
+  disabled?: boolean;
   onPress: () => void;
 }) {
   const icon = tone === 'red'
@@ -252,7 +317,16 @@ function PronunciationPlaybackButton({
     : (playing ? pauseBlueImage : playBlueImage);
 
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Play ${label}`} onPress={onPress} style={styles.pronunciationPlaybackButton}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Play ${label}`}
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.pronunciationPlaybackButton,
+        disabled ? styles.playbackButtonDisabled : null,
+      ]}
+    >
       <Image source={icon} contentFit="contain" style={styles.pronunciationPlaybackIcon} />
       <AppText variant="caption" style={styles.pronunciationPlaybackLabel}>{label}</AppText>
     </Pressable>
@@ -263,15 +337,23 @@ function PailinCoachBubble({
   tone,
   instruction,
 }: {
-  tone: 'instruction' | 'success' | 'error';
+  tone: 'instruction' | 'success' | 'error' | 'unclear';
   instruction: string;
 }) {
   const image = tone === 'success'
     ? pailinGoodJobImage
-    : tone === 'error'
-      ? pailinTryAgainImage
-      : pailinDoTheTaskImage;
-  const message = tone === 'success' ? 'Correct!' : tone === 'error' ? 'Not quite!' : instruction;
+    : tone === 'unclear'
+      ? pailinCantHearImage
+      : tone === 'error'
+        ? pailinTryAgainImage
+        : pailinDoTheTaskImage;
+  const message = tone === 'success'
+    ? 'Correct!'
+    : tone === 'unclear'
+      ? 'Hmm...what was that?'
+      : tone === 'error'
+        ? 'Not quite!'
+        : instruction;
 
   return (
     <View style={styles.pronunciationCoachRow}>
@@ -281,9 +363,11 @@ function PailinCoachBubble({
           styles.pronunciationCoachBubble,
           tone === 'success'
             ? styles.pronunciationCoachBubbleSuccess
-            : tone === 'error'
-              ? styles.pronunciationCoachBubbleError
-              : styles.pronunciationCoachBubbleInstruction,
+            : tone === 'unclear'
+              ? styles.pronunciationCoachBubbleUnclear
+              : tone === 'error'
+                ? styles.pronunciationCoachBubbleError
+                : styles.pronunciationCoachBubbleInstruction,
         ]}
       >
         <AppText variant="caption" style={styles.pronunciationCoachMessage}>{message}</AppText>
@@ -343,6 +427,14 @@ export default function SpeakingCoachTestScreen() {
   const [clientSubmissionId, setClientSubmissionId] = useState<string | null>(null);
   const [skipPending, setSkipPending] = useState(false);
   const [showExample, setShowExample] = useState(false);
+  const [showConversationDetails, setShowConversationDetails] = useState(true);
+  const [completedPracticeSetId, setCompletedPracticeSetId] = useState<number | null>(null);
+  const [locallyCorrectQuestionIds, setLocallyCorrectQuestionIds] = useState<number[]>([]);
+  const questionPresentedAtRef = useRef(Date.now());
+  const promptPlayedForQuestionRef = useRef(false);
+  const recordingOrdinalRef = useRef(0);
+  const captureTraceRef = useRef<CaptureTrace | null>(null);
+  const screenFocusedRef = useRef(false);
 
   const recorder = useAudioRecorder(SPEAKING_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 200);
@@ -383,10 +475,107 @@ export default function SpeakingCoachTestScreen() {
     return [pronunciationSet?.practice_type ?? 'pronunciation', followUpSet?.practice_type ?? 'open'];
   }, [lesson]);
   const promptAudioUrl = activeQuestion?.question.prompt_audio_url ?? null;
-  const promptPlayer = useAudioPlayer(promptAudioUrl, { updateInterval: 200 });
+  // This screen owns AVAudioSession transitions explicitly. Without this flag,
+  // pausing either player schedules Expo's delayed session deactivation, which
+  // can fire after the recorder has started and produce a zero-frame WAV.
+  const promptPlayer = useAudioPlayer(promptAudioUrl, {
+    updateInterval: 200,
+    keepAudioSessionActive: true,
+  });
   const promptPlayerStatus = useAudioPlayerStatus(promptPlayer);
-  const recordingPlayer = useAudioPlayer(recordedUri, { updateInterval: 200 });
+  // Let Expo create the AVPlayer with the completed local file as its initial
+  // source. A player created with no item and mutated via replace() can report
+  // loaded while failing to start local-file playback on iOS.
+  const recordingPlayer = useAudioPlayer(recordedUri, {
+    updateInterval: 200,
+    keepAudioSessionActive: true,
+  });
   const recordingPlayerStatus = useAudioPlayerStatus(recordingPlayer);
+  const recorderRef = useRef(recorder);
+
+  recorderRef.current = recorder;
+
+  const recorderDiagnostic = (): RecorderDiagnostic => {
+    const status = recorder.getStatus();
+    return {
+      canRecord: status.canRecord,
+      isRecording: status.isRecording,
+      durationMillis: status.durationMillis,
+      mediaServicesDidReset: status.mediaServicesDidReset,
+      hasUrl: Boolean(status.url),
+    };
+  };
+
+  const captureDiagnostic = (
+    stage: 'started' | 'stopped' | 'start_error' | 'stop_error',
+    trace: CaptureTrace,
+    properties: Record<string, unknown> = {}
+  ) => {
+    posthog.capture('speaking_capture_diagnostic', {
+      stage,
+      client_submission_id: trace.submissionId,
+      lesson_external_id: lessonId,
+      session_id: session?.id ?? null,
+      question_id: activeQuestion?.question.id ?? null,
+      question_position: questionIndex + 1,
+      practice_type: activeQuestion?.practiceSet.practice_type ?? null,
+      instructional_attempt_number: instructionalAttemptNumber,
+      recording_ordinal: trace.recordingOrdinal,
+      is_record_again: trace.recordingOrdinal > 1,
+      prompt_played_since_question_shown: promptPlayedForQuestionRef.current,
+      time_since_question_shown_ms: Date.now() - questionPresentedAtRef.current,
+      app_state_at_start: trace.appStateAtStart,
+      app_state_at_event: AppState.currentState,
+      platform: Platform.OS,
+      platform_version: String(Platform.Version),
+      device_model: Constants.platform?.ios?.model ?? null,
+      app_version: Constants.expoConfig?.version ?? null,
+      build_number:
+        Constants.platform?.ios?.buildNumber ??
+        Constants.expoConfig?.ios?.buildNumber ??
+        null,
+      permission_ms: trace.permissionMs ?? null,
+      audio_session_ms: trace.audioSessionMs ?? null,
+      prepare_ms: trace.prepareMs ?? null,
+      ...properties,
+    });
+  };
+
+  useEffect(() => {
+    questionPresentedAtRef.current = Date.now();
+    promptPlayedForQuestionRef.current = false;
+    recordingOrdinalRef.current = 0;
+    captureTraceRef.current = null;
+  }, [activeQuestion?.question.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      screenFocusedRef.current = true;
+      return () => {
+        screenFocusedRef.current = false;
+        const activeRecorder = recorderRef.current;
+        void (async () => {
+          try {
+            if (activeRecorder.getStatus().isRecording) {
+              await activeRecorder.stop();
+            }
+          } catch (error) {
+            // Expo may release hook-owned native objects before an unmount
+            // cleanup runs. A released recorder is already unable to capture.
+            if (!isReleasedAudioObjectError(error)) {
+              console.warn('[speaking-capture-cleanup] Could not stop recorder', error);
+            }
+          }
+          try {
+            await setIsAudioActiveAsync(false);
+            await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+          } catch (error) {
+            console.warn('[speaking-capture-cleanup] Could not release audio session', error);
+          }
+        })();
+      };
+    }, [])
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -433,6 +622,9 @@ export default function SpeakingCoachTestScreen() {
     setPreviousAttemptId(null);
     setSubmitError(null);
     setClientSubmissionId(null);
+    setShowConversationDetails(true);
+    setCompletedPracticeSetId(null);
+    setLocallyCorrectQuestionIds([]);
 
     void Promise.all([
       fetchSpeakingCoachLesson(lessonId),
@@ -475,6 +667,7 @@ export default function SpeakingCoachTestScreen() {
     setRecordedDurationMillis(0);
     setRecordedFile(SPEAKING_RECORDING_FILE);
     setShowExample(false);
+    setShowConversationDetails(true);
     setEvaluation(null);
     setInstructionalAttemptNumber(1);
     setPreviousAttemptId(null);
@@ -484,17 +677,35 @@ export default function SpeakingCoachTestScreen() {
 
   const goToQuestion = (nextIndex: number) => {
     resetQuestion();
+    setCompletedPracticeSetId(null);
     setQuestionIndex(Math.max(0, Math.min(nextIndex, questions.length - 1)));
   };
 
   const goNext = () => {
-    if (questionIndex < questions.length - 1) {
-      goToQuestion(questionIndex + 1);
+    if (!activeQuestion || !session) return;
+    const nextIndex = session.current_question_id === null
+      ? -1
+      : questions.findIndex(({ question }) => question.id === session.current_question_id);
+    const nextQuestion = nextIndex >= 0 ? questions[nextIndex] : null;
+    if (!nextQuestion || nextQuestion.practiceSet.id !== activeQuestion.practiceSet.id) {
+      promptPlayer.pause();
+      recordingPlayer.pause();
+      setCompletedPracticeSetId(activeQuestion.practiceSet.id);
       return;
     }
-    resetQuestion();
-    setQuestionIndex(0);
-    Alert.alert('Test lesson complete', 'This test interface restarts after the final question.');
+    goToQuestion(nextIndex);
+  };
+
+  const continueAfterSet = () => {
+    if (!session || completedPracticeSetId === null) return;
+    const nextIndex = session.current_question_id === null
+      ? -1
+      : questions.findIndex(({ question }) => question.id === session.current_question_id);
+    if (nextIndex >= 0) {
+      goToQuestion(nextIndex);
+      return;
+    }
+    router.back();
   };
 
   const skipCurrentQuestion = async () => {
@@ -508,15 +719,14 @@ export default function SpeakingCoachTestScreen() {
       const nextSession = await skipSpeakingCoachQuestion(session.id, activeQuestion.question.id);
       setSession(nextSession);
       resetQuestion();
-      if (nextSession.current_question_id === null) {
-        setQuestionIndex(0);
-        setShowWelcome(true);
-        Alert.alert('Test lesson complete', 'Every question was completed or skipped.');
-        return;
-      }
       const nextIndex = questions.findIndex(
         ({ question }) => question.id === nextSession.current_question_id
       );
+      const nextQuestion = nextIndex >= 0 ? questions[nextIndex] : null;
+      if (!nextQuestion || nextQuestion.practiceSet.id !== activeQuestion.practiceSet.id) {
+        setCompletedPracticeSetId(activeQuestion.practiceSet.id);
+        return;
+      }
       setQuestionIndex(nextIndex >= 0 ? nextIndex : Math.min(questionIndex + 1, questions.length - 1));
     } catch (error) {
       Alert.alert(
@@ -533,6 +743,8 @@ export default function SpeakingCoachTestScreen() {
       setLoading(true);
       const nextSession = await createOrResumeSpeakingSession(lessonId, { forceNew: true });
       resetQuestion();
+      setCompletedPracticeSetId(null);
+      setLocallyCorrectQuestionIds([]);
       setSession(nextSession);
       const freshQuestionIndex = questions.findIndex(
         ({ question }) => question.id === nextSession.current_question_id
@@ -553,6 +765,8 @@ export default function SpeakingCoachTestScreen() {
       setLoading(true);
       const nextSession = await createOrResumeSpeakingSession(lessonId, { forceNew: true });
       resetQuestion();
+      setCompletedPracticeSetId(null);
+      setLocallyCorrectQuestionIds([]);
       setSession(nextSession);
       const firstQuestionIndex = questions.findIndex(
         ({ question: candidateQuestion }) => candidateQuestion.id === nextSession.current_question_id
@@ -569,31 +783,6 @@ export default function SpeakingCoachTestScreen() {
     }
   };
 
-  const renderQuestionNavigation = () => {
-    const navigationDisabled = phase === 'recording' || phase === 'evaluating';
-    return (
-      <View style={styles.questionNavigation}>
-        <Button
-          title="Previous"
-          variant="outline"
-          disabled={navigationDisabled || questionIndex === 0}
-          onPress={() => goToQuestion(questionIndex - 1)}
-          style={styles.questionNavigationButton}
-        />
-        <AppText variant="caption" style={styles.questionNavigationCount}>
-          {questionIndex + 1} / {questions.length}
-        </AppText>
-        <Button
-          title="Next"
-          variant="outline"
-          disabled={navigationDisabled || questionIndex === questions.length - 1}
-          onPress={() => goToQuestion(questionIndex + 1)}
-          style={styles.questionNavigationButton}
-        />
-      </View>
-    );
-  };
-
   const togglePromptAudio = () => {
     recordingPlayer.pause();
     if (promptPlayerStatus.playing) {
@@ -601,6 +790,7 @@ export default function SpeakingCoachTestScreen() {
       return;
     }
     if (promptPlayerStatus.didJustFinish) void promptPlayer.seekTo(0);
+    promptPlayedForQuestionRef.current = true;
     promptPlayer.play();
   };
 
@@ -612,48 +802,126 @@ export default function SpeakingCoachTestScreen() {
     }
     if (!recordedUri) return;
     await switchAudioSession(false);
-    if (recordingPlayerStatus.didJustFinish) await recordingPlayer.seekTo(0);
+    const isAtEnd =
+      recordingPlayerStatus.didJustFinish ||
+      (recordingPlayerStatus.duration > 0 &&
+        recordingPlayerStatus.currentTime >= recordingPlayerStatus.duration - 0.05);
+    if (isAtEnd) await recordingPlayer.seekTo(0);
     recordingPlayer.play();
   };
 
   const startRecording = async () => {
+    const requestedAt = Date.now();
+    const trace: CaptureTrace = {
+      submissionId: Crypto.randomUUID(),
+      recordingOrdinal: recordingOrdinalRef.current + 1,
+      requestedAt,
+      appStateAtStart: AppState.currentState,
+    };
+    recordingOrdinalRef.current = trace.recordingOrdinal;
+    captureTraceRef.current = trace;
     try {
+      trace.statusBefore = recorderDiagnostic();
+      const permissionStarted = Date.now();
       const permission = await requestRecordingPermissionsAsync();
+      trace.permissionMs = Date.now() - permissionStarted;
       if (!permission.granted) {
+        captureDiagnostic('start_error', trace, { error_code: 'permission_denied' });
         Alert.alert('Microphone permission needed', 'Allow microphone access to test voice recording.');
         return;
       }
+      if (!screenFocusedRef.current) return;
       promptPlayer.pause();
       recordingPlayer.pause();
       setRecordedUri(null);
       setRecordedDurationMillis(0);
       setRecordedFile(SPEAKING_RECORDING_FILE);
-      setClientSubmissionId(null);
+      setClientSubmissionId(trace.submissionId);
       setSubmitError(null);
+      const audioSessionStarted = Date.now();
       await switchAudioSession(true);
+      trace.audioSessionMs = Date.now() - audioSessionStarted;
+      trace.statusAfterAudioSession = recorderDiagnostic();
+      if (!screenFocusedRef.current) {
+        await setIsAudioActiveAsync(false);
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        return;
+      }
       // Passing the options forces iOS to create a fresh AVAudioRecorder and
       // output URL. Reusing the stopped WAV recorder fails after its file has
       // been opened for review playback.
+      const prepareStarted = Date.now();
       await recorder.prepareToRecordAsync(SPEAKING_RECORDING_OPTIONS);
+      trace.prepareMs = Date.now() - prepareStarted;
+      trace.statusAfterPrepare = recorderDiagnostic();
+      if (!screenFocusedRef.current) {
+        await setIsAudioActiveAsync(false);
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        return;
+      }
       recorder.record();
+      trace.statusAfterRecord = recorderDiagnostic();
+      if (!screenFocusedRef.current) {
+        await recorder.stop();
+        await setIsAudioActiveAsync(false);
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        return;
+      }
+      captureDiagnostic('started', trace, {
+        total_start_ms: Date.now() - requestedAt,
+        status_before: trace.statusBefore,
+        status_after_audio_session: trace.statusAfterAudioSession,
+        status_after_prepare: trace.statusAfterPrepare,
+        status_after_record: trace.statusAfterRecord,
+      });
       setPhase('recording');
     } catch (error) {
+      captureDiagnostic('start_error', trace, {
+        total_start_ms: Date.now() - requestedAt,
+        error_message: error instanceof Error ? error.message.slice(0, 300) : 'unknown',
+        status_at_error: recorderDiagnostic(),
+      });
       Alert.alert('Could not record', error instanceof Error ? error.message : 'Please try again.');
     }
   };
 
   const stopRecording = async () => {
+    const trace = captureTraceRef.current ?? {
+      submissionId: clientSubmissionId ?? Crypto.randomUUID(),
+      recordingOrdinal: recordingOrdinalRef.current,
+      requestedAt: Date.now(),
+      appStateAtStart: AppState.currentState,
+    };
+    const stopRequestedAt = Date.now();
     try {
       const duration = recorderState.durationMillis;
+      const statusBeforeStop = recorderDiagnostic();
       await recorder.stop();
+      const stopMs = Date.now() - stopRequestedAt;
+      const statusAfterStop = recorderDiagnostic();
+      const playbackSessionStarted = Date.now();
       await switchAudioSession(false);
+      const playbackAudioSessionMs = Date.now() - playbackSessionStarted;
       const uri = recorder.uri ?? recorder.getStatus().url;
+      captureDiagnostic('stopped', trace, {
+        recorded_duration_state_ms: duration,
+        stop_ms: stopMs,
+        playback_audio_session_ms: playbackAudioSessionMs,
+        uri_present: Boolean(uri),
+        status_before_stop: statusBeforeStop,
+        status_after_stop: statusAfterStop,
+      });
       if (!uri) throw new Error('The recording did not produce an audio file.');
       setRecordedUri(uri);
       setRecordedDurationMillis(duration);
-      setClientSubmissionId(Crypto.randomUUID());
+      setClientSubmissionId(trace.submissionId);
       setPhase('review');
     } catch (error) {
+      captureDiagnostic('stop_error', trace, {
+        stop_elapsed_ms: Date.now() - stopRequestedAt,
+        error_message: error instanceof Error ? error.message.slice(0, 300) : 'unknown',
+        status_at_error: recorderDiagnostic(),
+      });
       Alert.alert('Could not finish recording', error instanceof Error ? error.message : 'Please try again.');
       setPhase('prompt');
     }
@@ -723,6 +991,16 @@ export default function SpeakingCoachTestScreen() {
       const nextEvaluation = response.attempt.evaluation;
       setSession(response.session);
       setEvaluation(nextEvaluation);
+      if (nextEvaluation.status === 'pass') {
+        setLocallyCorrectQuestionIds((questionIds) =>
+          questionIds.includes(activeQuestion.question.id)
+            ? questionIds
+            : [...questionIds, activeQuestion.question.id]
+        );
+      }
+      if (activeQuestion.practiceSet.practice_type === 'open') {
+        setShowConversationDetails(false);
+      }
       if (nextEvaluation.status === 'retry') {
         setInstructionalAttemptNumber(2);
         setPreviousAttemptId(response.attempt.id);
@@ -913,7 +1191,7 @@ export default function SpeakingCoachTestScreen() {
     ? 'We’re unable to check another recording for this question. You can skip it or exit practice.'
     : unclearAudioNeedsGuidance
       ? 'We’re still unable to hear your audio. Try moving somewhere quieter and make sure your microphone isn’t covered.'
-      : evaluation?.feedback_en;
+      : 'I couldn’t confidently understand that. Please record it one more time.';
   const renderPromptCard = () => (
     <Card style={styles.promptCard} padding="lg">
       {practiceSet.practice_type === 'translation' ? (
@@ -1009,7 +1287,12 @@ export default function SpeakingCoachTestScreen() {
         <UiStack gap="md" style={styles.reviewBlock}>
           <AppText variant="title" style={styles.stateTitle}>Review your recording</AppText>
           <AppText variant="muted" style={styles.centerText}>{formatDuration(recordedDurationMillis)} recorded</AppText>
-          <PlaybackButton label={learnerPlaybackLabel} onPress={() => void toggleRecordingAudio()} playing={recordingPlayerStatus.playing} />
+          <PlaybackButton
+            label={learnerPlaybackLabel}
+            disabled={!recordedUri}
+            onPress={() => void toggleRecordingAudio()}
+            playing={recordingPlayerStatus.playing}
+          />
           {submitError ? <AppText variant="muted" style={styles.submitError}>{submitError}</AppText> : null}
           <Button title="Submit recording" onPress={() => void submitRecording()} />
           <Button title="Record again" variant="outline" onPress={() => void startRecording()} />
@@ -1053,7 +1336,12 @@ export default function SpeakingCoachTestScreen() {
       <AppText variant="body" style={styles.centerText}>{evaluation?.feedback_en || 'Nice work—your answer passed the checker.'}</AppText>
       {evaluation?.feedback_th ? <AppText language="th" variant="muted" style={styles.centerText}>{evaluation.feedback_th}</AppText> : null}
       <View style={styles.playbackList}>
-        <PlaybackButton label={learnerPlaybackLabel} onPress={() => void toggleRecordingAudio()} playing={recordingPlayerStatus.playing} />
+        <PlaybackButton
+          label={learnerPlaybackLabel}
+          disabled={!recordedUri}
+          onPress={() => void toggleRecordingAudio()}
+          playing={recordingPlayerStatus.playing}
+        />
         {hasPromptAudio ? <PlaybackButton label={pailinPlaybackLabel} onPress={togglePromptAudio} playing={promptPlayerStatus.playing} /> : null}
       </View>
       <Button title="Next question" onPress={goNext} style={styles.wideButton} />
@@ -1126,7 +1414,12 @@ export default function SpeakingCoachTestScreen() {
         </Card>
 
         <View style={styles.playbackList}>
-          <PlaybackButton label={learnerPlaybackLabel} onPress={() => void toggleRecordingAudio()} playing={recordingPlayerStatus.playing} />
+          <PlaybackButton
+            label={learnerPlaybackLabel}
+            disabled={!recordedUri}
+            onPress={() => void toggleRecordingAudio()}
+            playing={recordingPlayerStatus.playing}
+          />
           {hasPromptAudio ? <PlaybackButton label={pailinPlaybackLabel} onPress={togglePromptAudio} playing={promptPlayerStatus.playing} /> : null}
         </View>
 
@@ -1137,7 +1430,10 @@ export default function SpeakingCoachTestScreen() {
           </UiStack>
         ) : isRetry || isUnclear ? (
           <UiStack gap="sm">
-            <Button title={isUnclear && !unclearAudioNeedsGuidance ? 'Record again' : 'Try again'} onPress={() => void startRecording()} />
+            <Button
+              title={isUnclear && !unclearAudioNeedsGuidance ? 'Record again' : 'Try again'}
+              onPress={() => void startRecording()}
+            />
             {isUnclear && unclearAudioNeedsGuidance ? (
               <Button title={skipPending ? 'Skipping…' : 'Skip question'} variant="outline" disabled={skipPending} onPress={() => void skipCurrentQuestion()} />
             ) : null}
@@ -1159,10 +1455,17 @@ export default function SpeakingCoachTestScreen() {
       && evaluation?.status === 'retry'
       && (phase === 'recording' || phase === 'review');
     const correctResult = phase === 'correct';
+    const isUnclear = evaluation?.status === 'unclear_audio';
     const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
     const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached);
     const showLearnerPlayback = showEvaluation && Boolean(recordedUri);
-    const coachTone = correctResult ? 'success' : showEvaluation ? 'error' : 'instruction';
+    const coachTone = correctResult
+      ? 'success'
+      : isUnclear
+        ? 'unclear'
+        : showEvaluation
+          ? 'error'
+          : 'instruction';
     const feedbackBulletDescriptions = evaluation
       ? evaluation.status === 'unclear_audio'
         ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
@@ -1198,8 +1501,12 @@ export default function SpeakingCoachTestScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
+              disabled={!recordedUri}
               onPress={() => void toggleRecordingAudio()}
-              style={styles.pronunciationReviewPlayback}
+              style={[
+                styles.pronunciationReviewPlayback,
+                !recordedUri ? styles.playbackButtonDisabled : null,
+              ]}
             >
               <Image
                 source={recordingPlayerStatus.playing ? pauseBlueImage : playBlueImage}
@@ -1224,7 +1531,7 @@ export default function SpeakingCoachTestScreen() {
       }
 
       if (phase === 'prompt' || retryReady) {
-        const isRetryAttempt = retryReady || instructionalAttemptNumber === 2;
+        const isRetryAttempt = evaluation?.status === 'retry' || instructionalAttemptNumber === 2;
         return (
           <View style={styles.pronunciationActionCard}>
             <AppText variant="caption" style={styles.pronunciationActionTitle}>
@@ -1274,6 +1581,7 @@ export default function SpeakingCoachTestScreen() {
                 label="You"
                 playing={recordingPlayerStatus.playing}
                 tone={correctResult ? 'blue' : 'red'}
+                disabled={!recordedUri}
                 onPress={() => void toggleRecordingAudio()}
               />
             ) : null}
@@ -1283,17 +1591,21 @@ export default function SpeakingCoachTestScreen() {
         {showEvaluation && evaluation ? (
           <View style={[
             styles.pronunciationFeedbackCard,
-            correctResult ? styles.pronunciationFeedbackSuccess : styles.pronunciationFeedbackError,
+            correctResult
+              ? styles.pronunciationFeedbackSuccess
+              : isUnclear
+                ? styles.pronunciationFeedbackUnclear
+                : styles.pronunciationFeedbackError,
           ]}>
             <Image
-              source={correctResult ? starsGreenImage : starsRedImage}
+              source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
               contentFit="contain"
               style={styles.pronunciationFeedbackStars}
             />
             <View style={styles.pronunciationFeedbackCopy}>
               {feedbackBulletDescriptions.map((description, index) => (
                 <AppText key={`${index}-${description}`} variant="caption" style={styles.pronunciationFeedbackText}>
-                  • {description}
+                  {isUnclear ? description : `• ${description}`}
                 </AppText>
               ))}
             </View>
@@ -1305,6 +1617,311 @@ export default function SpeakingCoachTestScreen() {
         {showSkip ? (
           <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
             <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP →'}</AppText>
+          </Pressable>
+        ) : null}
+
+        {unclearAudioLimitReached ? (
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.pronunciationContinueButton}>
+            <AppText variant="caption" style={styles.pronunciationContinueLabel}>EXIT PRACTICE</AppText>
+          </Pressable>
+        ) : null}
+
+        {correctResult || finalResult ? (
+          <Pressable accessibilityRole="button" onPress={goNext} style={styles.pronunciationContinueButton}>
+            <AppText variant="caption" style={styles.pronunciationContinueLabel}>CONTINUE</AppText>
+          </Pressable>
+        ) : null}
+      </ScrollView>
+    );
+  };
+
+  const renderConversationExperience = () => {
+    const retryReady = phase === 'feedback' && (
+      evaluation?.status === 'retry'
+      || (evaluation?.status === 'unclear_audio' && !unclearAudioLimitReached)
+    );
+    const retryInProgress = instructionalAttemptNumber === 2
+      && previousAttemptId !== null
+      && evaluation?.status === 'retry'
+      && (phase === 'recording' || phase === 'review');
+    const correctResult = phase === 'correct';
+    const isUnclear = evaluation?.status === 'unclear_audio';
+    const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
+    const showEvaluation = Boolean(evaluation) && (
+      correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached
+    );
+    const coachTone = correctResult
+      ? 'success'
+      : isUnclear
+        ? 'unclear'
+        : showEvaluation
+          ? 'error'
+          : 'instruction';
+    const feedbackDescriptions = evaluation
+      ? isUnclear
+        ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
+        : evaluation.displayed_issues.length > 0
+          ? evaluation.displayed_issues.map((issue) => issue.description_en)
+          : [evaluation.feedback_en]
+      : [];
+    const showSkip = phase === 'prompt'
+      || phase === 'recording'
+      || phase === 'review'
+      || retryReady
+      || unclearAudioLimitReached;
+    const example = question.examples[0];
+
+    const renderExample = () => {
+      if (!example?.en) return null;
+      if (!showExample) {
+        return (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowExample(true)}
+            style={styles.conversationExampleButton}
+          >
+            <MaterialIcons name="visibility" size={14} color="#777777" />
+            <AppText variant="caption" style={styles.conversationExampleButtonLabel}>
+              SHOW EXAMPLE ANSWER
+            </AppText>
+          </Pressable>
+        );
+      }
+      return (
+        <View style={styles.conversationExampleAnswer}>
+          <AppText variant="caption" style={styles.conversationExampleEnglish}>{example.en}</AppText>
+          {example.th ? (
+            <AppText language="th" variant="caption" style={styles.conversationExampleThai}>
+              {example.th}
+            </AppText>
+          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => setShowExample(false)}>
+            <AppText variant="caption" style={styles.conversationExampleHide}>HIDE</AppText>
+          </Pressable>
+        </View>
+      );
+    };
+
+    const renderAttemptPanel = () => {
+      if (isCompletedQuestion && phase === 'prompt') {
+        return (
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+            <View style={styles.completedQuestionLabel}>
+              <MaterialIcons name="check-circle" size={25} color={theme.colors.success} />
+              <AppText variant="caption" style={styles.conversationActionTitle}>COMPLETED IN THIS SESSION</AppText>
+            </View>
+            <Button
+              title="Retest in a fresh session"
+              variant="outline"
+              onPress={() => void retestInFreshSession()}
+              style={styles.conversationRetestButton}
+            />
+          </View>
+        );
+      }
+
+      if (phase === 'recording') {
+        return (
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+            <AppText variant="caption" style={styles.conversationActionTitle}>RECORDING…</AppText>
+            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
+            <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={() => void stopRecording()}>
+              <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
+            </Pressable>
+            <View style={styles.pronunciationTimerRow}>
+              <View style={styles.pronunciationTimerDot} />
+              <AppText variant="caption" style={styles.pronunciationTimerText}>
+                {formatDuration(recorderState.durationMillis)}
+              </AppText>
+            </View>
+          </View>
+        );
+      }
+
+      if (phase === 'review') {
+        return (
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+            <AppText variant="caption" style={styles.conversationActionTitle}>REVIEW YOUR RECORDING</AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Play your answer"
+              disabled={!recordedUri}
+              onPress={() => void toggleRecordingAudio()}
+              style={[
+                styles.pronunciationReviewPlayback,
+                !recordedUri ? styles.playbackButtonDisabled : null,
+              ]}
+            >
+              <Image
+                source={recordingPlayerStatus.playing ? pauseBlueImage : playBlueImage}
+                contentFit="contain"
+                style={styles.pronunciationReviewPlayIcon}
+              />
+              <AppText variant="caption" style={styles.pronunciationReviewLabel}>Your answer</AppText>
+              <AppText variant="caption" style={styles.pronunciationReviewDuration}>
+                {formatDuration(recordedDurationMillis)}
+              </AppText>
+            </Pressable>
+            {submitError ? (
+              <AppText variant="caption" style={styles.pronunciationSubmitError}>{submitError}</AppText>
+            ) : null}
+            <Pressable accessibilityRole="button" onPress={() => void submitRecording()} style={styles.pronunciationSubmitButton}>
+              <AppText variant="caption" style={styles.pronunciationSubmitLabel}>SUBMIT ANSWER</AppText>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
+              <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
+              <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
+            </Pressable>
+          </View>
+        );
+      }
+
+      if (phase === 'prompt' || retryReady) {
+        const isRetryAttempt = evaluation?.status === 'retry' || instructionalAttemptNumber === 2;
+        return (
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+            <AppText variant="caption" style={styles.conversationActionTitle}>
+              {isRetryAttempt ? 'TRY AGAIN!' : 'RESPOND TO THE QUESTION'}
+            </AppText>
+            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start recording"
+              onPress={() => void startRecording()}
+              style={styles.pronunciationMicButton}
+            >
+              <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
+            </Pressable>
+            <AppText variant="caption" style={styles.pronunciationAttemptLabel}>
+              Try {instructionalAttemptNumber} of 2
+            </AppText>
+            {renderExample()}
+          </View>
+        );
+      }
+
+      return null;
+    };
+
+    return (
+      <ScrollView
+        style={styles.pronunciationScroll}
+        contentContainerStyle={[
+          styles.pronunciationScrollContent,
+          { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <PracticeProgress {...activeQuestion} />
+        <AppText variant="caption" style={styles.pronunciationEyebrow}>CONVERSATION PRACTICE</AppText>
+
+        <PailinCoachBubble tone={coachTone} instruction="Let’s chat!" />
+
+        <View style={styles.conversationPromptCard}>
+          <View style={styles.conversationPromptEnglishRow}>
+            {hasPromptAudio ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Play Pailin's question" onPress={togglePromptAudio}>
+                <Image
+                  source={promptPlayerStatus.playing ? pauseBlueImage : speakerBlueImage}
+                  contentFit="contain"
+                  style={styles.conversationPromptAudioIcon}
+                />
+              </Pressable>
+            ) : null}
+            <AppText variant="title" style={styles.conversationPromptEnglish}>{question.prompt_en}</AppText>
+          </View>
+          {showConversationDetails ? (
+            <>
+              {question.prompt_th ? (
+                <AppText language="th" variant="caption" style={styles.conversationPromptThai}>
+                  {question.prompt_th}
+                </AppText>
+              ) : null}
+              {practiceSet.tip_en ? (
+                <View style={styles.conversationTipBox}>
+                  <MaterialIcons name="lightbulb-outline" size={15} color="#8C8C8C" />
+                  <AppText variant="caption" style={styles.conversationTipText}>{practiceSet.tip_en}</AppText>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+          {showEvaluation ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowConversationDetails((visible) => !visible)}
+              style={styles.conversationDetailsButton}
+            >
+              <AppText variant="caption" style={styles.conversationDetailsLabel}>
+                {showConversationDetails ? 'LESS ↑' : 'MORE ↓'}
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {showEvaluation && evaluation ? (
+          <View style={[
+            styles.conversationFeedbackCard,
+            correctResult
+              ? styles.conversationFeedbackSuccess
+              : isUnclear
+                ? styles.pronunciationFeedbackUnclear
+                : styles.conversationFeedbackError,
+          ]}>
+            <View style={styles.conversationLearnerAnswerRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Play your answer"
+                disabled={!recordedUri}
+                onPress={() => void toggleRecordingAudio()}
+                style={!recordedUri ? styles.playbackButtonDisabled : null}
+              >
+                <Image
+                  source={recordingPlayerStatus.playing
+                    ? (correctResult ? pauseGreenImage : isUnclear ? pauseBlueImage : pauseRedImage)
+                    : (correctResult ? playGreenImage : isUnclear ? playBlueImage : playRedImage)}
+                  contentFit="contain"
+                  style={styles.conversationLearnerPlayIcon}
+                />
+              </Pressable>
+              <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+            </View>
+            <View style={[
+              styles.conversationFeedbackDivider,
+              correctResult
+                ? styles.conversationFeedbackDividerSuccess
+                : isUnclear
+                  ? styles.conversationFeedbackDividerUnclear
+                  : styles.conversationFeedbackDividerError,
+            ]} />
+            <View style={styles.conversationFeedbackDetail}>
+              <Image
+                source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
+                contentFit="contain"
+                style={styles.conversationFeedbackStars}
+              />
+              <View style={styles.conversationFeedbackCopy}>
+                {feedbackDescriptions.map((description, index) => (
+                  <AppText key={`${index}-${description}`} variant="caption" style={styles.conversationFeedbackText}>
+                    {description}
+                  </AppText>
+                ))}
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {renderAttemptPanel()}
+
+        {showSkip ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={skipPending}
+            onPress={() => void skipCurrentQuestion()}
+            style={styles.pronunciationSkipButton}
+          >
+            <AppText variant="caption" style={styles.pronunciationSkipLabel}>
+              {skipPending ? 'SKIPPING…' : 'SKIP →'}
+            </AppText>
           </Pressable>
         ) : null}
 
@@ -1401,8 +2018,12 @@ export default function SpeakingCoachTestScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
+              disabled={!recordedUri}
               onPress={() => void toggleRecordingAudio()}
-              style={styles.pronunciationReviewPlayback}
+              style={[
+                styles.pronunciationReviewPlayback,
+                !recordedUri ? styles.playbackButtonDisabled : null,
+              ]}
             >
               <Image
                 source={recordingPlayerStatus.playing ? pauseBlueImage : playBlueImage}
@@ -1480,7 +2101,13 @@ export default function SpeakingCoachTestScreen() {
             correctResult ? styles.translationFeedbackSuccess : styles.translationFeedbackError,
           ]}>
             <View style={styles.translationLearnerAnswerRow}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Play your answer" onPress={() => void toggleRecordingAudio()}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Play your answer"
+                disabled={!recordedUri}
+                onPress={() => void toggleRecordingAudio()}
+                style={!recordedUri ? styles.playbackButtonDisabled : null}
+              >
                 <Image
                   source={recordingPlayerStatus.playing
                     ? (correctResult ? pauseBlueImage : pauseRedImage)
@@ -1536,17 +2163,105 @@ export default function SpeakingCoachTestScreen() {
     );
   };
 
+  const renderSetCompletion = () => {
+    const completedSet = lesson?.practice_sets.find(({ id }) => id === completedPracticeSetId);
+    if (!completedSet) return null;
+
+    const questionIds = new Set(completedSet.questions.map(({ id }) => id));
+    const correctIds = new Set([
+      ...(session.correct_question_ids ?? []),
+      ...locallyCorrectQuestionIds,
+    ]);
+    const correctCount = [...questionIds].filter((questionId) => correctIds.has(questionId)).length;
+    const needsReviewCount = Math.max(0, completedSet.question_count - correctCount);
+    const nextQuestionIndex = session.current_question_id === null
+      ? -1
+      : questions.findIndex(({ question }) => question.id === session.current_question_id);
+    const hasNextSet = nextQuestionIndex >= 0
+      && questions[nextQuestionIndex].practiceSet.id !== completedSet.id;
+    const copy = SET_COMPLETION_COPY[completedSet.practice_type];
+    const itemLabel = completedSet.question_count === 1 ? copy.singular : copy.plural;
+
+    return (
+      <ScrollView
+        style={styles.setCompletionScroll}
+        contentContainerStyle={[
+          styles.setCompletionContent,
+          { paddingBottom: Math.max(24, insets.bottom + 18) },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <CompletedSetProgress questionCount={completedSet.question_count} />
+        <AppText variant="caption" style={styles.pronunciationEyebrow}>
+          {TYPE_COPY[completedSet.practice_type].eyebrow}
+        </AppText>
+
+        <View style={styles.setCompletionHero}>
+          <Image source={pailinSetCompleteImage} contentFit="contain" style={styles.setCompletionImage} />
+          <AppText variant="title" style={styles.setCompletionTitle}>You finished this set!</AppText>
+          <AppText variant="body" style={styles.setCompletionSubtitle}>
+            {`You practiced ${copy.action}\n${completedSet.question_count} ${itemLabel}.`}
+          </AppText>
+        </View>
+
+        <View style={styles.setProgressCard}>
+          <View style={styles.setProgressHeadingRow}>
+            <View style={[styles.setProgressHeadingLine, styles.setProgressHeadingLineBlue]} />
+            <AppText variant="caption" style={styles.setProgressHeading}>YOUR PROGRESS</AppText>
+            <View style={styles.setProgressHeadingLine} />
+          </View>
+          <View style={styles.setProgressStats}>
+            <View style={styles.setProgressStat}>
+              <View style={[styles.setProgressStatusIcon, styles.setProgressCorrectIcon]}>
+                <MaterialIcons name="check" size={27} color={theme.colors.surface} />
+              </View>
+              <AppText variant="title" style={styles.setProgressCorrectCount}>{correctCount}</AppText>
+              <AppText variant="caption" style={styles.setProgressStatLabel}>correct</AppText>
+            </View>
+            {needsReviewCount > 0 ? (
+              <View style={styles.setProgressStat}>
+                <View style={[styles.setProgressStatusIcon, styles.setProgressReviewIcon]}>
+                  <MaterialIcons name="close" size={27} color={theme.colors.surface} />
+                </View>
+                <AppText variant="title" style={styles.setProgressReviewCount}>{needsReviewCount}</AppText>
+                <AppText variant="caption" style={styles.setProgressStatLabel}>needs review</AppText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={continueAfterSet}
+          style={({ pressed }) => [
+            styles.setCompletionButton,
+            pressed ? styles.welcomeStartButtonPressed : null,
+          ]}
+        >
+          <AppText variant="caption" style={styles.setCompletionButtonLabel}>
+            {hasNextSet ? 'NEXT SET' : 'FINISH LESSON!'}
+          </AppText>
+          {!hasNextSet ? (
+            <Image source={celebrateWhiteImage} contentFit="contain" style={styles.setCompletionButtonIcon} />
+          ) : null}
+        </Pressable>
+      </ScrollView>
+    );
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
       {renderLessonControls()}
 
-      {practiceSet.practice_type === 'open' ? renderQuestionNavigation() : null}
-
-      {phase === 'evaluating' ? (
+      {completedPracticeSetId !== null ? (
+        renderSetCompletion()
+      ) : phase === 'evaluating' ? (
         renderEvaluating()
       ) : practiceSet.practice_type === 'pronunciation' ? (
         renderPronunciationExperience()
+      ) : practiceSet.practice_type === 'open' ? (
+        renderConversationExperience()
       ) : practiceSet.practice_type === 'translation' ? (
         renderTranslationExperience()
       ) : phase === 'correct' ? (
@@ -1687,6 +2402,99 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
     letterSpacing: 0.3,
   },
+  setCompletionScroll: { flex: 1 },
+  setCompletionContent: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+    paddingTop: 2,
+  },
+  setCompletionHero: { alignItems: 'center', marginTop: 60 },
+  setCompletionImage: { width: 190, height: 170 },
+  setCompletionTitle: {
+    marginTop: 5,
+    fontSize: 25,
+    lineHeight: 34,
+    fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+  },
+  setCompletionSubtitle: { marginTop: 13, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  setProgressCard: {
+    width: '82%',
+    maxWidth: 340,
+    minHeight: 180,
+    alignSelf: 'center',
+    marginTop: 30,
+    borderWidth: 1,
+    borderBottomWidth: 6,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 14,
+    paddingTop: 18,
+    paddingBottom: 17,
+  },
+  setProgressHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  setProgressHeadingLine: { flex: 1, height: 2, backgroundColor: '#BDEAFF' },
+  setProgressHeadingLineBlue: { backgroundColor: '#2F6EEA' },
+  setProgressHeading: { fontSize: 12, lineHeight: 17, letterSpacing: 0.8 },
+  setProgressStats: {
+    flex: 1,
+    marginTop: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-evenly',
+  },
+  setProgressStat: { minWidth: 92, alignItems: 'center' },
+  setProgressStatusIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setProgressCorrectIcon: { backgroundColor: '#9ACD49' },
+  setProgressReviewIcon: { backgroundColor: '#FF6268' },
+  setProgressCorrectCount: {
+    marginTop: 6,
+    color: '#9ACD49',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: theme.typography.weights.bold,
+  },
+  setProgressReviewCount: {
+    marginTop: 6,
+    color: '#FF6268',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: theme.typography.weights.bold,
+  },
+  setProgressStatLabel: { fontSize: 12, lineHeight: 17 },
+  setCompletionButton: {
+    width: '100%',
+    minHeight: 50,
+    marginTop: 'auto',
+    borderWidth: 1,
+    borderBottomWidth: 5,
+    borderColor: '#14213B',
+    borderRadius: 26,
+    backgroundColor: '#2F6EEA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  setCompletionButtonLabel: {
+    color: theme.colors.surface,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.medium,
+    letterSpacing: 0.2,
+  },
+  setCompletionButtonIcon: { width: 16, height: 16 },
   pronunciationScroll: { flex: 1 },
   pronunciationScrollContent: {
     flexGrow: 1,
@@ -1733,6 +2541,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F5FF',
   },
   pronunciationCoachBubbleSuccess: { borderColor: '#A9E64D', backgroundColor: '#F0FFD9' },
+  pronunciationCoachBubbleUnclear: {
+    marginLeft: -24,
+    borderColor: '#F0C419',
+    backgroundColor: '#FFFBE8',
+  },
   pronunciationCoachBubbleError: {
     marginLeft: -24,
     borderColor: '#FF6268',
@@ -1863,6 +2676,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   pronunciationFeedbackSuccess: { borderColor: '#A9E64D', backgroundColor: '#F0FFD9' },
+  pronunciationFeedbackUnclear: { borderColor: '#F0C419', backgroundColor: '#FFFBE8' },
   pronunciationFeedbackError: { borderColor: '#FF6268', backgroundColor: '#FFF0F1' },
   pronunciationFeedbackStars: { width: 42, height: 42 },
   pronunciationFeedbackCopy: { flex: 1, gap: 3 },
@@ -1883,6 +2697,143 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pronunciationContinueLabel: { color: theme.colors.surface, fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.medium },
+  conversationPromptCard: {
+    width: '100%',
+    minHeight: 142,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    borderBottomWidth: 5,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 14,
+    alignItems: 'center',
+  },
+  conversationPromptEnglishRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 9,
+  },
+  conversationPromptAudioIcon: { width: 24, height: 24, marginTop: 2 },
+  conversationPromptEnglish: {
+    maxWidth: '82%',
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+  },
+  conversationPromptThai: {
+    marginTop: 7,
+    color: '#9A9A9A',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  conversationTipBox: {
+    width: '100%',
+    minHeight: 36,
+    marginTop: 12,
+    borderRadius: 7,
+    backgroundColor: '#FFFBE5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  conversationTipText: {
+    color: '#707070',
+    fontSize: 11,
+    lineHeight: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  conversationDetailsButton: { marginTop: 10, paddingHorizontal: 18, paddingVertical: 3 },
+  conversationDetailsLabel: {
+    color: '#2F6EEA',
+    fontSize: 9,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  conversationActionCard: { minHeight: 210 },
+  conversationActionTitle: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.semibold,
+    letterSpacing: 0.5,
+  },
+  conversationRetestButton: { width: '100%', marginTop: 18 },
+  conversationExampleButton: {
+    minHeight: 28,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#B8DFFD',
+    borderRadius: 5,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  conversationExampleButtonLabel: { color: '#666666', fontSize: 8, lineHeight: 12 },
+  conversationExampleAnswer: {
+    width: '72%',
+    minHeight: 58,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#B8DFFD',
+    borderRadius: 5,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  conversationExampleEnglish: { fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  conversationExampleThai: { color: '#999999', fontSize: 9, lineHeight: 13, textAlign: 'center' },
+  conversationExampleHide: { marginTop: 2, color: '#777777', fontSize: 7, lineHeight: 10 },
+  conversationFeedbackCard: {
+    width: '100%',
+    marginTop: 18,
+    borderWidth: 1,
+    borderRadius: 9,
+    overflow: 'hidden',
+  },
+  conversationFeedbackSuccess: { borderColor: '#A9E64D', backgroundColor: '#F0FFD9' },
+  conversationFeedbackError: { borderColor: '#FF6268', backgroundColor: '#FFF0F1' },
+  conversationLearnerAnswerRow: {
+    minHeight: 65,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  conversationLearnerPlayIcon: { width: 38, height: 38 },
+  conversationLearnerAnswerTitle: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: theme.typography.weights.bold,
+  },
+  conversationFeedbackDivider: { height: 1 },
+  conversationFeedbackDividerSuccess: { backgroundColor: '#A9E64D' },
+  conversationFeedbackDividerError: { backgroundColor: '#FF6268' },
+  conversationFeedbackDividerUnclear: { backgroundColor: '#F0C419' },
+  conversationFeedbackDetail: {
+    minHeight: 76,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  conversationFeedbackStars: { width: 38, height: 38 },
+  conversationFeedbackCopy: { flex: 1, gap: 3 },
+  conversationFeedbackText: { fontSize: 12, lineHeight: 18 },
   translationPromptCard: {
     width: '100%',
     minHeight: 122,
@@ -2005,6 +2956,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: '#C9D2DC',
   },
+  progressConnectorComplete: { borderStyle: 'solid', borderColor: theme.colors.border },
   progressDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: '#C9D2DC', backgroundColor: theme.colors.surface },
   progressDotActive: { borderColor: theme.colors.border, backgroundColor: '#BDEAFF' },
   eyebrow: { color: theme.colors.accent, fontWeight: theme.typography.weights.bold, letterSpacing: 0.7, textAlign: 'center', fontSize: 12 },
@@ -2034,6 +2986,7 @@ const styles = StyleSheet.create({
   reviewBlock: { width: '100%', paddingTop: theme.spacing.md },
   stateTitle: { textAlign: 'center', fontSize: 24, lineHeight: 32, fontWeight: theme.typography.weights.bold },
   playbackButton: { minHeight: 50, borderWidth: 1, borderColor: '#C9D2DC', borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.md },
+  playbackButtonDisabled: { opacity: 0.45 },
   playbackIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
   playbackLabel: { flex: 1, fontWeight: theme.typography.weights.semibold },
   submitError: { color: theme.colors.primary, textAlign: 'center' },

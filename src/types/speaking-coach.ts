@@ -52,6 +52,8 @@ export type SpeakingCoachSession = {
   current_question_id: number | null;
   completed_question_ids: number[];
   skipped_question_ids: number[];
+  correct_question_ids?: number[];
+  needs_review_question_ids?: number[];
   instructional_attempt_number: 1 | 2;
   previous_attempt_id: string | null;
   consecutive_unclear_audio_count: number;

@@ -617,6 +617,8 @@ Backend flow:
 
 Never return unvalidated model output directly to the frontend. Malformed output must produce a safe fallback rather than undefined UI behavior.
 
+When Azure returns HTTP 200 with a JSON body that omits `RecognitionStatus`, the backend retries that Azure assessment once with the same normalized recording, within the original evaluation timeout. The retry is counted in usage and latency diagnostics. Sanitized response keys and provider error text are retained for diagnosis; recognized text from the malformed response is not copied into retry diagnostics. A second malformed response fails safely without requesting another learner recording automatically.
+
 ### Submission idempotency and concurrency
 
 The application generates a UUID `client_submission_id` when a recording enters review and reuses it for every HTTP retry of that same local recording. Recording again creates a new UUID. The backend derives instructional attempt numbers and previous-attempt relationships from stored history; client-supplied attempt metadata is not authoritative.
@@ -720,6 +722,7 @@ The test route uses an admin-only `GET /api/speaking/lessons` catalog to discove
 - Microphone permission handling
 - Local recording, stop, replay, and re-record controls
 - A fresh native recorder and output URL for every initial or retry recording; a stopped WAV recorder is never reused after its file has been opened for review playback
+- One stable learner-recording player across question transitions, with its source replaced after each completed recording and playback disabled until the new local file is loaded
 - A review-before-submission state
 - Real evaluating, correct, retry, final-correction, and unclear-audio states
 - The shared pulsing Pailin loading state while the lesson or evaluator response is loading
@@ -814,6 +817,17 @@ The left screenshot is the `pronunciation + open` variant. The right screenshot 
 - Bold, uppercase labels for practice titles and the primary action; friendly rounded typography elsewhere.
 - Exact spacing, type sizes, colors, radii, and icon dimensions remain provisional until implementation and comparison against the source design.
 
+### Practice-set completion screen
+
+After the learner resolves the final question in one practice type, pause before advancing and show a summary for that set.
+
+- Show every question-progress dot as completed, followed by the completed practice type's label.
+- Use `pailin-set-complete.webp`, the heading `You finished this set!`, and type-specific supporting copy: `practiced pronouncing` for Pronunciation, `practiced answering` for Conversation, and `practiced translating` for Thai to English. Use `question/questions` for Conversation and `sentence/sentences` for the other types with correct singularization.
+- The `YOUR PROGRESS` card shows the number of questions passed as `correct`. Completed-with-correction and skipped questions count as `needs review`. Omit the needs-review column when its count is zero.
+- These totals come from the persisted session payload so they remain correct if the application reloads. The session exposes `correct_question_ids` and `needs_review_question_ids` alongside its completed and skipped IDs.
+- If another practice type remains, the primary action is `NEXT SET` and opens the server-selected next unresolved question. On the final set, the action is `FINISH LESSON!` with the celebration icon and exits the standalone Speaking Coach flow.
+- Completing or skipping the last question in a set both trigger this screen. Questions within the same set continue directly to the next question.
+
 ### Pronunciation Practice flow
 
 Pronunciation Practice uses the existing two-attempt recording and evaluation flow with a dedicated visual presentation.
@@ -835,6 +849,29 @@ Pronunciation Practice uses the existing two-attempt recording and evaluation fl
 6. **Second submitted attempt needs work:** keep the final `Not quite!` correction state, remove further recording controls, and show `CONTINUE`.
 
 `SKIP →` remains available while the learner can record or retry. It persists the question as skipped before advancing; it does not create an evaluation attempt or count the question as correct. `CONTINUE` advances after a correct result or after final feedback on the second submitted attempt.
+
+### Conversation Practice flow
+
+Conversation Practice reuses the shared progress, recording, review, two-attempt, unclear-audio, skip, and completion behavior while presenting open questions and optional example answers.
+
+#### Shared elements
+
+- The practice label is `CONVERSATION PRACTICE` and Pailin's initial instruction is `Let’s chat!`.
+- The prompt card displays the English question, its Thai translation when available, model audio when supplied, and the authored English tip in a pale-yellow hint panel.
+- After evaluation, the prompt card may collapse the translation and tip to save vertical space. `MORE ↓` and `LESS ↑` let the learner reveal or hide those details.
+- The recording panel is labeled `RESPOND TO THE QUESTION` on the first attempt and `TRY AGAIN!` for a retry.
+- `SHOW EXAMPLE ANSWER` reveals the first authored English example and its Thai translation when available; `HIDE` collapses it again.
+- The learner feedback card labels the playback control `Your answer:` but intentionally does not display Azure's recognized transcript or any other transcript guess. Recognition text remains private evaluation and diagnostic input.
+- Feedback copy comes from the evaluator. When `displayed_issues` are present, show every returned issue rather than truncating the list.
+
+#### States
+
+1. **Ready:** show `pailin-do-the-task.webp`, `Let’s chat!`, the full prompt card, the first-attempt recording panel, and the optional example-answer control.
+2. **Recording and review:** reuse the stop, timer, learner playback, submit, and record-again behavior from Pronunciation Practice.
+3. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, audio-only learner-answer playback, positive feedback, and `CONTINUE`.
+4. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, audio-only learner-answer playback, the evaluator's corrections, and a `TRY AGAIN!` panel marked `Try 2 of 2`.
+5. **Second submitted attempt needs work:** show final evaluator feedback and `CONTINUE` without another recording attempt.
+6. **Unclear audio:** show `pailin-cant-hear.webp`, `Hmm...what was that?`, the yellow unclear-audio feedback treatment, and another recording opportunity without consuming an instructional attempt, subject to the shared unclear-audio safety limit.
 
 ### Thai-to-English flow
 
@@ -1044,7 +1081,7 @@ The bucket is private and has a 10 MB per-object limit. Upload, replay, and dele
 
 The React Native iOS recorder uses Linear PCM and produces a mono, 16 kHz, 16-bit `.wav` recording that already matches Azure's required input. It must receive the complete recording options on every `prepareToRecordAsync(...)` call so Expo creates a fresh native recorder and unique output file for retries. Android and web retain supported compressed recording presets until an equivalent direct PCM path is implemented.
 
-Do not relabel compressed bytes as `audio/aac`. Canonicalize known aliases such as `audio/vnd.wave` and `audio/wave` to `audio/wav`. If React Native sends a valid WAV as `application/octet-stream`, accept it only after checking its `RIFF` and `WAVE` byte signature. Before bypassing conversion, validate the WAV channel count, sample rate, sample width, compression type, duration, and size. Any supported recording that is not already compatible must be normalized to:
+Do not relabel compressed bytes as `audio/aac`. Canonicalize known aliases such as `audio/vnd.wave` and `audio/wave` to `audio/wav`. If React Native sends a valid WAV as `application/octet-stream`, accept it only after checking its `RIFF` and `WAVE` byte signature. Before bypassing conversion, validate the WAV channel count, sample rate, sample width, compression type, duration, frame count, and size. A zero-frame WAV is `audio_empty` and must fail before any Azure request. Any supported recording that is not already compatible must be normalized to:
 
 ```text
 mono
