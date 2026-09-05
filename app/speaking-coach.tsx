@@ -2230,6 +2230,8 @@ export default function SpeakingCoachTestScreen() {
           </View>
         </View>
 
+        <View style={styles.setCompletionButtonSpacer} />
+
         <Pressable
           accessibilityRole="button"
           onPress={continueAfterSet}
@@ -2475,7 +2477,6 @@ const styles = StyleSheet.create({
   setCompletionButton: {
     width: '100%',
     minHeight: 50,
-    marginTop: 'auto',
     borderWidth: 1,
     borderBottomWidth: 5,
     borderColor: '#14213B',
@@ -2487,6 +2488,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: theme.spacing.lg,
   },
+  setCompletionButtonSpacer: { flexGrow: 1, minHeight: 24 },
   setCompletionButtonLabel: {
     color: theme.colors.surface,
     fontSize: 12,
