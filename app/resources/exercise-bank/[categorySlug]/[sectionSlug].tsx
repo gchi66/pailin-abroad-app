@@ -6,8 +6,8 @@ export default function ExerciseBankSectionRoute() {
   const sectionSlug = Array.isArray(params.sectionSlug) ? params.sectionSlug[0] : params.sectionSlug;
 
   if (!categorySlug || !sectionSlug) {
-    return <Redirect href="/(tabs)/resources/exercise-bank" />;
+    return <Redirect href="/(tabs)/exercises" />;
   }
 
-  return <Redirect href={`/(tabs)/resources/exercise-bank/${categorySlug}/${sectionSlug}`} />;
+  return <Redirect href={`/(tabs)/exercises/${categorySlug}/${sectionSlug}`} />;
 }

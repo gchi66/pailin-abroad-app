@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
 import { prefetchPricing } from '@/src/api/pricing';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
@@ -133,7 +134,7 @@ export function ExerciseBankScreen() {
 
   const handleCollectionPress = (collection: TopicCollection) => {
     router.push({
-      pathname: '/(tabs)/resources/exercise-bank/[collectionSlug]',
+      pathname: '/(tabs)/exercises/[collectionSlug]',
       params: {
         collectionSlug: collection.slug,
         title: collection.label[uiLanguage],
@@ -194,7 +195,7 @@ export function ExerciseBankScreen() {
                         prefetchPricing();
                         router.push({
                           pathname: '/(tabs)/account/membership',
-                          params: { returnTo: '/(tabs)/resources/exercise-bank' },
+                          params: { returnTo: '/(tabs)/exercises' },
                         });
                       }}>
                       <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: theme.spacing.xl * 2,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   contentWrap: {
     paddingHorizontal: theme.spacing.md,

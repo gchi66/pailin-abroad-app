@@ -7,6 +7,7 @@ import blueCompletedCheckImage from '@/assets/images/check_circle_blue.webp';
 import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { AppText } from '@/src/components/ui/AppText';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
@@ -589,7 +590,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   noticeWrap: {
     paddingHorizontal: theme.spacing.md,

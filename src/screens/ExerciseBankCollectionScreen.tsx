@@ -123,12 +123,12 @@ export function ExerciseBankCollectionScreen() {
     if (!hasMembership && !topic.is_featured) {
       router.push({
         pathname: '/(tabs)/account/membership',
-        params: { returnTo: `/(tabs)/resources/exercise-bank/${collectionSlug}` },
+        params: { returnTo: `/(tabs)/exercises/${collectionSlug}` },
       });
       return;
     }
     router.push({
-      pathname: '/(tabs)/resources/exercise-bank/topic/[topicId]',
+      pathname: '/(tabs)/exercises/topic/[topicId]',
       params: { topicId: String(topic.id) },
     });
   };

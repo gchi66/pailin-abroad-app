@@ -9,6 +9,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
@@ -136,9 +137,9 @@ export function ResourcesScreen() {
   const handleCardPress = (card: ResourceCardCopy) => {
     if (card.id === 'exercise-bank') {
       if (returnTo) {
-        router.push(`/(tabs)/resources/exercise-bank?returnTo=${encodeURIComponent(returnTo)}`);
+        router.push(`/(tabs)/exercises?returnTo=${encodeURIComponent(returnTo)}`);
       } else {
-        router.push('/(tabs)/resources/exercise-bank');
+        router.push('/(tabs)/exercises');
       }
       return;
     }
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: theme.spacing.xl * 2,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   contentWrap: {
     paddingHorizontal: theme.spacing.md,

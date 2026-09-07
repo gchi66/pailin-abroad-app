@@ -522,7 +522,7 @@ export function ExerciseBankSessionScreen() {
         router.setParams({ setNumber: String(nextSet.set_number) });
         return;
       }
-      router.replace('/(tabs)/resources/exercise-bank');
+      router.replace('/(tabs)/exercises');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : copy.loadError);
     } finally {
@@ -606,7 +606,7 @@ export function ExerciseBankSessionScreen() {
                 <Pressable
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.completionButton, styles.completionNextButton, pressed ? styles.practiceCheckButtonPressed : null]}
-                  onPress={isPerfect ? () => router.replace('/(tabs)/resources/exercise-bank') : goToNextSet}>
+                  onPress={isPerfect ? () => router.replace('/(tabs)/exercises') : goToNextSet}>
                   <AppText language={uiLanguage} variant="caption" style={styles.completionButtonText}>
                     {isPerfect ? copy.chooseNewTopic : hasNextSet ? copy.goNextSet : copy.backToBank}
                   </AppText>

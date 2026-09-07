@@ -10,6 +10,7 @@ import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   pageContent: {
     flex: 1,

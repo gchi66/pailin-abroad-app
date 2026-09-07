@@ -100,10 +100,11 @@ import pailinBlueThumbsUpImage from '@/assets/images/pailin-blue-circle-thumbs-u
 
 type UiLanguage = 'en' | 'th';
 const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
-const TAB_BAR_LABELS: Record<UiLanguage, { home: string; pathway: string; lessons: string; resources: string; more: string }> = {
+const TAB_BAR_LABELS: Record<UiLanguage, { home: string; pathway: string; exercises: string; lessons: string; resources: string; more: string }> = {
   en: {
     home: 'Home',
     pathway: 'Pathway',
+    exercises: 'Exercises',
     lessons: 'Lessons',
     resources: 'Resources',
     more: 'More',
@@ -111,6 +112,7 @@ const TAB_BAR_LABELS: Record<UiLanguage, { home: string; pathway: string; lesson
   th: {
     home: 'หน้าหลัก',
     pathway: 'เส้นทาง',
+    exercises: 'แบบฝึกหัด',
     lessons: 'บทเรียน',
     resources: 'คลังเสริม',
     more: 'เพิ่มเติม',
@@ -5318,6 +5320,11 @@ export default function LessonDetailShellScreen() {
     router.push('/(tabs)/resources');
   }, [flushPendingLessonPersistence, router]);
 
+  const navigateToExercisesTab = useCallback(async () => {
+    await flushPendingLessonPersistence();
+    router.push('/(tabs)/exercises');
+  }, [flushPendingLessonPersistence, router]);
+
   const navigateToAccountTab = useCallback(async () => {
     await flushPendingLessonPersistence();
     router.push('/(tabs)/account');
@@ -5333,10 +5340,17 @@ export default function LessonDetailShellScreen() {
         onPress: navigateToPrimaryTab,
       },
       {
+        key: 'exercises',
+        label: tabBarText.exercises,
+        icon: 'pencil' as const,
+        isActive: false,
+        onPress: navigateToExercisesTab,
+      },
+      {
         key: 'lessons',
         label: tabBarText.lessons,
         icon: 'book.fill' as const,
-        isActive: false,
+        isActive: true,
         onPress: navigateToLessonLibrary,
       },
       {
@@ -5354,7 +5368,7 @@ export default function LessonDetailShellScreen() {
         onPress: navigateToAccountTab,
       },
     ],
-    [hasAccount, navigateToAccountTab, navigateToLessonLibrary, navigateToPrimaryTab, navigateToResourcesTab, tabBarText]
+    [hasAccount, navigateToAccountTab, navigateToExercisesTab, navigateToLessonLibrary, navigateToPrimaryTab, navigateToResourcesTab, tabBarText]
   );
 
   const navigateToNextLesson = useCallback(async () => {
@@ -7343,8 +7357,8 @@ export default function LessonDetailShellScreen() {
           title: uiLanguage === 'th' ? 'คลังแบบฝึกหัด' : 'Exercise Bank',
           subtitle: richLinkCopy.exerciseSubtitle,
           route: lessonReturnTo
-            ? `/(tabs)/resources/exercise-bank?returnTo=${encodeURIComponent(lessonReturnTo)}`
-            : '/(tabs)/resources/exercise-bank',
+            ? `/(tabs)/exercises?returnTo=${encodeURIComponent(lessonReturnTo)}`
+            : '/(tabs)/exercises',
           externalUrl: null,
           actionLabel: richLinkCopy.openPage,
           note: richLinkCopy.progressSaved,

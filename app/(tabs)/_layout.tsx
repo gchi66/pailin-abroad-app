@@ -1,20 +1,20 @@
 import React, { useMemo } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { PailinTabBar } from '@/src/components/navigation/PailinTabBar';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
-const labels: Record<UiLanguage, { home: string; pathway: string; lessons: string; resources: string; more: string }> = {
+const labels: Record<UiLanguage, { home: string; pathway: string; exercises: string; lessons: string; resources: string; more: string }> = {
   en: {
     home: 'Home',
     pathway: 'Pathway',
+    exercises: 'Exercises',
     lessons: 'Lessons',
     resources: 'Resources',
     more: 'More',
@@ -22,6 +22,7 @@ const labels: Record<UiLanguage, { home: string; pathway: string; lessons: strin
   th: {
     home: 'หน้าหลัก',
     pathway: 'เส้นทาง',
+    exercises: 'แบบฝึกหัด',
     lessons: 'บทเรียน',
     resources: 'คลังเสริม',
     more: 'เพิ่มเติม',
@@ -34,65 +35,49 @@ export default function TabLayout() {
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, isGuestMode, isLoading } = useAppSession();
 
-  const styles = useMemo(() => createStyles(insets.top, insets.bottom), [insets.bottom, insets.top]);
   const text = labels[uiLanguage];
   const shouldShowTabBar = isLoading || hasAccount || isGuestMode;
 
   const tabsScreenOptions = useMemo(
     () => ({
-      tabBarActiveTintColor: theme.colors.accent,
-      tabBarInactiveTintColor: theme.colors.mutedText,
       headerShown: false,
-      tabBarButton: HapticTab,
-      tabBarItemStyle: styles.tabBarItem,
-      sceneStyle: shouldShowTabBar ? styles.scene : styles.sceneFullscreen,
-      tabBarStyle: shouldShowTabBar ? styles.tabBar : styles.tabBarHidden,
-      tabBarLabelStyle: [styles.tabBarLabel, uiLanguage === 'th' ? styles.tabBarLabelThai : styles.tabBarLabelEnglish],
+      sceneStyle: shouldShowTabBar ? [styles.scene, { paddingTop: insets.top }] : styles.sceneFullscreen,
     }),
-    [
-      shouldShowTabBar,
-      styles.scene,
-      styles.sceneFullscreen,
-      styles.tabBar,
-      styles.tabBarHidden,
-      styles.tabBarItem,
-      styles.tabBarLabel,
-      styles.tabBarLabelEnglish,
-      styles.tabBarLabelThai,
-      uiLanguage,
-    ]
+    [insets.top, shouldShowTabBar]
   );
 
   return (
-    <Tabs screenOptions={tabsScreenOptions}>
+    <Tabs
+      screenOptions={tabsScreenOptions}
+      tabBar={(props) => (shouldShowTabBar ? <PailinTabBar {...props} /> : null)}>
       <Tabs.Screen
         name="index"
         options={{
           title: hasAccount || isGuestMode ? text.pathway : text.home,
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name={hasAccount || isGuestMode ? 'flag.fill' : 'house.fill'} color={color} />
-          ),
+        }}
+      />
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          title: text.exercises,
         }}
       />
       <Tabs.Screen
         name="lessons"
         options={{
           title: text.lessons,
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="book.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="resources"
         options={{
           title: text.resources,
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="square.grid.2x2.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: text.more,
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="ellipsis.circle.fill" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -111,41 +96,11 @@ export default function TabLayout() {
   );
 }
 
-const createStyles = (insetTop: number, insetBottom: number) =>
-  StyleSheet.create({
+const styles = StyleSheet.create({
     scene: {
-      paddingTop: insetTop,
       backgroundColor: theme.colors.background,
     },
     sceneFullscreen: {
       backgroundColor: theme.colors.background,
-    },
-    tabBar: {
-      height: 74 + insetBottom,
-      paddingTop: theme.spacing.xs,
-      paddingBottom: Math.max(insetBottom, theme.spacing.sm),
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.border,
-      backgroundColor: theme.colors.surface,
-    },
-    tabBarHidden: {
-      display: 'none',
-    },
-    tabBarItem: {
-      flex: 1,
-      maxWidth: '25%',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    tabBarLabel: {
-      fontSize: 11,
-      ...(Platform.OS === 'android' ? null : { fontWeight: theme.typography.weights.semibold }),
-      textAlign: 'center',
-    },
-    tabBarLabelEnglish: {
-      fontFamily: theme.typography.fontFaces.en.semibold,
-    },
-    tabBarLabelThai: {
-      fontFamily: theme.typography.fontFaces.th.semibold,
     },
   });
