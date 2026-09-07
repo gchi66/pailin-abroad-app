@@ -3,9 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
-import lockImage from '@/assets/images/lock.webp';
+import exerciseBankImage from '@/assets/images/resources_exercise_bank.webp';
 import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
@@ -22,145 +22,107 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
+import { getFreePathwaySummary } from '@/src/lib/free-pathway';
+import { env } from '@/src/config/env';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
 type UiLanguage = 'en' | 'th';
 
-type PathwayCopy = {
-  welcomeBack: string;
-  welcome: string;
-  welcomeTo: string;
-  guestWelcome: string;
-  freePlanBadge: string;
-  paidBadge: string;
-  upgrade: string;
-  upgradeBannerTitle: string;
-  upgradeBannerBody: string;
-  upgradeBannerCta: string;
-  guestBannerTitle: string;
-  guestBannerBody: string;
-  guestBannerCta: string;
-  progressTitle: string;
-  progressLoading: string;
-  viewDetails: string;
-  lessonsDone: string;
-  levelsDone: string;
-  dailyStreak: string;
-  levelShort: string;
-  lessonsCompleteForLevel: (completedCount: number, totalCount: number, level: number | null) => string;
-  continueLearning: string;
-  upNext: string;
-  openLesson: string;
-  becomeMember: string;
-  browseLibrary: string;
-  browseFreeLibrary: string;
-  untitledLesson: string;
-  noResumeLesson: string;
-  noUpcomingLessons: string;
-  freePlanBody: string;
-  guestOverlayTitle: string;
-  guestOverlayBody: string;
-  guestOverlayCta: string;
+const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
+  welcomeBack: 'ยินดีต้อนรับกลับมา',
+  welcome: 'ยินดีต้อนรับ!',
+  welcomeTo: 'ยินดีต้อนรับสู่',
+  guestWelcome: 'เส้นทางการเรียนของคุณ',
+  guestBannerTitle: 'ติดตามความคืบหน้า',
+  guestBannerBody: 'สร้างบัญชีฟรีเพื่อบันทึกความคืบหน้าของคุณ',
+  guestBannerCta: 'สมัครฟรี →',
+  progressTitle: 'สถิติของคุณ',
+  viewDetails: 'ดูความคืบหน้าในการเรียน →',
+  lessonsDone: 'บทเรียนที่จบ',
+  levelsDone: 'เลเวลที่จบ',
+  dailyStreak: 'สตรีคประจำวัน',
+  levelShort: 'เลเวล',
+  continueLearning: 'เรียนต่อ',
+  openLesson: 'เริ่มบทเรียน',
+  lesson: 'บทเรียน',
+  becomeMember: 'อัปเกรดเพื่อเรียนต่อ →',
+  browseFreeLibrary: 'เปิดคลังบทเรียนฟรี →',
+  untitledLesson: 'ไม่มีชื่อบทเรียน',
+  noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
+  upgradeTitle: 'ปลดล็อกคอร์สทั้งหมด',
+  upgradeCta: 'ดูแพ็กเกจ →',
+  upgradeBody: (total: number) => `คุณสามารถเรียนฟรีได้ ${total} บทเรียน อัปเกรดเพื่อปลดล็อกคลังบทเรียนทั้งหมด!`,
+  allFreeComplete: 'คุณเรียนครบทุกบทเรียนฟรีแล้ว!',
+  allFreeCompleteBody: 'เรียนต่อด้วยคอร์สเต็ม และพัฒนาทักษะของคุณต่อไป',
+  progressSummary: (done: number, total: number, free: boolean) => `เรียนจบ ${done} จาก ${total} ${free ? 'บทเรียนฟรี' : 'บทเรียน'}`,
+  practice: 'ฝึกฝน',
+  exerciseBank: 'คลังแบบฝึกหัด',
+  practiceBody: 'ฝึกฝนสิ่งที่คุณได้เรียนรู้!',
+  guestOverlayTitle: 'หากต้องการดูเนื้อหาใน My Pathway โปรดสร้างบัญชีฟรี',
+  guestOverlayBody: 'บัญชีฟรีช่วยให้คุณบันทึกความคืบหน้า และปลดล็อกประสบการณ์การเรียนส่วนตัวของคุณ',
+  guestOverlayCta: 'สร้างบัญชีฟรี',
+} : {
+  welcomeBack: 'Welcome back',
+  welcome: 'Welcome!',
+  welcomeTo: 'Welcome to',
+  guestWelcome: 'Your learning pathway',
+  guestBannerTitle: 'Track your progress',
+  guestBannerBody: 'Create a free account to save your progress.',
+  guestBannerCta: 'Sign up free →',
+  progressTitle: 'Your stats',
+  viewDetails: 'View learning progress →',
+  lessonsDone: 'Lessons\ncomplete',
+  levelsDone: 'Levels\ncomplete',
+  dailyStreak: 'Day\nstreak',
+  levelShort: 'Level',
+  continueLearning: 'Continue learning',
+  openLesson: 'Start lesson',
+  lesson: 'Lesson',
+  becomeMember: 'Upgrade to continue →',
+  browseFreeLibrary: 'Browse the free lesson library →',
+  untitledLesson: 'Untitled lesson',
+  noResumeLesson: 'There is no next lesson right now.',
+  upgradeTitle: 'Unlock the full course',
+  upgradeCta: 'View plans →',
+  upgradeBody: (total: number) => `You have access to ${total} free lessons. Upgrade to unlock the full lesson library!`,
+  allFreeComplete: 'You’ve finished all your free lessons!',
+  allFreeCompleteBody: 'Keep learning with the full course and build on your progress.',
+  progressSummary: (done: number, total: number, free: boolean) => `${done} of ${total} ${free ? 'free lessons completed' : 'lessons complete'}`,
+  practice: 'Practice',
+  exerciseBank: 'Exercise Bank',
+  practiceBody: 'Practice what you’ve learned!',
+  guestOverlayTitle: 'To view My Pathway content, make a free account.',
+  guestOverlayBody: 'A free account lets you save progress and unlock your personal pathway experience.',
+  guestOverlayCta: 'Create free account',
 };
 
-const getCopy = (uiLanguage: UiLanguage): PathwayCopy => {
-  if (uiLanguage === 'th') {
-    return {
-      welcomeBack: 'ยินดีต้อนรับกลับมา',
-      welcome: 'ยินดีต้อนรับ!',
-      welcomeTo: 'ยินดีต้อนรับสู่',
-      guestWelcome: 'เส้นทางการเรียนของคุณ',
-      freePlanBadge: 'แพ็กเกจฟรี',
-      paidBadge: 'สมาชิก',
-      upgrade: 'อัปเกรด',
-      upgradeBannerTitle: 'ปลดล็อกการเข้าถึงทั้งหมด',
-      upgradeBannerBody: 'ทุกบทเรียน ทุกเส้นทาง',
-      upgradeBannerCta: 'อัปเกรด →',
-      guestBannerTitle: 'ติดตามความคืบหน้า',
-      guestBannerBody: 'สร้างบัญชีฟรีเพื่อบันทึกความคืบหน้าของคุณ',
-      guestBannerCta: 'สมัครฟรี →',
-      progressTitle: 'ความคืบหน้าของฉัน',
-      progressLoading: 'กำลังโหลดรายละเอียดความคืบหน้า...',
-      viewDetails: 'ดูรายละเอียด →',
-      lessonsDone: 'บทเรียนที่จบ',
-      levelsDone: 'เลเวลที่จบ',
-      dailyStreak: 'สตรีคประจำวัน',
-      levelShort: 'เลเวล',
-      lessonsCompleteForLevel: (completedCount, totalCount, level) =>
-        `${completedCount} จาก ${totalCount} บทเรียนที่เรียนจบสำหรับเลเวล ${typeof level === 'number' ? level : '–'}`,
-      continueLearning: 'เรียนต่อ',
-      upNext: 'ถัดไป',
-      openLesson: 'เปิดบทเรียน →',
-      becomeMember: 'เป็นสมาชิก →',
-      browseLibrary: 'เปิดคลังบทเรียน',
-      browseFreeLibrary: 'เปิดคลังบทเรียนฟรี',
-      untitledLesson: 'ไม่มีชื่อบทเรียน',
-      noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
-      noUpcomingLessons: 'ยังไม่มีบทเรียนถัดไปเพิ่มเติมในตอนนี้',
-      freePlanBody: 'แพ็กเกจฟรียังเรียนบทแรกของแต่ละเลเวลได้ และอัปเกรดเมื่อพร้อมเพื่อปลดล็อกบทเรียนทั้งหมด',
-      guestOverlayTitle: 'หากต้องการดูเนื้อหาใน My Pathway โปรดสร้างบัญชีฟรี',
-      guestOverlayBody: 'บัญชีฟรีช่วยให้คุณบันทึกความคืบหน้า และปลดล็อกประสบการณ์การเรียนส่วนตัวของคุณ',
-      guestOverlayCta: 'สร้างบัญชีฟรี',
-    };
+function LessonArtwork({ path }: { path: string | null }) {
+  const [failed, setFailed] = useState(false);
+  let normalized = path?.trim() || '';
+  if (normalized && !/^https?:\/\//i.test(normalized)) {
+    normalized = normalized.replace(/^\/+/, '').replace(/^lesson-images\//i, '').split(/[?#]/)[0];
+    if (!normalized.includes('/')) normalized = `headers/${normalized}`;
+    if (!/\.[a-z0-9]+$/i.test(normalized)) normalized += '.webp';
+    normalized = env.supabaseUrl ? `${env.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/lesson-images/${normalized}` : '';
   }
+  return <Image source={normalized && !failed ? { uri: normalized } : pailinBlueCircleRight}
+    onError={() => setFailed(true)} style={styles.lessonArtwork} resizeMode="contain" accessible={false} />;
+}
 
-  return {
-    welcomeBack: 'Welcome back',
-    welcome: 'Welcome!',
-    welcomeTo: 'Welcome to',
-    guestWelcome: 'Your learning pathway',
-    freePlanBadge: 'Free plan',
-    paidBadge: 'Member',
-    upgrade: 'Upgrade',
-    upgradeBannerTitle: 'Unlock full access',
-    upgradeBannerBody: 'All lessons · full pathway',
-    upgradeBannerCta: 'Upgrade →',
-    guestBannerTitle: 'Track your progress',
-    guestBannerBody: 'Create a free account to save your progress.',
-    guestBannerCta: 'Sign up free →',
-    progressTitle: 'My Progress',
-    progressLoading: 'Loading progress details...',
-    viewDetails: 'View details →',
-    lessonsDone: 'Lessons\ncomplete',
-    levelsDone: 'Levels\ncomplete',
-    dailyStreak: 'Day\nstreak',
-    levelShort: 'Level',
-    lessonsCompleteForLevel: (completedCount, totalCount, level) =>
-      `${completedCount} of ${totalCount} lessons complete for Level ${typeof level === 'number' ? level : '–'}`,
-    continueLearning: 'Continue Learning',
-    upNext: 'Up Next',
-    openLesson: 'Open lesson →',
-    becomeMember: 'Become a member →',
-    browseLibrary: 'Browse lesson library',
-    browseFreeLibrary: 'Browse free lesson library',
-    untitledLesson: 'Untitled lesson',
-    noResumeLesson: 'There is no next lesson right now.',
-    noUpcomingLessons: 'There are no more upcoming lessons right now.',
-    freePlanBody: 'Your free plan still includes the first lesson of each level. Upgrade whenever you are ready for full pathway access.',
-    guestOverlayTitle: 'To view My Pathway content, make a free account.',
-    guestOverlayBody: 'A free account lets you save progress and unlock your personal pathway experience.',
-    guestOverlayCta: 'Create free account',
-  };
-};
-
-function UpgradeBannerButton({ label, uiLanguage }: { label: string; uiLanguage: UiLanguage }) {
-  const button = (
-    <View style={styles.upgradeBannerButton}>
-      <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerButtonText}>
-        {label}
-      </AppText>
-    </View>
-  );
-
-  if (Platform.OS !== 'android') {
-    return button;
-  }
-
+function UnlockArtwork({ large = false }: { large?: boolean }) {
   return (
-    <View style={styles.upgradeBannerButtonWrap}>
-      <AndroidNeoShadowLayer borderRadius={theme.radii.xl} color={theme.colors.shadow} offset={1.5} />
-      {button}
+    <View style={large ? styles.lessonArtwork : styles.upgradeArtwork} accessible={false}>
+      <Svg width="100%" height="100%" viewBox="0 0 120 120">
+        <Circle cx="59" cy="64" r="46" fill="#FFF3C5" />
+        <G rotation={-16} origin="60,65" stroke="#333333" strokeWidth={1.5} strokeLinejoin="round">
+          <Path d="M39 58V34a21 21 0 0 1 42 0" fill="none" strokeWidth={7} strokeLinecap="round" />
+          <Path d="M39 58V34a21 21 0 0 1 42 0" fill="none" stroke="#FFFFFF" strokeWidth={4} strokeLinecap="round" />
+          <Rect x="28" y="55" width="64" height="48" fill="#F8D469" />
+          <Path d="M60 68a6 6 0 0 0-3 11v10h6V79a6 6 0 0 0-3-11Z" fill="#BCA35C" />
+        </G>
+        <Path d="m100 29 2 5 5 2-5 2-2 5-2-5-5-2 5-2ZM15 75l2 4 5 1-4 3 1 5-4-3-4 2 1-5-3-3 5-1Z" fill="#F8D469" stroke="#333333" strokeWidth={1.2} />
+      </Svg>
     </View>
   );
 }
@@ -304,7 +266,8 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     isLoading,
     isStatsLoading,
     pathwayRows,
-    resumeRow,
+    resumeRow: defaultResumeRow,
+    freeLessonIds,
     stats,
   } = usePathwayData({
     enabled: hasAccount,
@@ -328,19 +291,19 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
 
+  const freePathway = useMemo(
+    () => getFreePathwaySummary(pathwayRows, freeLessonIds, defaultResumeRow),
+    [pathwayRows, freeLessonIds, defaultResumeRow],
+  );
+  const resumeRow = hasMembership ? defaultResumeRow : freePathway.nextLesson;
+  const freeCourseComplete = !showGuestUi && !hasMembership && freePathway.isComplete;
   const progressContext = useMemo(
     () => getProgressContext(pathwayRows, allLessons, completedLessons, resumeRow),
     [allLessons, completedLessons, pathwayRows, resumeRow],
   );
-
-  const upcomingRows = useMemo(() => {
-    if (!resumeRow) {
-      return pathwayRows.filter((row) => row.state !== 'completed').slice(0, 2);
-    }
-
-    const resumeIndex = pathwayRows.findIndex((row) => row.lesson.id === resumeRow.lesson.id);
-    return pathwayRows.slice(resumeIndex + 1).filter((row) => row.state !== 'completed').slice(0, 2);
-  }, [pathwayRows, resumeRow]);
+  const progressDone = hasMembership ? progressContext.levelCompletedCount : freePathway.completedCount;
+  const progressTotal = hasMembership ? progressContext.levelTotalCount : freePathway.totalCount;
+  const progressPercent = progressTotal > 0 ? Math.round(progressDone / progressTotal * 100) : 0;
 
   useEffect(() => {
     const bootstrapStartedAt =
@@ -394,7 +357,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
       return;
     }
 
-    void AsyncStorage.setItem(getNoNameWelcomeSeenKey(user.id), 'true').catch(() => {});
+    void AsyncStorage.setItem(getNoNameWelcomeSeenKey(user.id), 'true').catch(() => { });
   }, [shouldShowFirstNoNameWelcome, user?.id]);
 
   const isPathwayLoading = isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading;
@@ -434,6 +397,17 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     router.push(`/lessons/${lessonId}`);
   };
 
+  const handleUpgrade = () => {
+    prefetchPricing();
+    router.push('/(tabs)/account/membership');
+  };
+  const sectionLabel = (label: string, icon: React.ComponentProps<typeof MaterialIcons>['name']) => (
+    <View style={styles.sectionLabel}>
+      <MaterialIcons name={icon} size={14} color="#2860F0" />
+      <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>{label}</AppText>
+    </View>
+  );
+
   return (
     <ScrollView
       style={styles.screen}
@@ -442,401 +416,270 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
         isTabletScreen ? styles.contentContainerTablet : null,
       ]}>
       <ResponsivePageShell>
-      <View style={styles.pageFrame}>
-        <View pointerEvents={showGuestOverlay ? 'none' : 'auto'}>
-      <Stack
-        gap="md"
-        style={[
-          styles.pageShell,
-          isTabletScreen ? styles.pageShellTablet : null,
-          isLargeTabletScreen ? styles.pageShellLargeTablet : null,
-          showGuestOverlay ? styles.pageShellGuest : null,
-        ]}>
-        <View style={styles.headerBlock}>
-          <View style={styles.headerRow}>
-            <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
-              {showGuestUi ? (
-                <Image source={pailinBlueCircleRight} style={styles.avatar} resizeMode="cover" />
-              ) : avatarSource ? (
-                <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
-              ) : (
-                <View style={[styles.avatar, styles.avatarFallback]}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.avatarFallbackText}>
-                    {firstName.slice(0, 1).toUpperCase()}
-                  </AppText>
-                </View>
-              )}
-            </Pressable>
+        <View style={styles.pageFrame}>
+          <View pointerEvents={showGuestOverlay ? 'none' : 'auto'}>
+            <Stack
+              gap="md"
+              style={[
+                styles.pageShell,
+                isTabletScreen ? styles.pageShellTablet : null,
+                isLargeTabletScreen ? styles.pageShellLargeTablet : null,
+                showGuestOverlay ? styles.pageShellGuest : null,
+              ]}>
+              <View style={styles.headerBlock}>
+                <View style={styles.headerRow}>
+                  <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
+                    {showGuestUi ? (
+                      <Image source={pailinBlueCircleRight} style={styles.avatar} resizeMode="cover" />
+                    ) : avatarSource ? (
+                      <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback]}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.avatarFallbackText}>
+                          {firstName.slice(0, 1).toUpperCase()}
+                        </AppText>
+                      </View>
+                    )}
+                  </Pressable>
 
-            <View style={styles.headerCopy}>
-              <View style={styles.headerTopRow}>
-                <View style={styles.headerTextGroup}>
-                  {showGuestUi ? (
-                    <>
-                      <AppText
-                        language={uiLanguage}
-                        variant="title"
-                        numberOfLines={1}
-                        style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
-                        {copy.welcomeTo}
-                      </AppText>
-                      <AppText language="en" variant="title" style={styles.headerName}>
-                        Pailin Abroad
-                      </AppText>
-                    </>
-                  ) : hasDisplayName ? (
-                    <>
-                      <AppText
-                        language={uiLanguage}
-                        variant="title"
-                        numberOfLines={1}
-                        style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
-                        {`${copy.welcomeBack},`}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="title" style={styles.headerName}>
-                        {`${firstName}.`}
-                      </AppText>
-                    </>
-                  ) : shouldShowFirstNoNameWelcome ? (
-                    <>
-                      <AppText
-                        language={uiLanguage}
-                        variant="title"
-                        numberOfLines={1}
-                        style={[styles.headerTitle, styles.headerNoNameTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
-                        {copy.welcomeTo}
-                      </AppText>
-                      <AppText language="en" variant="title" style={styles.headerName}>
-                        Pailin Abroad
-                      </AppText>
-                    </>
-                  ) : (
-                    <AppText language={uiLanguage} variant="title" style={styles.headerNoNameReturning}>
-                      {copy.welcomeBack}
-                    </AppText>
-                  )}
-                </View>
-
-                <View style={styles.planMeta}>
-                  <View style={styles.languagePillWrap}>
-                    <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
-                      onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-                      style={styles.languagePill}>
-                      <AppText
-                        language={uiLanguage === 'th' ? 'en' : 'th'}
-                        variant="caption"
-                        style={styles.languagePillText}>
-                        {pathwayToggleLabel}
-                      </AppText>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {showGuestUi && !showGuestOverlay ? (
-          <Pressable
-            accessibilityRole="button"
-            style={styles.upgradeBanner}
-            onPress={() => router.push('/account/auth')}>
-            <View style={styles.upgradeBannerCopy}>
-              <AppText language={uiLanguage} variant="body" style={styles.upgradeBannerTitle}>
-                {copy.guestBannerTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerBody}>
-                {copy.guestBannerBody}
-              </AppText>
-            </View>
-
-            <UpgradeBannerButton label={copy.guestBannerCta} uiLanguage={uiLanguage} />
-          </Pressable>
-        ) : !hasMembership ? (
-          <Pressable
-            accessibilityRole="button"
-            style={styles.upgradeBanner}
-            onPress={() => {
-              prefetchPricing();
-              router.push('/(tabs)/account/membership');
-            }}>
-            <View style={styles.upgradeBannerCopy}>
-              <AppText language={uiLanguage} variant="body" style={styles.upgradeBannerTitle}>
-                {copy.upgradeBannerTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="caption" style={styles.upgradeBannerBody}>
-                {copy.upgradeBannerBody}
-              </AppText>
-            </View>
-
-            <UpgradeBannerButton label={copy.upgradeBannerCta} uiLanguage={uiLanguage} />
-          </Pressable>
-        ) : null}
-
-        <View style={styles.cardWrap}>
-          <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={2.5} />
-          <Card padding="md" radius="lg" style={styles.progressCard}>
-            <Stack gap="sm">
-            <View style={styles.progressHeader}>
-              <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
-                {copy.progressTitle}
-              </AppText>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/pathway/progress')}>
-                <AppText language={uiLanguage} variant="caption" style={styles.detailsLink}>
-                  {copy.viewDetails}
-                </AppText>
-              </Pressable>
-            </View>
-
-            <View style={styles.progressMetrics}>
-              <View style={styles.progressMetricPrimary}>
-                <AppText language={uiLanguage} variant="body" style={styles.stageText}>
-                  {showGuestUi ? `${copy.levelShort} -` : getStageLabel(progressContext.stage, uiLanguage)}
-                </AppText>
-                {!showGuestUi && typeof progressContext.level === 'number' ? (
-                  <View style={styles.levelPill}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.levelPillText}>
-                      {copy.levelShort} {progressContext.level}
-                    </AppText>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {showGuestUi ? '-' : (stats?.lessons_completed ?? completedLessons.length)}
-                  </AppText>
-                  <View style={styles.statLabelGroup}>{renderStatLabel(copy.lessonsDone, uiLanguage)}</View>
-                </View>
-
-                <View style={styles.statBox}>
-                  <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {showGuestUi ? '-' : (stats?.levels_completed ?? 0)}
-                  </AppText>
-                  <View style={styles.statLabelGroup}>{renderStatLabel(copy.levelsDone, uiLanguage)}</View>
-                </View>
-                <View style={styles.statBox}>
-                  <AppText language={uiLanguage} variant="body" style={styles.statValue}>
-                    {showGuestUi ? '-' : (stats?.daily_streak ?? 0)}
-                  </AppText>
-                  <View style={styles.statLabelGroup}>{renderStatLabel(copy.dailyStreak, uiLanguage)}</View>
-                </View>
-              </View>
-
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${Math.max(progressContext.levelPercent, 6)}%` }]} />
-              </View>
-
-              <View style={styles.progressFooter}>
-                <AppText language={uiLanguage} variant="caption" style={styles.progressSummary}>
-                  {(isCompletedProgressLoading || isLessonIndexLoading) && (allLessons.length === 0 || completedLessons.length === 0)
-                    ? copy.progressLoading
-                    : copy.lessonsCompleteForLevel(
-                        progressContext.levelCompletedCount,
-                        progressContext.levelTotalCount || 0,
-                        progressContext.level,
-                      )}
-                </AppText>
-                <AppText language={uiLanguage} variant="caption" style={styles.progressPercent}>
-                  {(isCompletedProgressLoading || isLessonIndexLoading) && (allLessons.length === 0 || completedLessons.length === 0)
-                    ? '–'
-                    : `${progressContext.levelPercent}%`}
-                </AppText>
-              </View>
-            </View>
-            </Stack>
-          </Card>
-        </View>
-
-        <Stack gap="sm">
-          <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
-            {copy.continueLearning}
-          </AppText>
-
-          <View style={styles.cardWrap}>
-            <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={2.5} />
-            <Card padding="md" radius="lg" style={styles.resumeCard}>
-              {resumeRow ? (
-                <Stack gap="md">
-                <View style={styles.resumeMeta}>
-                  {(() => {
-                    const lessonNumber = getLessonNumber(resumeRow.lesson);
-                    const digitCount = lessonNumber.replace(/\D/g, '').length;
-                    const isCheckpoint = isCheckpointLesson(resumeRow.lesson);
-
-                    return (
-                      <View style={styles.resumeNumberGroup}>
-                        {isCheckpoint ? (
-                          <Image
-                            source={blueCheckmarkImage}
-                            style={styles.resumeNumberCheckmark}
-                            resizeMode="contain"
-                          />
+                  <View style={styles.headerCopy}>
+                    <View style={styles.headerTopRow}>
+                      <View style={styles.headerTextGroup}>
+                        {showGuestUi ? (
+                          <>
+                            <AppText
+                              language={uiLanguage}
+                              variant="title"
+                              style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                              {copy.welcomeTo}
+                            </AppText>
+                            <AppText language="en" variant="title" style={styles.headerName}>
+                              Pailin Abroad
+                            </AppText>
+                          </>
+                        ) : hasDisplayName ? (
+                          <>
+                            <AppText
+                              language={uiLanguage}
+                              variant="title"
+                              style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                              {`${copy.welcomeBack},`}
+                            </AppText>
+                            <AppText language={uiLanguage} variant="title" style={styles.headerName}>
+                              {`${firstName}!`}
+                            </AppText>
+                          </>
+                        ) : shouldShowFirstNoNameWelcome ? (
+                          <>
+                            <AppText
+                              language={uiLanguage}
+                              variant="title"
+                              style={[styles.headerTitle, styles.headerNoNameTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                              {copy.welcomeTo}
+                            </AppText>
+                            <AppText language="en" variant="title" style={styles.headerName}>
+                              Pailin Abroad
+                            </AppText>
+                          </>
                         ) : (
-                          <AppText
-                            language={uiLanguage}
-                            variant="body"
-                            style={[styles.resumeNumber, digitCount >= 3 ? styles.resumeNumberCompact : null]}>
-                            {lessonNumber}
+                          <AppText language={uiLanguage} variant="title" style={styles.headerNoNameReturning}>
+                            {copy.welcomeBack}
                           </AppText>
                         )}
-                        {!hasMembership && resumeRow.state === 'locked' ? (
-                          <Image source={lockImage} style={styles.resumeLockIcon} resizeMode="contain" />
-                        ) : null}
                       </View>
-                    );
-                  })()}
 
-                  <View style={styles.resumeTextGroup}>
-                    <AppText language={uiLanguage} variant="body" style={styles.resumeTitle}>
-                      {getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
-                    </AppText>
-                    {getLessonFocus(resumeRow.lesson, uiLanguage) ? (
-                      <AppText language={uiLanguage} variant="muted" style={styles.resumeFocus}>
-                        {getLessonFocus(resumeRow.lesson, uiLanguage)}
-                      </AppText>
-                    ) : null}
-                    {!hasMembership && resumeRow.state === 'locked' ? (
-                      <AppText language={uiLanguage} variant="muted" style={styles.membershipHint}>
-                        {copy.freePlanBody}
-                      </AppText>
-                    ) : null}
+                      <View style={styles.planMeta}>
+                        <View style={styles.languagePillWrap}>
+                          <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
+                            onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
+                            style={styles.languagePill}>
+                            <AppText
+                              language={uiLanguage === 'th' ? 'en' : 'th'}
+                              variant="caption"
+                              style={styles.languagePillText}>
+                              {pathwayToggleLabel}
+                            </AppText>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
                   </View>
                 </View>
+              </View>
 
-                <View style={styles.resumeButtonWrap}>
-                  <AndroidNeoShadowLayer borderRadius={theme.radii.xl} color={theme.colors.shadow} offset={2.5} />
-                  <Button
-                    language={uiLanguage}
-                    title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
-                    onPress={() => {
-                      if (resumeRow.state === 'locked') {
-                        prefetchPricing();
-                        router.push('/(tabs)/account/membership');
-                        return;
-                      }
-
-                      handleOpenLesson(resumeRow.lesson);
-                    }}
-                    style={styles.resumeButton}
-                  />
-                </View>
-                </Stack>
-              ) : (
-                <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
-                  {errorMessage || copy.noResumeLesson}
-                </AppText>
-              )}
-            </Card>
-          </View>
-        </Stack>
-
-        <Stack gap="sm">
-          <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
-            {copy.upNext}
-          </AppText>
-
-          <Stack gap="sm">
-            {upcomingRows.length > 0 ? (
-              upcomingRows.map((row) => {
-                const isLocked = row.state === 'locked';
-
-                return (
-                  <Pressable
-                    key={row.lesson.id}
-                    accessibilityRole="button"
-                    style={styles.upNextCard}
-                    onPress={() => {
-                      if (isLocked) {
-                        prefetchPricing();
-                        router.push('/(tabs)/account/membership');
-                        return;
-                      }
-
-                      handleOpenLesson(row.lesson);
-                    }}>
-                    <View style={styles.upNextMain}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.upNextNumber}>
-                        {getLessonNumber(row.lesson)}
-                      </AppText>
-
-                      <View style={styles.upNextCopy}>
-                        <AppText language={uiLanguage} variant="body" style={styles.upNextTitle}>
-                          {getLessonTitle(row.lesson, uiLanguage, copy.untitledLesson)}
-                        </AppText>
-                        {getLessonFocus(row.lesson, uiLanguage) ? (
-                          <AppText language={uiLanguage} variant="muted" style={styles.upNextFocus}>
-                            {getLessonFocus(row.lesson, uiLanguage)}
-                          </AppText>
-                        ) : null}
-                      </View>
-
-                      {isLocked ? <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" /> : null}
-                    </View>
-                  </Pressable>
-                );
-              })
-            ) : (
-              <Card padding="md" radius="lg" style={styles.upNextCard}>
-                <AppText language={uiLanguage} variant="muted" style={styles.emptyText}>
-                  {errorMessage || copy.noUpcomingLessons}
-                </AppText>
-              </Card>
-            )}
-
-            <View style={styles.libraryButtonWrap}>
-              <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={1.75} />
-              <Pressable
-                accessibilityRole="button"
-                style={styles.libraryButton}
-                onPress={() => router.push(hasMembership ? '/(tabs)/lessons/library' : '/(tabs)/lessons/free-library')}>
-                <AppText language={uiLanguage} variant="caption" style={styles.libraryButtonText}>
-                  {hasMembership ? copy.browseLibrary : copy.browseFreeLibrary}
-                </AppText>
-              </Pressable>
-            </View>
-          </Stack>
-        </Stack>
-      </Stack>
-        </View>
-
-        {showGuestOverlay ? (
-          <View style={styles.guestOverlay}>
-            <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
-              <Stack gap="md">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
-                  onPress={() => setIsGuestOverlayDismissed(true)}
-                  style={styles.guestOverlayCloseButton}>
-                  <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
+              {showGuestUi && !showGuestOverlay ? (
+                <Pressable accessibilityRole="button" style={styles.guestBanner} onPress={() => router.push('/account/auth')}>
+                  <AppText language={uiLanguage} style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.guestBannerTitle}</AppText>
+                  <AppText language={uiLanguage} variant="caption">{copy.guestBannerBody}</AppText>
+                  <AppText language={uiLanguage} variant="caption" style={styles.libraryLink}>{copy.guestBannerCta}</AppText>
                 </Pressable>
-                <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
-                  {copy.guestOverlayTitle}
-                </AppText>
-                <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
-                  {copy.guestOverlayBody}
-                </AppText>
-                <View style={styles.guestOverlayButtonWrap}>
-                  <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
-                  <Button
-                    language={uiLanguage}
-                    title={copy.guestOverlayCta}
-                    onPress={() => router.push('/account/auth')}
-                    style={styles.guestOverlayButton}
-                  />
+              ) : null}
+
+              <Stack gap="sm">
+                {sectionLabel(copy.continueLearning, 'stars')}
+                <View style={styles.cardWrap}>
+                  <AndroidNeoShadowLayer borderRadius={5} color={theme.colors.shadow} offset={4} />
+                  <Card style={styles.resumeCard}>
+                    {freeCourseComplete ? (
+                      <Stack gap="md">
+                        <View style={styles.lessonMain}>
+                          <View style={styles.resumeTextGroup}>
+                            <AppText language={uiLanguage} variant="title" style={[styles.resumeTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.allFreeComplete}</AppText>
+                            <AppText language={uiLanguage} variant="muted" style={styles.resumeFocus}>{copy.allFreeCompleteBody}</AppText>
+                          </View>
+                          <UnlockArtwork large />
+                        </View>
+                        <Button language={uiLanguage} title={copy.becomeMember} onPress={handleUpgrade} style={styles.resumeButton} textStyle={styles.ctaText} />
+                      </Stack>
+                    ) : resumeRow ? (
+                      <Stack gap="lg">
+                        <View style={styles.lessonMain}>
+                          <View style={styles.resumeTextGroup}>
+                            <AppText language={uiLanguage} variant="caption" style={styles.lessonNumber}>{copy.lesson} {getLessonNumber(resumeRow.lesson)}</AppText>
+                            <AppText
+                              language={uiLanguage}
+                              variant="title"
+                              numberOfLines={2}
+                              ellipsizeMode="tail"
+                              style={[styles.resumeTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>
+                              {getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
+                            </AppText>
+                            {getLessonFocus(resumeRow.lesson, uiLanguage) ? (
+                              <AppText
+                                language={uiLanguage}
+                                variant="muted"
+                                numberOfLines={2}
+                                ellipsizeMode="tail"
+                                style={styles.resumeFocus}>
+                                {getLessonFocus(resumeRow.lesson, uiLanguage)}
+                              </AppText>
+                            ) : null}
+                          </View>
+                          <LessonArtwork key={resumeRow.lesson.id} path={resumeRow.lesson.header_img} />
+                        </View>
+                        <Button language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                          onPress={() => resumeRow.state === 'locked' ? handleUpgrade() : handleOpenLesson(resumeRow.lesson)}
+                          style={styles.resumeButton} textStyle={styles.ctaText} />
+                      </Stack>
+                    ) : (
+                      <AppText language={uiLanguage} variant="muted">{errorMessage || copy.noResumeLesson}</AppText>
+                    )}
+                  </Card>
                 </View>
               </Stack>
-            </Card>
-          </View>
-        ) : null}
 
-      </View>
-          </ResponsivePageShell>
+              <Stack gap="sm">
+                {sectionLabel(copy.progressTitle, 'signal-cellular-alt')}
+                <Card style={styles.progressCard}>
+                  <Stack gap="sm">
+                    <View style={styles.progressHeader}>
+                      <AppText language={uiLanguage} variant="caption" style={styles.stageText}>
+                        {showGuestUi ? `${copy.levelShort} –` : `${getStageLabel(progressContext.stage, uiLanguage)} · ${copy.levelShort} ${progressContext.level ?? '–'}`}
+                      </AppText>
+                      <AppText language={uiLanguage} variant="caption" style={styles.progressSummary}>
+                        {showGuestUi ? '–' : copy.progressSummary(progressDone, progressTotal, !hasMembership)}
+                      </AppText>
+                    </View>
+                    <View accessibilityRole="progressbar" accessibilityLabel={copy.progressTitle}
+                      accessibilityValue={{ min: 0, max: 100, now: progressPercent, text: copy.progressSummary(progressDone, progressTotal, !hasMembership) }}
+                      style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                    </View>
+                    {hasMembership || showGuestUi ? (
+                      <>
+                        <View style={styles.statsGrid}>
+                          {[
+                            { value: stats?.lessons_completed ?? completedLessons.length, label: copy.lessonsDone },
+                            { value: stats?.levels_completed ?? 0, label: copy.levelsDone },
+                            { value: stats?.daily_streak ?? 0, label: copy.dailyStreak },
+                          ].map(({ value, label }) => (
+                            <View key={label} style={styles.statBox}>
+                              <AppText language={uiLanguage} variant="title" style={styles.statValue}>{showGuestUi ? '–' : value}</AppText>
+                              <View style={styles.statLabelGroup}>{renderStatLabel(label, uiLanguage)}</View>
+                            </View>
+                          ))}
+                        </View>
+                        <Pressable accessibilityRole="link" onPress={() => router.push('/(tabs)/pathway/progress')} style={styles.detailsLinkTouch}>
+                          <AppText language={uiLanguage} variant="caption" style={styles.detailsLink}>{copy.viewDetails}</AppText>
+                        </Pressable>
+                      </>
+                    ) : null}
+                  </Stack>
+                </Card>
+              </Stack>
+
+              {!hasMembership && !showGuestUi ? (
+                <Card style={styles.upgradeCard}>
+                  {!freeCourseComplete ? (
+                    <View style={styles.upgradeMain}>
+                      <UnlockArtwork />
+                      <View style={styles.upgradeCopy}>
+                        <AppText language={uiLanguage} variant="title" style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.upgradeTitle}</AppText>
+                        <AppText language={uiLanguage} variant="muted" style={styles.upgradeBody}>{copy.upgradeBody(freePathway.totalCount)}</AppText>
+                        <Button language={uiLanguage} title={copy.upgradeCta} onPress={handleUpgrade} style={styles.upgradeButton} textStyle={styles.smallCtaText} />
+                      </View>
+                    </View>
+                  ) : null}
+                  <Pressable accessibilityRole="link" onPress={() => router.push('/(tabs)/lessons/free-library')}
+                    style={[styles.libraryTouch, !freeCourseComplete ? styles.libraryDivider : null]}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.libraryLink}>{copy.browseFreeLibrary}</AppText>
+                  </Pressable>
+                </Card>
+              ) : null}
+
+              <Stack gap="sm">
+                {sectionLabel(copy.practice, 'signal-cellular-alt')}
+                <Pressable accessibilityRole="button" accessibilityLabel={`${copy.exerciseBank}: ${copy.practice}`}
+                  onPress={() => router.push('/(tabs)/exercises')} style={styles.practiceCard}>
+                  <Image source={exerciseBankImage} style={styles.practiceArtwork} resizeMode="contain" accessible={false} />
+                  <View style={styles.practiceCopy}>
+                    <AppText language={uiLanguage} variant="title" style={[styles.practiceTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.exerciseBank}</AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.practiceBody}>{copy.practiceBody}</AppText>
+                  </View>
+                  <View style={styles.practiceButton}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.smallCtaText}>{copy.practice}</AppText>
+                  </View>
+                </Pressable>
+              </Stack>
+            </Stack>
+          </View>
+
+          {showGuestOverlay ? (
+            <View style={styles.guestOverlay}>
+              <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
+                <Stack gap="md">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
+                    onPress={() => setIsGuestOverlayDismissed(true)}
+                    style={styles.guestOverlayCloseButton}>
+                    <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
+                  </Pressable>
+                  <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
+                    {copy.guestOverlayTitle}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
+                    {copy.guestOverlayBody}
+                  </AppText>
+                  <View style={styles.guestOverlayButtonWrap}>
+                    <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
+                    <Button
+                      language={uiLanguage}
+                      title={copy.guestOverlayCta}
+                      onPress={() => router.push('/account/auth')}
+                      style={styles.guestOverlayButton}
+                    />
+                  </View>
+                </Stack>
+              </Card>
+            </View>
+          ) : null}
+
+        </View>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -857,7 +700,6 @@ const styles = StyleSheet.create({
   },
   contentContainerTablet: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
   },
   pageShell: {
@@ -880,7 +722,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#DDDDDD',
   },
   headerRow: {
     flexDirection: 'row',
@@ -931,7 +773,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 28,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accent,
+    color: theme.colors.text,
   },
   headerNoNameTitle: {
     marginTop: 2,
@@ -960,7 +802,10 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 1.5, height: 1.5 },
+        shadowOffset: {
+          width: 1.5,
+          height: 1.5
+        },
         shadowOpacity: 1,
         shadowRadius: 0,
       },
@@ -982,329 +827,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
     transform: [{ translateY: 1 }],
   },
-  upgradeBanner: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: -theme.spacing.md,
-    marginTop: -theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: '#FFF8EA',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  upgradeBannerCopy: {
-    flex: 1,
-    gap: 2,
-    paddingRight: theme.spacing.md,
-  },
-  upgradeBannerTitle: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
-  },
-  upgradeBannerBody: {
-    color: theme.colors.mutedText,
-  },
-  upgradeBannerButtonWrap: {
-    position: 'relative',
-  },
-  upgradeBannerButton: {
-    minHeight: 36,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 1.5, height: 1.5 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  upgradeBannerButtonText: {
-    color: theme.colors.surface,
-    fontWeight: theme.typography.weights.bold,
-  },
-  cardWrap: {
-    position: 'relative',
-  },
-  progressCard: {
-    backgroundColor: '#DCEEFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.sm,
-  },
-  sectionEyebrow: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    fontWeight: theme.typography.weights.medium,
-    color: '#7B8797',
-  },
-  detailsLink: {
-    color: theme.colors.accent,
-    fontWeight: theme.typography.weights.bold,
-  },
-  progressMetrics: {
-    gap: theme.spacing.sm,
-  },
-  progressMetricPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    flexWrap: 'wrap',
-    ...Platform.select({
-      android: {
-        paddingBottom: 4,
-      },
-    }),
-  },
-  stageText: {
-    fontSize: 32,
-    lineHeight: Platform.OS === 'android' ? 42 : 38,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  levelPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  levelPillText: {
-    fontWeight: theme.typography.weights.bold,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  statBox: {
-    flex: 1,
-    minHeight: 84,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    justifyContent: 'space-between',
-  },
-  statValue: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  statLabelGroup: {
-    gap: 0,
-  },
-  statLabel: {
-    color: '#66758A',
-    fontWeight: theme.typography.weights.medium,
-    lineHeight: 16,
-  },
-  progressTrack: {
-    height: 10,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: 'hidden',
-    backgroundColor: theme.colors.surface,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: theme.colors.accent,
-    borderRightWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  progressFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.sm,
-  },
-  progressSummary: {
-    color: '#435267',
-  },
-  progressPercent: {
-    color: '#435267',
-    fontWeight: theme.typography.weights.bold,
-  },
-  resumeCard: {
-    backgroundColor: theme.colors.surface,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  resumeMeta: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 4,
-  },
-  resumeNumberGroup: {
-    minWidth: 42,
-    alignItems: 'flex-start',
-    gap: 4,
-  },
-  resumeNumber: {
-    fontSize: 22,
-    lineHeight: 28,
-    marginTop: 2,
-    fontFamily: theme.typography.fontFaces.en.medium,
-  },
-  resumeNumberCheckmark: {
-    width: 22,
-    height: 22,
-    marginTop: 5,
-    marginLeft: 2,
-  },
-  resumeNumberCompact: {
-    fontSize: 17,
-    lineHeight: 22,
-    marginTop: 4,
-  },
-  resumeLockIcon: {
-    width: 36,
-    height: 36,
-    marginLeft: -2,
-  },
-  resumeTextGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  resumeTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: theme.typography.weights.semibold,
-  },
-  resumeFocus: {
-    color: '#66758A',
-  },
-  membershipHint: {
-    marginTop: theme.spacing.xs,
-    color: '#66758A',
-  },
-  resumeButtonWrap: {
-    position: 'relative',
-  },
-  resumeButton: {
-    width: '100%',
-    ...Platform.select({
-      android: {
-        elevation: 0,
-      },
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 1.75, height: 1.75 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-    }),
-  },
-  upNextCard: {
-    minHeight: 84,
-    borderRadius: theme.radii.lg,
-    borderWidth: 1,
-    borderColor: '#C7D9EE',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    justifyContent: 'center',
-  },
-  upNextMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  upNextNumber: {
-    minWidth: 34,
-    color: '#94A6BB',
-    fontWeight: theme.typography.weights.bold,
-  },
-  upNextCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  upNextTitle: {
-    fontWeight: theme.typography.weights.bold,
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  upNextFocus: {
-    color: '#7B8797',
-  },
-  lockIcon: {
-    width: 18,
-    height: 18,
-  },
-  libraryButton: {
-    minHeight: 54,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 1.75, height: 1.75 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  libraryButtonWrap: {
-    position: 'relative',
-  },
-  libraryButtonText: {
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: theme.typography.weights.bold,
-  },
-  centerState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.lg,
-  },
-  emptyText: {
-    color: theme.colors.mutedText,
-  },
   guestOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -1319,7 +841,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: {
+      width: 2,
+      height: 2
+    },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 3,
@@ -1361,5 +886,277 @@ const styles = StyleSheet.create({
     left: 3,
     borderRadius: 28,
     backgroundColor: theme.colors.shadow,
+  },
+  cardWrap: { position: 'relative' },
+  sectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8
+  },
+  sectionEyebrow: {
+    fontSize: 10,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    color: '#666666'
+  },
+  resumeCard: {
+    backgroundColor: '#EAF4FF',
+    borderRadius: 5,
+    padding: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: {
+          width: 4,
+          height: 4
+        },
+        shadowOpacity: 1,
+        shadowRadius: 0
+      }
+    }),
+  },
+  lessonMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap'
+  },
+  resumeTextGroup: {
+    flex: 1,
+    minWidth: 150,
+    gap: 7
+  },
+  lessonNumber: {
+    fontFamily: theme.typography.fontFaces.en.semibold,
+    fontSize: 10,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8
+  },
+  resumeTitle: {
+    fontSize: 24,
+    lineHeight: 29,
+    fontFamily: theme.typography.fontFaces.en.bold
+  },
+  resumeFocus: {
+    fontSize: 14,
+    lineHeight: 19,
+    color: '#666666'
+  },
+  lessonArtwork: {
+    width: '42%',
+    maxWidth: 210,
+    height: 124
+  },
+  resumeButton: {
+    backgroundColor: '#2860E8',
+    minHeight: 40,
+    paddingVertical: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.shadow,
+        shadowOffset: {
+          width: 2,
+          height: 3
+        },
+        shadowOpacity: 1,
+        shadowRadius: 0
+      }
+    }),
+  },
+  ctaText: {
+    textTransform: 'uppercase',
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: 0.3
+  },
+  progressCard: {
+    borderRadius: 7,
+    borderColor: '#E0E0E0',
+    padding: 16
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    flexWrap: 'wrap'
+  },
+  stageText: {
+    fontSize: 10,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: theme.typography.fontFaces.en.semibold
+  },
+  progressSummary: {
+    fontSize: 9,
+    lineHeight: 15
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 5,
+    borderWidth: 0.75,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+    backgroundColor: '#EAF4FF'
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#BCE574'
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 4
+  },
+  statBox: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 3,
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: '#DEDEDE',
+    borderRadius: 5,
+    padding: 7
+  },
+  statValue: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: theme.typography.fontFaces.en.semibold
+  },
+  statLabelGroup: { flexShrink: 1 },
+  statLabel: {
+    fontSize: 10,
+    lineHeight: 16,
+    color: '#666666',
+    textAlign: 'right'
+  },
+  detailsLinkTouch: {
+    alignSelf: 'flex-end',
+    minHeight: 32,
+    justifyContent: 'center'
+  },
+  detailsLink: {
+    fontSize: 9,
+    lineHeight: 15,
+    color: '#666666',
+    textTransform: 'uppercase',
+    textDecorationLine: 'underline'
+  },
+  upgradeCard: {
+    backgroundColor: '#FFFBE5',
+    borderColor: '#EDC743',
+    borderRadius: 10,
+    padding: 14
+  },
+  upgradeMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flexWrap: 'wrap'
+  },
+  upgradeArtwork: {
+    width: '30%',
+    maxWidth: 140,
+    height: 105
+  },
+  upgradeCopy: {
+    flex: 1,
+    minWidth: 165,
+    gap: 6
+  },
+  bannerTitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    textTransform: 'uppercase',
+    fontFamily: theme.typography.fontFaces.en.bold
+  },
+  upgradeBody: {
+    fontSize: 11,
+    lineHeight: 17,
+    color: '#666666'
+  },
+  upgradeButton: {
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    backgroundColor: '#F9DA60',
+    paddingHorizontal: 28,
+    paddingVertical: 5
+  },
+  smallCtaText: {
+    color: theme.colors.text,
+    textTransform: 'uppercase',
+    fontSize: 10,
+    lineHeight: 16,
+    letterSpacing: 0.3
+  },
+  libraryTouch: {
+    minHeight: 36,
+    justifyContent: 'center'
+  },
+  libraryDivider: {
+    borderTopWidth: 1,
+    borderColor: '#CCC7AC',
+    borderStyle: 'dashed',
+    marginTop: 18,
+    paddingTop: 12
+  },
+  libraryLink: {
+    fontSize: 10,
+    lineHeight: 16,
+    color: '#1F5CFF',
+    textTransform: 'uppercase'
+  },
+  practiceCard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 5,
+    padding: 12
+  },
+  practiceArtwork: {
+    width: 70,
+    height: 65
+  },
+  practiceCopy: {
+    flex: 1,
+    minWidth: 120,
+    gap: 2
+  },
+  practiceTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: theme.typography.fontFaces.en.bold
+  },
+  practiceBody: {
+    fontSize: 11,
+    lineHeight: 16
+  },
+  practiceButton: {
+    minHeight: 32,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 99,
+    backgroundColor: '#BFEDFC',
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  guestBanner: {
+    backgroundColor: '#FFF8EA',
+    borderRadius: 7,
+    padding: 14,
+    gap: 6
   },
 });
