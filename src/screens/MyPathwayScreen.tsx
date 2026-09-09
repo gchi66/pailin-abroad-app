@@ -29,6 +29,71 @@ import { LessonListItem } from '@/src/types/lesson';
 
 type UiLanguage = 'en' | 'th';
 
+type LessonCopyProps = { title: string; focus: string; language: UiLanguage };
+
+function MeasuredLessonCopy({ title, focus, language, width }: LessonCopyProps & { width: number }) {
+  const [fontSize, setFontSize] = useState(24);
+  const [fits, setFits] = useState(false);
+  const focusFontSize = Math.min(14, Math.max(1, fontSize - 2), fontSize * 0.85);
+  const titleStyle = {
+    width,
+    fontSize,
+    lineHeight: Math.ceil(fontSize * 29 / 24),
+    fontFamily: theme.typography.fontFaces[language].bold,
+  };
+
+  return (
+    <View style={{ width, gap: 7 }}>
+      {/* Measure without truncation: native auto-fit can treat clipped text as fitting. */}
+      {!fits ? (
+        <AppText
+          key={fontSize}
+          language={language}
+          variant="title"
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[titleStyle, styles.titleMeasurement]}
+          onTextLayout={({ nativeEvent }) => {
+            if (nativeEvent.lines.length > 2 && fontSize > 1) {
+              setFontSize(fontSize - 1);
+            } else {
+              setFits(true);
+            }
+          }}>
+          {title}
+        </AppText>
+      ) : null}
+      <AppText language={language} variant="title" style={[titleStyle, !fits ? styles.titlePending : null]}>
+        {title}
+      </AppText>
+      {focus ? (
+        <AppText
+          language={language}
+          variant="muted"
+          numberOfLines={2}
+          ellipsizeMode="tail"
+          style={[styles.resumeFocus, { fontSize: focusFontSize, lineHeight: Math.ceil(focusFontSize * 19 / 14) }]}>
+          {focus}
+        </AppText>
+      ) : null}
+    </View>
+  );
+}
+
+function LessonCopy({ title, focus, language }: LessonCopyProps) {
+  const [width, setWidth] = useState(0);
+  const { fontScale } = useWindowDimensions();
+
+  return (
+    <View style={styles.titleZone} onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}>
+      {width > 0 ? (
+        <MeasuredLessonCopy key={`${title}-${language}-${width}-${fontScale}`} title={title} focus={focus} language={language} width={width} />
+      ) : null}
+    </View>
+  );
+}
+
 const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   welcomeBack: 'ยินดีต้อนรับกลับมา',
   welcome: 'ยินดีต้อนรับ!',
@@ -394,7 +459,13 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     }
 
     prefetchResolvedLesson(lessonId, 'en');
-    router.push(`/lessons/${lessonId}`);
+    router.push({
+      pathname: '/lesson-preview/[id]',
+      params: {
+        id: lessonId,
+        libraryRoute: hasMembership ? 'library' : 'free-library',
+      },
+    });
   };
 
   const handleUpgrade = () => {
@@ -539,24 +610,11 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                         <View style={styles.lessonMain}>
                           <View style={styles.resumeTextGroup}>
                             <AppText language={uiLanguage} variant="caption" style={styles.lessonNumber}>{copy.lesson} {getLessonNumber(resumeRow.lesson)}</AppText>
-                            <AppText
+                            <LessonCopy
                               language={uiLanguage}
-                              variant="title"
-                              numberOfLines={2}
-                              ellipsizeMode="tail"
-                              style={[styles.resumeTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>
-                              {getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
-                            </AppText>
-                            {getLessonFocus(resumeRow.lesson, uiLanguage) ? (
-                              <AppText
-                                language={uiLanguage}
-                                variant="muted"
-                                numberOfLines={2}
-                                ellipsizeMode="tail"
-                                style={styles.resumeFocus}>
-                                {getLessonFocus(resumeRow.lesson, uiLanguage)}
-                              </AppText>
-                            ) : null}
+                              title={getLessonTitle(resumeRow.lesson, uiLanguage, copy.untitledLesson)}
+                              focus={getLessonFocus(resumeRow.lesson, uiLanguage)}
+                            />
                           </View>
                           <LessonArtwork key={resumeRow.lesson.id} path={resumeRow.lesson.header_img} />
                         </View>
@@ -921,12 +979,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexWrap: 'wrap'
   },
   resumeTextGroup: {
     flex: 1,
-    minWidth: 150,
+    minWidth: 0,
     gap: 7
+  },
+  titleZone: {
+    width: '100%',
+    minWidth: 0,
+  },
+  titleMeasurement: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0,
+  },
+  titlePending: {
+    height: 58,
+    opacity: 0,
   },
   lessonNumber: {
     fontFamily: theme.typography.fontFaces.en.semibold,
@@ -947,6 +1018,7 @@ const styles = StyleSheet.create({
   },
   lessonArtwork: {
     width: '42%',
+    flexShrink: 0,
     maxWidth: 210,
     height: 124
   },
@@ -985,15 +1057,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap'
   },
   stageText: {
-    fontSize: 10,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 17,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontFamily: theme.typography.fontFaces.en.semibold
   },
   progressSummary: {
-    fontSize: 9,
-    lineHeight: 15
+    fontSize: 10,
+    lineHeight: 16
   },
   progressTrack: {
     height: 8,

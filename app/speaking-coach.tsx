@@ -1,3 +1,4 @@
+import { useAppSession } from '@/src/context/app-session-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
@@ -15,7 +16,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -400,7 +401,14 @@ function TargetSentenceAssessment({ tokens }: { tokens: PronunciationAssessmentT
   );
 }
 
-export default function SpeakingCoachTestScreen() {
+export default function SpeakingCoachEntryScreen() {
+  const { hasMembership, isLoading } = useAppSession();
+  if (isLoading) return <PageLoadingState language="en" />;
+  if (!hasMembership) return <Redirect href="/(tabs)/account/membership" />;
+  return <SpeakingCoachTestScreen />;
+}
+
+function SpeakingCoachTestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ lesson?: string }>();
