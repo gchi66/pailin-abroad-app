@@ -131,14 +131,14 @@ const isEmailLike = (value: string | null | undefined) => {
 };
 
 const AVATAR_OPTIONS = [
-  { source: require('@/assets/images/characters/avatar_1.webp'), path: '/images/characters/avatar_1.webp' },
-  { source: require('@/assets/images/characters/avatar_2.webp'), path: '/images/characters/avatar_2.webp' },
-  { source: require('@/assets/images/characters/avatar_3.webp'), path: '/images/characters/avatar_3.webp' },
-  { source: require('@/assets/images/characters/avatar_4.webp'), path: '/images/characters/avatar_4.webp' },
-  { source: require('@/assets/images/characters/avatar_5.webp'), path: '/images/characters/avatar_5.webp' },
-  { source: require('@/assets/images/characters/avatar_6.webp'), path: '/images/characters/avatar_6.webp' },
-  { source: require('@/assets/images/characters/avatar_7.webp'), path: '/images/characters/avatar_7.webp' },
-  { source: require('@/assets/images/characters/avatar_8.webp'), path: '/images/characters/avatar_8.webp' },
+  { source: require('@/assets/images/characters/avatar1_blue_circle.webp'), path: '/images/characters/avatar1_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar2_blue_circle.webp'), path: '/images/characters/avatar2_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar3_blue_circle.webp'), path: '/images/characters/avatar3_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar4_blue_circle.webp'), path: '/images/characters/avatar4_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar5_blue_circle.webp'), path: '/images/characters/avatar5_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar6_blue_circle.webp'), path: '/images/characters/avatar6_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar7_blue_circle.webp'), path: '/images/characters/avatar7_blue_circle.webp' },
+  { source: require('@/assets/images/characters/avatar8_blue_circle.webp'), path: '/images/characters/avatar8_blue_circle.webp' },
 ] as const;
 
 const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {

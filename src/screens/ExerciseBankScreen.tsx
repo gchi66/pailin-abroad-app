@@ -14,6 +14,7 @@ import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useAppSession } from '@/src/context/app-session-context';
+import { localizeExerciseBankTopic } from '@/src/lib/exercise-bank-localization';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
   EXERCISE_BANK_COLLECTIONS,
@@ -88,7 +89,7 @@ export function ExerciseBankScreen() {
         }
       } catch (error) {
         if (isMounted) {
-          setErrorMessage(error instanceof Error ? error.message : copy.loadingFallback);
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load the Exercise Bank.');
         }
       } finally {
         if (isMounted) {
@@ -102,7 +103,12 @@ export function ExerciseBankScreen() {
     return () => {
       isMounted = false;
     };
-  }, [copy.loadingFallback]);
+  }, []);
+
+  const localizedTopics = useMemo(
+    () => topics.map((topic) => localizeExerciseBankTopic(topic, uiLanguage)),
+    [topics, uiLanguage]
+  );
 
   const collections = useMemo<TopicCollection[]>(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en');
@@ -110,8 +116,8 @@ export function ExerciseBankScreen() {
     return EXERCISE_BANK_COLLECTIONS.map((collection) => {
       const collectionTopics =
         collection.slug === 'featured'
-          ? topics.filter((topic) => topic.is_featured)
-          : topics.filter((topic) => topic.category === collection.category);
+          ? localizedTopics.filter((topic) => topic.is_featured)
+          : localizedTopics.filter((topic) => topic.category === collection.category);
 
       if (!normalizedSearch) {
         return { ...collection, topicCount: collectionTopics.length };
@@ -130,7 +136,7 @@ export function ExerciseBankScreen() {
         topicCount: labelMatches ? collectionTopics.length : matchingTopics.length,
       };
     }).filter((collection) => collection.topicCount > 0);
-  }, [searchTerm, topics, uiLanguage]);
+  }, [localizedTopics, searchTerm, uiLanguage]);
 
   const handleCollectionPress = (collection: TopicCollection) => {
     router.push({

@@ -2,6 +2,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
 import { Image } from 'expo-image';
 import pailinAvatar from '@/assets/images/pailin_blue_circle_right.webp';
+import lockBlackImage from '@/assets/images/lock-black.png';
+import speakingIcon from '@/assets/images/lesson-speaking-icon.png';
+import speakingIconGray from '@/assets/images/lesson-speaking-icon-gray.png';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/src/components/ui/AppText';
@@ -69,10 +72,18 @@ export function LessonOverviewScreen(p: Props) {
                 accessibilityState={{ selected: active }}
                 accessibilityHint={!locked && done ? (th ? 'เรียนส่วนนี้เสร็จแล้ว' : 'Completed') : undefined}
                 style={[s.row, done && s.doneRow, active && s.activeRow, locked && s.lockedRow, active && s.shadow]}>
-                <MaterialIcons name={icons[row.type] || 'article'} size={19} color={locked ? '#999' : '#222'} />
+                {speaking ? (
+                  <Image source={locked ? speakingIconGray : speakingIcon} style={s.speakingIcon} contentFit="contain" />
+                ) : (
+                  <MaterialIcons name={icons[row.type] || 'article'} size={19} color={locked ? '#999' : '#222'} />
+                )}
                 <AppText language={p.language} style={[s.rowText, locked && s.muted]}>{label}</AppText>
                 {speaking && <AppText style={s.ai}>AI</AppText>}
-                <MaterialIcons name={locked ? 'lock-outline' : 'chevron-right'} size={20} color={locked ? '#999' : '#222'} />
+                {locked ? (
+                  <Image source={lockBlackImage} style={s.lockIcon} contentFit="contain" />
+                ) : (
+                  <MaterialIcons name="chevron-right" size={20} color="#222" />
+                )}
               </Pressable>
               {locked && <Pressable accessibilityRole="button" onPress={p.onUpgrade} style={s.upgrade}>
                 <MaterialIcons name="auto-awesome" color="#245BFF" size={20} />
@@ -104,6 +115,7 @@ const s = StyleSheet.create({
   activeRow: { backgroundColor: '#BDEDFC', borderColor: '#222' }, doneRow: { backgroundColor: '#F3FFDA', borderColor: '#8BBD3F' },
   shadow: { shadowColor: '#222', shadowOffset: { width: 2, height: 3 }, shadowOpacity: 1, shadowRadius: 0 },
   lockedRow: { backgroundColor: '#F0F0F0' }, muted: { color: '#999' }, ai: { fontSize: 10, color: '#245BFF', backgroundColor: '#EBF2FF', paddingHorizontal: 4 },
+  speakingIcon: { width: 20, height: 20 }, lockIcon: { width: 20, height: 20 },
   upgrade: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, marginTop: 4, borderWidth: 1, borderColor: '#245BFF', backgroundColor: '#EBF3FF', borderRadius: 4 },
   upgradeTitle: { color: '#245BFF', fontSize: 9, lineHeight: 14, fontWeight: '700' }, upgradeBody: { fontSize: 10, lineHeight: 15 },
 });

@@ -77,7 +77,9 @@ export async function fetchExerciseBankV2Topics(
   return Array.isArray(response.topics) ? response.topics : [];
 }
 
-export async function fetchExerciseBankV2Topic(topicId: number | string): Promise<ExerciseBankTopicDetail> {
+export async function fetchExerciseBankV2Topic(
+  topicId: number | string
+): Promise<ExerciseBankTopicDetail> {
   const response = await exerciseBankV2Request<{ topic?: ExerciseBankTopicDetail }>(
     `/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}`
   );
@@ -85,9 +87,12 @@ export async function fetchExerciseBankV2Topic(topicId: number | string): Promis
   return response.topic;
 }
 
-export async function fetchExerciseBankV2Set(topicId: number | string, setNumber: number) {
+export async function fetchExerciseBankV2Set(
+  topicId: number | string,
+  setNumber: number
+) {
   return exerciseBankV2Request<{
-    topic: Pick<ExerciseBankTopic, 'id' | 'topic' | 'display_title' | 'category' | 'content_version'>;
+    topic: Pick<ExerciseBankTopic, 'id' | 'topic' | 'topic_en' | 'topic_th' | 'display_title' | 'display_title_en' | 'display_title_th' | 'category' | 'content_version'>;
     set: ExerciseBankV2Set;
   }>(`/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/sets/${setNumber}`);
 }
@@ -129,7 +134,7 @@ export async function fetchExerciseBankTopics(
   let query = supabase
     .from('exercise_bank_topics')
     .select(
-      'id, topic, display_title, category, sub_category, lesson_external_id, sort_order, is_featured, featured_sort_order'
+      'id, topic, topic_th, display_title, display_title_th, category, sub_category, lesson_external_id, sort_order, is_featured, featured_sort_order'
     )
     .eq('is_active', true);
 
@@ -151,13 +156,13 @@ export async function fetchExerciseBankTopics(
   }
 
   return (Array.isArray(data) ? data : []).filter(
-    (row): row is ExerciseBankTopic =>
+    (row) =>
       (typeof row.id === 'number' || typeof row.id === 'string') &&
       typeof row.topic === 'string' &&
       typeof row.display_title === 'string' &&
       typeof row.category === 'string' &&
       typeof row.lesson_external_id === 'string'
-  );
+  ).map((row): ExerciseBankTopic => ({ ...row }));
 }
 
 export async function fetchExerciseBankSections() {

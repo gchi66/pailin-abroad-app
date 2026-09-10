@@ -81,8 +81,11 @@ import {
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '@/src/theme/theme';
+import { resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import comprehensionProgressImage from '@/assets/images/speaking-coach/pailin-good-job.webp';
 import comprehensionPracticeImage from '@/assets/images/speaking-coach/pailin-try-again.webp';
+import lockWhiteImage from '@/assets/images/lock-white.png';
+import tryAgainImage from '@/assets/images/try-again.png';
 import transcriptLeftAvatar from '@/assets/images/characters/pailin-blue-right.png';
 import transcriptRightAvatar from '@/assets/images/characters/chloe-friend-blue-left.png';
 import {
@@ -2279,6 +2282,9 @@ const normalizeTranscriptLine = (
   thaiLine: String(line.line_text_th ?? '').trim(),
 });
 
+const isTranscriptDividerLine = (line: NormalizedTranscriptLine): boolean =>
+  [line.englishLine, line.thaiLine].some((text) => /^(?:\.{3,}|…+)$/.test(text.trim()));
+
 const isApplyContent = (value: unknown): value is LessonApplyContent =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
@@ -4065,6 +4071,10 @@ export default function LessonDetailShellScreen() {
     let nextSide: 'left' | 'right' = 'left';
 
     normalizedTranscript.forEach((line) => {
+      if (isTranscriptDividerLine(line)) {
+        return;
+      }
+
       const speakerKey = line.speaker.trim().toLocaleLowerCase() || `line:${line.id}`;
       let side = sideBySpeaker.get(speakerKey);
       if (!side) {
@@ -9958,6 +9968,9 @@ const mergeAdjacentPracticeRowTokens = (
             options.disabled ? styles.ctaButtonDisabled : null,
             pressed && !options.disabled ? styles.ctaButtonPressed : null,
           ]}>
+          {isChecked && !options.disabled ? (
+            <Image source={tryAgainImage} contentFit="contain" style={styles.tryAgainIcon} />
+          ) : null}
           <AppText language={pageLanguage} variant="caption" style={styles.comprehensionCheckButtonText}>
             {options.label}
           </AppText>
@@ -11953,6 +11966,7 @@ const mergeAdjacentPracticeRowTokens = (
                           <Button
                             language={uiLanguage}
                             title={uiCopy.unlockLesson}
+                            leadingIcon={<Image source={lockWhiteImage} contentFit="contain" style={styles.coverButtonLockIcon} />}
                             onPress={() => {
                               prefetchPricing();
                               router.push('/(tabs)/account/membership');
@@ -12398,8 +12412,16 @@ const mergeAdjacentPracticeRowTokens = (
                   ) : isTranscriptTab ? (
                     <View style={styles.transcriptConversation}>
                       {normalizedTranscript.map((line) => {
+                        if (isTranscriptDividerLine(line)) {
+                          return <View key={line.id} style={styles.transcriptDivider} />;
+                        }
+
                         const side = transcriptSideByLineId[line.id] ?? 'left';
                         const isLeft = side === 'left';
+                        const characterHead = resolveTranscriptCharacterHead(line.speaker, activeLessonNumber);
+                        const avatarSource = characterHead === undefined
+                          ? (isLeft ? transcriptLeftAvatar : transcriptRightAvatar)
+                          : characterHead;
                         const speakerName = contentLang === 'th'
                           ? line.speakerTh || line.speaker
                           : line.speaker;
@@ -12407,9 +12429,9 @@ const mergeAdjacentPracticeRowTokens = (
                           <View
                             key={line.id}
                             style={[styles.transcriptMessageRow, isLeft ? null : styles.transcriptMessageRowRight]}>
-                            {isLeft ? (
+                            {isLeft && avatarSource ? (
                               <Image
-                                source={transcriptLeftAvatar}
+                                source={avatarSource}
                                 contentFit="contain"
                                 style={styles.transcriptAvatar}
                               />
@@ -12448,11 +12470,14 @@ const mergeAdjacentPracticeRowTokens = (
                               ) : null}
                             </View>
 
-                            {!isLeft ? (
+                            {!isLeft && avatarSource ? (
                               <Image
-                                source={transcriptRightAvatar}
+                                source={avatarSource}
                                 contentFit="contain"
-                                style={styles.transcriptAvatar}
+                                style={[
+                                  styles.transcriptAvatar,
+                                  characterHead !== undefined ? styles.transcriptAvatarMirrored : null,
+                                ]}
                               />
                             ) : null}
                           </View>
@@ -12471,22 +12496,49 @@ const mergeAdjacentPracticeRowTokens = (
 
                       {applyPresentation.exampleNodes.length ? (
                         <View style={styles.applyExamples}>
-                          {applyPresentation.exampleNodes.map((node, index) => (
-                            <View key={`apply-example-${index}`} style={styles.applyExampleRow}>
-                              <Image
-                                source={transcriptLeftAvatar}
-                                contentFit="contain"
-                                style={styles.applyExampleAvatar}
-                              />
-                              <View style={styles.applyExampleBubble}>
-                                <AppText
-                                  language={contentLang === 'th' ? 'th' : 'en'}
-                                  style={styles.applyExampleText}>
-                                  {getApplyNodeText(node, contentLang)}
-                                </AppText>
+                          {applyPresentation.exampleNodes.map((node, index) => {
+                            const exampleText = getApplyNodeText(node, contentLang);
+                            const speakerMatch = exampleText.match(/^([^:\n]+):\s*/);
+                            const exampleSpeaker = speakerMatch?.[1]?.trim();
+                            const exampleDialogue = speakerMatch
+                              ? exampleText.slice(speakerMatch[0].length)
+                              : exampleText;
+                            const exampleCharacterHead = resolveTranscriptCharacterHead(
+                              exampleSpeaker,
+                              activeLessonNumber
+                            );
+                            const exampleAvatarSource = exampleCharacterHead === undefined
+                              ? transcriptLeftAvatar
+                              : exampleCharacterHead;
+
+                            return (
+                              <View key={`apply-example-${index}`} style={styles.applyExampleRow}>
+                                {exampleAvatarSource ? (
+                                  <Image
+                                    source={exampleAvatarSource}
+                                    contentFit="contain"
+                                    style={styles.applyExampleAvatar}
+                                  />
+                                ) : null}
+                                <View style={styles.applyExampleBubbleColumn}>
+                                  <View style={styles.applyExampleBubble}>
+                                    <AppText
+                                      language={contentLang === 'th' ? 'th' : 'en'}
+                                      style={styles.applyExampleText}>
+                                      {exampleDialogue}
+                                    </AppText>
+                                  </View>
+                                  {exampleSpeaker ? (
+                                    <AppText
+                                      language={contentLang === 'th' ? 'th' : 'en'}
+                                      style={styles.applyExampleSpeakerLabel}>
+                                      {exampleSpeaker.toLocaleUpperCase()}
+                                    </AppText>
+                                  ) : null}
+                                </View>
                               </View>
-                            </View>
-                          ))}
+                            );
+                          })}
                         </View>
                       ) : null}
 
@@ -12922,8 +12974,9 @@ const mergeAdjacentPracticeRowTokens = (
                             styles.comprehensionResultRetryButton,
                             pressed ? styles.ctaButtonPressed : null,
                           ]}>
+                          <Image source={tryAgainImage} contentFit="contain" style={styles.tryAgainIcon} />
                           <AppText language={pageLanguage} style={styles.comprehensionResultRetryButtonText}>
-                            {pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN ↻'}
+                            {pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN'}
                           </AppText>
                         </Pressable>
                       ) : null}
@@ -12997,6 +13050,9 @@ const mergeAdjacentPracticeRowTokens = (
                             ? styles.ctaButtonPressed
                             : null,
                         ]}>
+                        {isComprehensionTab && isCurrentComprehensionChecked && !isCurrentComprehensionCorrect && !showComprehensionResults ? (
+                          <Image source={tryAgainImage} contentFit="contain" style={styles.tryAgainIcon} />
+                        ) : null}
                         <AppText
                           language={pageLanguage}
                           variant="caption"
@@ -13377,6 +13433,10 @@ const styles = StyleSheet.create({
   },
   coverStartButton: {
     minHeight: 56,
+  },
+  coverButtonLockIcon: {
+    width: 18,
+    height: 18,
   },
   coverInlineError: {
     color: theme.colors.mutedText,
@@ -14586,6 +14646,13 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     paddingBottom: 12,
   },
+  transcriptDivider: {
+    width: '84%',
+    height: 1,
+    alignSelf: 'center',
+    marginVertical: 7,
+    backgroundColor: '#C8CBD0',
+  },
   transcriptMessageRow: {
     width: '100%',
     flexDirection: 'row',
@@ -14601,8 +14668,11 @@ const styles = StyleSheet.create({
   transcriptAvatar: {
     width: 42,
     height: 42,
-    marginBottom: 18,
+    marginBottom: 14,
     flexShrink: 0,
+  },
+  transcriptAvatarMirrored: {
+    transform: [{ scaleX: -1 }],
   },
   transcriptBubbleColumn: {
     flex: 1,
@@ -14675,11 +14745,16 @@ const styles = StyleSheet.create({
   applyExampleAvatar: {
     width: 32,
     height: 32,
-    marginBottom: 1,
+    marginBottom: 16,
     flexShrink: 0,
   },
-  applyExampleBubble: {
+  applyExampleBubbleColumn: {
     flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+  },
+  applyExampleBubble: {
+    width: '100%',
     minHeight: 48,
     justifyContent: 'center',
     borderWidth: 1.2,
@@ -14689,6 +14764,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 9,
+  },
+  applyExampleSpeakerLabel: {
+    color: theme.colors.text,
+    fontSize: 9,
+    lineHeight: 14,
+    fontFamily: theme.typography.fontFaces.en.medium,
+    letterSpacing: 0.7,
+    marginTop: 1,
   },
   applyExampleText: {
     color: theme.colors.text,
@@ -15867,6 +15950,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: theme.typography.weights.semibold,
+  },
+  tryAgainIcon: {
+    width: 18,
+    height: 18,
   },
   comprehensionCheckButton: {
     flex: 1,

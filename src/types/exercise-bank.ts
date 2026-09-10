@@ -3,7 +3,11 @@ import { LessonRichInline } from '@/src/types/lesson';
 export type ExerciseBankTopic = {
   id: number | string;
   topic: string;
+  topic_en?: string | null;
+  topic_th?: string | null;
   display_title: string;
+  display_title_en?: string | null;
+  display_title_th?: string | null;
   category: string;
   sub_category: string | null;
   lesson_external_id: string;
@@ -69,6 +73,8 @@ export type ExerciseBankV2QuestionContent = {
 export type ExerciseBankV2Example = {
   id: number;
   content: ExerciseBankV2QuestionContent;
+  content_en?: ExerciseBankV2QuestionContent;
+  content_th?: ExerciseBankV2QuestionContent;
 };
 
 export type ExerciseBankV2Question = {
@@ -81,11 +87,17 @@ export type ExerciseBankV2Question = {
     id: number;
     exercise_type: string;
     display_type: string;
+    display_type_en?: string;
+    display_type_th?: string | null;
     prompt: string;
+    prompt_en?: string | null;
+    prompt_th?: string | null;
     keywords: string[] | string | null;
     examples: ExerciseBankV2Example[];
   };
   content: ExerciseBankV2QuestionContent;
+  content_en?: ExerciseBankV2QuestionContent;
+  content_th?: ExerciseBankV2QuestionContent;
   progress: {
     attempt_count: number;
     has_answered_correctly: boolean;

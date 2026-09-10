@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import exerciseBankImage from '@/assets/images/resources_exercise_bank.webp';
+import lockWhiteImage from '@/assets/images/lock-white.png';
+import pathwayExerciseBankImage from '@/assets/images/my-pathway-exercise-bank.png';
+import pathwayNextLessonImage from '@/assets/images/my-pathway-next-lesson.png';
+import pathwayProgressImage from '@/assets/images/my-pathway-progress.png';
 import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import { resolveLocalLessonHeaderImage } from '@/src/assets/lesson-header-images';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
@@ -164,6 +170,7 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
 
 function LessonArtwork({ path }: { path: string | null }) {
   const [failed, setFailed] = useState(false);
+  const localImage = resolveLocalLessonHeaderImage(path);
   let normalized = path?.trim() || '';
   if (normalized && !/^https?:\/\//i.test(normalized)) {
     normalized = normalized.replace(/^\/+/, '').replace(/^lesson-images\//i, '').split(/[?#]/)[0];
@@ -171,7 +178,13 @@ function LessonArtwork({ path }: { path: string | null }) {
     if (!/\.[a-z0-9]+$/i.test(normalized)) normalized += '.webp';
     normalized = env.supabaseUrl ? `${env.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/lesson-images/${normalized}` : '';
   }
-  return <Image source={normalized && !failed ? { uri: normalized } : pailinBlueCircleRight}
+  const source = !failed && localImage
+    ? localImage
+    : normalized && !failed
+      ? { uri: normalized }
+      : pailinBlueCircleRight;
+
+  return <Image source={source}
     onError={() => setFailed(true)} style={styles.lessonArtwork} resizeMode="contain" accessible={false} />;
 }
 
@@ -472,9 +485,9 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     prefetchPricing();
     router.push('/(tabs)/account/membership');
   };
-  const sectionLabel = (label: string, icon: React.ComponentProps<typeof MaterialIcons>['name']) => (
+  const sectionLabel = (label: string, icon: ImageSourcePropType) => (
     <View style={styles.sectionLabel}>
-      <MaterialIcons name={icon} size={14} color="#2860F0" />
+      <Image source={icon} style={styles.sectionIcon} resizeMode="contain" accessible={false} />
       <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>{label}</AppText>
     </View>
   );
@@ -590,7 +603,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
               ) : null}
 
               <Stack gap="sm">
-                {sectionLabel(copy.continueLearning, 'stars')}
+                {sectionLabel(copy.continueLearning, pathwayNextLessonImage)}
                 <View style={styles.cardWrap}>
                   <AndroidNeoShadowLayer borderRadius={5} color={theme.colors.shadow} offset={4} />
                   <Card style={styles.resumeCard}>
@@ -619,6 +632,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                           <LessonArtwork key={resumeRow.lesson.id} path={resumeRow.lesson.header_img} />
                         </View>
                         <Button language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                          leadingIcon={resumeRow.state === 'locked' ? <Image source={lockWhiteImage} style={styles.buttonLockIcon} resizeMode="contain" accessible={false} /> : undefined}
                           onPress={() => resumeRow.state === 'locked' ? handleUpgrade() : handleOpenLesson(resumeRow.lesson)}
                           style={styles.resumeButton} textStyle={styles.ctaText} />
                       </Stack>
@@ -630,7 +644,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
               </Stack>
 
               <Stack gap="sm">
-                {sectionLabel(copy.progressTitle, 'signal-cellular-alt')}
+                {sectionLabel(copy.progressTitle, pathwayProgressImage)}
                 <Card style={styles.progressCard}>
                   <Stack gap="sm">
                     <View style={styles.progressHeader}>
@@ -689,7 +703,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
               ) : null}
 
               <Stack gap="sm">
-                {sectionLabel(copy.practice, 'signal-cellular-alt')}
+                {sectionLabel(copy.practice, pathwayExerciseBankImage)}
                 <Pressable accessibilityRole="button" accessibilityLabel={`${copy.exerciseBank}: ${copy.practice}`}
                   onPress={() => router.push('/(tabs)/exercises')} style={styles.practiceCard}>
                   <Image source={exerciseBankImage} style={styles.practiceArtwork} resizeMode="contain" accessible={false} />
@@ -952,6 +966,10 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 8
   },
+  sectionIcon: {
+    width: 18,
+    height: 18,
+  },
   sectionEyebrow: {
     fontSize: 10,
     lineHeight: 16,
@@ -1043,6 +1061,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     letterSpacing: 0.3
+  },
+  buttonLockIcon: {
+    width: 16,
+    height: 16,
   },
   progressCard: {
     borderRadius: 7,

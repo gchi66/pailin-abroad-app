@@ -5,6 +5,11 @@ import { ActivityIndicator, Animated, BackHandler, Image, PanResponder, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import fallbackImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import lockBlackImage from '@/assets/images/lock-black.png';
+import {
+  lessonHeaderBlueBlob,
+  resolveLocalLessonHeaderImage,
+} from '@/src/assets/lesson-header-images';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
@@ -58,6 +63,7 @@ export default function LessonPreviewScreen() {
   const title = lesson ? localized(lesson.title, lesson.title_th) || copy.untitled : '';
   const focus = lesson ? localized(lesson.focus, lesson.focus_th) : '';
   const backstory = lesson ? localized(lesson.backstory, lesson.backstory_th) : '';
+  const localHeaderImage = resolveLocalLessonHeaderImage(lesson?.header_img);
   const imageUrl = headerImageUrl(lesson?.header_img ?? null);
   const checkpoint = [lesson?.title, lesson?.title_th].some((value) => value?.toLowerCase().includes('checkpoint'));
   const number = lesson?.level != null ? `${lesson.level}.${checkpoint ? 'chp' : lesson.lesson_order ?? '–'}` : '–';
@@ -147,9 +153,24 @@ export default function LessonPreviewScreen() {
           ) : (
             <>
               <View style={styles.artworkArea}>
-                <Image source={imageUrl && !imageFailed ? { uri: imageUrl } : fallbackImage} resizeMode="contain"
-                  onError={() => setImageFailed(true)} style={[styles.artwork, { height: Math.min(190, height * 0.23, width * 0.48) }]} accessible={false} />
-                {locked ? <MaterialIcons name="lock-outline" size={30} color={theme.colors.text} style={styles.lock} accessibilityLabel={copy.upgrade} /> : null}
+                <View style={[styles.artworkComposition, { height: Math.min(190, height * 0.23, width * 0.48) }]}>
+                  {localHeaderImage ? (
+                    <Image
+                      source={lessonHeaderBlueBlob}
+                      resizeMode="contain"
+                      style={styles.artworkLayer}
+                      accessible={false}
+                    />
+                  ) : null}
+                  <Image
+                    source={localHeaderImage ?? (imageUrl && !imageFailed ? { uri: imageUrl } : fallbackImage)}
+                    resizeMode="contain"
+                    onError={() => setImageFailed(true)}
+                    style={styles.artworkLayer}
+                    accessible={false}
+                  />
+                </View>
+                {locked ? <Image source={lockBlackImage} resizeMode="contain" style={styles.lock} accessibilityLabel={copy.upgrade} /> : null}
               </View>
               <View style={styles.lessonCopy}>
                 <AppText language={uiLanguage} variant="caption" style={styles.eyebrow}>{copy.lesson} {number}</AppText>
@@ -207,8 +228,9 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 8, gap: 18 },
   loading: { minHeight: 220, justifyContent: 'center', alignItems: 'center', gap: 16 },
   artworkArea: { position: 'relative', paddingHorizontal: 16 },
-  artwork: { width: '100%' },
-  lock: { position: 'absolute', top: 0, left: 8 },
+  artworkComposition: { position: 'relative', width: '100%' },
+  artworkLayer: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  lock: { position: 'absolute', top: 0, left: 8, width: 30, height: 30 },
   lessonCopy: { gap: 6, paddingHorizontal: 12 },
   eyebrow: { fontSize: 10, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' },
   title: { fontSize: 24, lineHeight: 30 },

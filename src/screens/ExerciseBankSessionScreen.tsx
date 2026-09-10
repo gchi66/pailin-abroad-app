@@ -25,11 +25,16 @@ import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import {
+  localizeExerciseBankQuestion,
+  localizeExerciseBankTopic,
+} from '@/src/lib/exercise-bank-localization';
 import { theme } from '@/src/theme/theme';
 import pailinBlueThumbsUpImage from '@/assets/images/pailin-blue-circle-thumbs-up.webp';
 import {
   ExerciseBankAnswer,
   ExerciseBankAnswerResult,
+  ExerciseBankTopic,
   ExerciseBankTopicDetail,
   ExerciseBankV2Example,
   ExerciseBankV2Question,
@@ -37,6 +42,11 @@ import {
 } from '@/src/types/exercise-bank';
 
 type UiLanguage = 'en' | 'th';
+
+type ExerciseBankSessionTopic = Pick<
+  ExerciseBankTopic,
+  'id' | 'topic' | 'topic_en' | 'topic_th' | 'display_title' | 'display_title_en' | 'display_title_th'
+>;
 
 const getParam = (value?: string | string[]) => (Array.isArray(value) ? value[0] ?? '' : value ?? '');
 
@@ -102,11 +112,11 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
     if (parts.length < 2) return null;
     return (
       <View style={styles.exampleInlineSentence}>
-        <AppText language="en" variant="body" style={styles.exampleSentenceText}>{parts[0]}</AppText>
+        <AppText language={language} variant="body" style={styles.exampleSentenceText}>{parts[0]}</AppText>
         <View style={styles.exampleAnswerPill}>
           <AppText language="en" variant="body" style={styles.exampleAnswerPillText}>{answer}</AppText>
         </View>
-        <AppText language="en" variant="body" style={styles.exampleSentenceText}>{parts.slice(1).join(' ')}</AppText>
+        <AppText language={language} variant="body" style={styles.exampleSentenceText}>{parts.slice(1).join(' ')}</AppText>
       </View>
     );
   };
@@ -125,7 +135,7 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
       {isExpanded ? (
         isJudgmentExample ? (
           <View style={styles.judgmentExampleBody}>
-            {sourceText ? <AppText language="en" variant="body" style={styles.judgmentExampleSentence}>{sourceText}</AppText> : null}
+            {sourceText ? <AppText language={language} variant="body" style={styles.judgmentExampleSentence}>{sourceText}</AppText> : null}
             <View style={styles.judgmentExampleChoices}>
               <View style={[styles.judgmentExampleChoice, content.example_is_correct ? styles.judgmentExampleChoiceCorrect : null]}>
                 <AppText language={language} variant="caption" style={[styles.judgmentExampleChoiceText, content.example_is_correct ? styles.judgmentExampleChoiceTextActive : null]}>
@@ -139,7 +149,7 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
               </View>
             </View>
             <View style={styles.judgmentExampleAnswerShell}>
-              <AppText language="en" variant="body" style={styles.judgmentExampleAnswerText}>{answer || sourceText}</AppText>
+              <AppText language={language} variant="body" style={styles.judgmentExampleAnswerText}>{answer || sourceText}</AppText>
               <View style={styles.judgmentExampleAnswerBadge}>
                 <AppText language="en" variant="caption" style={styles.judgmentExampleAnswerBadgeText}>✓</AppText>
               </View>
@@ -149,12 +159,12 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
           <View style={styles.exampleBody}>
             {exerciseType === 'fill_blank' && renderFillBlankExample()}
             {exerciseType !== 'fill_blank' && sourceText ? (
-              <AppText language="en" variant="body" style={styles.exampleSentenceText}>{sourceText}</AppText>
+              <AppText language={language} variant="body" style={styles.exampleSentenceText}>{sourceText}</AppText>
             ) : null}
             {exerciseType !== 'fill_blank' && (answer || correctOption) ? (
               <View style={styles.exampleSolutionRow}>
                 <AppText language={language} variant="caption" style={styles.exampleSolutionLabel}>{copy.answer}:</AppText>
-                <AppText language="en" variant="body" style={styles.exampleSolutionText}>
+                <AppText language={language} variant="body" style={styles.exampleSolutionText}>
                   {correctOption ? `${correctOption.label}. ${correctOption.text}` : answer}
                 </AppText>
               </View>
@@ -171,7 +181,9 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
   const [inputContainerWidth, setInputContainerWidth] = useState(0);
   const exerciseType = question.exercise.exercise_type;
   const isJudgment = exerciseType === 'sentence_transform'
-    && /correct.*incorrect|incorrect.*correct/i.test(question.exercise.display_type);
+    && /correct.*incorrect|incorrect.*correct/i.test(
+      question.exercise.display_type_en ?? question.exercise.display_type
+    );
 
   if (exerciseType === 'multiple_choice') {
     const selectedLabel = typeof answer === 'string' ? answer : '';
@@ -188,7 +200,7 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
             <View style={styles.optionLabelCircle}>
               <AppText language="en" variant="caption" style={styles.optionLabel}>{option.label}</AppText>
             </View>
-            <AppText language="en" variant="body" style={styles.optionText}>{option.text}</AppText>
+            <AppText language={language} variant="body" style={styles.optionText}>{option.text}</AppText>
           </Pressable>
         ))}
       </View>
@@ -207,7 +219,7 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
         {sentenceParts.map((part, index) => {
           if (!/^_{2,}$/.test(part)) {
             return (
-              <AppText key={`text-${index}`} language="en" variant="body" style={styles.fillBlankSentenceText}>
+              <AppText key={`text-${index}`} language={language} variant="body" style={styles.fillBlankSentenceText}>
                 {part}
               </AppText>
             );
@@ -320,8 +332,7 @@ export function ExerciseBankSessionScreen() {
   const setNumber = Number.parseInt(setNumberParam, 10);
   const hasSetNumber = Number.isInteger(setNumber) && setNumber > 0;
   const [topicDetail, setTopicDetail] = useState<ExerciseBankTopicDetail | null>(null);
-  const [topicTitle, setTopicTitle] = useState('');
-  const [topicName, setTopicName] = useState('');
+  const [topic, setTopic] = useState<ExerciseBankSessionTopic | null>(null);
   const [setData, setSetData] = useState<ExerciseBankV2Set | null>(null);
   const [queue, setQueue] = useState<number[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -343,15 +354,14 @@ export function ExerciseBankSessionScreen() {
     setAnswers({});
     setResults({});
     try {
-      if (!topicId) throw new Error(copy.loadError);
+      if (!topicId) throw new Error('Unable to load this exercise.');
       let resolvedSetNumber = hasSetNumber ? setNumber : null;
       let detail: ExerciseBankTopicDetail | null = null;
 
       if (resolvedSetNumber === null) {
         detail = await fetchExerciseBankV2Topic(topicId);
         setTopicDetail(detail);
-        setTopicTitle(detail.display_title);
-        setTopicName(detail.topic);
+        setTopic(detail);
         resolvedSetNumber = detail.next_incomplete_set;
         if (resolvedSetNumber === null) return;
       }
@@ -362,8 +372,7 @@ export function ExerciseBankSessionScreen() {
       ]);
       detail = fetchedDetail;
       if (detail) setTopicDetail(detail);
-      setTopicTitle(response.topic.display_title);
-      setTopicName(response.topic.topic);
+      setTopic(response.topic);
       setSetData(response.set);
       setAnswers(Object.fromEntries(
         response.set.questions
@@ -406,17 +415,28 @@ export function ExerciseBankSessionScreen() {
         }).catch(() => undefined);
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : copy.loadError);
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to load this exercise.');
     } finally {
       setIsLoading(false);
     }
-  }, [copy.loadError, hasSetNumber, setNumber, topicId]);
+  }, [hasSetNumber, setNumber, topicId]);
 
   useEffect(() => { void load(); }, [load]);
 
+  const localizedTopic = useMemo(
+    () => topic ? localizeExerciseBankTopic(topic, uiLanguage) : null,
+    [topic, uiLanguage]
+  );
+  const localizedTopicDetail = useMemo(
+    () => topicDetail ? localizeExerciseBankTopic(topicDetail, uiLanguage) : null,
+    [topicDetail, uiLanguage]
+  );
   const questionsById = useMemo(
-    () => new Map((setData?.questions ?? []).map((question) => [question.id, question])),
-    [setData]
+    () => new Map((setData?.questions ?? []).map((question) => {
+      const localized = localizeExerciseBankQuestion(question, uiLanguage);
+      return [localized.id, localized] as const;
+    })),
+    [setData, uiLanguage]
   );
   const currentQuestion = questionsById.get(queue[queueIndex]);
   const currentResult = currentQuestion ? results[currentQuestion.id] : undefined;
@@ -549,7 +569,7 @@ export function ExerciseBankSessionScreen() {
         <ResponsivePageShell>
           <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
           <View style={styles.pickerContent}>
-            <AppText language="en" variant="title" style={styles.pickerTitle}>{topicDetail.display_title}</AppText>
+            <AppText language={uiLanguage} variant="title" style={styles.pickerTitle}>{localizedTopicDetail?.display_title}</AppText>
             <AppText language={uiLanguage} variant="body" style={styles.pickerSubtitle}>{copy.chooseSet}</AppText>
             <View style={styles.setList}>{topicDetail.sets.map((item) => (
               <Pressable key={item.set_number} style={styles.setButton} onPress={() => router.setParams({ setNumber: String(item.set_number) })}>
@@ -578,8 +598,8 @@ export function ExerciseBankSessionScreen() {
           <View style={styles.sessionContent}>
             <View style={styles.sessionHeading}>
               <View style={styles.topicHeadingCopy}>
-                <AppText language="en" variant="title" style={styles.topicDisplayTitle}>{topicTitle}</AppText>
-                <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
+                <AppText language={uiLanguage} variant="title" style={styles.topicDisplayTitle}>{localizedTopic?.display_title}</AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
               </View>
               <View style={styles.questionMeta}>
                 <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>{setData.question_count} / {setData.question_count}</AppText>
@@ -620,7 +640,9 @@ export function ExerciseBankSessionScreen() {
   }
 
   const isJudgmentQuestion = currentQuestion.exercise.exercise_type === 'sentence_transform'
-    && /correct.*incorrect|incorrect.*correct/i.test(currentQuestion.exercise.display_type);
+    && /correct.*incorrect|incorrect.*correct/i.test(
+      currentQuestion.exercise.display_type_en ?? currentQuestion.exercise.display_type
+    );
   const isFillBlankQuestion = currentQuestion.exercise.exercise_type === 'fill_blank';
   const feedback = uiLanguage === 'th' ? currentResult?.feedback_th : currentResult?.feedback_en;
   return (
@@ -631,8 +653,8 @@ export function ExerciseBankSessionScreen() {
           <View style={styles.sessionContent}>
             <View style={styles.sessionHeading}>
               <View style={styles.topicHeadingCopy}>
-                <AppText language="en" variant="title" style={styles.topicDisplayTitle}>{topicTitle}</AppText>
-                <AppText language="en" variant="body" style={styles.topicTechnicalName}>{topicName}</AppText>
+                <AppText language={uiLanguage} variant="title" style={styles.topicDisplayTitle}>{localizedTopic?.display_title}</AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
               </View>
             </View>
             <View style={styles.progressRow}>
@@ -685,7 +707,7 @@ export function ExerciseBankSessionScreen() {
                 currentResult && !currentResult.correct ? styles.questionInstructionsIncorrect : null,
               ]}>
                 <AppText
-                  language="en"
+                  language={uiLanguage}
                   variant="body"
                   style={[
                     styles.prompt,
@@ -704,7 +726,7 @@ export function ExerciseBankSessionScreen() {
                 ) : null}
                 {isFillBlankQuestion ? (
                   <View style={styles.questionWorkPanel}>
-                    <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                    <AppText language={uiLanguage} variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
                     <QuestionInput
                       answer={answers[currentQuestion.id]}
                       disabled={Boolean(currentResult)}
@@ -716,9 +738,9 @@ export function ExerciseBankSessionScreen() {
                 ) : isJudgmentQuestion ? (
                   <>
                     <View style={styles.questionWorkPanel}>
-                      <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                      <AppText language={uiLanguage} variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
                       {currentQuestion.content.stem || currentQuestion.content.text ? (
-                        <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                        <AppText language={uiLanguage} variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
                       ) : null}
                     </View>
                     <QuestionInput
@@ -732,9 +754,9 @@ export function ExerciseBankSessionScreen() {
                 ) : (
                   <>
                     <View style={styles.questionWorkPanel}>
-                      <AppText language="en" variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
+                      <AppText language={uiLanguage} variant="caption" style={styles.displayType}>{currentQuestion.exercise.display_type}</AppText>
                       {currentQuestion.content.stem || currentQuestion.content.text ? (
-                        <AppText language="en" variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                        <AppText language={uiLanguage} variant="body" style={styles.stem}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
                       ) : null}
                     </View>
                     <QuestionInput
