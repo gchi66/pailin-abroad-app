@@ -1320,7 +1320,7 @@ function SpeakingCoachTestScreen() {
           </Pressable>
         ) : null}
         <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()}>
-          <AppText variant="muted" style={styles.skipText}>{skipPending ? 'Skipping…' : 'Skip'}</AppText>
+          <AppText variant="muted" style={styles.skipText}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
         </Pressable>
       </UiStack>
     );
@@ -1433,7 +1433,9 @@ function SpeakingCoachTestScreen() {
 
         {unclearAudioLimitReached ? (
           <UiStack gap="sm">
-            <Button title={skipPending ? 'Skipping…' : 'Skip question'} disabled={skipPending} onPress={() => void skipCurrentQuestion()} />
+            <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.inlineSkipButton}>
+              <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
+            </Pressable>
             <Button title="Exit practice" variant="outline" onPress={() => router.back()} />
           </UiStack>
         ) : isRetry || isUnclear ? (
@@ -1443,7 +1445,9 @@ function SpeakingCoachTestScreen() {
               onPress={() => void startRecording()}
             />
             {isUnclear && unclearAudioNeedsGuidance ? (
-              <Button title={skipPending ? 'Skipping…' : 'Skip question'} variant="outline" disabled={skipPending} onPress={() => void skipCurrentQuestion()} />
+              <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.inlineSkipButton}>
+                <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
+              </Pressable>
             ) : null}
           </UiStack>
         ) : (
@@ -1624,7 +1628,7 @@ function SpeakingCoachTestScreen() {
 
         {showSkip ? (
           <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP →'}</AppText>
+            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
           </Pressable>
         ) : null}
 
@@ -1928,7 +1932,7 @@ function SpeakingCoachTestScreen() {
             style={styles.pronunciationSkipButton}
           >
             <AppText variant="caption" style={styles.pronunciationSkipLabel}>
-              {skipPending ? 'SKIPPING…' : 'SKIP →'}
+              {skipPending ? 'SKIPPING…' : 'SKIP'}
             </AppText>
           </Pressable>
         ) : null}
@@ -2152,7 +2156,7 @@ function SpeakingCoachTestScreen() {
 
         {showSkip ? (
           <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP →'}</AppText>
+            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
           </Pressable>
         ) : null}
 
@@ -2693,7 +2697,8 @@ const styles = StyleSheet.create({
   pronunciationFeedbackTitle: { fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   pronunciationFeedbackText: { fontSize: 12, lineHeight: 18 },
   pronunciationSkipButton: { alignSelf: 'center', marginTop: 'auto', paddingHorizontal: 20, paddingTop: 28, paddingBottom: 8 },
-  pronunciationSkipLabel: { fontSize: 10, lineHeight: 15, fontWeight: theme.typography.weights.medium },
+  pronunciationSkipLabel: { color: '#666666', fontSize: 11, lineHeight: 15, fontWeight: theme.typography.weights.medium, textDecorationLine: 'underline' },
+  inlineSkipButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 3 },
   pronunciationContinueButton: {
     width: '100%',
     minHeight: 50,
@@ -2991,7 +2996,7 @@ const styles = StyleSheet.create({
   recordButton: { width: 104, height: 104, borderRadius: 52, backgroundColor: theme.colors.accent, borderWidth: 9, borderColor: '#A9D8FF', alignItems: 'center', justifyContent: 'center' },
   stopButton: { backgroundColor: theme.colors.primary, borderColor: '#FFC0C0' },
   recordingStatus: { color: theme.colors.primary, fontWeight: theme.typography.weights.bold },
-  skipText: { textDecorationLine: 'underline', padding: theme.spacing.sm },
+  skipText: { color: '#666666', fontSize: 11, lineHeight: 15, fontWeight: theme.typography.weights.medium, textDecorationLine: 'underline', padding: theme.spacing.sm },
   sampleText: { color: theme.colors.accent, textDecorationLine: 'underline', padding: theme.spacing.sm },
   reviewBlock: { width: '100%', paddingTop: theme.spacing.md },
   stateTitle: { textAlign: 'center', fontSize: 24, lineHeight: 32, fontWeight: theme.typography.weights.bold },

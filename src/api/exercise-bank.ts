@@ -4,12 +4,65 @@ import {
   ExerciseBankCategory,
   ExerciseBankSectionDetail,
   ExerciseBankSectionSummary,
+  ExerciseBankSessionBootstrap,
   ExerciseBankTopic,
   ExerciseBankTopicDetail,
   ExerciseBankV2Set,
   ExerciseBankAnswer,
   ExerciseBankAnswerResult,
 } from '@/src/types/exercise-bank';
+
+const EXERCISE_BANK_CACHE_FRESH_MS = 30 * 1000;
+const EXERCISE_BANK_CACHE_STALE_MS = 5 * 60 * 1000;
+const exerciseBankCache = new Map<string, { payload: unknown; timestamp: number }>();
+const exerciseBankInflight = new Map<string, Promise<unknown>>();
+
+const userCacheKey = async (resource: string) => {
+  const { data } = await supabase.auth.getSession();
+  return `${data.session?.user.id ?? 'guest'}:${resource}`;
+};
+
+async function cachedExerciseBankRequest<T>(
+  resource: string,
+  loader: () => Promise<T>,
+  onRevalidate?: (payload: T) => void
+): Promise<T> {
+  const key = await userCacheKey(resource);
+  const cached = exerciseBankCache.get(key);
+  const age = cached ? Date.now() - cached.timestamp : Number.POSITIVE_INFINITY;
+
+  const refresh = () => {
+    const existing = exerciseBankInflight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+    const request = loader()
+      .then((payload) => {
+        exerciseBankCache.set(key, { payload, timestamp: Date.now() });
+        return payload;
+      })
+      .finally(() => exerciseBankInflight.delete(key));
+    exerciseBankInflight.set(key, request);
+    return request;
+  };
+
+  if (cached && age <= EXERCISE_BANK_CACHE_FRESH_MS) {
+    return cached.payload as T;
+  }
+  if (cached && age <= EXERCISE_BANK_CACHE_STALE_MS) {
+    void refresh().then((payload) => onRevalidate?.(payload)).catch(() => undefined);
+    return cached.payload as T;
+  }
+  const payload = await refresh();
+  return payload;
+}
+
+const invalidateExerciseBankProgressCaches = () => {
+  for (const key of exerciseBankCache.keys()) {
+    if (key.includes(':v2-topics:') || key.includes(':v2-session:')) {
+      const entry = exerciseBankCache.get(key);
+      if (entry) entry.timestamp = Date.now() - EXERCISE_BANK_CACHE_FRESH_MS - 1;
+    }
+  }
+};
 
 type ExerciseBankSectionsResponse = {
   sections?: ExerciseBankSectionSummary[];
@@ -65,16 +118,43 @@ async function exerciseBankV2Request<T>(path: string, init?: RequestInit): Promi
 }
 
 export async function fetchExerciseBankV2Topics(
-  filters: { category?: string; featuredOnly?: boolean } = {}
+  filters: { category?: string; featuredOnly?: boolean } = {},
+  onRevalidate?: (topics: ExerciseBankTopic[]) => void
 ): Promise<ExerciseBankTopic[]> {
   const query = new URLSearchParams();
   if (filters.category) query.set('category', filters.category);
   if (filters.featuredOnly) query.set('featured', 'true');
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  const response = await exerciseBankV2Request<{ topics?: ExerciseBankTopic[] }>(
-    `/api/exercise-bank-v2/topics${suffix}`
+  return cachedExerciseBankRequest(
+    `v2-topics:${query.toString()}`,
+    async () => {
+      const response = await exerciseBankV2Request<{ topics?: ExerciseBankTopic[] }>(
+        `/api/exercise-bank-v2/topics${suffix}`
+      );
+      return Array.isArray(response.topics) ? response.topics : [];
+    },
+    onRevalidate
   );
-  return Array.isArray(response.topics) ? response.topics : [];
+}
+
+export async function fetchExerciseBankV2Session(
+  topicId: number | string,
+  setNumber?: number,
+  onRevalidate?: (payload: ExerciseBankSessionBootstrap) => void
+): Promise<ExerciseBankSessionBootstrap> {
+  const encodedTopicId = encodeURIComponent(String(topicId));
+  const setQuery = typeof setNumber === 'number' ? `?set_number=${setNumber}` : '';
+  return cachedExerciseBankRequest(
+    `v2-session:${encodedTopicId}:${setNumber ?? 'resume'}`,
+    () => exerciseBankV2Request<ExerciseBankSessionBootstrap>(
+      `/api/exercise-bank-v2/topics/${encodedTopicId}/session${setQuery}`
+    ),
+    onRevalidate
+  );
+}
+
+export function prefetchExerciseBankV2Session(topicId: number | string, setNumber?: number) {
+  void fetchExerciseBankV2Session(topicId, setNumber).catch(() => undefined);
 }
 
 export async function fetchExerciseBankV2Topic(
@@ -101,7 +181,7 @@ export async function saveExerciseBankV2Cursor(
   topicId: number | string,
   cursor: { setNumber: number; setPosition: number; view: 'question' | 'results' }
 ) {
-  return exerciseBankV2Request<{ progress: Record<string, unknown> }>(
+  const response = await exerciseBankV2Request<{ progress: Record<string, unknown> }>(
     `/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/cursor`,
     {
       method: 'POST',
@@ -112,57 +192,67 @@ export async function saveExerciseBankV2Cursor(
       }),
     }
   );
+  invalidateExerciseBankProgressCaches();
+  return response;
 }
 
 export async function advanceExerciseBankV2Set(topicId: number | string, setNumber: number) {
-  return exerciseBankV2Request<{ progress: Record<string, unknown> }>(
+  const response = await exerciseBankV2Request<{ progress: Record<string, unknown> }>(
     `/api/exercise-bank-v2/topics/${encodeURIComponent(String(topicId))}/sets/${setNumber}/advance`,
     { method: 'POST' }
   );
+  invalidateExerciseBankProgressCaches();
+  return response;
 }
 
 export async function submitExerciseBankV2Answer(questionId: number, answer: ExerciseBankAnswer) {
-  return exerciseBankV2Request<ExerciseBankAnswerResult>(
+  const response = await exerciseBankV2Request<ExerciseBankAnswerResult>(
     `/api/exercise-bank-v2/questions/${questionId}/answer`,
     { method: 'POST', body: JSON.stringify({ user_answer: answer }) }
   );
+  invalidateExerciseBankProgressCaches();
+  return response;
 }
 
 export async function fetchExerciseBankTopics(
-  filters: { category?: string; featuredOnly?: boolean } = {}
+  filters: { category?: string; featuredOnly?: boolean } = {},
+  onRevalidate?: (topics: ExerciseBankTopic[]) => void
 ): Promise<ExerciseBankTopic[]> {
-  let query = supabase
-    .from('exercise_bank_topics')
-    .select(
-      'id, topic, topic_th, display_title, display_title_th, category, sub_category, lesson_external_id, sort_order, is_featured, featured_sort_order'
-    )
-    .eq('is_active', true);
+  const resource = `public-topics:${filters.category ?? ''}:${filters.featuredOnly ? '1' : '0'}`;
+  return cachedExerciseBankRequest(resource, async () => {
+    let query = supabase
+      .from('exercise_bank_topics')
+      .select(
+        'id, topic, topic_th, display_title, display_title_th, category, sub_category, lesson_external_id, sort_order, is_featured, featured_sort_order'
+      )
+      .eq('is_active', true);
 
-  if (filters.featuredOnly) {
-    query = query.eq('is_featured', true).order('featured_sort_order', {
-      ascending: true,
-      nullsFirst: false,
-    });
-  }
+    if (filters.featuredOnly) {
+      query = query.eq('is_featured', true).order('featured_sort_order', {
+        ascending: true,
+        nullsFirst: false,
+      });
+    }
 
-  if (filters.category) {
-    query = query.eq('category', filters.category);
-  }
+    if (filters.category) {
+      query = query.eq('category', filters.category);
+    }
 
-  const { data, error } = await query.order('sort_order', { ascending: true });
+    const { data, error } = await query.order('sort_order', { ascending: true });
 
-  if (error) {
-    throw new Error(error.message || 'Failed to fetch exercise bank topics');
-  }
+    if (error) {
+      throw new Error(error.message || 'Failed to fetch exercise bank topics');
+    }
 
-  return (Array.isArray(data) ? data : []).filter(
-    (row) =>
-      (typeof row.id === 'number' || typeof row.id === 'string') &&
-      typeof row.topic === 'string' &&
-      typeof row.display_title === 'string' &&
-      typeof row.category === 'string' &&
-      typeof row.lesson_external_id === 'string'
-  ).map((row): ExerciseBankTopic => ({ ...row }));
+    return (Array.isArray(data) ? data : []).filter(
+      (row) =>
+        (typeof row.id === 'number' || typeof row.id === 'string') &&
+        typeof row.topic === 'string' &&
+        typeof row.display_title === 'string' &&
+        typeof row.category === 'string' &&
+        typeof row.lesson_external_id === 'string'
+    ).map((row): ExerciseBankTopic => ({ ...row }));
+  }, onRevalidate);
 }
 
 export async function fetchExerciseBankSections() {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,8 +13,7 @@ import { Image } from 'expo-image';
 
 import {
   advanceExerciseBankV2Set,
-  fetchExerciseBankV2Set,
-  fetchExerciseBankV2Topic,
+  fetchExerciseBankV2Session,
   saveExerciseBankV2Cursor,
   submitExerciseBankV2Answer,
 } from '@/src/api/exercise-bank';
@@ -344,6 +343,14 @@ export function ExerciseBankSessionScreen() {
   const [isQuestionNavigatorOpen, setIsQuestionNavigatorOpen] = useState(false);
   const [revealedAnswerIds, setRevealedAnswerIds] = useState<Record<number, boolean>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -355,25 +362,22 @@ export function ExerciseBankSessionScreen() {
     setResults({});
     try {
       if (!topicId) throw new Error('Unable to load this exercise.');
-      let resolvedSetNumber = hasSetNumber ? setNumber : null;
-      let detail: ExerciseBankTopicDetail | null = null;
-
-      if (resolvedSetNumber === null) {
-        detail = await fetchExerciseBankV2Topic(topicId);
-        setTopicDetail(detail);
-        setTopic(detail);
-        resolvedSetNumber = detail.next_incomplete_set;
-        if (resolvedSetNumber === null) return;
-      }
-
-      const [response, fetchedDetail] = await Promise.all([
-        fetchExerciseBankV2Set(topicId, resolvedSetNumber),
-        detail ? Promise.resolve(detail) : fetchExerciseBankV2Topic(topicId).catch(() => null),
-      ]);
-      detail = fetchedDetail;
-      if (detail) setTopicDetail(detail);
-      setTopic(response.topic);
+      const response = await fetchExerciseBankV2Session(
+        topicId,
+        hasSetNumber ? setNumber : undefined,
+        (freshResponse) => {
+          if (!isMountedRef.current) return;
+          setTopicDetail(freshResponse.topic);
+          setTopic(freshResponse.topic);
+          setSetData(freshResponse.set);
+        }
+      );
+      const detail = response.topic;
+      const resolvedSetNumber = response.set?.set_number ?? detail.next_incomplete_set;
+      setTopicDetail(detail);
+      setTopic(detail);
       setSetData(response.set);
+      if (!response.set || resolvedSetNumber === null) return;
       setAnswers(Object.fromEntries(
         response.set.questions
           .filter((question) => question.progress.latest_user_answer != null)

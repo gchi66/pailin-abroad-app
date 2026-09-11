@@ -119,6 +119,11 @@ export type ExerciseBankV2Set = {
   questions: ExerciseBankV2Question[];
 };
 
+export type ExerciseBankSessionBootstrap = {
+  topic: ExerciseBankTopicDetail;
+  set: ExerciseBankV2Set | null;
+};
+
 export type ExerciseBankAnswer = string | {
   marked_as_correct: boolean;
   rewrite: string;

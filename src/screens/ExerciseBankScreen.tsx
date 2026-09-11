@@ -83,7 +83,9 @@ export function ExerciseBankScreen() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const rows = await fetchExerciseBankTopics();
+        const rows = await fetchExerciseBankTopics({}, (freshRows) => {
+          if (isMounted) setTopics(freshRows);
+        });
         if (isMounted) {
           setTopics(rows);
         }
