@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,8 +13,7 @@ import { Image } from 'expo-image';
 
 import {
   advanceExerciseBankV2Set,
-  fetchExerciseBankV2Set,
-  fetchExerciseBankV2Topic,
+  fetchExerciseBankV2Session,
   saveExerciseBankV2Cursor,
   submitExerciseBankV2Answer,
 } from '@/src/api/exercise-bank';
@@ -333,6 +332,14 @@ export function ExerciseBankSessionScreen() {
   const [isQuestionNavigatorOpen, setIsQuestionNavigatorOpen] = useState(false);
   const [revealedAnswerIds, setRevealedAnswerIds] = useState<Record<number, boolean>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -344,27 +351,24 @@ export function ExerciseBankSessionScreen() {
     setResults({});
     try {
       if (!topicId) throw new Error(copy.loadError);
-      let resolvedSetNumber = hasSetNumber ? setNumber : null;
-      let detail: ExerciseBankTopicDetail | null = null;
-
-      if (resolvedSetNumber === null) {
-        detail = await fetchExerciseBankV2Topic(topicId);
-        setTopicDetail(detail);
-        setTopicTitle(detail.display_title);
-        setTopicName(detail.topic);
-        resolvedSetNumber = detail.next_incomplete_set;
-        if (resolvedSetNumber === null) return;
-      }
-
-      const [response, fetchedDetail] = await Promise.all([
-        fetchExerciseBankV2Set(topicId, resolvedSetNumber),
-        detail ? Promise.resolve(detail) : fetchExerciseBankV2Topic(topicId).catch(() => null),
-      ]);
-      detail = fetchedDetail;
-      if (detail) setTopicDetail(detail);
-      setTopicTitle(response.topic.display_title);
-      setTopicName(response.topic.topic);
+      const response = await fetchExerciseBankV2Session(
+        topicId,
+        hasSetNumber ? setNumber : undefined,
+        (freshResponse) => {
+          if (!isMountedRef.current) return;
+          setTopicDetail(freshResponse.topic);
+          setTopicTitle(freshResponse.topic.display_title);
+          setTopicName(freshResponse.topic.topic);
+          setSetData(freshResponse.set);
+        }
+      );
+      const detail = response.topic;
+      const resolvedSetNumber = response.set?.set_number ?? detail.next_incomplete_set;
+      setTopicDetail(detail);
+      setTopicTitle(detail.display_title);
+      setTopicName(detail.topic);
       setSetData(response.set);
+      if (!response.set || resolvedSetNumber === null) return;
       setAnswers(Object.fromEntries(
         response.set.questions
           .filter((question) => question.progress.latest_user_answer != null)

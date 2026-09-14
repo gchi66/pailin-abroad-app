@@ -2,7 +2,11 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
-import { fetchExerciseBankTopics, fetchExerciseBankV2Topics } from '@/src/api/exercise-bank';
+import {
+  fetchExerciseBankTopics,
+  fetchExerciseBankV2Topics,
+  prefetchExerciseBankV2Session,
+} from '@/src/api/exercise-bank';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
@@ -84,7 +88,6 @@ export function ExerciseBankCollectionScreen() {
         return;
       }
 
-      setIsLoading(true);
       setErrorMessage(null);
       try {
         const filters =
@@ -92,8 +95,12 @@ export function ExerciseBankCollectionScreen() {
             ? { featuredOnly: true }
             : { category: collection.category ?? undefined };
         const rows = hasAccount
-          ? await fetchExerciseBankV2Topics(filters)
-          : await fetchExerciseBankTopics(filters);
+          ? await fetchExerciseBankV2Topics(filters, (freshRows) => {
+              if (isMounted) setTopics(freshRows);
+            })
+          : await fetchExerciseBankTopics(filters, (freshRows) => {
+              if (isMounted) setTopics(freshRows);
+            });
         if (isMounted) {
           setTopics(rows);
         }
@@ -127,9 +134,11 @@ export function ExerciseBankCollectionScreen() {
       });
       return;
     }
+    const activeSetNumber = topic.progress?.active_set_number ?? 1;
+    prefetchExerciseBankV2Session(topic.id, activeSetNumber);
     router.push({
       pathname: '/(tabs)/exercises/topic/[topicId]',
-      params: { topicId: String(topic.id) },
+      params: { topicId: String(topic.id), setNumber: String(activeSetNumber) },
     });
   };
 
