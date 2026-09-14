@@ -57,6 +57,7 @@ import { checkInDailyStreak, fetchUserCompletedLessons, upsertLessonCompletion }
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { LessonListenPage } from '@/src/components/lesson/LessonListenPage';
 import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
+import { PhraseTextLane } from '@/src/components/lesson/PhraseTextLane';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -8011,6 +8012,10 @@ export default function LessonDetailShellScreen() {
     const renderLineContent = (lineSpans: LessonRichInline[], lineIndex: number) => {
       const lineMeta = lineMetadata[lineIndex];
       const manualFontScale = manualAudioFontScales[lineIndex];
+      const phraseTextScale = manualFontScale ?? 1;
+      const phraseInlineSizing = options?.isPhraseCard
+        ? { fontSize: 15 * phraseTextScale, lineHeight: 21 * phraseTextScale }
+        : null;
       const lineText = lineMeta?.lineText ?? lineSpans.map((span) => String(span.text ?? '')).join('');
       const isThaiLine = options?.isPhraseCard
         ? Boolean(lineMeta?.isThaiLineForPhraseCard)
@@ -8063,6 +8068,7 @@ export default function LessonDetailShellScreen() {
                     highlightColor,
                     isLink,
                     manualFontScale,
+                    extraStyle: phraseInlineSizing,
                   }),
                   styles.richInlineMarker,
                   markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
@@ -8095,6 +8101,9 @@ export default function LessonDetailShellScreen() {
             const pieceCrossesSpeakerBoundary = speakerPrefixLength > 0 && globalPieceEnd > speakerPrefixLength;
 
             const pushPiece = (text: string, extraStyle?: object | null) => {
+              const resolvedExtraStyle = phraseInlineSizing
+                ? { ...phraseInlineSizing, ...(extraStyle ?? {}) }
+                : extraStyle;
               renderedSpans.push(
                 <React.Fragment
                   key={`${keyPrefix}-line-${lineIndex}-${spanIndex}-${partIndex}-${pieceIndex}-${renderedSpans.length}`}>
@@ -8103,7 +8112,7 @@ export default function LessonDetailShellScreen() {
                     isLink,
                     shouldShowHighlight,
                     highlightColor,
-                    extraStyle,
+                    extraStyle: resolvedExtraStyle,
                     manualFontScale,
                   })}
                 </React.Fragment>
@@ -8132,39 +8141,94 @@ export default function LessonDetailShellScreen() {
       return renderedSpans;
     };
 
+    const LineStack = options?.isPhraseCard ? PhraseTextLane : View;
+
     return (
-      <View style={styles.richAudioLineStack}>
-        {lines.map((lineSpans, lineIndex) => (
-          <AppText
-            key={`${keyPrefix}-row-${lineIndex}`}
-            language={contentLang}
-            variant="body"
-            allowFontScaling={manualAudioFontScales[lineIndex] ? false : undefined}
-            style={[
-              styles.understandAudioText,
-              contentLang === 'th' ? styles.richThaiTextCompact : null,
-              options?.compactBody ? styles.richBodyTextCompact : null,
-              options?.isPhraseCard ? styles.phraseAudioText : null,
-              styles.richAudioTextCompact,
-              options?.isPhraseCard ? styles.phraseAudioTextCompact : null,
-              options?.isPhraseCard && lineMetadata[lineIndex]?.isEnglishSpeakerLine ? styles.phraseDialogueEnglishTurn : null,
-              options?.isPhraseCard && lineMetadata[lineIndex]?.isThaiLineForPhraseCard ? styles.phraseDialogueThaiTurn : null,
-              options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
-              manualAudioFontScales[lineIndex]
-                ? {
-                    fontSize:
-                      (options?.isPhraseCard ? 15 : options?.compactBody ? 14 : 15) *
-                      (manualAudioFontScales[lineIndex] as number),
-                    lineHeight:
-                      (options?.isPhraseCard ? 15 : 18) *
-                      (manualAudioFontScales[lineIndex] as number),
+      <LineStack style={styles.richAudioLineStack}>
+        {lines.map((lineSpans, lineIndex) => {
+          const lineMeta = lineMetadata[lineIndex];
+          const manualFontScale = manualAudioFontScales[lineIndex];
+          const phraseTextScale = manualFontScale ?? 1;
+
+          if (options?.isPhraseCard && lineMeta?.isThaiLineForPhraseCard) {
+            const speakerPrefix = lineMeta.speakerPrefix;
+            const bodyText = speakerPrefix
+              ? lineMeta.lineText.slice(speakerPrefix.length)
+              : lineMeta.lineText;
+            const bodyParts = bodyText.split(INLINE_MARKER_RE).filter(Boolean);
+
+            return (
+              <Text
+                key={`${keyPrefix}-row-${lineIndex}`}
+                allowFontScaling={manualFontScale ? false : undefined}
+                style={[
+                  styles.phraseDialogueThaiPlainText,
+                  styles.phraseDialogueThaiTurn,
+                  {
+                    fontSize: 15 * phraseTextScale,
+                    lineHeight: 21 * phraseTextScale,
+                  },
+                ]}>
+                {speakerPrefix ? (
+                  <Text style={styles.phraseDialogueThaiPlainSpeaker}>{speakerPrefix}</Text>
+                ) : null}
+                {bodyParts.map((part, partIndex) => {
+                  const markerColor = getInlineMarkerColor(part);
+                  if (!markerColor) {
+                    return part;
                   }
-                : null,
-            ]}>
-            {renderLineContent(lineSpans, lineIndex)}
-          </AppText>
-        ))}
-      </View>
+
+                  return (
+                    <Text
+                      key={`${keyPrefix}-row-${lineIndex}-marker-${partIndex}`}
+                      style={[
+                        styles.phraseDialogueThaiPlainMarker,
+                        markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
+                        markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
+                        markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
+                      ]}>
+                      {getInlineMarkerDisplay(part) ?? part}
+                    </Text>
+                  );
+                })}
+              </Text>
+            );
+          }
+
+          return (
+            <AppText
+              key={`${keyPrefix}-row-${lineIndex}`}
+              language={contentLang}
+              variant="body"
+              allowFontScaling={manualFontScale ? false : undefined}
+              style={[
+                styles.understandAudioText,
+                contentLang === 'th' ? styles.richThaiTextCompact : null,
+                options?.compactBody ? styles.richBodyTextCompact : null,
+                options?.isPhraseCard ? styles.phraseAudioText : null,
+                styles.richAudioTextCompact,
+                options?.isPhraseCard ? styles.phraseAudioTextCompact : null,
+                options?.isPhraseCard && lineIndex > 0 && lineMeta?.isEnglishSpeakerLine
+                  ? styles.phraseDialogueEnglishTurn
+                  : null,
+                options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
+                options?.isPhraseCard
+                  ? {
+                      fontSize: 15 * phraseTextScale,
+                      lineHeight: 21 * phraseTextScale,
+                    }
+                  : manualFontScale
+                    ? {
+                        fontSize: (options?.compactBody ? 14 : 15) * manualFontScale,
+                        lineHeight: 18 * manualFontScale,
+                      }
+                    : null,
+              ]}>
+              {renderLineContent(lineSpans, lineIndex)}
+            </AppText>
+          );
+        })}
+      </LineStack>
     );
   };
 
@@ -8479,8 +8543,10 @@ export default function LessonDetailShellScreen() {
               : 'Play example audio'
         }
         disabled={!snippet}
+        hitSlop={options?.isPhraseCard ? 11 : undefined}
         isLoading={isLoading}
         isPlaying={isPlaying}
+        size={options?.isPhraseCard ? 22 : undefined}
         onPress={() => {
           void handleToggleSnippet(snippet);
         }}
@@ -9668,7 +9734,7 @@ export default function LessonDetailShellScreen() {
         activeGroup = { kind: 'example', nodes: [] };
         phraseGroups.push(activeGroup);
       }
-      if (node.kind !== 'spacer') {
+      if (node.kind !== 'spacer' && hasVisibleRichNodeContent(node, contentLang)) {
         activeGroup.nodes.push({ node, index });
       }
     });
@@ -9739,21 +9805,19 @@ export default function LessonDetailShellScreen() {
     const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
     const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
 
-    if (!snippet) {
-      return (
-        <View style={[styles.phraseLeadAudioPlaceholder, compact ? styles.phraseLeadAudioPlaceholderCompact : null]}>
-          <MaterialIcons name="play-arrow" size={compact ? 15 : 22} color={theme.colors.surface} />
-        </View>
-      );
-    }
-
     return (
       <View style={compact ? styles.phraseLeadAudioCompact : null}>
         <LessonSnippetAudioButton
           accessibilityLabel={pageLanguage === 'th' ? 'เล่นเสียงวลี' : 'Play phrase audio'}
+          disabled={!snippet}
           isLoading={isLoading}
           isPlaying={isPlaying}
-          onPress={() => void handleToggleSnippet(snippet)}
+          size={compact ? 22 : 28}
+          onPress={() => {
+            if (snippet) {
+              void handleToggleSnippet(snippet);
+            }
+          }}
         />
       </View>
     );
@@ -9836,7 +9900,7 @@ export default function LessonDetailShellScreen() {
               {renderPhraseAudioButton(activePhrase)}
               <View style={styles.phraseFlashcardTitleWrap}>
                 <AppText language="en" variant="title" style={styles.phraseFlashcardTitle}>
-                  {phraseLabel}
+                  {`${phraseLabel.charAt(0).toLocaleUpperCase()}${phraseLabel.slice(1).toLocaleLowerCase()}`}
                 </AppText>
                 {contentLang === 'th' && activePhrase.phraseTh ? (
                   <AppText language="th" variant="body" style={styles.phraseFlashcardTranslation}>
@@ -12365,6 +12429,7 @@ const mergeAdjacentPracticeRowTokens = (
             if (!hasMembership) { router.push('/(tabs)/account/membership'); return; }
             router.push({ pathname: '/speaking-coach', params: { lesson: coverLessonNumber } });
           } : undefined}
+          onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
           onUpgrade={() => router.push('/(tabs)/account/membership')}
           tabs={overlayTabItems}
         /> : <PageLoadingState language={uiLanguage} errorBody={errorMessage || undefined} />
@@ -13526,6 +13591,7 @@ const mergeAdjacentPracticeRowTokens = (
                       </View>
                     ) : null}
 
+                    {!isPhrasesTab ? (
                     <View
                       pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
                       style={[
@@ -13660,7 +13726,7 @@ const mergeAdjacentPracticeRowTokens = (
                           ]}>
                           {isSavingLessonCompletion
                             ? pageCopy.practiceChecking
-                            : isPrepareTab || isListenPage || isTranscriptTab || isApplyTab || isPhrasesTab
+                            : isPrepareTab || isListenPage || isTranscriptTab || isApplyTab
                               ? (pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE')
                               : isComprehensionTab
                                 ? showComprehensionResults || isCurrentComprehensionCorrect
@@ -13703,6 +13769,7 @@ const mergeAdjacentPracticeRowTokens = (
                         </Pressable>
                       ) : null}
                     </View>
+                    ) : null}
                     </View>
 
                     {shouldShowAudioTray && usesDetachedAudioFooter ? (
@@ -14635,28 +14702,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   phraseExampleCard: {
-    borderWidth: 1.1,
-    borderColor: theme.colors.text,
-    borderRadius: 11,
-    paddingHorizontal: 11,
-    paddingTop: 5,
-    paddingBottom: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#D9DDE1',
+    paddingLeft: 0,
+    paddingRight: 3,
+    paddingTop: 10,
+    paddingBottom: 10,
     gap: 0,
-    backgroundColor: theme.colors.surface,
-  },
-  phraseLeadAudioPlaceholder: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    backgroundColor: '#42BCEB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  phraseLeadAudioPlaceholderCompact: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
   },
   phraseLeadAudioCompact: {
     width: 24,
@@ -14892,6 +14944,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   phraseAudioButtonOffset: {
+    marginLeft: 3,
     marginTop: 1,
   },
   phraseLeadAudioButtonOffset: {
@@ -14906,7 +14959,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   phraseAudioTextCompact: {
-    lineHeight: 15,
+    lineHeight: 21,
   },
   phraseLeadAudioText: {
     fontWeight: theme.typography.weights.semibold,
@@ -14923,6 +14976,18 @@ const styles = StyleSheet.create({
   },
   phraseDialogueThaiTurn: {
     marginTop: -3,
+  },
+  phraseDialogueThaiPlainText: {
+    minWidth: 0,
+    flexShrink: 1,
+    color: THAI_TRANSLATION_TEXT_COLOR,
+    fontFamily: theme.typography.fontFaces.th.regular,
+  },
+  phraseDialogueThaiPlainSpeaker: {
+    fontFamily: theme.typography.fontFaces.th.semibold,
+  },
+  phraseDialogueThaiPlainMarker: {
+    fontFamily: theme.typography.fontFaces.th.semibold,
   },
   cultureNoteShell: {
     paddingVertical: theme.spacing.xs,

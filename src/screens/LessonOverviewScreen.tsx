@@ -18,18 +18,20 @@ type Props = {
   rows: OverviewRow[]; activeIndex: number | null; complete: boolean; hasAccount: boolean;
   activeType?: string | null;
   hasMembership: boolean; onSection: (index: number) => void; onListen?: () => void;
-  listenComplete: boolean; onSpeaking?: () => void; onUpgrade: () => void;
+  listenComplete: boolean; onSpeaking?: () => void; onDiscussion: () => void; onUpgrade: () => void;
   tabs: { key: string; onPress: () => void }[];
 };
 const groups = [
   { en: 'THE CONVERSATION', th: 'บทสนทนา', types: ['prepare', 'listen', 'comprehension', 'transcript', 'apply'] },
   { en: 'LEARN', th: 'เรียนรู้', types: ['understand', 'extra_tip', 'common_mistake', 'phrases_verbs', 'culture_note'] },
   { en: 'PRACTICE', th: 'ฝึกฝน', types: ['practice', 'speaking'] },
+  { en: 'CONNECT', th: 'เชื่อมต่อ', types: ['discussion'] },
 ];
 const icons: Record<string, React.ComponentProps<typeof MaterialIcons>['name']> = {
   prepare: 'auto-awesome', listen: 'headphones', comprehension: 'help-outline', transcript: 'chat-bubble-outline',
   apply: 'edit', understand: 'lightbulb-outline', extra_tip: 'lightbulb-outline', common_mistake: 'warning-amber',
   phrases_verbs: 'format-quote', culture_note: 'public', practice: 'track-changes', speaking: 'mic-none',
+  discussion: 'forum',
 };
 export function LessonOverviewScreen(p: Props) {
   const insets = useSafeAreaInsets();
@@ -37,6 +39,7 @@ export function LessonOverviewScreen(p: Props) {
   const rows = [...p.rows];
   if (p.onListen) rows.push({ id: 'listen', type: 'listen', index: -1, complete: p.listenComplete });
   if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: false });
+  rows.push({ id: 'discussion', type: 'discussion', index: -3, complete: false });
   return <View style={[s.screen, { paddingTop: insets.top }]}>
     <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 110 }]}>
       <Pressable accessibilityRole="button" onPress={p.tabs[2].onPress} style={s.back}>
@@ -58,13 +61,28 @@ export function LessonOverviewScreen(p: Props) {
           <View style={s.groupLabel}><AppText language={p.language} style={s.eyebrow}>{group[p.language]}</AppText></View>
           {items.map(row => {
             const speaking = row.type === 'speaking';
+            const discussion = row.type === 'discussion';
             const locked = speaking && !p.hasMembership;
-            const done = row.complete || (p.complete && !speaking);
-            const active = !speaking && (p.activeType
+            const done = row.complete || (p.complete && !speaking && !discussion);
+            const active = !speaking && !discussion && (p.activeType
               ? p.activeType === row.type
               : p.activeIndex !== null && row.index === p.activeIndex);
-            const label = row.type === 'listen' ? (th ? 'ฟัง' : 'Listen') : speaking ? (th ? 'ฝึกพูด' : 'Speaking') : getLessonSectionLabel(p.language, row.type);
-            const onPress = locked ? p.onUpgrade : speaking ? p.onSpeaking : row.type === 'listen' ? p.onListen : () => p.onSection(row.index);
+            const label = row.type === 'listen'
+              ? (th ? 'ฟัง' : 'Listen')
+              : speaking
+                ? (th ? 'ฝึกพูด' : 'Speaking')
+                : discussion
+                  ? (th ? 'การพูดคุย' : 'Discussion')
+                  : getLessonSectionLabel(p.language, row.type);
+            const onPress = locked
+              ? p.onUpgrade
+              : speaking
+                ? p.onSpeaking
+                : discussion
+                  ? p.onDiscussion
+                  : row.type === 'listen'
+                    ? p.onListen
+                    : () => p.onSection(row.index);
             return <View key={row.id} style={s.rowWrap}>
               <View style={[s.line, done && s.doneLine, active && !done && s.activeLine]} />
               <View style={[s.dot, active && !done && s.activeDot, done && s.doneDot]}>{done && <MaterialIcons name="check" size={12} color="#1E1E1E" />}</View>

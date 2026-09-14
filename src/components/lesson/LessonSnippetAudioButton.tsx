@@ -1,40 +1,52 @@
 import React from 'react';
 import { Image, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
-const playIcon = require('../../../assets/images/snippet_play_button.png');
-const pauseIcon = require('../../../assets/images/blue-pause-button.webp');
+const playIcon = require('../../../assets/images/speaking-coach/play-blue.png');
+const pauseIcon = require('../../../assets/images/speaking-coach/pause-blue.png');
 
 type LessonSnippetAudioButtonProps = {
   accessibilityLabel: string;
   disabled?: boolean;
+  hitSlop?: number;
   isLoading?: boolean;
   isPlaying?: boolean;
   onPress: () => void;
+  size?: number;
   style?: StyleProp<ViewStyle>;
 };
 
 export function LessonSnippetAudioButton({
   accessibilityLabel,
   disabled = false,
+  hitSlop,
   isLoading = false,
   isPlaying = false,
   onPress,
+  size = 28,
   style,
 }: LessonSnippetAudioButtonProps) {
+  const iconSize = Math.max(14, size - 4);
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, busy: isLoading, selected: isPlaying }}
       disabled={disabled}
+      hitSlop={hitSlop}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        { width: size, height: size },
         disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.buttonPressed : null,
         style,
       ]}>
-      <Image source={isPlaying ? pauseIcon : playIcon} resizeMode="contain" style={styles.icon} />
+      <Image
+        source={isPlaying ? pauseIcon : playIcon}
+        resizeMode="contain"
+        style={[styles.icon, { width: iconSize, height: iconSize }]}
+      />
     </Pressable>
   );
 }
