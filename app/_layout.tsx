@@ -211,6 +211,15 @@ export default function RootLayout() {
                   presentation: 'card',
                 }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="lesson-preview/[id]"
+                  options={{
+                    presentation: 'transparentModal',
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                    gestureEnabled: false,
+                  }}
+                />
                 <Stack.Screen name="onboarding/index" />
                 <Stack.Screen
                   name="modal"

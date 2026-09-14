@@ -32,6 +32,8 @@ type LessonAudioTrayProps = {
   showRateControl?: boolean;
   autoCollapseSignal?: string | null;
   autoExpandSignal?: string | null;
+  detached?: boolean;
+  bottomInset?: number;
 };
 
 const formatTime = (millis: number) => {
@@ -69,6 +71,8 @@ export function LessonAudioTray({
   showRateControl = true,
   autoCollapseSignal = null,
   autoExpandSignal = null,
+  detached = false,
+  bottomInset = 0,
 }: LessonAudioTrayProps) {
   const usesFloatingRateMenu = Platform.OS === 'android' || Platform.OS === 'ios';
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -421,6 +425,8 @@ export function LessonAudioTray({
       style={[
         styles.shell,
         usesFloatingRateMenu ? styles.shellAndroid : null,
+        detached ? styles.shellDetached : null,
+        detached && bottomInset > 0 ? { paddingBottom: bottomInset } : null,
         { transform: [{ translateY: dragTranslateY }] },
       ]}>
       {usesFloatingRateMenu ? (
@@ -468,6 +474,16 @@ const styles = StyleSheet.create({
     paddingBottom: ANDROID_BOTTOM_BUFFER,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    overflow: 'visible',
+  },
+  shellDetached: {
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderRightWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: theme.colors.surface,
     overflow: 'visible',
   },
   shellContentAndroid: {

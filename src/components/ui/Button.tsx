@@ -15,6 +15,7 @@ type ButtonVariant = 'primary' | 'outline';
 
 type ButtonProps = Omit<PressableProps, 'style'> & {
   title: string;
+  leadingIcon?: React.ReactNode;
   variant?: ButtonVariant;
   language?: 'en' | 'th';
   style?: StyleProp<ViewStyle>;
@@ -44,6 +45,7 @@ const textVariantStyles: Record<ButtonVariant, TextStyle> = {
 
 export function Button({
   title,
+  leadingIcon,
   variant = 'primary',
   language = 'en',
   disabled,
@@ -64,6 +66,7 @@ export function Button({
         disabled ? [styles.disabled, disabledStyle] : null,
       ]}
       {...rest}>
+      {leadingIcon}
       <AppText language={language} variant="caption" style={[styles.label, textVariantStyles[variant], textStyle]}>
         {title}
       </AppText>
@@ -80,6 +83,8 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
   },
   label: {
     fontSize: theme.typography.sizes.md,

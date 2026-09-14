@@ -18,6 +18,7 @@ import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { useAppSession } from '@/src/context/app-session-context';
 import { getExerciseBankCollection } from '@/src/lib/exercise-bank-collections';
+import { localizeExerciseBankTopic } from '@/src/lib/exercise-bank-localization';
 import { theme } from '@/src/theme/theme';
 import { ExerciseBankTopic } from '@/src/types/exercise-bank';
 
@@ -83,7 +84,7 @@ export function ExerciseBankCollectionScreen() {
 
     const run = async () => {
       if (!collection) {
-        setErrorMessage(copy.missingCollection);
+        setErrorMessage('Exercise collection not found.');
         setIsLoading(false);
         return;
       }
@@ -106,7 +107,7 @@ export function ExerciseBankCollectionScreen() {
         }
       } catch (error) {
         if (isMounted) {
-          setErrorMessage(error instanceof Error ? error.message : copy.loadingError);
+          setErrorMessage(error instanceof Error ? error.message : 'Failed to load exercise topics.');
         }
       } finally {
         if (isMounted) {
@@ -120,7 +121,12 @@ export function ExerciseBankCollectionScreen() {
     return () => {
       isMounted = false;
     };
-  }, [collection, copy.loadingError, copy.missingCollection, hasAccount]));
+  }, [collection, hasAccount]));
+
+  const localizedTopics = useMemo(
+    () => topics.map((topic) => localizeExerciseBankTopic(topic, uiLanguage)),
+    [topics, uiLanguage]
+  );
 
   const handleTopicPress = (topic: ExerciseBankTopic) => {
     if (!hasAccount) {
@@ -144,8 +150,8 @@ export function ExerciseBankCollectionScreen() {
 
   const visibleTopics = useMemo(() => {
     const collectionTopics = collection?.category === 'verbs_and_tenses'
-      ? topics.filter((topic) => topic.sub_category === tenseFilter)
-      : topics;
+      ? localizedTopics.filter((topic) => topic.sub_category === tenseFilter)
+      : localizedTopics;
     if (!searchTerm) return collectionTopics;
 
     const normalizedSearch = searchTerm.toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en');
@@ -155,7 +161,7 @@ export function ExerciseBankCollectionScreen() {
         .toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en')
         .includes(normalizedSearch)
     );
-  }, [collection?.category, searchTerm, tenseFilter, topics, uiLanguage]);
+  }, [collection?.category, localizedTopics, searchTerm, tenseFilter, uiLanguage]);
 
   if (isLoading) {
     return <PageLoadingState language={uiLanguage} />;
@@ -246,10 +252,10 @@ export function ExerciseBankCollectionScreen() {
                       offset={2}
                     />
                     <View style={styles.topicCard}>
-                      <AppText language="en" variant="body" style={styles.topicDisplayTitle}>
+                      <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
                         {topic.display_title}
                       </AppText>
-                      <AppText language="en" variant="muted" style={styles.topicTechnicalTitle}>
+                      <AppText language={uiLanguage} variant="muted" style={styles.topicTechnicalTitle}>
                         {topic.topic}
                       </AppText>
                       {topic.progress ? (

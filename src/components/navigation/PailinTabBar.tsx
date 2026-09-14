@@ -141,6 +141,28 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
   );
 }
 
+// The lesson overview lives outside the tab navigator, but uses the same bar geometry.
+export function LessonOverviewTabBar({ actions }: { actions: (() => void)[] }) {
+  const insets = useSafeAreaInsets();
+  const { uiLanguage } = useUiLanguage();
+  return <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: Math.max(insets.bottom - 6, 6) }]}>
+    <View style={styles.barShadow}><View style={styles.bar}>
+      {VISIBLE_ROUTES.map((name, index) => {
+        const active = name === 'lessons';
+        const color = active ? '#1F5CFF' : theme.colors.text;
+        return <Pressable key={name} accessibilityRole="button" accessibilityLabel={LABELS[uiLanguage][name]} accessibilityState={{ selected: active }} onPress={actions[index]}
+          style={[styles.item, index > 0 && !active && styles.itemDivider, active && styles.centerItem]}>
+          {active && <View style={styles.starBadge}><MaterialIcons name="star-border" size={20} color={theme.colors.text} style={styles.starOutline} /><MaterialIcons name="star" size={14} color="#B8DD4A" /></View>}
+          <View style={[styles.itemContent, index === 0 && styles.firstItemContent, index === 4 && styles.lastItemContent]}>
+            {name === 'account' ? <View style={[styles.moreIconBox, { borderColor: color }]}><MaterialIcons name="more-horiz" size={22} color={color} /></View> : <MaterialIcons name={ICONS[name][active ? 'active' : 'inactive']} size={active ? 30 : 27} color={color} />}
+            <Text numberOfLines={1} style={[styles.label, uiLanguage === 'th' ? styles.labelThai : styles.labelEnglish, { color }]}>{LABELS[uiLanguage][name]}</Text>
+          </View>
+        </Pressable>;
+      })}
+    </View></View>
+  </View>;
+}
+
 const styles = StyleSheet.create({
   safeArea: {
     position: 'absolute',

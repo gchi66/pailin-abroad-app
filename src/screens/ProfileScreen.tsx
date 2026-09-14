@@ -25,14 +25,14 @@ type ProfileDisplayData = {
 };
 
 const AVATAR_OPTIONS = [
-  '/images/characters/avatar_1.webp',
-  '/images/characters/avatar_2.webp',
-  '/images/characters/avatar_3.webp',
-  '/images/characters/avatar_4.webp',
-  '/images/characters/avatar_5.webp',
-  '/images/characters/avatar_6.webp',
-  '/images/characters/avatar_7.webp',
-  '/images/characters/avatar_8.webp',
+  '/images/characters/avatar1_blue_circle.webp',
+  '/images/characters/avatar2_blue_circle.webp',
+  '/images/characters/avatar3_blue_circle.webp',
+  '/images/characters/avatar4_blue_circle.webp',
+  '/images/characters/avatar5_blue_circle.webp',
+  '/images/characters/avatar6_blue_circle.webp',
+  '/images/characters/avatar7_blue_circle.webp',
+  '/images/characters/avatar8_blue_circle.webp',
 ] as const;
 
 const isPrivateRelayEmail = (value: string | null | undefined) => {

@@ -434,6 +434,13 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
     return pathwayLessons;
   }, [allLessons, pathwayLessons]);
 
+  const freeLessonIds = useMemo(
+    () => firstLessonIds.size > 0
+      ? firstLessonIds
+      : new Set(lessonSequence.filter((lesson) => lesson.lesson_order === 1).map((lesson) => lesson.id)),
+    [firstLessonIds, lessonSequence],
+  );
+
   const pathwayRows = useMemo(() => {
     return lessonSequence.reduce<PathwayLessonRow[]>((rows, lesson) => {
       if (!isLessonListItem(lesson)) {
@@ -534,6 +541,7 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
 
   return {
     stats,
+    freeLessonIds,
     pathwayRows,
     resumeRow,
     completedLessons,
