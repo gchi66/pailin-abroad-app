@@ -16,9 +16,17 @@ async function timedFetch(label: string, input: RequestInfo | URL, init?: Reques
   try {
     const response = await fetch(input, init);
     if (__DEV__) {
+      const serverTiming = response.headers.get('X-Speaking-Coach-Timing');
       console.log(
         `[Speaking Coach] ${label} finished in ${Math.round(nowMs() - started)}ms (HTTP ${response.status})`
       );
+      if (serverTiming) {
+        try {
+          console.log(`[Speaking Coach] ${label} server timing`, JSON.parse(serverTiming));
+        } catch {
+          console.log(`[Speaking Coach] ${label} server timing ${serverTiming}`);
+        }
+      }
     }
     return response;
   } catch (error) {

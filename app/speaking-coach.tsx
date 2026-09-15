@@ -21,7 +21,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   AppState,
+  Easing,
   Platform,
   Pressable,
   ScrollView,
@@ -110,6 +112,68 @@ type CaptureTrace = {
   statusAfterPrepare?: RecorderDiagnostic;
   statusAfterRecord?: RecorderDiagnostic;
 };
+
+function SpeakingCoachLoader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
+  const orbitRotation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(orbitRotation, {
+        toValue: 1,
+        duration: 2800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [orbitRotation]);
+
+  const rotate = orbitRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  return (
+    <View style={styles.evaluationLoader} accessibilityRole="progressbar" accessibilityLabel={title}>
+      <View style={styles.evaluationCopy}>
+        <AppText variant="title" style={styles.evaluationTitle}>{title}</AppText>
+        <AppText variant="muted" style={styles.evaluationSubtitle}>
+          {subtitle}
+        </AppText>
+      </View>
+
+      <View style={styles.evaluationGraphic}>
+        <Image source={pailinGoodJobImage} contentFit="contain" style={styles.evaluationPailin} />
+        <Animated.View style={[styles.evaluationOrbit, { transform: [{ rotate }] }]}>
+          <View style={[styles.orbitDot, styles.orbitDotTop]} />
+          <View style={[styles.orbitDot, styles.orbitDotLeft]} />
+          <View style={[styles.orbitSparkle, styles.orbitSparkleRight]}>
+            <Text style={styles.orbitSparkleText}>✦</Text>
+          </View>
+          <View style={[styles.orbitSparkle, styles.orbitSparkleBottom]}>
+            <Text style={styles.orbitSparkleText}>✦</Text>
+          </View>
+        </Animated.View>
+      </View>
+
+      <View style={styles.evaluationReminder}>
+        <Text style={styles.evaluationReminderSparkle}>✦</Text>
+        <AppText variant="body" style={styles.evaluationReminderText}>
+          This will just take a few seconds!
+        </AppText>
+      </View>
+    </View>
+  );
+}
 
 const IOS_AZURE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -403,7 +467,19 @@ function TargetSentenceAssessment({ tokens }: { tokens: PronunciationAssessmentT
 
 export default function SpeakingCoachEntryScreen() {
   const { hasMembership, isLoading } = useAppSession();
-  if (isLoading) return <PageLoadingState language="en" />;
+  if (isLoading) {
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.fullState}>
+          <SpeakingCoachLoader
+            title="Loading speaking coach…"
+            subtitle="Hang tight – Pailin is getting your practice ready!"
+          />
+        </View>
+      </View>
+    );
+  }
   if (!hasMembership) return <Redirect href="/(tabs)/account/membership" />;
   return <SpeakingCoachTestScreen />;
 }
@@ -1026,7 +1102,12 @@ function SpeakingCoachTestScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageLoadingState loadingTitle="Loading speaking coach…" />
+        <View style={styles.fullState}>
+          <SpeakingCoachLoader
+            title="Loading speaking coach…"
+            subtitle="Hang tight – Pailin is getting your practice ready!"
+          />
+        </View>
       </View>
     );
   }
@@ -1328,9 +1409,9 @@ function SpeakingCoachTestScreen() {
 
   const renderEvaluating = () => (
     <View style={styles.fullState}>
-      <PageLoadingState
-        loadingTitle="Evaluating your answer…"
-        loadingBody="The AI checker will listen to your original recording."
+      <SpeakingCoachLoader
+        title="Checking your answer…"
+        subtitle="Hang tight – Pailin is reviewing your audio!"
       />
     </View>
   );
@@ -3006,6 +3087,80 @@ const styles = StyleSheet.create({
   playbackLabel: { flex: 1, fontWeight: theme.typography.weights.semibold },
   submitError: { color: theme.colors.primary, textAlign: 'center' },
   fullState: { flex: 1, maxWidth: 520, width: '100%', alignSelf: 'center', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.lg, paddingHorizontal: theme.spacing.xl, paddingBottom: 80 },
+  evaluationLoader: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  evaluationCopy: { alignItems: 'center', gap: 5 },
+  evaluationTitle: {
+    fontSize: 25,
+    lineHeight: 34,
+    fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+  },
+  evaluationSubtitle: {
+    color: '#687078',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  evaluationGraphic: {
+    width: 250,
+    height: 250,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  evaluationPailin: { width: 174, height: 174 },
+  evaluationOrbit: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 7,
+    borderColor: '#2F6EEA',
+  },
+  orbitDot: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+  },
+  orbitDotTop: { top: -14, left: 64 },
+  orbitDotLeft: { top: 96, left: -14 },
+  orbitSparkle: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F8FC',
+  },
+  orbitSparkleRight: { top: 25, right: -20 },
+  orbitSparkleBottom: { bottom: -22, left: 88 },
+  orbitSparkleText: { color: '#F5D21F', fontSize: 39, lineHeight: 42 },
+  evaluationReminder: {
+    minHeight: 54,
+    maxWidth: 360,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 27,
+    backgroundColor: '#FFFBE7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  evaluationReminderSparkle: { color: '#F5D21F', fontSize: 32, lineHeight: 35 },
+  evaluationReminderText: {
+    flexShrink: 1,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
+  },
   successIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: theme.colors.success, alignItems: 'center', justifyContent: 'center' },
   playbackList: { width: '100%', gap: theme.spacing.sm },
   wideButton: { width: '100%' },
