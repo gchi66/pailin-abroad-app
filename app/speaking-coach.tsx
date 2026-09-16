@@ -46,8 +46,11 @@ import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { posthog } from '@/src/config/posthog';
+import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
+import correctFeedbackSound from '@/assets/audio/speaking-correct.wav';
+import incorrectFeedbackSound from '@/assets/audio/speaking-incorrect.wav';
 import audioRedoImage from '@/assets/images/speaking-coach/audio-redo.png';
 import celebrateWhiteImage from '@/assets/images/speaking-coach/celebrate-white.png';
 import lightBulbImage from '@/assets/images/speaking-coach/light-bulb.png';
@@ -116,9 +119,11 @@ type CaptureTrace = {
 function SpeakingCoachLoader({
   title,
   subtitle,
+  showCopy = true,
 }: {
   title: string;
   subtitle: string;
+  showCopy?: boolean;
 }) {
   const orbitRotation = useRef(new Animated.Value(0)).current;
 
@@ -144,12 +149,14 @@ function SpeakingCoachLoader({
 
   return (
     <View style={styles.evaluationLoader} accessibilityRole="progressbar" accessibilityLabel={title}>
-      <View style={styles.evaluationCopy}>
-        <AppText variant="title" style={styles.evaluationTitle}>{title}</AppText>
-        <AppText variant="muted" style={styles.evaluationSubtitle}>
-          {subtitle}
-        </AppText>
-      </View>
+      {showCopy ? (
+        <View style={styles.evaluationCopy}>
+          <AppText variant="title" style={styles.evaluationTitle}>{title}</AppText>
+          <AppText variant="muted" style={styles.evaluationSubtitle}>
+            {subtitle}
+          </AppText>
+        </View>
+      ) : null}
 
       <View style={styles.evaluationGraphic}>
         <Image source={pailinGoodJobImage} contentFit="contain" style={styles.evaluationPailin} />
@@ -165,12 +172,14 @@ function SpeakingCoachLoader({
         </Animated.View>
       </View>
 
-      <View style={styles.evaluationReminder}>
-        <Text style={styles.evaluationReminderSparkle}>✦</Text>
-        <AppText variant="body" style={styles.evaluationReminderText}>
-          This will just take a few seconds!
-        </AppText>
-      </View>
+      {showCopy ? (
+        <View style={styles.evaluationReminder}>
+          <Text style={styles.evaluationReminderSparkle}>✦</Text>
+          <AppText variant="body" style={styles.evaluationReminderText}>
+            This will just take a few seconds!
+          </AppText>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -308,6 +317,45 @@ function PlaybackButton({
         {label}
       </AppText>
     </Pressable>
+  );
+}
+
+function PulsingRecordingControl({ onPress }: { onPress: () => void }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 1_000,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    );
+    animation.start();
+
+    return () => {
+      animation.stop();
+      pulse.setValue(0);
+    };
+  }, [pulse]);
+
+  return (
+    <View style={styles.recordingPulseContainer}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.recordingPulseRing,
+          {
+            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.42, 0] }),
+            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.35] }) }],
+          },
+        ]}
+      />
+      <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={onPress}>
+        <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -475,6 +523,7 @@ export default function SpeakingCoachEntryScreen() {
           <SpeakingCoachLoader
             title="Loading speaking coach…"
             subtitle="Hang tight – Pailin is getting your practice ready!"
+            showCopy={false}
           />
         </View>
       </View>
@@ -575,6 +624,8 @@ function SpeakingCoachTestScreen() {
     keepAudioSessionActive: true,
   });
   const recordingPlayerStatus = useAudioPlayerStatus(recordingPlayer);
+  const correctFeedbackPlayer = useAudioPlayer(correctFeedbackSound, { keepAudioSessionActive: true });
+  const incorrectFeedbackPlayer = useAudioPlayer(incorrectFeedbackSound, { keepAudioSessionActive: true });
   const recorderRef = useRef(recorder);
 
   recorderRef.current = recorder;
@@ -746,6 +797,8 @@ function SpeakingCoachTestScreen() {
   const resetQuestion = () => {
     promptPlayer.pause();
     recordingPlayer.pause();
+    correctFeedbackPlayer.pause();
+    incorrectFeedbackPlayer.pause();
     setPhase('prompt');
     setRecordedUri(null);
     setRecordedDurationMillis(0);
@@ -892,6 +945,17 @@ function SpeakingCoachTestScreen() {
         recordingPlayerStatus.currentTime >= recordingPlayerStatus.duration - 0.05);
     if (isAtEnd) await recordingPlayer.seekTo(0);
     recordingPlayer.play();
+  };
+
+  const playEvaluationSound = async (status: SpeakingEvaluationStatus) => {
+    if (status === 'unclear_audio') return;
+    const player = status === 'pass' ? correctFeedbackPlayer : incorrectFeedbackPlayer;
+    try {
+      await player.seekTo(0);
+      player.play();
+    } catch (error) {
+      console.warn('[Speaking Coach] Could not play feedback sound', error);
+    }
   };
 
   const startRecording = async () => {
@@ -1090,6 +1154,7 @@ function SpeakingCoachTestScreen() {
         setPreviousAttemptId(response.attempt.id);
       }
       setPhase(nextEvaluation.status === 'pass' ? 'correct' : 'feedback');
+      void playEvaluationSound(nextEvaluation.status);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to evaluate this recording.';
       setSubmitError(message);
@@ -1106,6 +1171,7 @@ function SpeakingCoachTestScreen() {
           <SpeakingCoachLoader
             title="Loading speaking coach…"
             subtitle="Hang tight – Pailin is getting your practice ready!"
+            showCopy={false}
           />
         </View>
       </View>
@@ -1574,9 +1640,7 @@ function SpeakingCoachTestScreen() {
           <View style={styles.pronunciationActionCard}>
             <AppText variant="caption" style={styles.pronunciationActionTitle}>RECORDING…</AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={() => void stopRecording()}>
-              <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
-            </Pressable>
+            <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
               <View style={styles.pronunciationTimerDot} />
               <AppText variant="caption" style={styles.pronunciationTimerText}>
@@ -1739,6 +1803,8 @@ function SpeakingCoachTestScreen() {
       && (phase === 'recording' || phase === 'review');
     const correctResult = phase === 'correct';
     const isUnclear = evaluation?.status === 'unclear_audio';
+    const incorrectResult = evaluation?.status === 'retry'
+      || evaluation?.status === 'continue_with_correction';
     const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
     const showEvaluation = Boolean(evaluation) && (
       correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached
@@ -1757,6 +1823,7 @@ function SpeakingCoachTestScreen() {
           ? evaluation.displayed_issues.map((issue) => issue.description_en)
           : [evaluation.feedback_en]
       : [];
+    const learnerTranscript = evaluation?.transcript?.trim() || null;
     const showSkip = phase === 'prompt'
       || phase === 'recording'
       || phase === 'review'
@@ -1818,9 +1885,7 @@ function SpeakingCoachTestScreen() {
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
             <AppText variant="caption" style={styles.conversationActionTitle}>RECORDING…</AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={() => void stopRecording()}>
-              <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
-            </Pressable>
+            <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
               <View style={styles.pronunciationTimerDot} />
               <AppText variant="caption" style={styles.pronunciationTimerText}>
@@ -1910,7 +1975,15 @@ function SpeakingCoachTestScreen() {
 
         <PailinCoachBubble tone={coachTone} instruction="Let’s chat!" />
 
-        <View style={styles.conversationPromptCard}>
+        <View
+          style={[
+            styles.conversationPromptCard,
+            showEvaluation && !showConversationDetails ? styles.conversationPromptCardCollapsed : null,
+            !showConversationDetails && incorrectResult
+              ? styles.conversationPromptCardCollapsedIncorrect
+              : null,
+          ]}
+        >
           <View style={styles.conversationPromptEnglishRow}>
             {hasPromptAudio ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Play Pailin's question" onPress={togglePromptAudio}>
@@ -1942,7 +2015,10 @@ function SpeakingCoachTestScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => setShowConversationDetails((visible) => !visible)}
-              style={styles.conversationDetailsButton}
+              style={[
+                styles.conversationDetailsButton,
+                !showConversationDetails ? styles.conversationDetailsButtonCollapsed : null,
+              ]}
             >
               <AppText variant="caption" style={styles.conversationDetailsLabel}>
                 {showConversationDetails ? 'LESS ↑' : 'MORE ↓'}
@@ -1976,7 +2052,21 @@ function SpeakingCoachTestScreen() {
                   style={styles.conversationLearnerPlayIcon}
                 />
               </Pressable>
-              <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+              <View style={styles.conversationLearnerAnswerCopy}>
+                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+                <AppText
+                  variant="caption"
+                  style={[
+                    styles.conversationLearnerTranscript,
+                    !learnerTranscript ? styles.conversationLearnerTranscriptUnavailable : null,
+                  ]}
+                >
+                  {learnerTranscript
+                    || (isUnclear
+                      ? 'We couldn’t confidently transcribe this recording.'
+                      : 'Transcript unavailable.')}
+                </AppText>
+              </View>
             </View>
             <View style={[
               styles.conversationFeedbackDivider,
@@ -2091,9 +2181,7 @@ function SpeakingCoachTestScreen() {
           <View style={styles.pronunciationActionCard}>
             <AppText variant="caption" style={styles.pronunciationActionTitle}>RECORDING…</AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={() => void stopRecording()}>
-              <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
-            </Pressable>
+            <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
               <View style={styles.pronunciationTimerDot} />
               <AppText variant="caption" style={styles.pronunciationTimerText}>
@@ -2299,7 +2387,7 @@ function SpeakingCoachTestScreen() {
 
         <View style={styles.setProgressCard}>
           <View style={styles.setProgressHeadingRow}>
-            <View style={[styles.setProgressHeadingLine, styles.setProgressHeadingLineBlue]} />
+            <View style={styles.setProgressHeadingLine} />
             <AppText variant="caption" style={styles.setProgressHeading}>YOUR PROGRESS</AppText>
             <View style={styles.setProgressHeadingLine} />
           </View>
@@ -2478,7 +2566,6 @@ const styles = StyleSheet.create({
   welcomeStartButton: {
     minHeight: 50,
     borderWidth: 1,
-    borderBottomWidth: 5,
     borderColor: '#14213B',
     borderRadius: 26,
     backgroundColor: '#2F6EEA',
@@ -2487,8 +2574,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: theme.spacing.lg,
+    ...createNeoShadow({ color: '#14213B', offset: 4 }),
   },
-  welcomeStartButtonPressed: { transform: [{ translateY: 3 }], borderBottomWidth: 2 },
+  welcomeStartButtonPressed: {
+    transform: [{ translateX: 2 }, { translateY: 2 }],
+    shadowOffset: { width: 2, height: 2 },
+  },
   welcomeStartIcon: { width: 17, height: 17 },
   welcomeStartLabel: {
     color: theme.colors.surface,
@@ -2523,17 +2614,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 30,
     borderWidth: 1,
-    borderBottomWidth: 6,
     borderColor: theme.colors.border,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 14,
     paddingTop: 18,
     paddingBottom: 17,
+    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
   },
   setProgressHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  setProgressHeadingLine: { flex: 1, height: 2, backgroundColor: '#BDEAFF' },
-  setProgressHeadingLineBlue: { backgroundColor: '#2F6EEA' },
+  setProgressHeadingLine: { flex: 1, height: 2, backgroundColor: '#2563EB' },
   setProgressHeading: { fontSize: 12, lineHeight: 17, letterSpacing: 0.8 },
   setProgressStats: {
     flex: 1,
@@ -2571,7 +2661,6 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 50,
     borderWidth: 1,
-    borderBottomWidth: 5,
     borderColor: '#14213B',
     borderRadius: 26,
     backgroundColor: '#2F6EEA',
@@ -2580,8 +2669,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: theme.spacing.lg,
+    ...createNeoShadow({ color: '#14213B', offset: 4 }),
   },
-  setCompletionButtonSpacer: { flexGrow: 1, minHeight: 24 },
+  setCompletionButtonSpacer: { flexGrow: 1, minHeight: 36 },
   setCompletionButtonLabel: {
     color: theme.colors.surface,
     fontSize: 12,
@@ -2653,12 +2743,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 10,
-    borderBottomWidth: 5,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 14,
     paddingTop: 17,
     paddingBottom: 13,
     alignItems: 'center',
+    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
   },
   pronunciationSentenceEnglish: {
     fontSize: 19,
@@ -2712,7 +2802,21 @@ const styles = StyleSheet.create({
   },
   pronunciationActionTitle: { fontSize: 11, lineHeight: 16, fontWeight: theme.typography.weights.semibold },
   pronunciationActionHint: { marginTop: 1, color: '#969696', fontSize: 10, lineHeight: 15 },
-  pronunciationRecordControl: { width: 70, height: 70, marginTop: 10 },
+  recordingPulseContainer: {
+    width: 90,
+    height: 90,
+    marginTop: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingPulseRing: {
+    position: 'absolute',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FFB5B8',
+  },
+  pronunciationRecordControl: { width: 70, height: 70 },
   pronunciationTimerRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
   pronunciationTimerDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF6268' },
   pronunciationTimerText: { color: '#9A9A9A', fontSize: 10, lineHeight: 15 },
@@ -2785,12 +2889,12 @@ const styles = StyleSheet.create({
     minHeight: 50,
     marginTop: 'auto',
     borderWidth: 1,
-    borderBottomWidth: 5,
     borderColor: '#14213B',
     borderRadius: 26,
     backgroundColor: '#2F6EEA',
     alignItems: 'center',
     justifyContent: 'center',
+    ...createNeoShadow({ color: '#14213B', offset: 4 }),
   },
   pronunciationContinueLabel: { color: theme.colors.surface, fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.medium },
   conversationPromptCard: {
@@ -2799,13 +2903,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 10,
-    borderBottomWidth: 5,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 18,
     paddingTop: 20,
     paddingBottom: 14,
     alignItems: 'center',
+    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
   },
+  conversationPromptCardCollapsed: { minHeight: 0, paddingTop: 14, paddingBottom: 7 },
+  conversationPromptCardCollapsedIncorrect: { paddingBottom: 13 },
   conversationPromptEnglishRow: {
     width: '100%',
     flexDirection: 'row',
@@ -2849,6 +2955,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   conversationDetailsButton: { marginTop: 10, paddingHorizontal: 18, paddingVertical: 3 },
+  conversationDetailsButtonCollapsed: { marginTop: 3, paddingVertical: 1 },
   conversationDetailsLabel: {
     color: '#2F6EEA',
     fontSize: 9,
@@ -2910,11 +3017,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   conversationLearnerPlayIcon: { width: 38, height: 38 },
+  conversationLearnerAnswerCopy: { flex: 1, gap: 2 },
   conversationLearnerAnswerTitle: {
     fontSize: 12,
     lineHeight: 17,
     fontWeight: theme.typography.weights.bold,
   },
+  conversationLearnerTranscript: { color: '#555555', fontSize: 12, lineHeight: 18 },
+  conversationLearnerTranscriptUnavailable: { color: '#777777', fontStyle: 'italic' },
   conversationFeedbackDivider: { height: 1 },
   conversationFeedbackDividerSuccess: { backgroundColor: '#A9E64D' },
   conversationFeedbackDividerError: { backgroundColor: '#FF6268' },
@@ -2936,12 +3046,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 10,
-    borderBottomWidth: 5,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 18,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
   },
   translationPromptThai: {
     fontSize: 25,

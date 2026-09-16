@@ -367,7 +367,7 @@ Objective authored language requirements also receive deterministic validation. 
 
 Each catalog match has separate internal `evidence_score` and `priority_score` values from 0–100. Evidence strength comes only from the current Azure response and contextual alignment; catalog prevalence never increases it. Priority adds authored `FOCUS` and the catalog's pedagogical weight only after evidence is sufficient. Scores, pattern IDs, phoneme candidates, syllables, offsets, and durations remain in admin diagnostics and are not exposed as a learner grade. Learner-facing feedback remains word-level.
 
-Low recognition confidence still blocks Gemini, but a strongly supported acoustic finding may produce a pronunciation-only retry. Otherwise it produces `unclear_audio`. Azure transcript guesses for open and translation answers remain available only in admin diagnostics because a best-effort recognition hypothesis is evidence for the checker, not a trustworthy learner-facing transcript. Open-answer corrections are labeled **A clearer version** rather than **Corrected answer**; pronunciation and translation retain their existing correction-label presentation.
+Low recognition confidence still blocks Gemini, but a strongly supported acoustic finding may produce a pronunciation-only retry. Otherwise it produces `unclear_audio`. For a scored open answer, the learner-facing response includes Azure's best-effort transcript and the UI displays it beneath `Your answer:`. Unclear open answers and all translation answers continue to omit the transcript. Open-answer corrections are labeled **A clearer version** rather than **Corrected answer**; pronunciation and translation retain their existing correction-label presentation.
 
 ### Translation
 
@@ -824,6 +824,7 @@ After the learner resolves the final question in one practice type, pause before
 - Show every question-progress dot as completed, followed by the completed practice type's label.
 - Use `pailin-set-complete.webp`, the heading `You finished this set!`, and type-specific supporting copy: `practiced pronouncing` for Pronunciation, `practiced answering` for Conversation, and `practiced translating` for Thai to English. Use `question/questions` for Conversation and `sentence/sentences` for the other types with correct singularization.
 - The `YOUR PROGRESS` card shows the number of questions passed as `correct`. Completed-with-correction and skipped questions count as `needs review`. Omit the needs-review column when its count is zero.
+- Both rules flanking `YOUR PROGRESS` use `#2563EB`. The progress card and primary actions, including `START SPEAKING!`, use the app's down-right hard-shadow treatment, with a guaranteed visual gap between the completion card and action on short screens.
 - These totals come from the persisted session payload so they remain correct if the application reloads. The session exposes `correct_question_ids` and `needs_review_question_ids` alongside its completed and skipped IDs.
 - If another practice type remains, the primary action is `NEXT SET` and opens the server-selected next unresolved question. On the final set, the action is `FINISH LESSON!` with the celebration icon and exits the standalone Speaking Coach flow.
 - Completing or skipping the last question in a set both trigger this screen. Questions within the same set continue directly to the next question.
@@ -842,13 +843,15 @@ Pronunciation Practice uses the existing two-attempt recording and evaluation fl
 #### States
 
 1. **Ready:** show `pailin-do-the-task.webp`, `Listen, then repeat!`, the target sentence, Pailin playback, a `YOUR TURN!` recording panel, and `Try 1 of 2`.
-2. **Recording:** replace the microphone with the red stop control and show a live recording timer.
+2. **Recording:** replace the microphone with the red stop control, pulse a soft ring behind it, and show a live recording timer.
 3. **Review:** allow playback of the learner's recording, submission for evaluation, or recording again. Recording again does not consume a submitted attempt.
 4. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, Pailin and learner playback, positive feedback, and `CONTINUE`.
 5. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, Pailin and learner playback, focused correction feedback, and a `TRY AGAIN!` panel marked `Try 2 of 2`. When the evaluator returns multiple `displayed_issues`, show every returned issue beneath its summary rather than truncating the list to the first issue.
 6. **Second submitted attempt needs work:** keep the final `Not quite!` correction state, remove further recording controls, and show `CONTINUE`.
 
 `SKIP →` remains available while the learner can record or retry. It persists the question as skipped before advancing; it does not create an evaluation attempt or count the question as correct. `CONTINUE` advances after a correct result or after final feedback on the second submitted attempt.
+
+When a scored evaluation returns, play the bundled success chime for `pass` and the bundled correction cue for `retry` or `continue_with_correction`. Do not play either judgment sound for `unclear_audio`. Each sound plays once per successful evaluation response and follows the device's media-output volume.
 
 ### Conversation Practice flow
 
@@ -861,15 +864,15 @@ Conversation Practice reuses the shared progress, recording, review, two-attempt
 - After evaluation, the prompt card may collapse the translation and tip to save vertical space. `MORE ↓` and `LESS ↑` let the learner reveal or hide those details.
 - The recording panel is labeled `RESPOND TO THE QUESTION` on the first attempt and `TRY AGAIN!` for a retry.
 - `SHOW EXAMPLE ANSWER` reveals the first authored English example and its Thai translation when available; `HIDE` collapses it again.
-- The learner feedback card labels the playback control `Your answer:` but intentionally does not display Azure's recognized transcript or any other transcript guess. Recognition text remains private evaluation and diagnostic input.
+- The learner feedback card labels the playback control `Your answer:` and displays Azure's best-effort recognized transcript beneath it when the answer was confidently scored. If an unclear result has no transcript, show `We couldn’t confidently transcribe this recording.` If another response has no transcript, show `Transcript unavailable.` The recorded-answer playback remains available in every case.
 - Feedback copy comes from the evaluator. When `displayed_issues` are present, show every returned issue rather than truncating the list.
 
 #### States
 
 1. **Ready:** show `pailin-do-the-task.webp`, `Let’s chat!`, the full prompt card, the first-attempt recording panel, and the optional example-answer control.
 2. **Recording and review:** reuse the stop, timer, learner playback, submit, and record-again behavior from Pronunciation Practice.
-3. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, audio-only learner-answer playback, positive feedback, and `CONTINUE`.
-4. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, audio-only learner-answer playback, the evaluator's corrections, and a `TRY AGAIN!` panel marked `Try 2 of 2`.
+3. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, learner-answer playback and transcript, positive feedback, and `CONTINUE`.
+4. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, learner-answer playback and transcript, the evaluator's corrections, and a `TRY AGAIN!` panel marked `Try 2 of 2`.
 5. **Second submitted attempt needs work:** show final evaluator feedback and `CONTINUE` without another recording attempt.
 6. **Unclear audio:** show `pailin-cant-hear.webp`, `Hmm...what was that?`, the yellow unclear-audio feedback treatment, and another recording opportunity without consuming an instructional attempt, subject to the shared unclear-audio safety limit.
 
