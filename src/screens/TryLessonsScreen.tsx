@@ -298,14 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    shadowColor: theme.colors.border,
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: {
-      width: 3,
-      height: 3,
-    },
-    elevation: 2,
+    boxShadow: `3px 3px 0px ${theme.colors.border}`,
   },
   lessonCardDisabled: {
     opacity: 0.65,

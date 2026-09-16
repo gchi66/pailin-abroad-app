@@ -299,11 +299,7 @@ const styles = StyleSheet.create({
   },
   neoCard: {
     borderWidth: 1.5,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
   },
   introText: {
     color: theme.colors.text,
@@ -369,11 +365,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   neoInput: {
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
   },
   inputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,

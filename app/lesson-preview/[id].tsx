@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   storyText: { fontSize: 11, lineHeight: 17, color: '#333333' },
   measurement: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
   footer: { paddingTop: 10, paddingHorizontal: 20, backgroundColor: '#FFFFFF' },
-  startButton: { minHeight: 44, backgroundColor: '#2860E8', shadowColor: '#1E1E1E', shadowOffset: { width: 2, height: 3 }, shadowOpacity: 1, shadowRadius: 0 },
+  startButton: { minHeight: 44, backgroundColor: '#2860E8', boxShadow: '2px 3px 0px #1E1E1E' },
   upgradeButton: { backgroundColor: '#F9DA60' },
   buttonText: { fontSize: 12, lineHeight: 18, textTransform: 'uppercase' },
   upgradeText: { color: '#1E1E1E' },

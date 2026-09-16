@@ -210,11 +210,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 5,
     backgroundColor: theme.colors.surface,
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: { width: 2, height: 2 },
-    elevation: 3,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   itemPressed: {
     opacity: 0.65,

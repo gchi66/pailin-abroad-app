@@ -13909,11 +13909,7 @@ const mergeAdjacentPracticeRowTokens = (
 }
 
 const brutalShadow = {
-  shadowColor: theme.colors.shadow,
-  shadowOpacity: 1,
-  shadowRadius: 0,
-  shadowOffset: { width: 3, height: 3 },
-  elevation: 3,
+  boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
 } as const;
 
 const styles = StyleSheet.create({
@@ -14200,7 +14196,6 @@ const styles = StyleSheet.create({
   lessonHeaderEyebrow: {
     flex: 1,
     color: theme.colors.text,
-    fontFamily: theme.typography.fontFaces.en.medium,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: theme.typography.weights.medium,

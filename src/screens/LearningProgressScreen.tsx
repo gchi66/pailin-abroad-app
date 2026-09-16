@@ -457,11 +457,7 @@ const styles = StyleSheet.create({
   },
   stageCard: {
     backgroundColor: '#DCEEFF',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   stageCardRow: {
     flexDirection: 'row',
@@ -523,11 +519,7 @@ const styles = StyleSheet.create({
     minHeight: 94,
     justifyContent: 'space-between',
     paddingTop: theme.spacing.sm + 2,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   metricValue: {
     fontSize: 42,

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import {
@@ -376,17 +376,6 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     justifyContent: 'center',
     gap: theme.spacing.xs,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 2, height: 3 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
   },
   topicDisplayTitle: {
     color: theme.colors.text,

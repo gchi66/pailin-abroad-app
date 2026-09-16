@@ -468,11 +468,7 @@ const styles = StyleSheet.create({
   },
   neoCard: {
     borderWidth: 1.5,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
   },
   guestCard: {
     maxWidth: 420,
@@ -481,11 +477,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF4E8',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   guestCardCloseButton: {
     alignSelf: 'flex-end',

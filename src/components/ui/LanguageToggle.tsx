@@ -1,8 +1,7 @@
 import React from 'react';
-import { Platform, Pressable, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { theme } from '@/src/theme/theme';
 
 import { AppText } from './AppText';
@@ -19,7 +18,6 @@ export function LanguageToggle({ compact = false, style, textStyle }: LanguageTo
 
   return (
     <View style={styles.wrap}>
-      <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
@@ -50,17 +48,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md + 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 1.5, height: 1.5 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
+    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
   },
   languagePillText: {
     color: theme.colors.text,

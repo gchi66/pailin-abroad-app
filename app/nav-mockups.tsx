@@ -367,11 +367,7 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   conceptCard: {
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: `3px 3px 0px ${theme.colors.border}`,
   },
   conceptHeadingRow: {
     flexDirection: 'row',
@@ -629,11 +625,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: `3px 3px 0px ${theme.colors.border}`,
   },
   navItem: {
     flex: 1,

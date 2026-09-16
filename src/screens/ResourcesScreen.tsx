@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
@@ -251,17 +251,6 @@ const styles = StyleSheet.create({
     minHeight: 184,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.lg,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.border,
-        shadowOffset: { width: 3, height: 3 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
   },
   cardInner: {
     position: 'relative',

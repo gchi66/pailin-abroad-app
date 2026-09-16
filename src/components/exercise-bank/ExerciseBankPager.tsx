@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
-import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Stack } from '@/src/components/ui/Stack';
@@ -1097,7 +1096,6 @@ export function ExerciseBankPager({
         </Pressable>
 
         <View style={styles.translatePillWrap}>
-          <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={contentLang === 'th' ? 'Switch exercise language to English' : 'เปลี่ยนภาษาแบบฝึกหัดเป็นไทย'}
@@ -1177,7 +1175,6 @@ export function ExerciseBankPager({
       <View style={styles.footer}>
         {!isActiveExerciseChecked ? (
           <View style={styles.footerCheckButtonWrap}>
-            <AndroidNeoShadowLayer borderRadius={25} color={theme.colors.shadow} offset={3} />
             <Button
               language={language}
               title={isActiveExerciseChecking ? copy.checking : copy.checkAnswers}
@@ -1718,17 +1715,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm + 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 1.5, height: 1.5 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
+    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
   },
   translatePillWrap: {
     position: 'relative',
@@ -2096,17 +2083,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#91CAFF',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: { width: 3, height: 3 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
+    boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
   },
   footerCheckButtonText: {
     color: theme.colors.text,

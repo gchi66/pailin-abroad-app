@@ -1439,11 +1439,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: theme.spacing.md,
-    ...createNeoShadow({
-      color: theme.colors.shadow,
-      elevation: 2,
-      offset: 2,
-    }),
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   upgradeButtonCompact: {
     minHeight: 42,

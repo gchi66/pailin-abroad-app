@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -574,7 +574,6 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
 
                       <View style={styles.planMeta}>
                         <View style={styles.languagePillWrap}>
-                          <AndroidNeoShadowLayer borderRadius={999} color={theme.colors.shadow} offset={1.5} />
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
@@ -631,10 +630,13 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                           </View>
                           <LessonArtwork key={resumeRow.lesson.id} path={resumeRow.lesson.header_img} />
                         </View>
-                        <Button language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
-                          leadingIcon={resumeRow.state === 'locked' ? <Image source={lockWhiteImage} style={styles.buttonLockIcon} resizeMode="contain" accessible={false} /> : undefined}
-                          onPress={() => resumeRow.state === 'locked' ? handleUpgrade() : handleOpenLesson(resumeRow.lesson)}
-                          style={styles.resumeButton} textStyle={styles.ctaText} />
+                        <View style={styles.resumeLessonButtonWrap}>
+                          <View pointerEvents="none" style={styles.resumeLessonButtonShadow} />
+                          <Button language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                            leadingIcon={resumeRow.state === 'locked' ? <Image source={lockWhiteImage} style={styles.buttonLockIcon} resizeMode="contain" accessible={false} /> : undefined}
+                            onPress={() => resumeRow.state === 'locked' ? handleUpgrade() : handleOpenLesson(resumeRow.lesson)}
+                            style={[styles.resumeButton, styles.resumeLessonButton]} textStyle={styles.ctaText} />
+                        </View>
                       </Stack>
                     ) : (
                       <AppText language={uiLanguage} variant="muted">{errorMessage || copy.noResumeLesson}</AppText>
@@ -871,20 +873,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md + 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: {
-          width: 1.5,
-          height: 1.5
-        },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
+    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
   },
   languagePillWrap: {
     position: 'relative',
@@ -912,14 +901,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF4E8',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: {
-      width: 2,
-      height: 2
-    },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   guestOverlayCloseButton: {
     alignSelf: 'flex-end',
@@ -981,17 +963,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAF4FF',
     borderRadius: 5,
     padding: 18,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: {
-          width: 4,
-          height: 4
-        },
-        shadowOpacity: 1,
-        shadowRadius: 0
-      }
-    }),
   },
   lessonMain: {
     flexDirection: 'row',
@@ -1044,17 +1015,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#2860E8',
     minHeight: 40,
     paddingVertical: 6,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.shadow,
-        shadowOffset: {
-          width: 2,
-          height: 3
-        },
-        shadowOpacity: 1,
-        shadowRadius: 0
-      }
-    }),
+    boxShadow: `2px 3px 0px ${theme.colors.shadow}`,
+  },
+  resumeLessonButtonWrap: {
+    position: 'relative',
+  },
+  resumeLessonButtonShadow: {
+    position: 'absolute',
+    top: 3,
+    right: -2,
+    bottom: -3,
+    left: 2,
+    borderRadius: theme.radii.xl,
+    backgroundColor: theme.colors.shadow,
+  },
+  resumeLessonButton: {
+    boxShadow: 'none',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   ctaText: {
     textTransform: 'uppercase',

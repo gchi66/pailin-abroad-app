@@ -235,11 +235,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 14,
     backgroundColor: '#FF4545',
-    ...createNeoShadow({
-      color: '#1A2332',
-      elevation: 3,
-      offset: 1.75,
-    }),
+    boxShadow: '1.75px 1.75px 0px #1A2332',
   },
   resendText: {
     color: '#FFFFFF',

@@ -79,11 +79,7 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   cardShadow: {
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: `3px 3px 0px ${theme.colors.border}`,
   },
   cardTitle: {
     fontWeight: theme.typography.weights.semibold,
@@ -96,11 +92,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#91CAFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: `3px 3px 0px ${theme.colors.border}`,
   },
   primaryButtonText: {
     fontWeight: theme.typography.weights.semibold,

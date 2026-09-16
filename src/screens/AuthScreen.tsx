@@ -22,7 +22,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import googleLogoImage from '../../assets/images/google_logo.png';
 import fullLogoImage from '../../assets/images/full-logo.webp';
-import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -146,7 +145,6 @@ export function AuthScreen() {
   const isCompactScreen = height <= 720 || width <= 350;
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
-  const authButtonRadius = isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14;
   const showAppleButton = Platform.OS === 'ios' && isAppleAvailable;
 
   useEffect(() => {
@@ -499,7 +497,6 @@ export function AuthScreen() {
                   ) : null}
 
                   <View style={styles.authButtonWrap}>
-                    <AndroidNeoShadowLayer borderRadius={authButtonRadius} color="#1A2332" offset={1.75} />
                     <Pressable
                       accessibilityRole="button"
                       style={({ pressed }) => [
@@ -593,7 +590,6 @@ export function AuthScreen() {
                   ) : null}
 
                   <View style={styles.authButtonWrap}>
-                    <AndroidNeoShadowLayer borderRadius={authButtonRadius} color="#1A2332" offset={1.75} />
                     <Pressable
                       accessibilityRole="button"
                       style={({ pressed }) => [
@@ -943,11 +939,7 @@ const styles = StyleSheet.create({
   appleButtonShell: {
     height: 50,
     borderRadius: 14,
-    ...createNeoShadow({
-      color: '#1A2332',
-      elevation: 3,
-      offset: 1.75,
-    }),
+    boxShadow: '1.75px 1.75px 0px #1A2332',
   },
   appleButtonInner: {
     flex: 1,
@@ -994,11 +986,7 @@ const styles = StyleSheet.create({
     borderColor: '#1A2332',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
-    ...createNeoShadow({
-      color: '#1A2332',
-      elevation: 3,
-      offset: 1.75,
-    }),
+    boxShadow: '1.75px 1.75px 0px #1A2332',
   },
   googleButtonCompact: {
     minHeight: 50,
@@ -1151,11 +1139,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    ...createNeoShadow({
-      color: '#1A2332',
-      elevation: 4,
-      offset: 1.75,
-    }),
+    boxShadow: '1.75px 1.75px 0px #1A2332',
   },
   ctaButtonCompact: {
     minHeight: 50,

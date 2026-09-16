@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 
 type AndroidNeoShadowLayerProps = {
   borderRadius: number;
@@ -14,10 +14,6 @@ export function AndroidNeoShadowLayer({
   offset = 2,
   style,
 }: AndroidNeoShadowLayerProps) {
-  if (Platform.OS !== 'android') {
-    return null;
-  }
-
   return (
     <View
       pointerEvents="none"

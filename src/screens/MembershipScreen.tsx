@@ -1412,11 +1412,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
-    ...createNeoShadow({
-      color: theme.colors.shadow,
-      elevation: 3,
-      offset: 3,
-    }),
+    boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
   },
   joinButtonText: {
     fontWeight: theme.typography.weights.bold,
@@ -1429,11 +1425,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
-    ...createNeoShadow({
-      color: theme.colors.shadow,
-      elevation: 3,
-      offset: 3,
-    }),
+    boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
   },
   warningBox: {
     alignItems: 'center',

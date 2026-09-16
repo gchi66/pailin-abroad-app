@@ -2574,11 +2574,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: theme.spacing.lg,
-    ...createNeoShadow({ color: '#14213B', offset: 4 }),
+    boxShadow: '4px 4px 0px #14213B',
   },
   welcomeStartButtonPressed: {
     transform: [{ translateX: 2 }, { translateY: 2 }],
-    shadowOffset: { width: 2, height: 2 },
+    boxShadow: '2px 2px 0px #14213B',
   },
   welcomeStartIcon: { width: 17, height: 17 },
   welcomeStartLabel: {
@@ -2669,7 +2669,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: theme.spacing.lg,
-    ...createNeoShadow({ color: '#14213B', offset: 4 }),
+    boxShadow: '4px 4px 0px #14213B',
   },
   setCompletionButtonSpacer: { flexGrow: 1, minHeight: 36 },
   setCompletionButtonLabel: {
@@ -2894,7 +2894,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2F6EEA',
     alignItems: 'center',
     justifyContent: 'center',
-    ...createNeoShadow({ color: '#14213B', offset: 4 }),
+    boxShadow: '4px 4px 0px #14213B',
   },
   pronunciationContinueLabel: { color: theme.colors.surface, fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.medium },
   conversationPromptCard: {
@@ -3169,7 +3169,7 @@ const styles = StyleSheet.create({
   introBlock: { alignItems: 'center', gap: 2 },
   mainTitle: { textAlign: 'center', fontSize: 24, lineHeight: 32, fontWeight: theme.typography.weights.bold },
   centerText: { textAlign: 'center' },
-  promptCard: { borderRadius: theme.radii.md, shadowColor: theme.colors.shadow, shadowOffset: { width: 4, height: 5 }, shadowOpacity: 1, shadowRadius: 0, elevation: 4 },
+  promptCard: { borderRadius: theme.radii.md, boxShadow: `4px 5px 0px ${theme.colors.shadow}` },
   promptEnglishRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.sm },
   inlinePlayButton: { marginTop: 2, width: 30, height: 30, borderRadius: 15, backgroundColor: '#86C8FF', alignItems: 'center', justifyContent: 'center' },
   promptEnglish: { flex: 1, fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },

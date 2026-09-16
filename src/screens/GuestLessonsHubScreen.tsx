@@ -90,11 +90,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
-    shadowColor: theme.colors.border,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `2px 2px 0px ${theme.colors.border}`,
   },
   linkCopy: {
     flex: 1,

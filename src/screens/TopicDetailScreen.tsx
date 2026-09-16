@@ -307,11 +307,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md + 2,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 1.5, height: 1.5 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
   },
   translatePillDisabled: {
     opacity: 0.7,

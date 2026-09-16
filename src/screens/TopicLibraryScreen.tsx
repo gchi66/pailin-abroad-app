@@ -488,11 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   noticeButtonText: {
     color: theme.colors.surface,
@@ -515,11 +511,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
-    shadowColor: '#132042',
-    shadowOffset: { width: 1.75, height: 1.75 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
+    boxShadow: '1.75px 1.75px 0px #132042',
   },
   filterButtonActive: {
     backgroundColor: '#8EC5FF',
@@ -594,11 +586,7 @@ const styles = StyleSheet.create({
   },
   topicCard: {
     backgroundColor: theme.colors.surface,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
   topicCardLocked: {
     backgroundColor: '#F7F7F7',

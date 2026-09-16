@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
 import { Image } from 'expo-image';
-import pailinAvatar from '@/assets/images/pailin_blue_circle_right.webp';
+import pailinHead from '@/assets/images/characters/pailin_head.webp';
 import lockBlackImage from '@/assets/images/lock-black.png';
 import speakingIcon from '@/assets/images/lesson-speaking-icon.png';
 import speakingIconGray from '@/assets/images/lesson-speaking-icon-gray.png';
@@ -29,7 +29,7 @@ const groups = [
 ];
 const icons: Record<string, React.ComponentProps<typeof MaterialIcons>['name']> = {
   prepare: 'auto-awesome', listen: 'headphones', comprehension: 'help-outline', transcript: 'chat-bubble-outline',
-  apply: 'edit', understand: 'lightbulb-outline', extra_tip: 'lightbulb-outline', common_mistake: 'warning-amber',
+  apply: 'edit', understand: 'lightbulb-outline', extra_tip: 'star-outline', common_mistake: 'warning-amber',
   phrases_verbs: 'format-quote', culture_note: 'public', practice: 'track-changes', speaking: 'mic-none',
   discussion: 'forum',
 };
@@ -46,7 +46,9 @@ export function LessonOverviewScreen(p: Props) {
         <MaterialIcons name="arrow-back" size={20} /><AppText language={p.language} style={s.backText}>{th ? 'คลังบทเรียน' : 'Lesson library'}</AppText>
       </Pressable>
       <View style={s.header}>
-        <Image source={pailinAvatar} style={s.avatar} contentFit="contain" />
+        <View style={s.avatarCircle}>
+          <Image source={pailinHead} style={s.avatar} contentFit="contain" />
+        </View>
         <AppText style={s.eyebrow}>{p.lessonLabel.toUpperCase()}</AppText>
         <AppText language={p.language} style={s.title}>{p.title}</AppText>
         <AppText language={p.language} style={s.focus}>{p.focus}</AppText>
@@ -120,7 +122,8 @@ export function LessonOverviewScreen(p: Props) {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F7F9FC' }, content: { paddingHorizontal: 24 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12 }, backText: { fontSize: 13 },
-  avatar: { position: 'absolute', right: -8, bottom: -8, width: 48, height: 48 },
+  avatarCircle: { position: 'absolute', right: -8, bottom: -8, width: 48, height: 48, overflow: 'hidden', borderWidth: 1, borderColor: '#222', borderRadius: 24, backgroundColor: '#BDEDFC' },
+  avatar: { width: '100%', height: '100%' },
   header: { padding: 16, paddingRight: 40, borderWidth: 1, borderColor: '#D5D5D5', borderRadius: 10, backgroundColor: '#FFF', gap: 4 },
   eyebrow: { fontSize: 10, lineHeight: 15, fontWeight: '700', letterSpacing: .8 }, title: { fontSize: 20, lineHeight: 27, fontWeight: '700' },
   focus: { fontSize: 13, lineHeight: 19, color: '#777' }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }, statusText: { fontSize: 10, lineHeight: 16, color: '#777' },
@@ -131,7 +134,7 @@ const s = StyleSheet.create({
   activeLine: { borderColor: '#245BFF', borderStyle: 'solid' }, doneLine: { borderColor: '#8BBD3F', borderStyle: 'solid' },
   activeDot: { backgroundColor: '#2860E8', borderColor: '#222' }, doneDot: { backgroundColor: '#B9E679', borderColor: '#222' },
   activeRow: { backgroundColor: '#BDEDFC', borderColor: '#222' }, doneRow: { backgroundColor: '#F3FFDA', borderColor: '#8BBD3F' },
-  shadow: { shadowColor: '#222', shadowOffset: { width: 2, height: 3 }, shadowOpacity: 1, shadowRadius: 0 },
+  shadow: { boxShadow: '2px 3px 0px #222' },
   lockedRow: { backgroundColor: '#F0F0F0' }, muted: { color: '#999' }, ai: { fontSize: 10, color: '#245BFF', backgroundColor: '#EBF2FF', paddingHorizontal: 4 },
   speakingIcon: { width: 20, height: 20 }, lockIcon: { width: 20, height: 20 },
   upgrade: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, marginTop: 4, borderWidth: 1, borderColor: '#245BFF', backgroundColor: '#EBF3FF', borderRadius: 4 },

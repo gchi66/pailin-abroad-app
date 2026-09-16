@@ -8,7 +8,6 @@ import freeLessonIntermediateImage from '@/assets/images/free_lesson_intermediat
 import grantImage from '@/assets/images/grant.webp';
 import heroImage from '@/assets/images/characters/hero_image_pailin_luke.webp';
 import membershipBannerImage from '@/assets/images/membership_launch_pricing_banner.webp';
-import membershipStateImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import paymentSuccessConfettiImage from '@/assets/images/payment_success_confetti_bg.webp';
 import paymentSuccessPailinImage from '@/assets/images/pailin-blue-circle-thumbs-up.webp';
 
@@ -81,7 +80,7 @@ export const aboutImages = {
 
 export const membershipImages = {
   banner: membershipBannerImage,
-  state: membershipStateImage,
+  state: pailinActiveThumb,
 } as const;
 
 export const paymentSuccessImages = {
