@@ -1,3 +1,4 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -12,7 +13,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -527,7 +527,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
                 <MaterialIcons name="close" size={24} color={theme.colors.text} />
               </Pressable>
             </View>
-            <TextInput
+            <ScriptAwareTextInput
               autoFocus
               editable={!isPosting}
               maxLength={4000}

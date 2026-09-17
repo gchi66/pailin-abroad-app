@@ -1,3 +1,4 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -14,7 +15,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -757,7 +757,7 @@ function FormField({
         isLargeTablet ? styles.inputShellLargeTablet : null,
         style,
       ]}>
-      <TextInput
+      <ScriptAwareTextInput
         accessibilityLabel={placeholder}
         autoCapitalize={autoCapitalize}
         autoComplete={autoComplete}

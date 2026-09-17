@@ -1,3 +1,4 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -160,7 +161,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
           </Pressable>
         ))}</View> : null}
         {searchOpen ? (
-          <TextInput ref={searchRef} autoFocus value={query} onChangeText={setQuery} style={styles.searchInput}
+          <ScriptAwareTextInput ref={searchRef} autoFocus value={query} onChangeText={setQuery} style={styles.searchInput}
             accessibilityLabel={th ? 'ค้นหาบทเรียนภาษาไทยหรืออังกฤษ' : 'Search lessons in English or Thai'}
             placeholder={th ? 'ค้นหาชื่อ หัวข้อ หรือเลขบทเรียน' : 'Search titles, topics or lesson numbers'}
             placeholderTextColor="#777777" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" />

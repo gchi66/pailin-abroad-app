@@ -1,3 +1,4 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -5,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -234,7 +234,7 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
             <View
               key={`blank-${index}`}
               style={[styles.fillBlankInlineInputShell, { width: estimateFillBlankWidth(inputContainerWidth, minLength) }]}>
-              <TextInput
+              <ScriptAwareTextInput
                 accessibilityLabel={copy.typeAnswer}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -285,7 +285,7 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
         </View>
         {judgment === false ? (
           <View style={styles.judgmentRewriteInputShell}>
-            <TextInput
+            <ScriptAwareTextInput
               accessibilityLabel={copy.rewrite}
               editable={!disabled}
               numberOfLines={1}
@@ -303,7 +303,7 @@ function QuestionInput({ answer, disabled, language, onChange, question }: Quest
 
   const multiline = exerciseType === 'sentence_transform' || exerciseType === 'open' || exerciseType === 'open_ended';
   return (
-    <TextInput
+    <ScriptAwareTextInput
       accessibilityLabel={copy.typeAnswer}
       autoCapitalize="sentences"
       editable={!disabled}

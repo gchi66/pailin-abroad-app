@@ -162,9 +162,9 @@ export default function RootLayout() {
     'Anuphan-SemiBold': require('@/assets/fonts/Anuphan-SemiBold.ttf'),
     'Anuphan-Bold': require('@/assets/fonts/Anuphan-Bold.ttf'),
     'Kanit-LightItalic': require('@/assets/fonts/Kanit-LightItalic.ttf'),
-    'Kanit-Italic': require('@/assets/fonts/Kanit-Italic.ttf'),
     'Kanit-MediumItalic': require('@/assets/fonts/Kanit-MediumItalic.ttf'),
     'Kanit-SemiBoldItalic': require('@/assets/fonts/Kanit-SemiBoldItalic.ttf'),
+    'Kanit-BoldItalic': require('@/assets/fonts/Kanit-BoldItalic.ttf'),
   });
 
   useEffect(() => {

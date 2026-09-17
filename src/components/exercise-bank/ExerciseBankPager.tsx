@@ -1,9 +1,11 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
+import { containsThaiGlyphs } from '@/src/lib/script-aware-text';
 import { Button } from '@/src/components/ui/Button';
 import { Stack } from '@/src/components/ui/Stack';
 import { theme } from '@/src/theme/theme';
@@ -555,9 +557,10 @@ function FillBlankMeasuredRows(props: {
   const { rowTokens, exerciseId, itemKey, isExample, exampleAnswer, blankAnswers, editable, onBlankAnswerChange } = props;
   const [lineTokens, setLineTokens] = useState<FillBlankMeasureToken[][]>([]);
   const [containerWidth, setContainerWidth] = useState(0);
-  const fillBlankMeasureTextStyle = styles.fillBlankTextEnglish;
-  const fillBlankTextStyle = styles.fillBlankTextEnglish;
-  const fillBlankInputStyle = styles.fillBlankInputEnglish;
+  const hasThaiText = rowTokens.some((token) => token.type === 'text' && containsThaiGlyphs(token.text));
+  const fillBlankMeasureTextStyle = hasThaiText ? styles.fillBlankTextThai : styles.fillBlankTextEnglish;
+  const fillBlankTextStyle = hasThaiText ? styles.fillBlankTextThai : styles.fillBlankTextEnglish;
+  const fillBlankInputStyle = hasThaiText ? styles.fillBlankInputThai : styles.fillBlankInputEnglish;
 
   const measureTokens = useMemo<FillBlankMeasureToken[]>(() => {
     return rowTokens.reduce<FillBlankMeasureToken[]>((tokens, token, index) => {
@@ -660,7 +663,7 @@ function FillBlankMeasuredRows(props: {
                   {token.text}
                 </Text>
               ) : (
-                <TextInput
+                <ScriptAwareTextInput
                   key={token.id}
                   editable={!isExample && editable}
                   value={isExample ? exampleAnswer : blankAnswers[getBlankKey(exerciseId, itemKey, token.blankId)] ?? ''}
@@ -1464,7 +1467,7 @@ function renderExerciseBody(params: {
                 </View>
               ) : null}
 
-              <TextInput
+              <ScriptAwareTextInput
                 multiline
                 numberOfLines={4}
                 editable={!item.isExample && !evaluation?.loading && markState !== true}

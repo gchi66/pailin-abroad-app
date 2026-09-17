@@ -110,6 +110,35 @@ export const resolveFontFamily = (
   return fontFaces[resolvedFontFaceKey] ?? fontFaces.regular;
 };
 
+const fontWeightFromFamily = (family: string | undefined): TextStyle['fontWeight'] | undefined => {
+  if (!family) return undefined;
+  if (/(?:ExtraBold|Black)/i.test(family)) return '800';
+  if (/Bold/i.test(family) && !/SemiBold/i.test(family)) return '700';
+  if (/SemiBold/i.test(family)) return '600';
+  if (/Medium/i.test(family)) return '500';
+  return '400';
+};
+
+export const resolveScriptFontFamily = (
+  language: Language,
+  options: {
+    explicitFontFamily?: string;
+    weight?: TextStyle['fontWeight'];
+    italic?: boolean;
+  } = {}
+) => {
+  const { explicitFontFamily, weight, italic } = options;
+  if (language === 'en' && explicitFontFamily) return explicitFontFamily;
+  const isItalic = italic || /Italic/i.test(explicitFontFamily ?? '');
+  if (language === 'th' && explicitFontFamily?.startsWith('Anuphan') && weight === undefined && !isItalic) {
+    return explicitFontFamily;
+  }
+  return resolveFontFamily(language, {
+    weight: weight ?? fontWeightFromFamily(explicitFontFamily),
+    italic: isItalic,
+  });
+};
+
 export const stripFontSynthesis = (style: TextStyle | undefined): TextStyle | undefined => {
   if (Platform.OS !== 'android' || !style) {
     return style;

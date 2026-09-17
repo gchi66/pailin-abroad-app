@@ -458,7 +458,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
       const lines = String(cellText ?? '').split('\n');
 
       return lines.map((line, lineIndex) => (
-        <Text
+        <AppText
           key={`${key}-cell-${rowIndex}-${cellIndex}-line-${lineIndex}`}
           style={[
             styles.tableCellText,
@@ -466,7 +466,7 @@ export function TopicRichContent({ contentLang, nodes }: TopicRichContentProps) 
             lineIndex > 0 ? styles.tableCellLine : null,
           ]}>
           {renderTableCellTextWithLinks(line, `${key}-cell-${rowIndex}-${cellIndex}-line-${lineIndex}`)}
-        </Text>
+        </AppText>
       ));
     };
 

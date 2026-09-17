@@ -1,6 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
+import { Image } from 'expo-image';
+import Svg, { Polygon } from 'react-native-svg';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
@@ -11,6 +14,7 @@ type Props = {
   title: string;
   focus?: string | null;
   backstory?: string | null;
+  speakers?: { name: string; image: ImageSourcePropType }[];
   audioUrl: string | null;
   isPlaying: boolean;
   isLoading: boolean;
@@ -35,6 +39,7 @@ export function LessonListenPage({
   title,
   focus,
   backstory,
+  speakers = [],
   audioUrl,
   isPlaying,
   isLoading,
@@ -62,25 +67,26 @@ export function LessonListenPage({
   return (
     <View style={styles.card}>
       <View style={styles.peopleRow}>
-        <View style={styles.avatars}>
-          <View style={[styles.avatar, styles.avatarFront]}>
-            <MaterialIcons name="person-outline" size={18} color={theme.colors.text} />
+        {speakers.length ? (
+          <View style={styles.avatars}>
+            {speakers.map((speaker, index) => (
+              <View key={`${speaker.name}-${index}`} style={[styles.avatar, index > 0 ? styles.avatarBack : styles.avatarFront]}>
+                <Image source={speaker.image} contentFit="contain" style={styles.avatarImage} />
+              </View>
+            ))}
           </View>
-          <View style={[styles.avatar, styles.avatarBack]}>
-            <MaterialIcons name="person-outline" size={18} color={theme.colors.text} />
-          </View>
-        </View>
+        ) : null}
         <AppText language={language} style={styles.peopleLabel}>
-          {language === 'th' ? 'บทสนทนา' : 'Conversation'}
+          {speakers.length ? speakers.map((speaker) => speaker.name).join(' & ') : language === 'th' ? 'บทสนทนา' : 'Conversation'}
         </AppText>
       </View>
 
       <View style={styles.copyBlock}>
-        <AppText language={language} style={styles.title}>
+        <AppText language={language} style={[styles.title, { fontFamily: theme.typography.fontFaces[language].bold }]}>
           {title}
         </AppText>
         {focus ? (
-          <AppText language={language} style={styles.focus}>
+          <AppText language={language} style={[styles.focus, { fontFamily: theme.typography.fontFaces[language].regular }]}>
             {focus}
           </AppText>
         ) : null}
@@ -122,7 +128,9 @@ export function LessonListenPage({
                 <View style={styles.pauseBar} />
               </View>
             ) : (
-              <View style={styles.playGlyph} />
+              <Svg width={28} height={34} viewBox="0 0 28 34">
+                <Polygon points="3,2 26,17 3,32" fill="#FFFFFF" stroke={theme.colors.text} strokeWidth={1.8} strokeLinejoin="round" />
+              </Svg>
             )}
           </Pressable>
 
@@ -200,7 +208,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   peopleRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  avatars: { width: 57, height: 32, flexDirection: 'row' },
+  avatars: { height: 32, flexDirection: 'row' },
   avatar: {
     width: 32,
     height: 32,
@@ -210,14 +218,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#BDEDFC',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   avatarFront: { zIndex: 2 },
-  avatarBack: { marginLeft: -7, backgroundColor: '#EAF6FF' },
+  avatarBack: { marginLeft: -7 },
+  avatarImage: { width: '100%', height: '100%' },
   peopleLabel: { color: '#2864F0', fontSize: 13, lineHeight: 18 },
   copyBlock: { gap: 3 },
   title: {
     color: '#000000',
-    fontFamily: theme.typography.fontFaces.en.bold,
     fontSize: 25,
     lineHeight: 29,
     letterSpacing: -0.25,
@@ -254,19 +263,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '3px 4px 0px #1E1E1E',
   },
-  playGlyph: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 15,
-    borderBottomWidth: 15,
-    borderLeftWidth: 23,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: theme.colors.surface,
-    marginLeft: 5,
-  },
   pauseGlyph: { flexDirection: 'row', gap: 7 },
-  pauseBar: { width: 7, height: 29, borderRadius: 2, backgroundColor: theme.colors.surface },
+  pauseBar: { width: 9, height: 29, borderRadius: 2, borderWidth: 1.5, borderColor: theme.colors.text, backgroundColor: theme.colors.surface },
   progressTrack: {
     height: 12,
     borderRadius: 10,

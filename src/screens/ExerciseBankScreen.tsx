@@ -1,5 +1,6 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
@@ -167,7 +168,7 @@ export function ExerciseBankScreen() {
           <View style={styles.contentWrap}>
             <Stack gap="lg">
               <View style={styles.searchShell}>
-                <TextInput
+                <ScriptAwareTextInput
                   accessibilityLabel={copy.searchLabel}
                   autoCapitalize="none"
                   autoCorrect={false}

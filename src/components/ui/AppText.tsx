@@ -1,9 +1,9 @@
 import React from 'react';
-import { Platform, StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '../../theme/theme';
-import { resolveFontFamily, stripFontSynthesis } from '../../theme/typography';
+import { resolveScriptFontFamily, stripFontSynthesis } from '../../theme/typography';
 
 type TextVariant = 'title' | 'body' | 'caption' | 'muted';
 type Language = 'en' | 'th';
@@ -37,13 +37,6 @@ const variantStyles: Record<TextVariant, TextStyle> = {
   },
 };
 
-const variantWeights: Record<TextVariant, keyof typeof theme.typography.fontFaces.en> = {
-  title: 'semibold',
-  body: 'regular',
-  caption: 'medium',
-  muted: 'regular',
-};
-
 const variantFontWeights: Record<TextVariant, TextStyle['fontWeight']> = {
   title: theme.typography.weights.semibold,
   body: theme.typography.weights.regular,
@@ -63,26 +56,26 @@ export function AppText({
   const explicitFontWeight = flattenedStyle?.fontWeight;
   const explicitFontStyle = flattenedStyle?.fontStyle;
   const resolvedLanguage = language ?? (containsThaiGlyphs(children) ? 'th' : 'en');
-  const languageFontFaces = theme.typography.fontFaces[resolvedLanguage] as Record<string, string>;
-  const resolvedFontFamily =
-    explicitFontFamily ??
-    (Platform.OS === 'android'
-      ? resolveFontFamily(resolvedLanguage, {
-          italic: explicitFontStyle === 'italic',
-          weight: explicitFontWeight ?? variantFontWeights[variant],
-        })
-      : languageFontFaces[variantWeights[variant]]);
-  const getSegmentFontFamily = (segmentLanguage: ScriptLanguage) =>
-    explicitFontFamily ??
-    (Platform.OS === 'android'
-      ? resolveFontFamily(segmentLanguage, {
-          italic: explicitFontStyle === 'italic',
-          weight: explicitFontWeight ?? variantFontWeights[variant],
-        })
-      : (theme.typography.fontFaces[segmentLanguage] as Record<string, string>)[variantWeights[variant]]);
+  const getSegmentFontFamily = (
+    segmentLanguage: ScriptLanguage,
+    fontFamily = explicitFontFamily,
+    fontWeight = explicitFontWeight,
+    fontStyle = explicitFontStyle
+  ) => resolveScriptFontFamily(segmentLanguage, {
+    explicitFontFamily: fontFamily,
+    weight: fontWeight ?? (fontFamily ? undefined : variantFontWeights[variant]),
+    italic: fontStyle === 'italic',
+  });
+  const resolvedFontFamily = getSegmentFontFamily(resolvedLanguage);
   const sanitizedStyle = stripFontSynthesis(flattenedStyle ?? undefined);
 
-  const renderStringWithBlankRuns = (value: string, keyPrefix: string) => {
+  const renderStringWithBlankRuns = (
+    value: string,
+    keyPrefix: string,
+    fontFamily?: string,
+    fontWeight?: TextStyle['fontWeight'],
+    fontStyle?: TextStyle['fontStyle']
+  ) => {
     const parts = value.split(/(_{2,})/g).filter((part) => part.length > 0);
 
     return parts.map((part, index) => {
@@ -95,16 +88,22 @@ export function AppText({
       }
 
       return splitTextByScript(part).map((segment, segmentIndex) => (
-        <Text key={`${keyPrefix}-${index}-${segmentIndex}`} style={{ fontFamily: getSegmentFontFamily(segment.language) }}>
+        <Text key={`${keyPrefix}-${index}-${segmentIndex}`} style={{ fontFamily: getSegmentFontFamily(segment.language, fontFamily, fontWeight, fontStyle) }}>
           {segment.text}
         </Text>
       ));
     });
   };
 
-  const renderChildren = (node: React.ReactNode, keyPrefix: string): React.ReactNode => {
+  const renderChildren = (
+    node: React.ReactNode,
+    keyPrefix: string,
+    fontFamily?: string,
+    fontWeight?: TextStyle['fontWeight'],
+    fontStyle?: TextStyle['fontStyle']
+  ): React.ReactNode => {
     if (typeof node === 'string' || typeof node === 'number') {
-      return renderStringWithBlankRuns(String(node), keyPrefix);
+      return renderStringWithBlankRuns(String(node), keyPrefix, fontFamily, fontWeight, fontStyle);
     }
 
     if (typeof node === 'boolean' || node == null) {
@@ -113,28 +112,37 @@ export function AppText({
 
     if (Array.isArray(node)) {
       return node.map((child, index) => (
-        <React.Fragment key={`${keyPrefix}-${index}`}>{renderChildren(child, `${keyPrefix}-${index}`)}</React.Fragment>
+        <React.Fragment key={`${keyPrefix}-${index}`}>{renderChildren(child, `${keyPrefix}-${index}`, fontFamily, fontWeight, fontStyle)}</React.Fragment>
       ));
     }
 
     if (React.isValidElement(node)) {
-      const element = node as React.ReactElement<{ children?: React.ReactNode }>;
+      const element = node as React.ReactElement<{ children?: React.ReactNode; style?: StyleProp<TextStyle> }>;
 
-      // Preserve explicitly constructed nested Text spans as-is so callers can
-      // control font family, italics, links, and other rich-text styling.
       if (element.type === Text) {
-        return element;
+        const nestedStyle = StyleSheet.flatten(element.props.style);
+        return React.cloneElement(
+          element,
+          undefined,
+          renderChildren(
+            element.props.children,
+            `${keyPrefix}-child`,
+            nestedStyle?.fontFamily ?? fontFamily,
+            nestedStyle?.fontWeight ?? fontWeight,
+            nestedStyle?.fontStyle ?? fontStyle
+          )
+        );
       }
 
-      return React.cloneElement(element, undefined, renderChildren(element.props.children, `${keyPrefix}-child`));
+      return React.cloneElement(element, undefined, renderChildren(element.props.children, `${keyPrefix}-child`, fontFamily, fontWeight, fontStyle));
     }
 
     return node;
   };
 
   return (
-    <Text {...rest} style={[styles.base, { fontFamily: resolvedFontFamily }, variantStyles[variant], sanitizedStyle]}>
-      {renderChildren(children, 'app-text')}
+    <Text {...rest} style={[styles.base, variantStyles[variant], sanitizedStyle, { fontFamily: resolvedFontFamily }]}>
+      {renderChildren(children, 'app-text', explicitFontFamily, explicitFontWeight, explicitFontStyle)}
     </Text>
   );
 }

@@ -1,5 +1,6 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -317,7 +318,7 @@ export function ProfileScreen() {
                     {copy.usernameLabel}
                   </AppText>
                   <View style={styles.inputShell}>
-                    <TextInput
+                    <ScriptAwareTextInput
                       placeholder={copy.usernamePlaceholder}
                       placeholderTextColor={theme.colors.mutedText}
                       style={styles.textInput}

@@ -1,3 +1,4 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -299,7 +299,7 @@ function PasswordStep({
               <View style={styles.inputIconBox}>
                 <Image source={passwordLockImage} style={styles.inputIcon} contentFit="contain" />
               </View>
-              <TextInput
+              <ScriptAwareTextInput
                 placeholder=""
                 placeholderTextColor={theme.colors.mutedText}
                 secureTextEntry={!showNewPassword}
@@ -321,7 +321,7 @@ function PasswordStep({
               <View style={styles.inputIconBox}>
                 <Image source={passwordLockImage} style={styles.inputIcon} contentFit="contain" />
               </View>
-              <TextInput
+              <ScriptAwareTextInput
                 placeholder=""
                 placeholderTextColor={theme.colors.mutedText}
                 secureTextEntry={!showConfirmPassword}
@@ -376,7 +376,7 @@ function ProfileStep({
             {isUsernameOptional ? ` (${copy.optionalLabel})` : ''}
           </AppText>
           <View style={[styles.simpleInputShell, compact ? styles.simpleInputShellCompact : null]}>
-            <TextInput
+            <ScriptAwareTextInput
               placeholder={copy.namePlaceholder}
               placeholderTextColor={theme.colors.mutedText}
               style={styles.simpleTextInput}

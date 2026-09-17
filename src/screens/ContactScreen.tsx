@@ -1,3 +1,4 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -215,7 +215,7 @@ export function ContactScreen() {
                 {copy.nameLabel}
               </AppText>
               <NeoShadowView style={[styles.inputShell, styles.neoInput]}>
-                <TextInput
+                <ScriptAwareTextInput
                   accessibilityLabel={copy.nameLabel}
                   autoCapitalize="words"
                   autoCorrect={false}
@@ -234,7 +234,7 @@ export function ContactScreen() {
                 {copy.emailLabel}
               </AppText>
               <NeoShadowView style={[styles.inputShell, styles.neoInput]}>
-                <TextInput
+                <ScriptAwareTextInput
                   accessibilityLabel={copy.emailLabel}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -254,7 +254,7 @@ export function ContactScreen() {
                 {copy.messageLabel}
               </AppText>
               <NeoShadowView style={[styles.inputShell, styles.neoInput, styles.messageInputShell]}>
-                <TextInput
+                <ScriptAwareTextInput
                   accessibilityLabel={copy.messageLabel}
                   autoCapitalize="sentences"
                   autoCorrect

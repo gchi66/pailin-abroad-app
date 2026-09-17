@@ -1,5 +1,6 @@
+import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Animated, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import lockImage from '@/assets/images/lock.webp';
@@ -336,7 +337,7 @@ export function TopicLibraryScreen() {
               </View>
 
               <View style={styles.searchShell}>
-                <TextInput
+                <ScriptAwareTextInput
                   accessibilityLabel={copy.searchLabel}
                   autoCapitalize="none"
                   autoCorrect={false}
