@@ -180,52 +180,50 @@ function CommentCard({
   return (
     <View style={[styles.commentBranch, depth > 0 ? styles.commentBranchNested : null]}>
       {depth > 0 ? <View style={styles.replyGuide} /> : null}
-      <View style={styles.cardShadow}>
-        <View style={styles.commentCard}>
-          <View style={styles.commentHeader}>
-            <Avatar comment={comment} anonymous={anonymous} />
-            <View style={styles.commentAuthorWrap}>
-              <AppText numberOfLines={1} style={styles.commentAuthor}>
-                {displayName.toUpperCase()}
-              </AppText>
-            </View>
-            <AppText numberOfLines={1} style={styles.commentDate}>
-              {formatCommentDate(comment.created_at)}
+      <View style={styles.commentCard}>
+        <View style={styles.commentHeader}>
+          <Avatar comment={comment} anonymous={anonymous} />
+          <View style={styles.commentAuthorWrap}>
+            <AppText numberOfLines={1} style={styles.commentAuthor}>
+              {displayName.toUpperCase()}
             </AppText>
-            {isAdmin ? (
-              <Pressable
-                accessibilityLabel={actionsLabel}
-                accessibilityRole="button"
-                hitSlop={10}
-                onPress={() => onActions(comment)}
-                style={styles.moreButton}>
-                <MaterialIcons name="more-horiz" size={19} color={theme.colors.text} />
-              </Pressable>
-            ) : null}
           </View>
-
-          {comment.body ? (
-            <AppText language="en" style={styles.commentBody}>
-              {comment.body}
-            </AppText>
-          ) : null}
-          {comment.body_th ? (
-            <AppText language="th" style={[styles.commentBody, styles.commentBodyThai]}>
-              {comment.body_th}
-            </AppText>
-          ) : null}
-
+          <AppText numberOfLines={1} style={styles.commentDate}>
+            {formatCommentDate(comment.created_at)}
+          </AppText>
           {isAdmin ? (
             <Pressable
+              accessibilityLabel={actionsLabel}
               accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => onReply(comment)}
-              style={styles.replyButton}>
-              <MaterialIcons name="subdirectory-arrow-left" size={15} color={theme.colors.mutedText} />
-              <AppText style={styles.replyText}>{replyLabel}</AppText>
+              hitSlop={10}
+              onPress={() => onActions(comment)}
+              style={styles.moreButton}>
+              <MaterialIcons name="more-horiz" size={19} color={theme.colors.text} />
             </Pressable>
           ) : null}
         </View>
+
+        {comment.body ? (
+          <AppText language="en" style={styles.commentBody}>
+            {comment.body}
+          </AppText>
+        ) : null}
+        {comment.body_th ? (
+          <AppText language="th" style={[styles.commentBody, styles.commentBodyThai]}>
+            {comment.body_th}
+          </AppText>
+        ) : null}
+
+        {isAdmin ? (
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => onReply(comment)}
+            style={styles.replyButton}>
+            <MaterialIcons name="subdirectory-arrow-left" size={15} color={theme.colors.mutedText} />
+            <AppText style={styles.replyText}>{replyLabel}</AppText>
+          </Pressable>
+        ) : null}
       </View>
 
       {comment.replies.map((reply) => (
@@ -478,14 +476,12 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
                 </View>
               ) : null}
 
-              <View style={styles.addButtonShadow}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => requestComposer(null)}
-                  style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}>
-                  <AppText language={uiLanguage} style={styles.addButtonText}>{`+ ${copy.addComment.toUpperCase()}`}</AppText>
-                </Pressable>
-              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => requestComposer(null)}
+                style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}>
+                <AppText language={uiLanguage} style={styles.addButtonText}>{`+ ${copy.addComment.toUpperCase()}`}</AppText>
+              </Pressable>
 
               <AppText language={uiLanguage} style={styles.commentsTitle}>
                 {`${copy.comments} (${commentCount})`}
@@ -578,8 +574,7 @@ const styles = StyleSheet.create({
   avatar: { borderWidth: 0.7, borderColor: '#222222', backgroundColor: '#D9F1FA' },
   avatarFallback: { borderWidth: 0.7, borderColor: '#222222', backgroundColor: '#D9F1FA', alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { fontSize: 14, fontWeight: '700' },
-  addButtonShadow: { marginTop: 15, marginHorizontal: 1, borderRadius: 7, backgroundColor: theme.colors.shadow, transform: [{ translateY: 3 }] },
-  addButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1.3, borderColor: theme.colors.border, borderRadius: 7, backgroundColor: '#ADE4F7', transform: [{ translateY: -3 }] },
+  addButton: { minHeight: 42, marginTop: 15, marginHorizontal: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1.3, borderColor: theme.colors.border, borderRadius: 7, backgroundColor: '#ADE4F7', boxShadow: `3px 3px 0px ${theme.colors.shadow}` },
   addButtonText: { fontSize: 11, lineHeight: 16, fontWeight: '700' },
   pressed: { opacity: 0.72 },
   commentsTitle: { marginTop: 34, marginBottom: 12, fontSize: 18, lineHeight: 25, fontWeight: '700' },
@@ -589,8 +584,7 @@ const styles = StyleSheet.create({
   commentBranch: { gap: 12 },
   commentBranchNested: { marginLeft: 24, position: 'relative' },
   replyGuide: { position: 'absolute', left: -13, top: -13, width: 12, height: 42, borderLeftWidth: 1, borderBottomWidth: 1, borderColor: '#D7D7D7' },
-  cardShadow: { borderRadius: 12, backgroundColor: theme.colors.shadow, transform: [{ translateY: 3 }] },
-  commentCard: { borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: 12, backgroundColor: '#FFFFFF', padding: 12, gap: 7, transform: [{ translateY: -3 }] },
+  commentCard: { borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: 12, backgroundColor: '#FFFFFF', padding: 12, gap: 7, boxShadow: `3px 3px 0px ${theme.colors.shadow}` },
   commentHeader: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 },
   commentAuthorWrap: { flex: 1, minWidth: 48 },
   commentAuthor: { fontSize: 11, lineHeight: 16, fontWeight: '700', letterSpacing: 0.6 },

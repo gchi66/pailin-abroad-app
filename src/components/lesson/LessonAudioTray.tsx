@@ -8,6 +8,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
@@ -17,6 +18,7 @@ import { UiLanguage } from '@/src/types/home';
 type LessonAudioTrayProps = {
   language: UiLanguage;
   title: string;
+  lessonLabel?: string;
   subtitle?: string | null;
   statusLabel: string;
   audioUrl: string | null;
@@ -57,7 +59,7 @@ const ANDROID_BOTTOM_BUFFER = 16;
 export function LessonAudioTray({
   language,
   title,
-  subtitle,
+  lessonLabel,
   audioUrl,
   isPlaying,
   isLoading = false,
@@ -74,11 +76,11 @@ export function LessonAudioTray({
   detached = false,
   bottomInset = 0,
 }: LessonAudioTrayProps) {
-  const usesFloatingRateMenu = Platform.OS === 'android' || Platform.OS === 'ios';
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { width } = useWindowDimensions();
+  const usesFloatingRateMenu = Platform.OS === 'android' || Platform.OS === 'ios' || Platform.OS === 'web';
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [showRates, setShowRates] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
-  const pulse = useRef(new Animated.Value(1)).current;
   const dragTranslateY = useRef(new Animated.Value(0)).current;
 
   const progressRatio = useMemo(() => {
@@ -91,29 +93,6 @@ export function LessonAudioTray({
 
   const isDisabled = !audioUrl || isLoading;
   const trackFillStyle = { width: `${progressRatio * 100}%` as const };
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 0.35,
-          duration: 850,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 850,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    loop.start();
-
-    return () => {
-      loop.stop();
-    };
-  }, [pulse]);
 
   useEffect(() => {
     if (!autoCollapseSignal) {
@@ -231,111 +210,63 @@ export function LessonAudioTray({
       </View>
 
       {isCollapsed ? (
-        <View
-          {...trayPanResponder.panHandlers}
-          style={styles.collapsedRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Expand audio controls"
-            onPress={() => setCollapsedState(false)}
-            style={styles.collapsedRowPressable}>
-            <Animated.View style={[styles.liveDot, { opacity: pulse }]} />
-
-            <AppText language={language} variant="body" style={styles.collapsedTitle} numberOfLines={1}>
-              {title}
+        <View {...trayPanResponder.panHandlers} style={styles.collapsedRow} />
+      ) : (
+        <View style={[
+          styles.expandedWrap,
+          usesFloatingRateMenu ? styles.expandedWrapAndroid : null,
+          width < 360 ? styles.expandedWrapNarrow : null,
+        ]}>
+          <View {...trayPanResponder.panHandlers} style={styles.playerRow}>
+            <AppText language={language} variant="caption" style={styles.trackTitle} numberOfLines={1}>
+              {lessonLabel || title}
             </AppText>
 
-            <View style={styles.collapsedActions}>
+            <View style={styles.controlsRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Rewind 10 seconds"
+                disabled={isDisabled}
+                onPress={() => {
+                  setShowRates(false);
+                  onSkip(-10000);
+                }}
+                style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
+                <MaterialIcons name="replay-10" size={34} color={theme.colors.text} />
+              </Pressable>
+
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={playButtonLabel}
                 disabled={isDisabled}
-                hitSlop={12}
-                onPress={(event) => {
-                  event.stopPropagation();
+                hitSlop={10}
+                onPress={() => {
+                  setShowRates(false);
                   onTogglePlay();
                 }}
-                style={[styles.collapsedPlayButton, isDisabled ? styles.disabledControl : null]}>
-                <View style={styles.playButtonInner}>
-                  {isPlaying ? (
-                    <View style={styles.pauseGlyph}>
-                      <View style={styles.pauseBar} />
-                      <View style={styles.pauseBar} />
-                    </View>
-                  ) : (
-                    <View style={styles.playGlyph} />
-                  )}
-                </View>
+                style={[styles.mainPlayButton, isDisabled ? styles.disabledControl : null]}>
+                {isPlaying ? (
+                  <View style={styles.pauseGlyphLarge}>
+                    <View style={styles.pauseBarLarge} />
+                    <View style={styles.pauseBarLarge} />
+                  </View>
+                ) : (
+                  <View style={styles.playGlyphLarge} />
+                )}
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Forward 10 seconds"
+                disabled={isDisabled}
+                onPress={() => {
+                  setShowRates(false);
+                  onSkip(10000);
+                }}
+                style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
+                <MaterialIcons name="forward-10" size={34} color={theme.colors.text} />
               </Pressable>
             </View>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={[styles.expandedWrap, usesFloatingRateMenu ? styles.expandedWrapAndroid : null]}>
-          <View {...trayPanResponder.panHandlers}>
-            <View style={styles.expandedTopRow}>
-              <View
-                style={[
-                  styles.copyBlock,
-                usesFloatingRateMenu && showRateControl && showRates ? styles.copyBlockRateMenuOpenAndroid : null,
-                ]}>
-                <AppText language={language} variant="body" style={styles.trackTitle} numberOfLines={1}>
-                  {title}
-                </AppText>
-                {subtitle ? (
-                  <AppText language={language} variant="muted" style={styles.trackSubtitle} numberOfLines={1}>
-                    {subtitle}
-                  </AppText>
-                ) : null}
-              </View>
-
-            </View>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Rewind 10 seconds"
-              disabled={isDisabled}
-              onPress={() => {
-                setShowRates(false);
-                onSkip(-10000);
-              }}
-              style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
-              <MaterialIcons name="replay-10" size={34} color={theme.colors.text} />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={playButtonLabel}
-              disabled={isDisabled}
-              hitSlop={10}
-              onPress={() => {
-                setShowRates(false);
-                onTogglePlay();
-              }}
-              style={[styles.mainPlayButton, isDisabled ? styles.disabledControl : null]}>
-              {isPlaying ? (
-                <View style={styles.pauseGlyphLarge}>
-                  <View style={styles.pauseBarLarge} />
-                  <View style={styles.pauseBarLarge} />
-                </View>
-              ) : (
-                <View style={styles.playGlyphLarge} />
-              )}
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Forward 10 seconds"
-              disabled={isDisabled}
-              onPress={() => {
-                setShowRates(false);
-                onSkip(10000);
-              }}
-              style={[styles.skipButton, isDisabled ? styles.disabledControl : null]}>
-              <MaterialIcons name="forward-10" size={34} color={theme.colors.text} />
-            </Pressable>
 
             {usesFloatingRateMenu && showRateControl ? (
               <View style={styles.rateControlsWrapAndroid}>
@@ -507,7 +438,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   handle: {
-    width: 42,
+    width: 86,
     height: 5,
     borderRadius: 999,
     backgroundColor: '#D0D0D0',
@@ -515,8 +446,8 @@ const styles = StyleSheet.create({
   expandedWrap: {
     backgroundColor: theme.colors.surface,
     gap: 8,
-    paddingHorizontal: 10,
-    paddingBottom: 6,
+    paddingHorizontal: 24,
+    paddingBottom: 10,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -526,44 +457,34 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
-  expandedTopRow: {
+  expandedWrapNarrow: {
+    paddingHorizontal: 14,
+  },
+  playerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  copyBlock: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-    paddingHorizontal: 4,
-  },
-  copyBlockRateMenuOpenAndroid: {
-    paddingRight: RATE_MENU_WIDTH + 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
   trackTitle: {
-    flexShrink: 1,
+    position: 'absolute',
+    left: 0,
+    maxWidth: '24%',
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: theme.typography.weights.bold,
-  },
-  trackSubtitle: {
-    color: theme.colors.mutedText,
     fontSize: 12,
-    lineHeight: 15,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
   },
   rateControlsWrapAndroid: {
     position: 'absolute',
     right: 0,
-    top: 4,
-    height: 42,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ratePillAndroid: {
-    width: 44,
-    height: 36,
+    width: 68,
+    height: 30,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -583,67 +504,23 @@ const styles = StyleSheet.create({
   collapsedRow: {
     backgroundColor: theme.colors.surface,
     width: '100%',
-    paddingHorizontal: 10,
     paddingBottom: 6,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-  },
-  collapsedRowPressable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingTop: 3,
-    paddingBottom: 5,
-  },
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: theme.colors.accent,
-  },
-  collapsedTitle: {
-    flex: 1,
-    color: theme.colors.text,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: theme.typography.weights.bold,
-  },
-  collapsedActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  collapsedPlayButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playButtonInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 18,
-    paddingTop: 4,
+    gap: 8,
   },
   skipButton: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainPlayButton: {
-    width: 42,
-    height: 42,
+    width: 46,
+    height: 46,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -651,38 +528,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playGlyph: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderLeftWidth: 8,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: theme.colors.surface,
-    marginLeft: 1,
-  },
   playGlyphLarge: {
     width: 0,
     height: 0,
-    borderTopWidth: 7,
-    borderBottomWidth: 7,
-    borderLeftWidth: 11,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 15,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
     borderLeftColor: theme.colors.surface,
-    marginLeft: 2,
-  },
-  pauseGlyph: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  pauseBar: {
-    width: 3,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: theme.colors.surface,
+    marginLeft: 4,
   },
   pauseGlyphLarge: {
     flexDirection: 'row',
@@ -696,10 +551,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   progressTrack: {
-    height: 4,
+    height: 8,
     borderRadius: 999,
     overflow: 'hidden',
-    marginTop: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginTop: 2,
   },
   progressTrackBase: {
     ...StyleSheet.absoluteFillObject,

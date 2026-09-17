@@ -12,6 +12,7 @@ import pathwayExerciseBankImage from '@/assets/images/my-pathway-exercise-bank.p
 import pathwayNextLessonImage from '@/assets/images/my-pathway-next-lesson.png';
 import pathwayProgressImage from '@/assets/images/my-pathway-progress.png';
 import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
 import { resolveLocalLessonHeaderImage } from '@/src/assets/lesson-header-images';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
@@ -40,7 +41,7 @@ type LessonCopyProps = { title: string; focus: string; language: UiLanguage };
 function MeasuredLessonCopy({ title, focus, language, width }: LessonCopyProps & { width: number }) {
   const [fontSize, setFontSize] = useState(24);
   const [fits, setFits] = useState(false);
-  const focusFontSize = Math.min(14, Math.max(1, fontSize - 2), fontSize * 0.85);
+  const focusFontSize = Math.min(13, Math.max(1, fontSize - 2), fontSize * 0.85);
   const titleStyle = {
     width,
     fontSize,
@@ -79,7 +80,14 @@ function MeasuredLessonCopy({ title, focus, language, width }: LessonCopyProps &
           variant="muted"
           numberOfLines={2}
           ellipsizeMode="tail"
-          style={[styles.resumeFocus, { fontSize: focusFontSize, lineHeight: Math.ceil(focusFontSize * 19 / 14) }]}>
+          style={[
+            styles.resumeFocus,
+            {
+              fontSize: focusFontSize,
+              lineHeight: Math.ceil(focusFontSize * 18 / 13),
+              fontFamily: theme.typography.fontFaces[language].semibold,
+            },
+          ]}>
           {focus}
         </AppText>
       ) : null}
@@ -334,7 +342,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
   const copy = getCopy(uiLanguage);
-  const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
+  const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'TH';
   const {
     allLessons,
     completedLessons,
@@ -368,6 +376,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   const shouldShowFirstNoNameWelcome = !showGuestUi && !hasDisplayName && !hasSeenNoNameWelcome;
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
+  const isPailinAccount = user?.email?.trim().toLowerCase() === 'pailinabroad@gmail.com';
 
   const freePathway = useMemo(
     () => getFreePathwaySummary(pathwayRows, freeLessonIds, defaultResumeRow),
@@ -515,6 +524,8 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                   <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
                     {showGuestUi ? (
                       <Image source={pailinBlueCircleRight} style={styles.avatar} resizeMode="cover" />
+                    ) : isPailinAccount ? (
+                      <Image source={pailinBlueCircle} style={styles.avatar} resizeMode="cover" />
                     ) : avatarSource ? (
                       <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
                     ) : (
@@ -579,12 +590,11 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                             accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
                             onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
                             style={styles.languagePill}>
-                            <AppText
-                              language={uiLanguage === 'th' ? 'en' : 'th'}
-                              variant="caption"
-                              style={styles.languagePillText}>
-                              {pathwayToggleLabel}
-                            </AppText>
+                            <View style={styles.languagePillLabel}>
+                              <AppText language="en" variant="caption" style={styles.languagePillText}>
+                                {pathwayToggleLabel}
+                              </AppText>
+                            </View>
                           </Pressable>
                         </View>
                       </View>
@@ -618,7 +628,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                         <Button language={uiLanguage} title={copy.becomeMember} onPress={handleUpgrade} style={styles.resumeButton} textStyle={styles.ctaText} />
                       </Stack>
                     ) : resumeRow ? (
-                      <Stack gap="lg">
+                      <Stack gap="md">
                         <View style={styles.lessonMain}>
                           <View style={styles.resumeTextGroup}>
                             <AppText language={uiLanguage} variant="caption" style={styles.lessonNumber}>{copy.lesson} {getLessonNumber(resumeRow.lesson)}</AppText>
@@ -834,18 +844,18 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   headerTitle: {
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: theme.typography.weights.bold,
   },
   headerTitleThai: {
-    fontSize: 21,
-    lineHeight: 26,
+    fontSize: 19,
+    lineHeight: 24,
   },
   headerName: {
     marginTop: -2,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
   },
@@ -854,8 +864,8 @@ const styles = StyleSheet.create({
   },
   headerNoNameReturning: {
     marginTop: 6,
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 25,
+    lineHeight: 29,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
   },
@@ -864,29 +874,37 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   languagePill: {
-    minWidth: 78,
-    minHeight: 42,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: '#91CAFF',
+    minWidth: 48,
+    height: 24,
+    minHeight: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md + 2,
-    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
   },
   languagePillWrap: {
     position: 'relative',
   },
+  languagePillLabel: {
+    minWidth: 22,
+    minHeight: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: 1 }],
+  },
   languagePillText: {
     color: theme.colors.text,
-    fontSize: 15,
-    lineHeight: 15,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: theme.typography.fontFaces.en.medium,
+    fontWeight: theme.typography.weights.medium,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
-    transform: [{ translateY: 1 }],
   },
   guestOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -949,8 +967,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8
   },
   sectionIcon: {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
   },
   sectionEyebrow: {
     fontSize: 10,
@@ -963,6 +981,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAF4FF',
     borderRadius: 5,
     padding: 18,
+    paddingTop: 12,
   },
   lessonMain: {
     flexDirection: 'row',
@@ -1060,15 +1079,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap'
   },
   stageText: {
-    fontSize: 11,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 18,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontFamily: theme.typography.fontFaces.en.semibold
   },
   progressSummary: {
-    fontSize: 10,
-    lineHeight: 16
+    fontSize: 11,
+    lineHeight: 17
   },
   progressTrack: {
     height: 8,
@@ -1094,21 +1113,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 3,
-    minHeight: 50,
+    minHeight: 54,
     borderWidth: 1,
     borderColor: '#DEDEDE',
     borderRadius: 5,
     padding: 7
   },
   statValue: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 24,
+    lineHeight: 30,
     fontFamily: theme.typography.fontFaces.en.semibold
   },
   statLabelGroup: { flexShrink: 1 },
   statLabel: {
-    fontSize: 10,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 17,
     color: '#666666',
     textAlign: 'right'
   },
@@ -1118,8 +1137,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   detailsLink: {
-    fontSize: 9,
-    lineHeight: 15,
+    fontSize: 10,
+    lineHeight: 16,
     color: '#666666',
     textTransform: 'uppercase',
     textDecorationLine: 'underline'

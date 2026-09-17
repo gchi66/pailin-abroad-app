@@ -26,7 +26,7 @@ import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioMetadata } from 'expo-audio';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, ReduceMotion, ZoomIn, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -57,6 +57,7 @@ import {
 import { checkInDailyStreak, fetchUserCompletedLessons, upsertLessonCompletion } from '@/src/api/user';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { LessonListenPage } from '@/src/components/lesson/LessonListenPage';
+import { LessonRichSectionIntro } from '@/src/components/lesson/LessonRichSectionIntro';
 import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
 import { PhraseTextLane } from '@/src/components/lesson/PhraseTextLane';
 import { AppText } from '@/src/components/ui/AppText';
@@ -1059,8 +1060,8 @@ const MASTER_ORDER = [
   'understand',
   'extra_tip',
   'common_mistake',
-  'phrases_verbs',
   'culture_note',
+  'phrases_verbs',
   'practice',
 ] as const;
 
@@ -3377,6 +3378,7 @@ export default function LessonDetailShellScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [dismissedRichSectionIntros, setDismissedRichSectionIntros] = useState<Record<string, boolean>>({});
   const [maxVisitedSectionIndex, setMaxVisitedSectionIndex] = useState(0);
   const [showOverview, setShowOverview] = useState(params.overview === '1');
   useEffect(() => { setShowOverview(params.overview === '1'); }, [lessonId, params.overview]);
@@ -3953,6 +3955,8 @@ export default function LessonDetailShellScreen() {
     setIsLoading(true);
     setErrorMessage(null);
     setActiveSectionIndex(0);
+    setDismissedRichSectionIntros({});
+    setAudioTrayAutoExpandSignal(null);
     setMaxVisitedSectionIndex(0);
     setIsMenuOpen(false);
     setHasStartedLesson(false);
@@ -4501,6 +4505,20 @@ export default function LessonDetailShellScreen() {
   }, [contentLang, isLessonReady, lessonId, sectionCount]);
   const isLastSection = activeSectionIndex >= sectionCount - 1;
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
+  const activeRichIntroType =
+    activeTab?.type === 'understand' ||
+    activeTab?.type === 'extra_tip' ||
+    activeTab?.type === 'common_mistake' ||
+    activeTab?.type === 'culture_note'
+      ? activeTab.type
+      : null;
+  const isRichIntroPending =
+    hasStartedLesson &&
+    !isLockedLesson &&
+    !!activeRichIntroType &&
+    !!activeTab &&
+    !dismissedRichSectionIntros[activeTab.id];
+  const shouldShowRichIntro = isRichIntroPending && !showOverview;
   const hasPracticePagerCards = isPracticeTab && normalizedPracticeExercises.length > 0;
   const isInnerPagerTab = isRichPagerTab || hasPracticePagerCards;
   const activeInnerCardIndex = isPracticeTab
@@ -4854,6 +4872,7 @@ export default function LessonDetailShellScreen() {
     }
 
     const clampedTargetIndex = Math.max(0, Math.min(targetIndex, sectionCount - 1));
+    setAudioTrayAutoExpandSignal(null);
     if (isConversationIntroVisible || isConversationIntroAnimatingOut) {
       setIsConversationIntroVisible(false);
       setIsConversationIntroAnimatingOut(false);
@@ -5511,20 +5530,20 @@ export default function LessonDetailShellScreen() {
   }, [activePracticeCardIndex, activeTab?.id, activeUnderstandGroupIndex, contentLang, isInnerPagerTab]);
 
   useEffect(() => {
-    if (!hasStartedLesson || isLockedLesson || !activePageKey) {
+    if (!hasStartedLesson || isLockedLesson || !activePageKey || isRichIntroPending) {
       return;
     }
 
     void writeProgressUnit('page', activePageKey, null);
-  }, [activePageKey, hasStartedLesson, isLockedLesson, writeProgressUnit]);
+  }, [activePageKey, hasStartedLesson, isLockedLesson, isRichIntroPending, writeProgressUnit]);
 
   useEffect(() => {
-    if (!hasStartedLesson || isLockedLesson || !currentCardUnitKey || !activePageKey) {
+    if (!hasStartedLesson || isLockedLesson || !currentCardUnitKey || !activePageKey || isRichIntroPending) {
       return;
     }
 
     void writeProgressUnit('card', currentCardUnitKey, activePageKey);
-  }, [activePageKey, currentCardUnitKey, hasStartedLesson, isLockedLesson, writeProgressUnit]);
+  }, [activePageKey, currentCardUnitKey, hasStartedLesson, isLockedLesson, isRichIntroPending, writeProgressUnit]);
 
   useEffect(() => {
     richPagerTranslateX.value = 0;
@@ -11533,7 +11552,9 @@ const mergeAdjacentPracticeRowTokens = (
                   ) : null}
 
                   {evaluationCorrect !== null ? (
-                    <View style={styles.practiceFeedbackBox}>
+                    <Animated.View
+                      entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
+                      style={styles.practiceFeedbackBox}>
                       <View style={styles.practiceFeedbackRow}>
                         <AppText
                           language={pageLanguage}
@@ -11559,7 +11580,7 @@ const mergeAdjacentPracticeRowTokens = (
                           {contentLang === 'th' ? evaluation.feedbackTh || evaluation.feedbackEn : evaluation.feedbackEn || evaluation.feedbackTh}
                         </AppText>
                       ) : null}
-                    </View>
+                    </Animated.View>
                   ) : null}
                 </View>
               );
@@ -12012,7 +12033,9 @@ const mergeAdjacentPracticeRowTokens = (
                   ) : null}
 
                   {!item.isExample && evaluationCorrect !== null && isExerciseChecked ? (
-                    <View style={styles.practiceFeedbackBox}>
+                    <Animated.View
+                      entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
+                      style={styles.practiceFeedbackBox}>
                       <View style={styles.practiceFeedbackRow}>
                         <AppText
                           language={pageLanguage}
@@ -12038,7 +12061,7 @@ const mergeAdjacentPracticeRowTokens = (
                           {contentLang === 'th' ? evaluation.feedbackTh || evaluation.feedbackEn : evaluation.feedbackEn || evaluation.feedbackTh}
                         </AppText>
                       ) : null}
-                    </View>
+                    </Animated.View>
                   ) : null}
                 </View>
               );
@@ -12528,6 +12551,7 @@ const mergeAdjacentPracticeRowTokens = (
             return { id: tab.id, type: tab.type, index, complete: units.length > 0 && units.every(unit => writtenAppProgressUnitKeysRef.current.has(unit.unit_key)) };
           })}
           onSection={(index) => {
+            setAudioTrayAutoExpandSignal(null);
             if (!hasStartedLesson) {
               openLessonAtResume();
               // The explicit selection takes precedence over the saved section.
@@ -13335,7 +13359,9 @@ const mergeAdjacentPracticeRowTokens = (
                           </View>
 
                           {showApplyResponse && (normalizedApply.responseNodes.length || normalizedApply.responseText) ? (
-                            <View style={styles.applyExampleAnswer}>
+                            <Animated.View
+                              entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
+                              style={styles.applyExampleAnswer}>
                               <AppText language={pageLanguage} style={styles.applyExampleAnswerLabel}>
                                 {pageLanguage === 'th' ? 'ตัวอย่างคำตอบ' : 'EXAMPLE ANSWER'}
                               </AppText>
@@ -13348,7 +13374,7 @@ const mergeAdjacentPracticeRowTokens = (
                                   {normalizedApply.responseText}
                                 </AppText>
                               )}
-                            </View>
+                            </Animated.View>
                           ) : null}
 
                           <Pressable
@@ -13685,6 +13711,7 @@ const mergeAdjacentPracticeRowTokens = (
                       <LessonAudioTray
                         language={pageLanguage}
                         title={audioTrayTitle}
+                        lessonLabel={studyLessonLabel}
                         subtitle={audioTraySubtitle}
                         statusLabel={audioTrayStatusLabel}
                         autoCollapseSignal={audioTrayAutoCollapseSignal}
@@ -13725,7 +13752,8 @@ const mergeAdjacentPracticeRowTokens = (
 
                     {isComprehensionTab && isCurrentComprehensionChecked && !showComprehensionResults ? (
                       <View style={styles.comprehensionFeedbackRow}>
-                        <View
+                        <Animated.View
+                          entering={ZoomIn.duration(180).reduceMotion(ReduceMotion.System)}
                           style={[
                             styles.comprehensionFeedbackIcon,
                             isCurrentComprehensionCorrect
@@ -13735,7 +13763,7 @@ const mergeAdjacentPracticeRowTokens = (
                           <AppText language="en" style={styles.comprehensionFeedbackIconText}>
                             {isCurrentComprehensionCorrect ? '✓' : 'X'}
                           </AppText>
-                        </View>
+                        </Animated.View>
                         <AppText
                           language={pageLanguage}
                           style={[
@@ -13946,6 +13974,7 @@ const mergeAdjacentPracticeRowTokens = (
                         bottomInset={Math.max(insets.bottom, 10)}
                         language={pageLanguage}
                         title={audioTrayTitle}
+                        lessonLabel={studyLessonLabel}
                         subtitle={audioTraySubtitle}
                         statusLabel={audioTrayStatusLabel}
                         autoCollapseSignal={audioTrayAutoCollapseSignal}
@@ -13965,6 +13994,23 @@ const mergeAdjacentPracticeRowTokens = (
                   </View>
                 </View>
               </GestureDetector>
+              {shouldShowRichIntro && activeRichIntroType && activeTab ? (
+                <LessonRichSectionIntro
+                  sectionType={activeRichIntroType}
+                  language={pageLanguage}
+                  topInset={insets.top}
+                  bottomInset={insets.bottom}
+                  onContinue={() => {
+                    setDismissedRichSectionIntros((previous) => ({ ...previous, [activeTab.id]: true }));
+                  }}
+                  onClose={() => {
+                    pauseConversationAudio();
+                    snippetSoundRef.current?.pause();
+                    setPlayingSnippetKey(null);
+                    setShowOverview(true);
+                  }}
+                />
+              ) : null}
             </View>
           )}
         </View>
@@ -18021,6 +18067,8 @@ const styles = StyleSheet.create({
   },
   ctaButtonPressed: {
     opacity: 0.9,
+    transform: [{ translateX: 2 }, { translateY: 2 }],
+    boxShadow: `1px 1px 0px ${theme.colors.shadow}`,
   },
   ctaButtonDisabled: {
     opacity: 0.55,

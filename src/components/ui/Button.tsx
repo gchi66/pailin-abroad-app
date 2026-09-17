@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Pressable,
   PressableProps,
@@ -7,6 +7,7 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
+import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { theme } from '../../theme/theme';
 import { AppText } from './AppText';
@@ -43,6 +44,8 @@ const textVariantStyles: Record<ButtonVariant, TextStyle> = {
   },
 };
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export function Button({
   title,
   leadingIcon,
@@ -52,25 +55,51 @@ export function Button({
   style,
   disabledStyle,
   textStyle,
+  onPressIn,
+  onPressOut,
   ...rest
 }: ButtonProps) {
-  const resolvedBaseStyle = StyleSheet.flatten([styles.base, variantStyles[variant], style]);
+  const [pressed, setPressed] = useState(false);
+  const pressProgress = useSharedValue(0);
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: pressProgress.value * 2 },
+      { translateY: pressProgress.value * 2 },
+      { scale: 1 - pressProgress.value * 0.015 },
+    ],
+  }));
+  const resolvedBaseStyle = StyleSheet.flatten([styles.base, variantStyles[variant], style]) as ViewStyle;
+  const pressedShadow = typeof resolvedBaseStyle.boxShadow === 'string'
+    ? resolvedBaseStyle.boxShadow.replace(/^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/, '1px 1px')
+    : null;
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       disabled={disabled}
-      style={({ pressed }) => [
+      onPressIn={(event) => {
+        setPressed(true);
+        pressProgress.value = withTiming(1, { duration: 90, reduceMotion: ReduceMotion.System });
+        onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        setPressed(false);
+        pressProgress.value = withSpring(0, { stiffness: 350, damping: 24, reduceMotion: ReduceMotion.System });
+        onPressOut?.(event);
+      }}
+      style={[
         resolvedBaseStyle,
+        pressed && !disabled && pressedShadow ? { boxShadow: pressedShadow } : null,
         pressed && !disabled ? styles.pressed : null,
         disabled ? [styles.disabled, disabledStyle] : null,
+        pressStyle,
       ]}
       {...rest}>
       {leadingIcon}
       <AppText language={language} variant="caption" style={[styles.label, textVariantStyles[variant], textStyle]}>
         {title}
       </AppText>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

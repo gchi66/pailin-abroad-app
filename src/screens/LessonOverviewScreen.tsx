@@ -23,7 +23,7 @@ type Props = {
 };
 const groups = [
   { en: 'THE CONVERSATION', th: 'บทสนทนา', types: ['prepare', 'listen', 'comprehension', 'transcript', 'apply'] },
-  { en: 'LEARN', th: 'เรียนรู้', types: ['understand', 'extra_tip', 'common_mistake', 'phrases_verbs', 'culture_note'] },
+  { en: 'LEARN', th: 'เรียนรู้', types: ['understand', 'extra_tip', 'common_mistake', 'culture_note', 'phrases_verbs'] },
   { en: 'PRACTICE', th: 'ฝึกฝน', types: ['practice', 'speaking'] },
   { en: 'CONNECT', th: 'เชื่อมต่อ', types: ['discussion'] },
 ];
