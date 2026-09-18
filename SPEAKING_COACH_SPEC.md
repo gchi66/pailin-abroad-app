@@ -367,7 +367,7 @@ Objective authored language requirements also receive deterministic validation. 
 
 Each catalog match has separate internal `evidence_score` and `priority_score` values from 0–100. Evidence strength comes only from the current Azure response and contextual alignment; catalog prevalence never increases it. Priority adds authored `FOCUS` and the catalog's pedagogical weight only after evidence is sufficient. Scores, pattern IDs, phoneme candidates, syllables, offsets, and durations remain in admin diagnostics and are not exposed as a learner grade. Learner-facing feedback remains word-level.
 
-Low recognition confidence still blocks Gemini, but a strongly supported acoustic finding may produce a pronunciation-only retry. Otherwise it produces `unclear_audio`. For a scored open answer, the learner-facing response includes Azure's best-effort transcript and the UI displays it beneath `Your answer:`. Unclear open answers and all translation answers continue to omit the transcript. Open-answer corrections are labeled **A clearer version** rather than **Corrected answer**; pronunciation and translation retain their existing correction-label presentation.
+Low recognition confidence still blocks Gemini, but a strongly supported acoustic finding may produce a pronunciation-only retry. Otherwise it produces `unclear_audio`. For a scored open answer, the learner-facing response includes Azure's best-effort transcript and the UI displays it beneath `Your Audio`. Unclear open answers and all translation answers continue to omit the transcript. Open-answer corrections are labeled **A clearer version** rather than **Corrected answer**; pronunciation and translation retain their existing correction-label presentation.
 
 ### Translation
 
@@ -864,7 +864,7 @@ Conversation Practice reuses the shared progress, recording, review, two-attempt
 - After evaluation, the prompt card may collapse the translation and tip to save vertical space. `MORE ↓` and `LESS ↑` let the learner reveal or hide those details.
 - The recording panel is labeled `RESPOND TO THE QUESTION` on the first attempt and `TRY AGAIN!` for a retry.
 - `SHOW EXAMPLE ANSWER` reveals the first authored English example and its Thai translation when available; `HIDE` collapses it again.
-- The learner feedback card labels the playback control `Your answer:` and displays Azure's best-effort recognized transcript beneath it when the answer was confidently scored. If an unclear result has no transcript, show `We couldn’t confidently transcribe this recording.` If another response has no transcript, show `Transcript unavailable.` The recorded-answer playback remains available in every case.
+- The learner feedback card labels the playback control `Your Audio` and displays Azure's best-effort recognized transcript beneath it when the answer was confidently scored. If an unclear result has no transcript, show `We couldn’t confidently transcribe this recording.` If another response has no transcript, show `Transcript unavailable.` The recorded-answer playback remains available in every case.
 - Feedback copy comes from the evaluator. When `displayed_issues` are present, show every returned issue rather than truncating the list.
 
 #### States

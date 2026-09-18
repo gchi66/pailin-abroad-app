@@ -8,6 +8,8 @@ import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { useUiLanguage } from '@/src/context/ui-language-context';
+import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
 const VALID_LEVELS = new Set([1, 2, 5, 6, 9]);
@@ -20,6 +22,7 @@ const getLevelStageLabel = (level: number) => {
 
 export function ChooseLevelResultScreen() {
   const router = useRouter();
+  const { uiLanguage } = useUiLanguage();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ level?: string | string[] }>();
   const [lessonId, setLessonId] = useState<string | null>(null);
@@ -82,25 +85,29 @@ export function ChooseLevelResultScreen() {
             <View style={styles.card}>
               <Image source={placementTestPailinThumbsUp} style={styles.pailinImage} resizeMode="contain" />
 
-              <AppText language="th" variant="muted" style={styles.eyebrow}>
-                จุดเริ่มต้นของคุณ
+              <AppText language={uiLanguage} variant="muted" style={styles.eyebrow}>
+                {uiLanguage === 'en' ? 'YOUR STARTING POINT' : 'จุดเริ่มต้นของคุณ'}
               </AppText>
-              <AppText language="th" variant="title" style={styles.levelTitle}>
-                ระดับ {level}
+              <AppText language={uiLanguage} variant="title" style={styles.levelTitle}>
+                {uiLanguage === 'en' ? `Level ${level}` : `ระดับ ${level}`}
               </AppText>
-              <AppText language="th" variant="body" style={styles.levelSubtitle}>
-                {getLevelStageLabel(level)}
+              <AppText language={uiLanguage} variant="body" style={styles.levelSubtitle}>
+                {uiLanguage === 'en'
+                  ? level <= 4 ? 'BEGINNER' : level <= 8 ? 'INTERMEDIATE' : 'ADVANCED'
+                  : getLevelStageLabel(level)}
               </AppText>
 
-              <AppText language="th" variant="body" style={styles.primer}>
-                {'ไพลินเพิ่งย้ายจากกรุงเทพฯ มาอยู่อินล็อก\nที่สวอนสวรรค์! ตอนนี้เธออยู่ที่งานปฐมนิเทศ\nของโรงเรียน ซึ่งเป็นสถานที่ที่เธอจะได้\nเจอเพื่อนนักเรียนแลกเปลี่ยนมากมาย!'}
+              <AppText language={uiLanguage} variant="body" style={styles.primer}>
+                {uiLanguage === 'en'
+                  ? 'Pailin will explore Los Angeles with her new friend Chloe! They have a week before school starts.'
+                  : 'ไพลินเพิ่งย้ายจากกรุงเทพฯ มาอยู่อินล็อก ที่สวอนสวรรค์! ตอนนี้เธออยู่ที่งานปฐมนิเทศของโรงเรียน ซึ่งเป็นสถานที่ที่เธอจะได้เจอเพื่อนนักเรียนแลกเปลี่ยนมากมาย!'}
               </AppText>
 
               <View style={styles.buttonWrap}>
                 <View pointerEvents="none" style={[styles.buttonShadow, isPressed ? styles.shadowPressed : null]} />
                 <Button
-                  language="th"
-                  title={isLoading ? 'กำลังโหลด...' : 'เริ่มบทเรียนแรกของคุณ!'}
+                  language={uiLanguage}
+                  title={isLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON!' : 'เริ่มบทเรียนแรกของคุณ!')}
                   disabled={isLoading || !lessonId}
                   disabledStyle={styles.buttonDisabledOpacity}
                   onPress={openLesson}
@@ -177,15 +184,17 @@ const styles = StyleSheet.create({
   },
   levelTitle: {
     marginTop: 2,
-    color: '#8AC832',
+    color: placementColors.level,
     fontSize: 40,
     lineHeight: 50,
-    fontFamily: theme.typography.fontFaces.th.bold,
     fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
+    textShadowColor: theme.colors.shadow,
+    textShadowOffset: { width: 2, height: 3 },
+    textShadowRadius: 0,
   },
   levelSubtitle: {
-    color: '#8AC832',
+    color: placementColors.level,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -215,7 +224,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: placementColors.blue,
   },
   buttonPressed: {
     transform: [{ translateX: 4 }, { translateY: 5 }],

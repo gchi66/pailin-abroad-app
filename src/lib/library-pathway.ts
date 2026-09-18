@@ -20,7 +20,7 @@ export function freeLibraryIds(lessons: LessonListItem[]) {
   return new Set([...first.values()].map((lesson) => lesson.id));
 }
 
-// Temporary display copy only; replace with bilingual short-focus fields when supplied.
+// Temporary fallback for cards until their database short-focus fields are filled.
 const SHORT_FOCUS: Record<string, { en: string; th: string }> = {
   '5.1': { en: 'there is · there are', th: 'การใช้ there is · there are' },
   '5.2': { en: 'can · could', th: 'การใช้ can · could' },
@@ -34,7 +34,8 @@ const SHORT_FOCUS: Record<string, { en: string; th: string }> = {
 };
 
 export function shortLessonFocus(lesson: LessonListItem, language: 'en' | 'th') {
-  return SHORT_FOCUS[lessonNumber(lesson)]?.[language]
+  return (language === 'th' ? lesson.focus_short_th?.trim() : lesson.focus_short?.trim())
+    || SHORT_FOCUS[lessonNumber(lesson)]?.[language]
     || (language === 'th' ? lesson.focus_th?.trim() || lesson.focus?.trim() : lesson.focus?.trim() || lesson.focus_th?.trim())
     || '';
 }

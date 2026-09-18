@@ -8,6 +8,7 @@ import { PlacementTestIntroCard } from '@/src/components/placement-test/Placemen
 import { AppText } from '@/src/components/ui/AppText';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
+import { useUiLanguage } from '@/src/context/ui-language-context';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
 
@@ -17,6 +18,7 @@ export function PlacementEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isGuestMode, profile, user } = useAppSession();
+  const { uiLanguage } = useUiLanguage();
   const isGuest = isGuestMode && !user?.id;
   const displayName =
     (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
@@ -43,18 +45,18 @@ export function PlacementEntryScreen() {
               <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
               <View style={styles.headerCopy}>
                 <View style={styles.welcomeRow}>
-                  <AppText language="th" variant="title" style={styles.welcomeText}>
-                    {isGuest ? 'สวัสดีค่ะ!' : `ยินดีต้อนรับ${firstName ? ',' : '!'}`}
+                  <AppText language={uiLanguage} variant="title" style={styles.welcomeText}>
+                    {uiLanguage === 'en'
+                      ? `Welcome${firstName && !isGuest ? `, ${firstName}` : ''}!`
+                      : `ยินดีต้อนรับ${firstName && !isGuest ? `, ${firstName}` : ''}!`}
                   </AppText>
-                  {firstName && !isGuest ? (
-                    <AppText language="th" variant="title" style={styles.nameText}>
-                      {` ${firstName}!`}
-                    </AppText>
-                  ) : null}
                 </View>
                 <AppText language="th" variant="body" style={styles.subheader}>
                   พร้อมเรียนภาษาอังกฤษกับไพลินไหม?
                 </AppText>
+              </View>
+              <View style={styles.languagePill}>
+                <AppText language="en" variant="caption" style={styles.languagePillText}>TH</AppText>
               </View>
             </View>
           </ResponsivePageShell>
@@ -74,15 +76,16 @@ export function PlacementEntryScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { flexGrow: 1, backgroundColor: theme.colors.background },
-  headerBorder: { borderBottomWidth: 1.5, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  headerShell: { paddingHorizontal: theme.spacing.md, paddingVertical: 14 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: theme.colors.accent },
+  headerBorder: { borderBottomWidth: 1, borderBottomColor: '#E3E5E8', backgroundColor: theme.colors.surface },
+  headerShell: { paddingHorizontal: theme.spacing.md, paddingVertical: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: '#D9F1FA' },
   headerCopy: { flex: 1, gap: 1 },
   welcomeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' },
-  welcomeText: { fontSize: 22, lineHeight: 28, fontWeight: theme.typography.weights.bold },
-  nameText: { fontSize: 22, lineHeight: 28, color: theme.colors.accent, fontWeight: theme.typography.weights.bold },
-  subheader: { fontSize: 14, lineHeight: 20 },
+  welcomeText: { fontSize: 20, lineHeight: 26, fontWeight: theme.typography.weights.bold },
+  subheader: { fontSize: 13, lineHeight: 19 },
+  languagePill: { minWidth: 38, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#D5D9DE', borderRadius: 999, alignItems: 'center', alignSelf: 'flex-start' },
+  languagePillText: { fontSize: 10, lineHeight: 13 },
   cardShell: {
     flex: 1,
     width: '100%',

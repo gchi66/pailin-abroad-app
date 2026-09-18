@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
 type PlacementTestIntroCardProps = {
@@ -19,26 +20,26 @@ export function PlacementTestIntroCard({ onChooseManually, onStart }: PlacementT
       <View pointerEvents="none" style={styles.cardShadow} />
       <View style={styles.card}>
         <AppText language="th" variant="title" style={styles.title}>
-          มาค้นหาระดับของคุณกัน!
+          มาวัดระดับภาษาอังกฤษคุณกัน!
         </AppText>
         <AppText language="th" variant="body" style={styles.body}>
           ทำแบบทดสอบวัดระดับสั้น ๆ เพื่อค้นหาจุดเริ่มต้นที่เหมาะกับคุณ ใช้เวลาเพียงไม่กี่นาที!
         </AppText>
 
         <View style={styles.instructions}>
-          <View style={[styles.instructionRow, styles.headphonesRow]}>
+          <View style={styles.instructionRow}>
             <MaterialIcons name="headphones" size={23} color={theme.colors.text} />
             <AppText language="th" variant="body" style={styles.instructionText}>
-              เตรียมหูฟังให้พร้อม
+              หยิบหูฟัง
             </AppText>
           </View>
-          <View style={[styles.instructionRow, styles.listenRow]}>
+          <View style={styles.instructionRow}>
             <MaterialIcons name="chat-bubble-outline" size={22} color={theme.colors.text} />
             <AppText language="th" variant="body" style={styles.instructionText}>
               ฟังบทสนทนาสั้น ๆ
             </AppText>
           </View>
-          <View style={[styles.instructionRow, styles.answerRow]}>
+          <View style={styles.instructionRow}>
             <MaterialIcons name="help-outline" size={24} color={theme.colors.text} />
             <AppText language="th" variant="body" style={styles.instructionText}>
               ตอบคำถามสองสามข้อ
@@ -50,7 +51,7 @@ export function PlacementTestIntroCard({ onChooseManually, onStart }: PlacementT
           <View pointerEvents="none" style={[styles.buttonShadow, isStartPressed ? styles.shadowPressed : null]} />
           <Button
             language="th"
-            title="เริ่มทำแบบทดสอบวัดระดับ"
+            title="ทำแบบทดสอบวัดระดับ"
             onPress={onStart}
             onPressIn={() => setIsStartPressed(true)}
             onPressOut={() => setIsStartPressed(false)}
@@ -74,7 +75,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     position: 'relative',
-    transform: [{ translateY: -26 }],
+    transform: [{ translateY: -12 }],
   },
   cardShadow: {
     ...StyleSheet.absoluteFillObject,
@@ -83,17 +84,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.shadow,
   },
   card: {
-    paddingHorizontal: 30,
-    paddingTop: 30,
+    paddingHorizontal: 28,
+    paddingTop: 28,
     paddingBottom: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surface,
   },
   title: {
-    fontSize: 25,
-    lineHeight: 32,
+    fontSize: 23,
+    lineHeight: 30,
     fontWeight: theme.typography.weights.bold,
     letterSpacing: -0.25,
   },
@@ -107,17 +108,15 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   instructionRow: {
-    minHeight: 46,
+    minHeight: 43,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: theme.radii.md,
+    backgroundColor: placementColors.paleLime,
   },
-  headphonesRow: { backgroundColor: '#FFF3BF' },
-  listenRow: { backgroundColor: '#FDE4E7' },
-  answerRow: { backgroundColor: '#E9FBCB' },
   instructionText: {
     flex: 1,
     fontSize: 14,
@@ -143,7 +142,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: placementColors.blue,
   },
   buttonPressed: {
     transform: [{ translateX: 4 }, { translateY: 4 }],

@@ -46,7 +46,6 @@ import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { posthog } from '@/src/config/posthog';
-import { createNeoShadow } from '@/src/theme/shadows';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
 import correctFeedbackSound from '@/assets/audio/speaking-correct.wav';
@@ -1986,7 +1985,12 @@ function SpeakingCoachTestScreen() {
         >
           <View style={styles.conversationPromptEnglishRow}>
             {hasPromptAudio ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Play Pailin's question" onPress={togglePromptAudio}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Play Pailin's question"
+                onPress={togglePromptAudio}
+                style={styles.conversationPromptAudioButton}
+              >
                 <Image
                   source={promptPlayerStatus.playing ? pauseBlueImage : speakerBlueImage}
                   contentFit="contain"
@@ -1995,6 +1999,7 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
             <AppText variant="title" style={styles.conversationPromptEnglish}>{question.prompt_en}</AppText>
+            {hasPromptAudio ? <View style={styles.conversationPromptAudioSpacer} /> : null}
           </View>
           {showConversationDetails ? (
             <>
@@ -2053,7 +2058,7 @@ function SpeakingCoachTestScreen() {
                 />
               </Pressable>
               <View style={styles.conversationLearnerAnswerCopy}>
-                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your Audio</AppText>
                 <AppText
                   variant="caption"
                   style={[
@@ -2620,7 +2625,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 18,
     paddingBottom: 17,
-    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
+    boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
   setProgressHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   setProgressHeadingLine: { flex: 1, height: 2, backgroundColor: '#2563EB' },
@@ -2748,7 +2753,7 @@ const styles = StyleSheet.create({
     paddingTop: 17,
     paddingBottom: 13,
     alignItems: 'center',
-    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
+    boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
   pronunciationSentenceEnglish: {
     fontSize: 19,
@@ -2908,7 +2913,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 14,
     alignItems: 'center',
-    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
+    boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
   conversationPromptCardCollapsed: { minHeight: 0, paddingTop: 14, paddingBottom: 7 },
   conversationPromptCardCollapsedIncorrect: { paddingBottom: 13 },
@@ -2919,9 +2924,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 9,
   },
+  conversationPromptAudioButton: { transform: [{ translateX: 8 }] },
   conversationPromptAudioIcon: { width: 24, height: 24, marginTop: 2 },
+  conversationPromptAudioSpacer: { width: 24 },
   conversationPromptEnglish: {
-    maxWidth: '82%',
+    flex: 1,
     fontSize: 20,
     lineHeight: 28,
     fontWeight: theme.typography.weights.bold,
@@ -2955,7 +2962,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   conversationDetailsButton: { marginTop: 10, paddingHorizontal: 18, paddingVertical: 3 },
-  conversationDetailsButtonCollapsed: { marginTop: 3, paddingVertical: 1 },
+  conversationDetailsButtonCollapsed: { marginTop: 10, paddingVertical: 1 },
   conversationDetailsLabel: {
     color: '#2F6EEA',
     fontSize: 9,
@@ -3051,7 +3058,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    ...createNeoShadow({ color: theme.colors.border, offset: 4 }),
+    boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
   translationPromptThai: {
     fontSize: 25,

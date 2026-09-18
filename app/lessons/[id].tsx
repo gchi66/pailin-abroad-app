@@ -84,13 +84,15 @@ import {
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '@/src/theme/theme';
-import { resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
+import { resolveTranscriptCharacterBlueCircle, resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import comprehensionProgressImage from '@/assets/images/speaking-coach/pailin-good-job.webp';
 import comprehensionPracticeImage from '@/assets/images/pailin-common-mistakes.webp';
 import lockWhiteImage from '@/assets/images/lock-white.png';
 import tryAgainImage from '@/assets/images/try-again.png';
 import transcriptLeftAvatar from '@/assets/images/characters/pailin-blue-right.png';
 import transcriptRightAvatar from '@/assets/images/characters/chloe-friend-blue-left.png';
+import listenLeftAvatar from '@/assets/images/characters/pailin_blue_circle.webp';
+import listenRightAvatar from '@/assets/images/characters/chloe_blue_circle.webp';
 import {
   LessonApplyContent,
   LessonAudioSnippet,
@@ -4346,15 +4348,17 @@ export default function LessonDetailShellScreen() {
   const isComprehensionTab = activeTab?.type === 'comprehension';
   const isTranscriptTab = activeTab?.type === 'transcript';
   const isApplyTab = activeTab?.type === 'apply';
-  const usesDetachedAudioFooter =
-    isComprehensionTab || isTranscriptTab || isApplyTab || activeTab?.type === 'practice';
+  const isPhrasesTab = activeTab?.type === 'phrases_verbs';
+  const isListenPage = isConversationIntroVisible || isConversationIntroAnimatingOut;
   const isUnderstandTab = activeTab?.type === 'understand';
   const isExtraTipTab = activeTab?.type === 'extra_tip';
   const isCommonMistakeTab = activeTab?.type === 'common_mistake';
   const isCultureNoteTab = activeTab?.type === 'culture_note';
   const isPracticeTab = activeTab?.type === 'practice';
-  const isPhrasesTab = activeTab?.type === 'phrases_verbs';
-  const isListenPage = isConversationIntroVisible || isConversationIntroAnimatingOut;
+  const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
+  const usesDetachedAudioFooter =
+    isComprehensionTab || isTranscriptTab || isApplyTab || isPracticeTab ||
+    ((isPhrasesTab || isRichPagerTab) && !isListenPage);
   const iosLessonBodyManualFontScale =
     Platform.OS === 'ios' &&
     fontScale >= IOS_BROKEN_LESSON_FONT_SCALE_MIN &&
@@ -4504,7 +4508,6 @@ export default function LessonDetailShellScreen() {
     });
   }, [contentLang, isLessonReady, lessonId, sectionCount]);
   const isLastSection = activeSectionIndex >= sectionCount - 1;
-  const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
   const activeRichIntroType =
     activeTab?.type === 'understand' ||
     activeTab?.type === 'extra_tip' ||
@@ -4556,16 +4559,11 @@ export default function LessonDetailShellScreen() {
     activeQuickPracticeHasEditableInputs ||
     usesDetachedAudioFooter;
   const isApplyActionLocked = isApplyTab && !showApplyTask;
-  const isUnderstandActionLocked = isUnderstandTab && !isLastPagerCard;
-  const isOtherPagerActionLocked = isInnerPagerTab && !isLastPagerCard && !isUnderstandTab;
-  const isPrimaryActionDisabled =
-    isOtherPagerActionLocked || isUnderstandActionLocked || isApplyActionLocked;
+  const isPrimaryActionDisabled = isApplyActionLocked;
   const explainablePrimaryActionHint =
     isApplyActionLocked
       ? (pageLanguage === 'th' ? 'เปิดโจทย์ก่อนดำเนินการต่อ' : 'Show the task before continuing.')
-      : isUnderstandActionLocked
-        ? pageCopy.understandNextSectionHint
-        : null;
+      : null;
   const getCurrentCardUnitKey = useCallback(() => {
     if (!activeTab?.type || !activePageKey) {
       return null;
@@ -5025,11 +5023,11 @@ export default function LessonDetailShellScreen() {
       const key = line.speaker.trim().toLocaleLowerCase();
       if (!key || seen.has(key)) continue;
 
-      const image = resolveTranscriptCharacterHead(line.speaker, activeLessonNumber);
+      const image = resolveTranscriptCharacterBlueCircle(line.speaker, activeLessonNumber);
       if (image === null) continue;
       speakers.push({
         name: pageLanguage === 'th' ? line.speakerTh || line.speaker : line.speaker,
-        image: image ?? (speakers.length === 0 ? transcriptLeftAvatar : transcriptRightAvatar),
+        image: image ?? (speakers.length === 0 ? listenLeftAvatar : listenRightAvatar),
       });
       seen.add(key);
       if (speakers.length === 2) break;
@@ -5142,8 +5140,15 @@ export default function LessonDetailShellScreen() {
       : isLastSection
         ? pageCopy.finishLesson
         : pageLanguage === 'th'
-            ? 'ส่วนถัดไป →'
-            : 'Next section →';
+            ? 'ส่วนถัดไป'
+            : 'NEXT SECTION';
+  const continueButtonLabel = pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE';
+  const hasMorePhraseCards =
+    isPhrasesTab && !showPhraseList && activePhraseIndex < normalizedLessonPhrases.length - 1;
+  const hasMoreRichPagerCards = isRichPagerTab && !isLastPagerCard;
+  const isFinalPracticeQuestion =
+    activePracticeCardIndex >= normalizedPracticeExercises.length - 1 &&
+    activePracticeQuestionIndex >= activePracticeQuestions.length - 1;
   const isPrimaryActionVisuallyDisabled =
     (!activeTab && sectionCount === 0) ||
     isPrimaryActionDisabled ||
@@ -10507,6 +10512,9 @@ const mergeAdjacentPracticeRowTokens = (
     const tryAgainLabel = pageCopy.tryAgain;
     const continueLabel = pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE';
     const isFocusedPracticeSession = !isInlineQuickPractice && Boolean(visibleItemKey);
+    const focusedEnglishQuestionSize = isFocusedPracticeSession && contentLang === 'en'
+      ? { englishFontSize: 20, englishLineHeight: 28 }
+      : undefined;
     const orderedQuestionTextOptions = {
       enableHighlights: true,
       muteThaiTranslationLines: true,
@@ -10690,7 +10698,7 @@ const mergeAdjacentPracticeRowTokens = (
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
                             {abPromptLayout.aInlines.length
-                              ? renderRichInlines(abPromptLayout.aInlines, `${selectionKey}-ab-a`)
+                              ? renderRichInlines(abPromptLayout.aInlines, `${selectionKey}-ab-a`, focusedEnglishQuestionSize)
                               : renderTextWithBlankRuns(abPromptLayout.aLine, `${selectionKey}-ab-a`, styles.practiceInlineBlank)}
                           </AppText>
                           <AppText
@@ -10703,7 +10711,7 @@ const mergeAdjacentPracticeRowTokens = (
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
                             {abPromptLayout.bInlines.length
-                              ? renderRichInlines(abPromptLayout.bInlines, `${selectionKey}-ab-b`)
+                              ? renderRichInlines(abPromptLayout.bInlines, `${selectionKey}-ab-b`, focusedEnglishQuestionSize)
                               : renderTextWithBlankRuns(abPromptLayout.bLine, `${selectionKey}-ab-b`, styles.practiceInlineBlank)}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
@@ -10732,7 +10740,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                               ]}>
                               {item.textJsonb.length
-                                ? renderRichInlines(item.textJsonb, `${selectionKey}-question`)
+                                ? renderRichInlines(item.textJsonb, `${selectionKey}-question`, focusedEnglishQuestionSize)
                                 : renderTextWithBlankRuns(item.text, `${selectionKey}-question`, styles.practiceInlineBlank)}
                             </AppText>
                           ) : null}
@@ -12156,11 +12164,12 @@ const mergeAdjacentPracticeRowTokens = (
   const shouldStackPagerDots = pagerDotKeys.length > 18;
   const shouldShowBottomPagerDock =
     hasMultiplePagerCards &&
+    !isListenPage &&
     !isFullscreen &&
     (isPracticeTab || isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab) &&
     Boolean(isPracticeTab ? activePracticeExercise : activePagerGroup);
   const shouldShowPhrasePagerDock =
-    isPhrasesTab && !isFullscreen && !showPhraseList && normalizedLessonPhrases.length > 0;
+    isPhrasesTab && !isListenPage && !isFullscreen && !showPhraseList && normalizedLessonPhrases.length > 0;
 
   const renderRichPagerControls = () => (
     <View
@@ -12842,7 +12851,7 @@ const mergeAdjacentPracticeRowTokens = (
                       styles.contentScrollContent,
                       shouldContainLessonContent ? styles.contentScrollContentTablet : null,
                       isFullscreen ? { paddingTop: insets.top + 12 } : null,
-                      usesDetachedAudioFooter
+                      usesDetachedAudioFooter && !shouldShowBottomPagerDock && !shouldShowPhrasePagerDock
                         ? { paddingBottom: detachedAudioFooterHeight + 16 }
                         : null,
                       isKeyboardOpen ? { paddingBottom: lessonKeyboardHeight + 24 } : null,
@@ -13664,13 +13673,16 @@ const mergeAdjacentPracticeRowTokens = (
                   </ScrollView>
 
                   {shouldShowBottomPagerDock ? (
-                    <View style={styles.bottomPagerDock}>
+                    <View style={[
+                      styles.bottomPagerDock,
+                      usesDetachedAudioFooter ? { marginBottom: detachedAudioFooterHeight } : null,
+                    ]}>
                       {renderRichPagerControls()}
                     </View>
                   ) : null}
 
                   {shouldShowPhrasePagerDock ? (
-                    <View style={styles.phrasePagerDock}>
+                    <View style={[styles.phrasePagerDock, { marginBottom: detachedAudioFooterHeight }]}>
                       {renderPhrasePagerControls()}
                     </View>
                   ) : null}
@@ -13810,7 +13822,7 @@ const mergeAdjacentPracticeRowTokens = (
                             styles.comprehensionResultActionButton,
                             pressed ? styles.ctaButtonPressed : null,
                           ]}>
-                          <Image source={tryAgainImage} contentFit="contain" style={styles.tryAgainIcon} />
+                          <Image source={tryAgainImage} contentFit="contain" style={styles.comprehensionResultRetryIcon} />
                           <AppText
                             language={pageLanguage}
                             variant="caption"
@@ -13855,6 +13867,18 @@ const mergeAdjacentPracticeRowTokens = (
                             return;
                           }
 
+                          if (hasMorePhraseCards) {
+                            setActivePhraseIndex((index) => index + 1);
+                            contentScrollRef.current?.scrollTo({ y: 0, animated: true });
+                            return;
+                          }
+
+                          if (hasMoreRichPagerCards) {
+                            handleSetActiveInnerCardIndex(activeInnerCardIndex + 1);
+                            contentScrollRef.current?.scrollTo({ y: 0, animated: true });
+                            return;
+                          }
+
                           if (explainablePrimaryActionHint) {
                             showNextSectionHint(explainablePrimaryActionHint);
                             return;
@@ -13876,25 +13900,13 @@ const mergeAdjacentPracticeRowTokens = (
                           styles.ctaButton,
                           styles.ctaNextButton,
                           styles.ctaNextButtonFull,
-                          isPrepareTab || isListenPage ? styles.prepareCtaButton : null,
-                          isComprehensionTab ? styles.comprehensionPrimaryButton : null,
                           isComprehensionTab && showComprehensionResults &&
                           comprehensionFirstAttemptScore < comprehensionQuestionCount
                             ? styles.comprehensionResultActionButton
                             : null,
-                          isPracticeTab ? styles.comprehensionPrimaryButton : null,
-                          isTranscriptTab ? styles.transcriptCtaButton : null,
-                          isApplyTab ? styles.applyCtaButton : null,
-                          isComprehensionTab && !showComprehensionResults &&
-                          isCurrentComprehensionChecked && isCurrentComprehensionCorrect
-                            ? styles.comprehensionContinueButton
-                            : null,
                           isComprehensionTab && !showComprehensionResults &&
                           isCurrentComprehensionChecked && !isCurrentComprehensionCorrect
                             ? styles.comprehensionTryAgainButton
-                            : null,
-                          isPracticeTab && isCurrentPracticeChecked && isCurrentPracticeCorrect
-                            ? styles.comprehensionContinueButton
                             : null,
                           isPracticeTab && isCurrentPracticeChecked && !isCurrentPracticeCorrect
                             ? styles.comprehensionTryAgainButton
@@ -13913,21 +13925,20 @@ const mergeAdjacentPracticeRowTokens = (
                         <AppText
                           language={pageLanguage}
                           variant="caption"
-                          style={[
-                            styles.ctaNextButtonText,
-                            isComprehensionTab && isCurrentComprehensionChecked && isCurrentComprehensionCorrect
-                              ? styles.comprehensionContinueButtonText
-                              : isPracticeTab && isCurrentPracticeChecked && isCurrentPracticeCorrect
-                                ? styles.comprehensionContinueButtonText
-                              : null,
-                          ]}>
+                          style={styles.ctaNextButtonText}>
                           {isSavingLessonCompletion
                             ? pageCopy.practiceChecking
-                            : isPrepareTab || isListenPage || isTranscriptTab || isApplyTab || (isPhrasesTab && !isLastSection)
-                              ? (pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE')
+                            : isPrepareTab || isListenPage || isTranscriptTab || isApplyTab
+                              ? nextSectionButtonLabel
+                              : isPhrasesTab
+                                ? hasMorePhraseCards ? continueButtonLabel : nextSectionButtonLabel
+                              : isRichPagerTab
+                                ? hasMoreRichPagerCards ? continueButtonLabel : nextSectionButtonLabel
                               : isComprehensionTab
-                                ? showComprehensionResults || isCurrentComprehensionCorrect
-                                  ? (pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE')
+                                ? showComprehensionResults
+                                  ? nextSectionButtonLabel
+                                  : isCurrentComprehensionCorrect
+                                    ? continueButtonLabel
                                   : isCurrentComprehensionChecked
                                     ? (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
                                     : (pageLanguage === 'th' ? 'ตรวจคำตอบ' : 'CHECK ANSWER')
@@ -13936,7 +13947,9 @@ const mergeAdjacentPracticeRowTokens = (
                                   ? pageCopy.practiceChecking
                                   : isCurrentPracticeChecked
                                     ? isCurrentPracticeCorrect
-                                      ? (pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE')
+                                      ? isFinalPracticeQuestion
+                                        ? nextSectionButtonLabel
+                                        : continueButtonLabel
                                       : (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
                                     : (pageLanguage === 'th' ? 'ตรวจคำตอบ' : 'CHECK ANSWER')
                               : nextSectionButtonLabel}
@@ -14451,8 +14464,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     color: theme.colors.text,
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 20,
+    lineHeight: 30,
   },
   prepareHeaderTitleEnglish: {
     fontFamily: theme.typography.fontFaces.en.bold,
@@ -14894,7 +14907,6 @@ const styles = StyleSheet.create({
   },
   phraseFlashcardShadow: {
     borderRadius: 14,
-    backgroundColor: theme.colors.text,
     paddingRight: 5,
     paddingBottom: 5,
   },
@@ -14903,6 +14915,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.text,
     borderRadius: 13,
     backgroundColor: theme.colors.surface,
+    boxShadow: `5px 5px 0px ${theme.colors.shadow}`,
     paddingHorizontal: 15,
     paddingTop: 20,
     paddingBottom: 17,
@@ -17244,9 +17257,13 @@ const styles = StyleSheet.create({
     height: 18,
   },
   comprehensionTryAgainIcon: {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
     tintColor: theme.colors.surface,
+  },
+  comprehensionResultRetryIcon: {
+    width: 14,
+    height: 14,
   },
   comprehensionCheckButton: {
     flex: 1,
@@ -17972,18 +17989,10 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   ctaNextButton: {
-    backgroundColor: theme.colors.accent,
+    minHeight: 44,
+    borderRadius: 24,
+    backgroundColor: '#2563EB',
     ...brutalShadow,
-  },
-  prepareCtaButton: {
-    minHeight: 44,
-    borderRadius: 24,
-    backgroundColor: '#2563EB',
-  },
-  comprehensionPrimaryButton: {
-    minHeight: 44,
-    borderRadius: 24,
-    backgroundColor: '#2563EB',
   },
   comprehensionResultActionButton: {
     flex: 0,
@@ -17995,16 +18004,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     ...brutalShadow,
   },
-  transcriptCtaButton: {
-    minHeight: 44,
-    borderRadius: 24,
-    backgroundColor: '#2563EB',
-  },
-  applyCtaButton: {
-    minHeight: 44,
-    borderRadius: 24,
-    backgroundColor: '#2563EB',
-  },
   comprehensionPrimaryButtonDisabled: {
     backgroundColor: '#E8E8E8',
     borderColor: '#B8B8B8',
@@ -18013,9 +18012,6 @@ const styles = StyleSheet.create({
   },
   comprehensionContinueButton: {
     backgroundColor: '#BDEDFC',
-  },
-  comprehensionContinueButtonText: {
-    color: theme.colors.text,
   },
   comprehensionTryAgainButton: {
     backgroundColor: '#FF5858',

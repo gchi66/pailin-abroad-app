@@ -557,10 +557,10 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                             <AppText
                               language={uiLanguage}
                               variant="title"
-                              style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                              style={styles.headerReturningGreeting}>
                               {`${copy.welcomeBack},`}
                             </AppText>
-                            <AppText language={uiLanguage} variant="title" style={styles.headerName}>
+                            <AppText language={uiLanguage} variant="title" style={styles.headerReturningGreeting}>
                               {`${firstName}!`}
                             </AppText>
                           </>
@@ -856,6 +856,12 @@ const styles = StyleSheet.create({
     marginTop: -2,
     fontSize: 22,
     lineHeight: 26,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  headerReturningGreeting: {
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
   },

@@ -33,6 +33,11 @@ test('search matches English, Thai, numbers, and topic labels independently of U
 test('unknown short labels fall back to the existing localized focus', () => {
   assert.equal(shortLessonFocus({ ...lesson, level: 99 }, 'th'), lesson.focus_th);
 });
+test('reviewed database short labels take priority over temporary and full focus copy', () => {
+  const withShortFocus = { ...lesson, focus_short: 'New English label', focus_short_th: 'ป้ายใหม่' };
+  assert.equal(shortLessonFocus(withShortFocus, 'en'), 'New English label');
+  assert.equal(shortLessonFocus(withShortFocus, 'th'), 'ป้ายใหม่');
+});
 test('the free library uses the first lesson of each stage and level, independent of input order', () => {
   const rows = [{ ...lesson, id: 'second', lesson_order: 2 }, { ...lesson, id: 'first', lesson_order: 1 }, { ...lesson, id: 'other-stage', stage: 'Beginner', lesson_order: 1 }];
   const ids = freeLibraryIds(rows);

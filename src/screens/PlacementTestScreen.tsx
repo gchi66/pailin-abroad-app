@@ -31,6 +31,8 @@ import { Card } from '@/src/components/ui/Card';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
+import { useUiLanguage } from '@/src/context/ui-language-context';
+import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
 const secondsToMillis = (seconds: number) => Math.max(0, seconds * 1000);
@@ -50,6 +52,7 @@ const formatTime = (seconds: number) => {
 
 export function PlacementTestScreen() {
   const router = useRouter();
+  const { uiLanguage } = useUiLanguage();
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<PlacementConversation[]>([]);
   const [conversationOrder, setConversationOrder] = useState(1);
@@ -76,6 +79,11 @@ export function PlacementTestScreen() {
   );
   const audioUrl = conversation ? getPlacementAudioUrl(conversation.audio_path) : null;
   const currentQuestion = conversation?.questions[questionIndex] ?? null;
+  const listeningMessage = conversationOrder === 1
+    ? 'ฟังบทสนทนา แล้วตอบคำถาม'
+    : conversationOrder === 2
+      ? 'เก่งมาก!\nตอนนี้ลองฟังบทสนทนายากขึ้นอีกนิดนะ!'
+      : 'เยี่ยมเลย! ไปต่อที่บทสนทนาสุดท้ายกัน';
   const player = useAudioPlayer(audioUrl, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
   const closePreview = () => {
@@ -265,24 +273,25 @@ export function PlacementTestScreen() {
               </Card>
             ) : null}
 
-            {isCalculating || resultLevel !== null ? (
-              <View style={[styles.outcomeSlot, isCalculating ? styles.calculatingOutcomeSlot : null]}>
+            {isCalculating ? (
+              <View style={styles.calculatingContent}>
+                <Image
+                  source={placementTestLoadingPailin}
+                  style={styles.calculatingImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.calculatingPill}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.calculatingText}>
+                    {uiLanguage === 'en' ? '✨ This will just take a few seconds!' : '✨ ใช้เวลาเพียงไม่กี่วินาที!'}
+                  </AppText>
+                </View>
+              </View>
+            ) : resultLevel !== null ? (
+              <View style={styles.outcomeSlot}>
                 <View style={styles.outcomeCardWrap}>
                   <View pointerEvents="none" style={styles.outcomeCardShadow} />
-                  <View style={[styles.outcomeCard, isCalculating ? styles.calculatingCard : styles.resultCard]}>
-                    {isCalculating ? (
-                      <View style={styles.calculatingContent}>
-                      <Image
-                        source={placementTestLoadingPailin}
-                        style={styles.calculatingImage}
-                        resizeMode="contain"
-                      />
-                      <AppText language="th" variant="body" style={styles.calculatingText}>
-                        กำลังประเมินจุดเริ่มต้นของคุณ...
-                      </AppText>
-                      </View>
-                    ) : resultLevel !== null ? (
-                      <Animated.View
+                  <View style={[styles.outcomeCard, styles.resultCard]}>
+                    <Animated.View
                         style={[
                           styles.resultContent,
                           {
@@ -302,18 +311,22 @@ export function PlacementTestScreen() {
                           style={styles.resultImage}
                           resizeMode="contain"
                         />
-                        <AppText language="th" variant="muted" style={styles.resultEyebrow}>
-                          จุดเริ่มต้นของคุณ
+                        <AppText language={uiLanguage} variant="muted" style={styles.resultEyebrow}>
+                          {uiLanguage === 'en' ? 'YOUR STARTING POINT' : 'จุดเริ่มต้นของคุณ'}
                         </AppText>
-                        <AppText language="th" variant="title" style={styles.resultLevelTitle}>
-                          ระดับ {resultLevel}
+                        <AppText language={uiLanguage} variant="title" style={styles.resultLevelTitle}>
+                          {uiLanguage === 'en' ? `Level ${resultLevel}` : `ระดับ ${resultLevel}`}
                         </AppText>
-                        <AppText language="th" variant="body" style={styles.resultLevelSubtitle}>
-                          {getLevelStageLabel(resultLevel)}
+                        <AppText language={uiLanguage} variant="body" style={styles.resultLevelSubtitle}>
+                          {uiLanguage === 'en'
+                            ? resultLevel <= 4 ? 'BEGINNER' : resultLevel <= 8 ? 'INTERMEDIATE' : 'ADVANCED'
+                            : getLevelStageLabel(resultLevel)}
                         </AppText>
 
-                        <AppText language="th" variant="body" style={styles.resultPrimer}>
-                          {'ไพลินเพิ่งย้ายจากกรุงเทพฯ มาอยู่อินล็อก\nที่สวอนสวรรค์! ตอนนี้เธออยู่ที่งานปฐมนิเทศ\nของโรงเรียน ซึ่งเป็นสถานที่ที่เธอจะได้\nเจอเพื่อนนักเรียนแลกเปลี่ยนมากมาย!'}
+                        <AppText language={uiLanguage} variant="body" style={styles.resultPrimer}>
+                          {uiLanguage === 'en'
+                            ? 'Pailin will explore Los Angeles with her new friend Chloe! They have a week before school starts.'
+                            : 'ไพลินเพิ่งย้ายจากกรุงเทพฯ มาอยู่อินล็อก ที่สวอนสวรรค์! ตอนนี้เธออยู่ที่งานปฐมนิเทศของโรงเรียน ซึ่งเป็นสถานที่ที่เธอจะได้เจอเพื่อนนักเรียนแลกเปลี่ยนมากมาย!'}
                         </AppText>
 
                         <View style={styles.resultButtonWrap}>
@@ -325,8 +338,8 @@ export function PlacementTestScreen() {
                             ]}
                           />
                           <Button
-                            language="th"
-                            title={isResultLessonLoading ? 'กำลังโหลด...' : 'เริ่มบทเรียนแรกของคุณ!'}
+                            language={uiLanguage}
+                            title={isResultLessonLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON!' : 'เริ่มบทเรียนแรกของคุณ!')}
                             disabled={isResultLessonLoading || !resultLessonId}
                             disabledStyle={styles.resultButtonDisabledOpacity}
                             onPress={openResultLesson}
@@ -348,8 +361,7 @@ export function PlacementTestScreen() {
                             ไม่พบบทเรียน กรุณาลองอีกครั้ง
                           </AppText>
                         ) : null}
-                      </Animated.View>
-                    ) : null}
+                    </Animated.View>
                   </View>
                 </View>
               </View>
@@ -357,20 +369,28 @@ export function PlacementTestScreen() {
               <View style={styles.audioCardWrap}>
                 <View pointerEvents="none" style={styles.audioCardShadow} />
                 <View style={styles.audioCard}>
+                  <View style={styles.audioCardHeader}>
+                    <AppText language="th" variant="title" style={styles.audioCardTitle}>
+                      แบบทดสอบวัดระดับ
+                    </AppText>
+                  </View>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="ปิดแบบทดสอบวัดระดับ"
                     hitSlop={12}
                     onPress={closePreview}
                     style={styles.audioCardCloseButton}>
-                    <MaterialIcons name="close" size={31} color={theme.colors.text} />
+                    <MaterialIcons name="close" size={23} color={theme.colors.text} />
                   </Pressable>
 
-                  <AppText language="th" variant="title" style={styles.listenInstruction}>
-                    {'ฟังบทสนทนา\nแล้วตอบคำถาม!'}
+                  <AppText language="th" variant="body" style={styles.listenInstruction}>
+                    {listeningMessage}
                   </AppText>
 
                   <View style={styles.audioControls}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="ย้อนกลับ 10 วินาที" onPress={() => skipAudio(-10000)} style={styles.introSkipButton}>
+                      <MaterialIcons name="replay-10" size={43} color={theme.colors.text} />
+                    </Pressable>
                     <View style={styles.mainPlayShadow}>
                       <Pressable
                         accessibilityRole="button"
@@ -388,6 +408,9 @@ export function PlacementTestScreen() {
                         </Svg>
                       </Pressable>
                     </View>
+                    <Pressable accessibilityRole="button" accessibilityLabel="ข้ามไป 10 วินาที" onPress={() => skipAudio(10000)} style={styles.introSkipButton}>
+                      <MaterialIcons name="forward-10" size={43} color={theme.colors.text} />
+                    </Pressable>
                   </View>
 
                   <View
@@ -524,6 +547,14 @@ export function PlacementTestScreen() {
               durationMillis={secondsToMillis(playerStatus.duration)}
               rate={audioRate}
               showRateControl={false}
+              initiallyExpanded
+              hideTitle
+              progressColor={placementColors.cyan}
+              trackColor={placementColors.track}
+              autoCollapseSignal={currentQuestion && answers[currentQuestion.id] !== undefined
+                ? `${currentQuestion.id}:${answers[currentQuestion.id]}`
+                : null}
+              autoExpandSignal={currentQuestion?.id ?? null}
               onTogglePlay={toggleAudio}
               onSkip={skipAudio}
               onSeek={seekToRatio}
@@ -549,7 +580,6 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'flex-start',
   },
-  calculatingOutcomeSlot: { minHeight: 450 },
   outcomeCardWrap: {
     width: '100%',
     maxWidth: 440,
@@ -571,19 +601,13 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surface,
   },
-  calculatingCard: {
-    minHeight: 330,
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 44,
-  },
-  calculatingContent: { alignItems: 'center' },
-  calculatingImage: { width: 150, height: 150 },
+  calculatingContent: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
+  calculatingImage: { width: 180, height: 180 },
+  calculatingPill: { marginTop: 8, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: placementColors.note },
   calculatingText: {
-    marginTop: 24,
-    color: theme.colors.accent,
-    fontSize: 18,
-    lineHeight: 26,
+    color: theme.colors.text,
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   resultCard: { paddingHorizontal: 30, paddingTop: 28, paddingBottom: 30 },
@@ -599,14 +623,16 @@ const styles = StyleSheet.create({
   },
   resultLevelTitle: {
     marginTop: 2,
-    color: '#8AC832',
-    fontFamily: theme.typography.fontFaces.th.bold,
+    color: placementColors.level,
     fontSize: 40,
     lineHeight: 50,
     fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
+    textShadowColor: theme.colors.shadow,
+    textShadowOffset: { width: 2, height: 3 },
+    textShadowRadius: 0,
   },
-  resultLevelSubtitle: { color: '#8AC832', fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  resultLevelSubtitle: { color: placementColors.level, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   resultPrimer: { marginTop: 22, fontSize: 14, lineHeight: 21, textAlign: 'center' },
   resultButtonWrap: { width: '100%', marginTop: 26, position: 'relative' },
   resultButtonShadow: {
@@ -621,7 +647,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: placementColors.blue,
   },
   resultButtonPressed: { transform: [{ translateX: 4 }, { translateY: 5 }] },
   resultButtonDisabled: { backgroundColor: '#CFCFCF' },
@@ -642,70 +668,77 @@ const styles = StyleSheet.create({
   },
   audioCard: {
     alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingTop: 42,
-    paddingBottom: 18,
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 20,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surface,
   },
+  audioCardHeader: { width: '100%', minHeight: 40, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#D5D5D5' },
+  audioCardTitle: { fontSize: 18, lineHeight: 24, textAlign: 'center', fontWeight: theme.typography.weights.bold },
   audioCardCloseButton: {
     position: 'absolute',
-    top: 14,
-    right: 13,
-    width: 44,
-    height: 44,
+    top: 8,
+    right: 9,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
     zIndex: 2,
   },
   listenInstruction: {
-    fontFamily: theme.typography.fontFaces.th.bold,
-    fontSize: 28,
-    lineHeight: 36,
-    fontWeight: theme.typography.weights.bold,
+    marginTop: 28,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
   },
   audioControls: {
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 26,
+    gap: 18,
+    marginTop: 22,
   },
+  introSkipButton: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
   mainPlayShadow: {
-    width: 100,
-    height: 100,
+    width: 92,
+    height: 92,
     transform: [{ translateX: 2 }, { translateY: 3 }],
     borderRadius: 999,
     backgroundColor: theme.colors.shadow,
   },
   mainPlayButton: {
-    width: 100,
-    height: 100,
+    width: 92,
+    height: 92,
     transform: [{ translateX: -2 }, { translateY: -3 }],
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: theme.colors.border,
     borderRadius: 999,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: placementColors.lime,
   },
   mainPlayButtonPressed: { transform: [{ translateX: 0 }, { translateY: 0 }], opacity: 0.94 },
   introProgressTrack: {
-    height: 4,
+    height: 10,
     width: '100%',
-    marginTop: 26,
+    marginTop: 28,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     overflow: 'hidden',
   },
-  introProgressBase: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.colors.accentMuted },
-  introProgressFill: { height: '100%', borderRadius: 999, backgroundColor: theme.colors.accent },
+  introProgressBase: { ...StyleSheet.absoluteFillObject, backgroundColor: placementColors.track },
+  introProgressFill: { height: '100%', borderRadius: 999, backgroundColor: placementColors.cyan },
   timeRow: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 14,
+    marginTop: 8,
   },
   timeText: { color: theme.colors.text, fontSize: 13, lineHeight: 17 },
   questionCardWrap: {
@@ -771,7 +804,7 @@ const styles = StyleSheet.create({
   questionProgressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#B8EC69',
+    backgroundColor: placementColors.lime,
   },
   questionProgressText: {
     color: theme.colors.text,
@@ -787,7 +820,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 13,
-    backgroundColor: '#FFF3F3',
+    backgroundColor: placementColors.note,
   },
   reassuranceText: {
     flex: 1,
@@ -822,14 +855,14 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: theme.colors.surface,
   },
-  choiceSelected: { backgroundColor: '#D8F3FF' },
+  choiceSelected: { backgroundColor: placementColors.paleCyan },
   choiceLetterWrap: {
     width: 27,
     height: 27,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 7,
-    backgroundColor: '#DFF1FF',
+    backgroundColor: '#EEEEEE',
   },
   choiceLetterSelected: { backgroundColor: theme.colors.surface },
   choiceLetter: {
@@ -855,7 +888,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: placementColors.blue,
   },
   nextButtonDisabled: {
     backgroundColor: '#CFCFCF',

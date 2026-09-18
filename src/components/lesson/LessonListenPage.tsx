@@ -128,7 +128,7 @@ export function LessonListenPage({
                 <View style={styles.pauseBar} />
               </View>
             ) : (
-              <Svg width={28} height={34} viewBox="0 0 28 34">
+              <Svg width={28} height={34} viewBox="0 0 28 34" style={styles.playGlyph}>
                 <Polygon points="3,2 26,17 3,32" fill="#FFFFFF" stroke={theme.colors.text} strokeWidth={1.8} strokeLinejoin="round" />
               </Svg>
             )}
@@ -213,11 +213,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#1E1E1E',
-    backgroundColor: '#BDEDFC',
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarFront: { zIndex: 2 },
@@ -263,6 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '3px 4px 0px #1E1E1E',
   },
+  playGlyph: { transform: [{ translateX: 3 }] },
   pauseGlyph: { flexDirection: 'row', gap: 7 },
   pauseBar: { width: 9, height: 29, borderRadius: 2, borderWidth: 1.5, borderColor: theme.colors.text, backgroundColor: theme.colors.surface },
   progressTrack: {

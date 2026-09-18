@@ -13,6 +13,7 @@ import {
 
 const LESSON_SELECT_FIELDS =
   'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
+const LESSON_INDEX_SELECT_FIELDS = `${LESSON_SELECT_FIELDS},focus_short,focus_short_th`;
 const LESSONS_INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 const RESOLVED_LESSON_CACHE_TTL_MS = 5 * 60 * 1000;
 const RESOLVED_LESSON_MAX_ATTEMPTS = 3;
@@ -216,12 +217,20 @@ export async function getLessonsIndex(): Promise<LessonListItem[]> {
   }
 
   const requestPromise = (async () => {
-    const rows = await supabaseSelect<LessonListItem>({
+    const selectIndex = (select: string) => supabaseSelect<LessonListItem>({
       table: 'lessons',
-      select: LESSON_SELECT_FIELDS,
+      select,
       orderBy: { column: 'lesson_order', ascending: true },
       limit: 500,
     });
+    let rows: LessonListItem[];
+    try {
+      rows = await selectIndex(LESSON_INDEX_SELECT_FIELDS);
+    } catch (error) {
+      // The columns may not exist yet while the manual migration is pending.
+      if (!(error instanceof Error) || !error.message.includes('focus_short')) throw error;
+      rows = await selectIndex(LESSON_SELECT_FIELDS);
+    }
     setCachedLessonsIndex(rows);
     return rows;
   })();

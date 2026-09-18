@@ -22,6 +22,28 @@ import sylvieHead from '@/assets/images/characters/sylvie_head.webp';
 import tylerHead from '@/assets/images/characters/tyler_head.webp';
 import woman1Head from '@/assets/images/characters/woman1_head.webp';
 import woman2Head from '@/assets/images/characters/woman2_head.webp';
+import chloeBlueCircle from '@/assets/images/characters/chloe_blue_circle.webp';
+import daraBlueCircle from '@/assets/images/characters/dara_blue_circle.webp';
+import emilyBlueCircle from '@/assets/images/characters/emily_blue_circle.webp';
+import enzoBlueCircle from '@/assets/images/characters/enzo_blue_circle.webp';
+import jeraldBlueCircle from '@/assets/images/characters/jerald_blue_circle.webp';
+import littleGirlBlueCircle from '@/assets/images/characters/little_girl_blue_circle.webp';
+import lukeBlueCircle from '@/assets/images/characters/luke_blue_circle.webp';
+import man1BlueCircle from '@/assets/images/characters/man1_blue_circle.webp';
+import man2BlueCircle from '@/assets/images/characters/man2_blue_circle.webp';
+import man3BlueCircle from '@/assets/images/characters/man3_blue_circle.webp';
+import man4BlueCircle from '@/assets/images/characters/man4_blue_circle.webp';
+import marcusBlueCircle from '@/assets/images/characters/marcus_blue_circle.webp';
+import markBlueCircle from '@/assets/images/characters/mark_blue_circle.webp';
+import oldManBlueCircle from '@/assets/images/characters/old_man_blue_circle.webp';
+import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
+import peteBlueCircle from '@/assets/images/characters/pete_blue_circle.webp';
+import sebastianBlueCircle from '@/assets/images/characters/sebastian_blue_circle.webp';
+import sophiaBlueCircle from '@/assets/images/characters/sophia_blue_circle.webp';
+import sylvieBlueCircle from '@/assets/images/characters/sylvie_blue_circle.webp';
+import tylerBlueCircle from '@/assets/images/characters/tyler_blue_circle.webp';
+import woman1BlueCircle from '@/assets/images/characters/woman1_blue_circle.webp';
+import woman2BlueCircle from '@/assets/images/characters/woman2_blue_circle.webp';
 
 const transcriptCharacterHeads = {
   chloe: chloeHead,
@@ -137,4 +159,37 @@ export const resolveTranscriptCharacterHead = (
   }
 
   return transcriptCharacterHeads[key as keyof typeof transcriptCharacterHeads];
+};
+
+const blueCircleByHead = new Map<ImageSourcePropType, ImageSourcePropType>([
+  [chloeHead, chloeBlueCircle],
+  [daraHead, daraBlueCircle],
+  [emilyHead, emilyBlueCircle],
+  [enzoHead, enzoBlueCircle],
+  [jeraldHead, jeraldBlueCircle],
+  [littleGirlHead, littleGirlBlueCircle],
+  [lukeHead, lukeBlueCircle],
+  [man1Head, man1BlueCircle],
+  [man2Head, man2BlueCircle],
+  [man3Head, man3BlueCircle],
+  [man4Head, man4BlueCircle],
+  [marcusHead, marcusBlueCircle],
+  [markHead, markBlueCircle],
+  [oldManHead, oldManBlueCircle],
+  [pailinHead, pailinBlueCircle],
+  [peteHead, peteBlueCircle],
+  [sebastianHead, sebastianBlueCircle],
+  [sophiaHead, sophiaBlueCircle],
+  [sylvieHead, sylvieBlueCircle],
+  [tylerHead, tylerBlueCircle],
+  [woman1Head, woman1BlueCircle],
+  [woman2Head, woman2BlueCircle],
+]);
+
+export const resolveTranscriptCharacterBlueCircle = (
+  speaker: string | null | undefined,
+  lessonExternalId?: string | null
+): TranscriptCharacterHeadResolution => {
+  const head = resolveTranscriptCharacterHead(speaker, lessonExternalId);
+  return head ? blueCircleByHead.get(head) : head;
 };

@@ -9,6 +9,8 @@ export type LessonListItem = {
   subtitle_th: string | null;
   focus: string | null;
   focus_th: string | null;
+  focus_short?: string | null;
+  focus_short_th?: string | null;
   backstory: string | null;
   backstory_th: string | null;
   header_img: string | null;

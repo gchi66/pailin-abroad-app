@@ -12,6 +12,7 @@ import placementTest4Bars from '@/assets/images/placement-test-4-bars.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
 const LEVEL_OPTIONS = [
@@ -77,31 +78,23 @@ export function ChooseLevelScreen() {
           </View>
 
           <View style={styles.footer}>
-            <View style={styles.startButtonWrap}>
-              <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
-              <Button
-                language="th"
-                title={selectedOption === null ? 'เลือกตัวเลือก' : 'เริ่มต้นที่นี่!'}
-                disabled={selectedOption === null}
-                disabledStyle={styles.startButtonDisabledOpacity}
-                onPress={() =>
-                  selectedOption === null
-                    ? undefined
-                    : router.push({
-                        pathname: '/choose-level-result',
-                        params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
-                      })
-                }
-                onPressIn={() => setIsStartPressed(true)}
-                onPressOut={() => setIsStartPressed(false)}
-                style={[
-                  styles.startButton,
-                  selectedOption === null ? styles.startButtonDisabled : null,
-                  isStartPressed ? styles.startButtonPressed : null,
-                ]}
-                textStyle={styles.startButtonText}
-              />
-            </View>
+            {selectedOption !== null ? (
+              <View style={styles.startButtonWrap}>
+                <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
+                <Button
+                  language="th"
+                  title="เริ่มบทเรียนแรกของคุณ!"
+                  onPress={() => router.push({
+                    pathname: '/choose-level-result',
+                    params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
+                  })}
+                  onPressIn={() => setIsStartPressed(true)}
+                  onPressOut={() => setIsStartPressed(false)}
+                  style={[styles.startButton, isStartPressed ? styles.startButtonPressed : null]}
+                  textStyle={styles.startButtonText}
+                />
+              </View>
+            ) : null}
 
             <Pressable accessibilityRole="link" onPress={() => router.push('/placement-test')} style={styles.testLinkButton}>
               <AppText language="th" variant="muted" style={styles.testLinkText}>
@@ -126,6 +119,7 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   pageShell: {
+    flex: 1,
     width: '100%',
   },
   introRow: {
@@ -208,7 +202,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   optionCardSelected: {
-    backgroundColor: '#D6FF91',
+    backgroundColor: placementColors.paleLime,
   },
   optionCardPressed: {
     transform: [{ translateX: 4 }, { translateY: 5 }],
@@ -227,7 +221,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     alignSelf: 'center',
-    marginTop: 52,
+    marginTop: 'auto',
+    paddingTop: 48,
     paddingBottom: theme.spacing.md,
   },
   startButtonWrap: {
@@ -248,7 +243,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: placementColors.blue,
   },
   startButtonText: {
     fontSize: 14,
@@ -258,8 +253,6 @@ const styles = StyleSheet.create({
   startButtonPressed: {
     transform: [{ translateX: 4 }, { translateY: 5 }],
   },
-  startButtonDisabled: { backgroundColor: '#CFCFCF' },
-  startButtonDisabledOpacity: { opacity: 1 },
   shadowPressed: {
     opacity: 0,
   },

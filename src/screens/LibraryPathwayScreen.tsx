@@ -215,36 +215,37 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             const status = selected ? (th ? 'เลือกอยู่' : 'Selected') : marker.kind === 'complete' ? (th ? 'เรียนจบแล้ว' : 'Completed') : marker.kind === 'progress' ? `${marker.percent}%` : (th ? 'ยังไม่เริ่ม' : 'Not started');
             return <View key={lesson.id} style={styles.lessonRow} onLayout={({ nativeEvent }) => { offsets.current[lesson.id] = nativeEvent.layout.y; if (anchor === lesson.id) restoreAnchor(); }}>
               {!searching && index < lessons.length - 1 ? <View pointerEvents="none" style={[styles.connector, index < selectedIndex ? styles.connectorActive : null]} /> : null}
-              <View style={[styles.cardShadow, strong ? styles.strongShadow : null]}>
-                <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${lessonNumber(lesson)} ${lessonTitle}. ${status}${locked ? (th ? ' ล็อกอยู่' : '. Locked') : ''}`}
-                  style={[styles.card, strong ? styles.strongCard : null, selected ? styles.selectedCard : null]}
-                  onPressIn={() => { if (!locked) prefetchResolvedLesson(lesson.id, 'en'); }}
-                  onPress={() => {
-                    setSelectedId(lesson.id);
-                    posthog.capture('lesson_opened', { lesson_id: lesson.id, lesson_title: lesson.title, stage: lesson.stage, level: lesson.level, has_membership: hasMembership });
-                    // Keep the browsing selection while the preview is open; it clears the anchor on dismissal.
-                    setLessonLibrarySelection({ stage, level, route: libraryRoute });
-                    router.push({ pathname: '/lesson-preview/[id]', params: { id: lesson.id, libraryRoute, locked: locked ? '1' : '0' } });
-                  }}>
-                  {searching ? <AppText language={language} variant="caption" style={styles.searchContext}>{stageLabel(lesson.stage as LibraryStage)} · {th ? 'เลเวล' : 'LEVEL'} {lesson.level}</AppText> : null}
-                  <View style={styles.cardMeta}>
-                    <AppText language={language} variant="caption" style={styles.lessonNumber}>{lessonNumber(lesson)}</AppText>
-                    <AppText language={language} variant="muted" numberOfLines={1} ellipsizeMode="tail" style={styles.topic}>{shortLessonFocus(lesson, language)}</AppText>
-                    {locked ? <MaterialIcons name="lock-outline" size={14} color="#777777" /> : null}
+              <View style={styles.cardArea}>
+                <View style={styles.cardShadow}>
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${lessonNumber(lesson)} ${lessonTitle}. ${status}${locked ? (th ? ' ล็อกอยู่' : '. Locked') : ''}`}
+                    style={[styles.card, strong ? styles.strongCard : null, selected ? styles.selectedCard : null]}
+                    onPressIn={() => { if (!locked) prefetchResolvedLesson(lesson.id, 'en'); }}
+                    onPress={() => {
+                      setSelectedId(lesson.id);
+                      posthog.capture('lesson_opened', { lesson_id: lesson.id, lesson_title: lesson.title, stage: lesson.stage, level: lesson.level, has_membership: hasMembership });
+                      // Keep the browsing selection while the preview is open; it clears the anchor on dismissal.
+                      setLessonLibrarySelection({ stage, level, route: libraryRoute });
+                      router.push({ pathname: '/lesson-preview/[id]', params: { id: lesson.id, libraryRoute, locked: locked ? '1' : '0' } });
+                    }}>
+                    {searching ? <AppText language={language} variant="caption" style={styles.searchContext}>{stageLabel(lesson.stage as LibraryStage)} · {th ? 'เลเวล' : 'LEVEL'} {lesson.level}</AppText> : null}
+                    <View style={styles.cardMeta}>
+                      <AppText language={language} variant="caption" style={styles.lessonNumber}>{lessonNumber(lesson)}</AppText>
+                      <AppText language={language} variant="muted" numberOfLines={1} ellipsizeMode="tail" style={styles.topic}>{shortLessonFocus(lesson, language)}</AppText>
+                      {locked ? <MaterialIcons name="lock-outline" size={14} color="#777777" /> : null}
+                    </View>
+                    <AppText language={language} style={[styles.lessonTitle, locked ? styles.lockedTitle : null]}>{lessonTitle}</AppText>
+                  </Pressable>
+                </View>
+                {marker.kind === 'progress' ? (
+                  <View pointerEvents="none" style={styles.progressMarker}>
+                    <LessonProgressCircle percent={marker.percent} showLabel={false} />
                   </View>
-                  <AppText language={language} style={[styles.lessonTitle, locked ? styles.lockedTitle : null]}>{lessonTitle}</AppText>
-                </Pressable>
+                ) : (
+                  <View pointerEvents="none" style={[styles.marker, marker.kind === 'selected' ? styles.selectedMarker : marker.kind === 'complete' ? styles.completeMarker : null]}>
+                    {marker.kind === 'complete' ? <MaterialIcons name="check" size={14} color="#222222" /> : null}
+                  </View>
+                )}
               </View>
-              {marker.kind === 'progress' ? (
-                <View pointerEvents="none" style={styles.progressMarker}>
-                  <AppText language="en" variant="caption" style={styles.progressLabel}>{marker.percent}%</AppText>
-                  <LessonProgressCircle percent={marker.percent} showLabel={false} />
-                </View>
-              ) : (
-                <View pointerEvents="none" style={[styles.marker, marker.kind === 'selected' ? styles.selectedMarker : marker.kind === 'complete' ? styles.completeMarker : null]}>
-                  {marker.kind === 'complete' ? <MaterialIcons name="check" size={14} color="#222222" /> : null}
-                </View>
-              )}
             </View>;
           })}
           {!failed && !lessons.length ? <AppText language={language} variant="muted" style={styles.empty}>{searching ? (th ? 'ไม่พบบทเรียน ลองค้นหาด้วยคำอื่น' : 'No matching lessons. Try another search.') : (th ? 'ยังไม่มีบทเรียนในเลเวลนี้' : 'No lessons in this level yet.')}</AppText> : null}
@@ -259,28 +260,27 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
   headerTitleTouch: { flex: 1 }, headerTitle: { fontSize: 20, lineHeight: 28 }, searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  searchInput: { borderWidth: 1, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 14, marginBottom: 14, color: '#222222' },
+  searchInput: { borderWidth: 1, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 14, color: '#222222' },
   libraryMenu: { borderWidth: 1, borderColor: '#DDDDDD', borderRadius: 8, backgroundColor: '#FFFFFF', marginBottom: 12 }, menuChoice: { padding: 12 },
   navigationShadow: { backgroundColor: '#222222', borderRadius: 10, marginBottom: 24, marginRight: -3, marginLeft: 3 },
   navigation: { transform: [{ translateX: -3 }, { translateY: -3 }], borderWidth: 1, borderColor: '#222222', borderRadius: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   stageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, minHeight: 27 }, stageHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#BCE574' }, stageName: { fontSize: 11, lineHeight: 17, letterSpacing: 0.65, textTransform: 'uppercase' },
+  stageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#BCE574' }, stageName: { fontSize: 12, lineHeight: 18, letterSpacing: 0.65, textTransform: 'uppercase' },
   stages: { flexGrow: 1, justifyContent: 'space-between', gap: 4, paddingHorizontal: 4, paddingTop: 4, paddingBottom: 4 }, stageTouch: { padding: 4, justifyContent: 'center', minHeight: 32 },
   stagePill: { borderRadius: 4, backgroundColor: '#EEEEEE', paddingHorizontal: 5, paddingVertical: 2 }, activeStage: { backgroundColor: '#2860F0' }, activeStageText: { color: '#FFFFFF' },
-  levels: { flexGrow: 1 }, level: { flex: 1, minWidth: 72, minHeight: 36, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6, borderTopWidth: 1, borderRightWidth: 1, borderColor: '#333333' }, activeLevel: { backgroundColor: '#BFEDFC' }, levelText: { fontSize: 12, lineHeight: 18 },
-  storyShadow: { backgroundColor: '#222222', borderRadius: 10, marginHorizontal: 26, marginBottom: 22 }, story: { backgroundColor: '#FFFCE5', borderWidth: 1, borderColor: '#222222', borderRadius: 10, transform: [{ translateX: -2 }, { translateY: -2 }] },
-  storyHeader: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 }, storyLabel: { fontSize: 9, lineHeight: 15, letterSpacing: 0.65 }, storyBody: { fontSize: 12, lineHeight: 19, paddingHorizontal: 12, paddingBottom: 12 },
-  lessonList: { marginHorizontal: 26 }, lessonRow: { paddingBottom: 22, position: 'relative' },
+  levels: { flexGrow: 1 }, level: { flex: 1, minWidth: 72, minHeight: 36, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6, borderTopWidth: 1, borderRightWidth: 1, borderColor: '#333333' }, activeLevel: { backgroundColor: '#BFEDFC' }, levelText: { fontSize: 13, lineHeight: 19 },
+  storyShadow: { backgroundColor: '#222222', borderRadius: 10, marginHorizontal: 20, marginBottom: 22 }, story: { backgroundColor: '#FFFCE5', borderWidth: 1, borderColor: '#222222', borderRadius: 10, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  storyHeader: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 }, storyLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 0.65 }, storyBody: { fontSize: 13, lineHeight: 20, paddingHorizontal: 12, paddingBottom: 12 },
+  lessonList: { marginHorizontal: 20 }, lessonRow: { paddingBottom: 22, position: 'relative' },
   connector: { position: 'absolute', left: 22, top: 20, bottom: -1, borderLeftWidth: 2, borderStyle: 'dashed', borderColor: '#DDDDDD' }, connectorActive: { borderStyle: 'solid', borderColor: '#2860F0' },
-  cardShadow: { borderRadius: 10 }, strongShadow: { backgroundColor: '#222222' },
-  card: { paddingVertical: 14, paddingLeft: 30, paddingRight: 14, borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 68 },
-  strongCard: { borderColor: '#222222', transform: [{ translateX: -1 }, { translateY: -2 }] }, selectedCard: { backgroundColor: '#BFEDFC' },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 }, lessonNumber: { fontSize: 11, lineHeight: 17, fontFamily: theme.typography.fontFaces.en.bold }, topic: { flex: 1, fontSize: 11, lineHeight: 17, color: '#666666' },
-  lessonTitle: { fontSize: 13, lineHeight: 21, color: '#222222' }, lockedTitle: { color: '#777777' },
-  marker: { position: 'absolute', left: -9, top: '50%', marginTop: -20, width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#C6C6C6', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  cardArea: { position: 'relative' }, cardShadow: { backgroundColor: '#222222', borderRadius: 10 },
+  card: { paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  strongCard: { borderColor: '#222222' }, selectedCard: { backgroundColor: '#BFEDFC' },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 }, lessonNumber: { fontSize: 12, lineHeight: 18, fontFamily: theme.typography.fontFaces.en.bold }, topic: { flex: 1, fontSize: 12, lineHeight: 18, color: '#666666' },
+  lessonTitle: { fontSize: 14, lineHeight: 22, fontWeight: theme.typography.weights.medium, color: '#222222' }, lockedTitle: { color: '#777777' },
+  marker: { position: 'absolute', left: -9, top: '50%', marginTop: -11, width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#C6C6C6', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   selectedMarker: { backgroundColor: '#3CA0FE', borderColor: '#222222' }, completeMarker: { backgroundColor: '#BCE574', borderColor: '#222222' },
-  progressMarker: { position: 'absolute', width: 20, height: 22, left: -10, top: '50%', marginTop: -23, alignItems: 'center' },
-  progressLabel: { position: 'absolute', right: 24, top: 5, width: 26, fontSize: 10, lineHeight: 14, textAlign: 'right', color: '#222222' },
-  resultsLabel: { marginBottom: 18, color: '#666666' }, searchContext: { fontSize: 9, lineHeight: 15, color: '#777777' }, empty: { paddingVertical: 24, textAlign: 'center', gap: 12 },
-  upgrade: { borderWidth: 1, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 16, gap: 8, marginBottom: 24 }, upgradeTitle: { fontSize: 15, lineHeight: 21 }, upgradeButton: { backgroundColor: '#F9DA60', alignSelf: 'flex-start', minHeight: 32 }, upgradeButtonText: { fontSize: 11, lineHeight: 17, color: '#222222' },
+  progressMarker: { position: 'absolute', width: 20, height: 22, left: -10, top: '50%', marginTop: -14, alignItems: 'center' },
+  resultsLabel: { marginBottom: 18, color: '#666666' }, searchContext: { fontSize: 10, lineHeight: 16, color: '#777777' }, empty: { paddingVertical: 24, textAlign: 'center', gap: 12 },
+  upgrade: { borderWidth: 1, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 16, gap: 8, marginBottom: 24 }, upgradeTitle: { fontSize: 16, lineHeight: 22 }, upgradeButton: { backgroundColor: '#F9DA60', alignSelf: 'flex-start', minHeight: 32 }, upgradeButtonText: { fontSize: 12, lineHeight: 18, color: '#222222' },
 });

@@ -32,6 +32,10 @@ type LessonAudioTrayProps = {
   onSeek: (ratio: number) => void;
   onSetRate: (rate: number) => void;
   showRateControl?: boolean;
+  initiallyExpanded?: boolean;
+  hideTitle?: boolean;
+  progressColor?: string;
+  trackColor?: string;
   autoCollapseSignal?: string | null;
   autoExpandSignal?: string | null;
   detached?: boolean;
@@ -71,6 +75,10 @@ export function LessonAudioTray({
   onSeek,
   onSetRate,
   showRateControl = true,
+  initiallyExpanded = false,
+  hideTitle = false,
+  progressColor = theme.colors.accent,
+  trackColor = theme.colors.accentMuted,
   autoCollapseSignal = null,
   autoExpandSignal = null,
   detached = false,
@@ -78,7 +86,7 @@ export function LessonAudioTray({
 }: LessonAudioTrayProps) {
   const { width } = useWindowDimensions();
   const usesFloatingRateMenu = Platform.OS === 'android' || Platform.OS === 'ios' || Platform.OS === 'web';
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(!initiallyExpanded);
   const [showRates, setShowRates] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
   const dragTranslateY = useRef(new Animated.Value(0)).current;
@@ -218,9 +226,11 @@ export function LessonAudioTray({
           width < 360 ? styles.expandedWrapNarrow : null,
         ]}>
           <View {...trayPanResponder.panHandlers} style={styles.playerRow}>
-            <AppText language={language} variant="caption" style={styles.trackTitle} numberOfLines={1}>
-              {lessonLabel || title}
-            </AppText>
+            {!hideTitle ? (
+              <AppText language={language} variant="caption" style={styles.trackTitle} numberOfLines={1}>
+                {lessonLabel || title}
+              </AppText>
+            ) : null}
 
             <View style={styles.controlsRow}>
               <Pressable
@@ -298,8 +308,8 @@ export function LessonAudioTray({
               seekFromLocation(event.nativeEvent.locationX);
             }}
             style={styles.progressTrack}>
-            <View style={styles.progressTrackBase} />
-            <View style={[styles.progressFill, trackFillStyle]} />
+            <View style={[styles.progressTrackBase, { backgroundColor: trackColor }]} />
+            <View style={[styles.progressFill, trackFillStyle, { backgroundColor: progressColor }]} />
           </View>
 
           <View style={styles.metaRow}>

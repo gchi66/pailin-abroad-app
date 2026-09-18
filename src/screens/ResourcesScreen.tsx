@@ -1,126 +1,129 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
-import { Card } from '@/src/components/ui/Card';
-import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
 type UiLanguage = 'en' | 'th';
-type ResourceTone = 'exercise' | 'topic' | 'mistakes' | 'phrases' | 'culture';
-type ResourceCardId = 'exercise-bank' | 'topic-library' | 'common-mistakes' | 'phrases-verbs' | 'culture-notes';
+type ResourceCardId = keyof typeof resourceCardImages;
 
 type ResourceCardCopy = {
   id: ResourceCardId;
   title: string;
   description: string;
   enabled: boolean;
-  badge?: string;
-  tone: ResourceTone;
 };
 
 type ResourcePageCopy = {
   title: string;
   subtitle: string;
-  placeholderAlert: string;
+  comingSoon: string;
   cards: ResourceCardCopy[];
 };
 
 const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
   en: {
     title: 'Resources',
-    subtitle: 'Extra materials to guide your English-learning journey with Pailin',
-    placeholderAlert: 'This destination page has not been ported yet.',
+    subtitle: 'Helpful tools to support your English learning',
+    comingSoon: 'Coming soon!',
     cards: [
       {
         id: 'exercise-bank',
         title: 'Exercise Bank',
-        description: 'Additional practice exercises for those difficult grammar topics',
+        description: 'A library of all the common mistakes from all the lessons!',
         enabled: true,
-        tone: 'exercise',
       },
       {
         id: 'topic-library',
         title: 'Topic Library',
-        description: 'Further explanations on a range of interesting ESL topics',
+        description: 'In-depth explanations of a range of ESL topics',
         enabled: true,
-        tone: 'topic',
+      },
+      {
+        id: 'pronunciation',
+        title: 'Speaking Coach',
+        description: 'Practise your English speaking with our AI coach!',
+        enabled: true,
       },
       {
         id: 'common-mistakes',
         title: 'Common Mistakes',
-        description: 'View our full library of common mistakes made by Thai speakers and how to fix them',
+        description: 'A library of all the common mistakes from all the lessons!',
         enabled: false,
-        badge: 'Coming soon!',
-        tone: 'mistakes',
       },
       {
         id: 'phrases-verbs',
-        title: 'Phrases & Phrasal Verbs',
-        description: 'Explore our bank of phrases, phrasal verbs, and slang used in our lessons',
+        title: 'Phrases & Verbs',
+        description: 'In-depth explanations of a range of ESL topics',
         enabled: false,
-        badge: 'Coming soon!',
-        tone: 'phrases',
+      },
+      {
+        id: 'conversations',
+        title: 'Conversations',
+        description: 'Listen to only the conversations from beginning to end',
+        enabled: false,
       },
       {
         id: 'culture-notes',
         title: 'Culture Notes',
-        description: 'View our full collection of Culture Notes from our lessons',
+        description: 'A library of all the common mistakes from all the lessons!',
         enabled: false,
-        badge: 'Coming soon!',
-        tone: 'culture',
       },
     ],
   },
   th: {
     title: 'สื่อการเรียน',
-    subtitle: 'สื่อการเรียนรู้เพิ่มเติมเพื่อช่วยในการเรียนรู้ภาษาอังกฤษไปกับไพลิน',
-    placeholderAlert: 'ปลายทางหน้านี้ยังไม่ได้พอร์ตในแอป',
+    subtitle: 'เครื่องมือช่วยพัฒนาการเรียนภาษาอังกฤษของคุณ',
+    comingSoon: 'เร็ว ๆ นี้!',
     cards: [
       {
         id: 'exercise-bank',
         title: 'คลังแบบฝึกหัด',
-        description: 'แบบฝึกหัดเพิ่มเติมสำหรับกฎไวยากรณ์ที่เข้าใจยาก',
+        description: 'รวมแบบฝึกหัดและข้อผิดพลาดที่พบบ่อยจากทุกบทเรียน',
         enabled: true,
-        tone: 'exercise',
       },
       {
         id: 'topic-library',
         title: 'คลังหัวข้อการเรียนรู้',
-        description: 'คำอธิบายเพิ่มเติมเกี่ยวกับห้อข้อการใช้ภาษาอังกฤษที่น่าสนใจ',
+        description: 'คำอธิบายเชิงลึกเกี่ยวกับหัวข้อภาษาอังกฤษหลากหลายเรื่อง',
         enabled: true,
-        tone: 'topic',
+      },
+      {
+        id: 'pronunciation',
+        title: 'โค้ชฝึกพูด',
+        description: 'ฝึกพูดภาษาอังกฤษกับโค้ช AI ของเรา',
+        enabled: true,
       },
       {
         id: 'common-mistakes',
         title: 'ข้อผิดพลาดที่พบบ่อย',
-        description: 'ดูคลังข้อผิดพลาดพบบ่อยที่คนไทยมักใช้ผิด พร้อมวิธีการแก้ไขให้ถูกต้อง',
+        description: 'รวมข้อผิดพลาดที่พบบ่อยจากทุกบทเรียน',
         enabled: false,
-        badge: 'เร็วๆนี้!',
-        tone: 'mistakes',
       },
       {
         id: 'phrases-verbs',
-        title: 'วลี & Phrasal Verbs',
-        description: 'สำรวจคลังวลี, Phrasal Verbs และคำสแลงที่ใช้ในบทเรียนต่างๆของเรา',
+        title: 'วลีและคำกริยา',
+        description: 'คำอธิบายเชิงลึกเกี่ยวกับวลีและคำกริยาในภาษาอังกฤษ',
         enabled: false,
-        badge: 'เร็วๆนี้!',
-        tone: 'phrases',
+      },
+      {
+        id: 'conversations',
+        title: 'บทสนทนา',
+        description: 'ฟังบทสนทนาจากต้นจนจบ',
+        enabled: false,
       },
       {
         id: 'culture-notes',
-        title: 'เกร็ดความรู้ทางวัฒนธรรม',
-        description: 'ดูคลังข้อมูลวัฒนธรรมอเมริกันทั้งหมดจากบทเรียนของเรา',
+        title: 'เกร็ดวัฒนธรรม',
+        description: 'รวมเกร็ดวัฒนธรรมจากทุกบทเรียน',
         enabled: false,
-        badge: 'เร็วๆนี้!',
-        tone: 'culture',
       },
     ],
   },
@@ -131,92 +134,84 @@ export function ResourcesScreen() {
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
   const returnTo = typeof returnToParam === 'string' && returnToParam.trim() ? returnToParam : null;
-  const { uiLanguage } = useUiLanguage();
+  const { uiLanguage, setUiLanguage } = useUiLanguage();
   const copy = resourcePageCopy[uiLanguage];
 
   const handleCardPress = (card: ResourceCardCopy) => {
     if (card.id === 'exercise-bank') {
-      if (returnTo) {
-        router.push(`/(tabs)/exercises?returnTo=${encodeURIComponent(returnTo)}`);
-      } else {
-        router.push('/(tabs)/exercises');
-      }
-      return;
+      router.push(returnTo
+        ? `/(tabs)/exercises?returnTo=${encodeURIComponent(returnTo)}`
+        : '/(tabs)/exercises');
+    } else if (card.id === 'topic-library') {
+      router.push(returnTo
+        ? `/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(returnTo)}`
+        : '/(tabs)/resources/topic-library');
+    } else if (card.id === 'pronunciation') {
+      router.push('/speaking-coach');
     }
-
-    if (card.id === 'topic-library') {
-      if (returnTo) {
-        router.push(`/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(returnTo)}`);
-      } else {
-        router.push('/(tabs)/resources/topic-library');
-      }
-      return;
-    }
-
-    Alert.alert(card.title, copy.placeholderAlert);
   };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
-      <Stack gap="md">
-        <StandardPageHeader
-          language={uiLanguage}
-          title={copy.title}
-          subtitle={copy.subtitle}
-          onBackPress={returnTo ? () => router.push(returnTo as never) : undefined}
-          backLabel={returnTo ? (uiLanguage === 'th' ? 'กลับ' : 'Back') : undefined}
-        />
+        <View style={styles.page}>
+          {returnTo ? (
+            <Pressable accessibilityRole="button" onPress={() => router.push(returnTo as never)} style={styles.backButton}>
+              <AppText language={uiLanguage} variant="caption">← {uiLanguage === 'th' ? 'กลับ' : 'Back'}</AppText>
+            </Pressable>
+          ) : null}
 
-        <View style={styles.contentWrap}>
-          <Stack gap="md" style={styles.cardsShell}>
+          <View style={styles.headingRow}>
+            <AppText language={uiLanguage} variant="title" style={styles.heading}>
+              {copy.title}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={uiLanguage === 'en' ? 'Switch language to Thai' : 'Switch language to English'}
+              onPress={() => setUiLanguage(uiLanguage === 'en' ? 'th' : 'en')}
+              style={styles.languageButton}>
+              <AppText language={uiLanguage === 'en' ? 'en' : 'th'} variant="caption" style={styles.languageText}>
+                {uiLanguage === 'en' ? 'TH' : 'EN'}
+              </AppText>
+            </Pressable>
+          </View>
+          <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
+            {copy.subtitle}
+          </AppText>
+
+          <View style={styles.cards}>
             {copy.cards.map((card) => (
               <Pressable
                 key={card.id}
                 accessibilityRole="button"
+                accessibilityLabel={`${card.title}${card.enabled ? '' : `, ${copy.comingSoon}`}`}
+                accessibilityState={{ disabled: !card.enabled }}
                 disabled={!card.enabled}
-                style={styles.cardPressable}
-                onPress={() => handleCardPress(card)}>
-                <View style={[styles.cardWrap, !card.enabled ? styles.cardWrapDisabled : null]}>
-                  <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.border} offset={3} />
-                  <Card padding="lg" radius="lg" style={styles.resourceCard}>
-                    <View style={styles.cardInner}>
-                      <View style={[styles.mediaShell, getMediaShellStyle(card.tone)]}>
-                        <View style={[styles.mediaAccentShape, getMediaAccentStyle(card.tone)]} />
-                        <Image source={resourceCardImages[card.id]} style={styles.mediaImage} resizeMode="cover" />
-                      </View>
-
-                      <View style={styles.cardCopy}>
-                        <AppText
-                          adjustsFontSizeToFit
-                          language={uiLanguage}
-                          minimumFontScale={0.9}
-                          numberOfLines={1}
-                          variant="body"
-                          style={styles.cardTitle}>
-                          {card.title}
-                        </AppText>
-                        <AppText language={uiLanguage} variant="body" style={styles.cardDescription}>
-                          {card.description}
-                        </AppText>
-                      </View>
-                    </View>
-
-                    {card.badge ? (
-                      <View pointerEvents="none" style={styles.badgeWrap}>
-                        <AppText language={uiLanguage} variant="caption" style={styles.badgeText}>
-                          {card.badge}
-                        </AppText>
-                      </View>
+                onPress={() => handleCardPress(card)}
+                style={styles.cardPressable}>
+                <AndroidNeoShadowLayer borderRadius={12} color={theme.colors.border} offset={3} />
+                <View style={styles.card}>
+                  <Image source={resourceCardImages[card.id]} style={styles.cardImage} resizeMode="contain" />
+                  <View style={styles.cardCopy}>
+                    {!card.enabled ? (
+                      <AppText language={uiLanguage} variant="caption" style={styles.comingSoon}>
+                        {copy.comingSoon}
+                      </AppText>
                     ) : null}
-                  </Card>
+                    <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
+                      {card.title.toLocaleUpperCase(uiLanguage === 'th' ? 'th' : 'en')}
+                    </AppText>
+                    <AppText language={uiLanguage} variant="caption" style={styles.cardDescription}>
+                      {card.description}
+                    </AppText>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={theme.colors.text} style={styles.chevron} />
                 </View>
               </Pressable>
             ))}
-          </Stack>
+          </View>
         </View>
-      </Stack>
-          </ResponsivePageShell>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -229,142 +224,92 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
-  contentWrap: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
+  page: {
+    paddingHorizontal: 32,
+    paddingTop: 16,
   },
-  cardsShell: {
-    width: '100%',
-    maxWidth: 980,
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 12,
   },
-  cardPressable: {
-    width: '100%',
-  },
-  cardWrap: {
-    position: 'relative',
-  },
-  cardWrapDisabled: {
-    opacity: 0.88,
-  },
-  resourceCard: {
-    width: '100%',
-    minHeight: 184,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-  },
-  cardInner: {
-    position: 'relative',
+  headingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.lg,
-    minHeight: 136,
+    justifyContent: 'space-between',
   },
-  mediaShell: {
-    width: 112,
-    height: 112,
-    borderRadius: 14,
+  heading: {
+    color: theme.colors.text,
+    fontSize: 21,
+    lineHeight: 30,
+    fontWeight: theme.typography.weights.bold,
+  },
+  languageButton: {
+    minWidth: 52,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D8DDE3',
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  languageText: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: theme.colors.text,
+  },
+  subtitle: {
+    marginTop: 2,
+    color: '#6D737B',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  cards: {
+    marginTop: 18,
+    gap: 15,
+  },
+  cardPressable: {
+    position: 'relative',
+  },
+  card: {
+    minHeight: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  mediaImage: {
-    width: '100%',
-    height: '100%',
-  },
-  mediaShellExercise: {
-    backgroundColor: '#F8E3BF',
-  },
-  mediaShellTopic: {
-    backgroundColor: '#D9EEFF',
-  },
-  mediaShellMistakes: {
-    backgroundColor: '#FDE2D7',
-  },
-  mediaShellPhrases: {
-    backgroundColor: '#E6E0FF',
-  },
-  mediaShellCulture: {
-    backgroundColor: '#DDF3E6',
-  },
-  mediaAccentShape: {
-    position: 'absolute',
-    width: 86,
-    height: 86,
-    borderRadius: 999,
-    right: -10,
-    bottom: -12,
-    opacity: 0.95,
-  },
-  mediaAccentExercise: {
-    backgroundColor: '#FFB347',
-  },
-  mediaAccentTopic: {
-    backgroundColor: '#74BEFF',
-  },
-  mediaAccentMistakes: {
-    backgroundColor: '#FF8F72',
-  },
-  mediaAccentPhrases: {
-    backgroundColor: '#B59CFF',
-  },
-  mediaAccentCulture: {
-    backgroundColor: '#74C690',
+  cardImage: {
+    width: 80,
+    height: 80,
+    marginRight: 16,
   },
   cardCopy: {
     flex: 1,
-    gap: theme.spacing.sm,
+    justifyContent: 'center',
+  },
+  comingSoon: {
+    color: '#60A6DC',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 3,
   },
   cardTitle: {
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: 28,
-    fontWeight: theme.typography.weights.bold,
-  },
-  cardDescription: {
-    color: theme.colors.text,
     fontSize: 14,
     lineHeight: 20,
-  },
-  badgeWrap: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.md,
-  },
-  badgeText: {
-    color: theme.colors.primary,
     fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
+  },
+  cardDescription: {
+    marginTop: 4,
+    color: '#33383D',
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  chevron: {
+    marginLeft: 4,
   },
 });
-
-function getMediaShellStyle(tone: ResourceTone) {
-  switch (tone) {
-    case 'exercise':
-      return styles.mediaShellExercise;
-    case 'topic':
-      return styles.mediaShellTopic;
-    case 'mistakes':
-      return styles.mediaShellMistakes;
-    case 'phrases':
-      return styles.mediaShellPhrases;
-    case 'culture':
-      return styles.mediaShellCulture;
-  }
-}
-
-function getMediaAccentStyle(tone: ResourceTone) {
-  switch (tone) {
-    case 'exercise':
-      return styles.mediaAccentExercise;
-    case 'topic':
-      return styles.mediaAccentTopic;
-    case 'mistakes':
-      return styles.mediaAccentMistakes;
-    case 'phrases':
-      return styles.mediaAccentPhrases;
-    case 'culture':
-      return styles.mediaAccentCulture;
-  }
-}
