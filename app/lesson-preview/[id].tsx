@@ -1,7 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, BackHandler, Image, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, BackHandler, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import fallbackImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
@@ -157,20 +158,20 @@ export default function LessonPreviewScreen() {
                   {localHeaderImage ? (
                     <Image
                       source={lessonHeaderBlueBlob}
-                      resizeMode="contain"
+                      contentFit="contain"
                       style={styles.artworkLayer}
                       accessible={false}
                     />
                   ) : null}
                   <Image
-                    source={localHeaderImage ?? (imageUrl && !imageFailed ? { uri: imageUrl } : fallbackImage)}
-                    resizeMode="contain"
+                    source={imageFailed ? fallbackImage : localHeaderImage ?? (imageUrl ? { uri: imageUrl } : fallbackImage)}
+                    contentFit="contain"
                     onError={() => setImageFailed(true)}
                     style={styles.artworkLayer}
                     accessible={false}
                   />
                 </View>
-                {locked ? <Image source={lockBlackImage} resizeMode="contain" style={styles.lock} accessibilityLabel={copy.upgrade} /> : null}
+                {locked ? <Image source={lockBlackImage} contentFit="contain" style={styles.lock} accessibilityLabel={copy.upgrade} /> : null}
               </View>
               <View style={styles.lessonCopy}>
                 <AppText language={uiLanguage} variant="caption" style={styles.eyebrow}>{copy.lesson} {number}</AppText>

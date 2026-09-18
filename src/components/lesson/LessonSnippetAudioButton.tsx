@@ -1,10 +1,12 @@
 import React from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
 const playIcon = require('../../../assets/images/speaking-coach/play-blue.png');
 const pauseIcon = require('../../../assets/images/speaking-coach/pause-blue.png');
 
 type LessonSnippetAudioButtonProps = {
+  appearance?: 'default' | 'plain';
   accessibilityLabel: string;
   disabled?: boolean;
   hitSlop?: number;
@@ -16,6 +18,7 @@ type LessonSnippetAudioButtonProps = {
 };
 
 export function LessonSnippetAudioButton({
+  appearance = 'default',
   accessibilityLabel,
   disabled = false,
   hitSlop,
@@ -42,11 +45,15 @@ export function LessonSnippetAudioButton({
         pressed && !disabled ? styles.buttonPressed : null,
         style,
       ]}>
-      <Image
-        source={isPlaying ? pauseIcon : playIcon}
-        resizeMode="contain"
-        style={[styles.icon, { width: iconSize, height: iconSize }]}
-      />
+      {appearance === 'plain' ? (
+        <MaterialIcons name={isPlaying ? 'pause' : 'play-arrow'} size={size} color="#91CAFF" />
+      ) : (
+        <Image
+          source={isPlaying ? pauseIcon : playIcon}
+          resizeMode="contain"
+          style={[styles.icon, { width: iconSize, height: iconSize }]}
+        />
+      )}
     </Pressable>
   );
 }

@@ -138,18 +138,15 @@ const PHRASE_DIALOGUE_AUDIO_BUTTON_SIZE = 22;
 const RICH_BULLET_WIDTH = 8;
 const RICH_NUMBER_BADGE_WIDTH = 24;
 const RICH_INDENT_STEP = 12;
+const RICH_REDUCED_TEXT_INDENT = 12;
 const RICH_LIST_ITEM_OFFSET = 26;
 const RICH_LIST_ITEM_BASE_OFFSET = 6;
-const RICH_AUDIO_MARKER_SPAN = RICH_AUDIO_BUTTON_WIDTH + RICH_ROW_GAP;
 const RICH_BULLET_MARKER_SPAN = RICH_BULLET_WIDTH + RICH_ROW_GAP;
 const RICH_NUMBER_MARKER_SPAN = RICH_NUMBER_BADGE_WIDTH + RICH_ROW_GAP;
-const RICH_AUDIO_TEXT_EXTRA_INSET = 8;
 const RICH_ACCENT_BAR_WIDTH = 4;
 const RICH_ACCENT_TEXT_GAP = 10;
 const PHRASE_AUDIO_MARKER_LANE_WIDTH = RICH_AUDIO_BUTTON_WIDTH + RICH_ACCENT_TEXT_GAP;
-const RICH_AUDIO_COLUMN_EXTRA_OFFSET = 0;
 const RICH_ACCENT_COLUMN_EXTRA_OFFSET = RICH_ACCENT_BAR_WIDTH + RICH_ACCENT_TEXT_GAP;
-const RICH_AUDIO_MARKER_LEFT = -(RICH_AUDIO_BUTTON_WIDTH + RICH_ACCENT_TEXT_GAP - 4);
 const RICH_ACCENT_MARKER_LEFT = -(RICH_ACCENT_BAR_WIDTH + RICH_ACCENT_TEXT_GAP);
 const RICH_NUMBER_MARKER_LEFT = -(RICH_NUMBER_BADGE_WIDTH + RICH_ROW_GAP);
 
@@ -2495,6 +2492,7 @@ const getRichInlineSegmentStyle = (
     isLink?: boolean;
     shouldShowHighlight?: boolean;
     highlightColor?: string;
+    audioCard?: boolean;
     extraStyle?: object | null;
     manualFontScale?: number;
     englishFontSize?: number;
@@ -2503,13 +2501,15 @@ const getRichInlineSegmentStyle = (
 ) => [
   styles.richInlineText,
   {
-    fontFamily: getInlineFontFamily(scriptLanguage, {
-      bold: options?.forceSemibold === true || inline.bold === true,
-      italic: inline.italic === true,
-    }),
+    fontFamily: options?.audioCard && inline.underline
+      ? theme.typography.fontFaces[scriptLanguage].bold
+      : getInlineFontFamily(scriptLanguage, {
+          bold: options?.forceSemibold === true || inline.bold === true,
+          italic: inline.italic === true,
+        }),
   },
   options?.isSubheader ? styles.richInlineSubheaderText : null,
-  inline.underline ? styles.richInlineUnderline : null,
+  inline.underline && !options?.audioCard ? styles.richInlineUnderline : null,
   typeof inline.color === 'string' && inline.color.trim() ? { color: inline.color.trim() } : null,
   options?.shouldShowHighlight ? styles.richInlineHighlight : null,
   options?.shouldShowHighlight && options.highlightColor === '#f4cccc' ? styles.richInlineHighlightPink : null,
@@ -2518,7 +2518,7 @@ const getRichInlineSegmentStyle = (
   (options.highlightColor === '#c9daf7' || options.highlightColor === '#c9daf8')
     ? styles.richInlineHighlightBlue
     : null,
-  options?.muted ? styles.richInlineThaiMuted : null,
+  options?.muted ? (options.audioCard ? styles.richAudioThaiText : styles.richInlineThaiMuted) : null,
   options?.isLink ? styles.richInlineLink : null,
   options?.manualFontScale
     ? {
@@ -2530,6 +2530,12 @@ const getRichInlineSegmentStyle = (
     ? { fontSize: options.englishFontSize, lineHeight: options.englishLineHeight }
     : null,
   options?.extraStyle ?? null,
+  // Punctuation has no Thai glyph, so emphasis color follows the translation line.
+  options?.audioCard && inline.underline
+    ? options.muted || scriptLanguage === 'th'
+      ? styles.richAudioUnderlinedThai
+      : styles.richAudioUnderlinedEnglish
+    : null,
 ];
 
 const renderRichTextScriptSegments = (
@@ -2543,6 +2549,7 @@ const renderRichTextScriptSegments = (
     isLink?: boolean;
     shouldShowHighlight?: boolean;
     highlightColor?: string;
+    audioCard?: boolean;
     extraStyle?: object | null;
     manualFontScale?: number;
     englishFontSize?: number;
@@ -2756,6 +2763,84 @@ const isEnglishSpeakerLineText = (text: string) => {
   return /^[A-Za-z]/.test(text.trimStart());
 };
 
+const isThaiAudioTranslationLine = (text: string) =>
+  THAI_TEXT_RE.test(text) && !isEnglishSpeakerLineText(text.trimStart());
+
+const isPairedThaiAudioTranslationLine = (text: string, previousLine: string) =>
+  isEnglishSpeakerLineText(previousLine) &&
+  isSpeakerLineText(text) &&
+  /^[\u0E00-\u0E7F]/.test(text.trimStart());
+
+const splitTrailingItalicAudioNote = (
+  inlines: LessonRichInline[] | null | undefined,
+  contentLang: UiLanguage
+) => {
+  const originalInlines = inlines ?? [];
+  const lines: LessonRichInline[][] = [[]];
+
+  originalInlines.forEach((inline) => {
+    resolveRichInlineText(inline, contentLang).split('\n').forEach((part, index) => {
+      if (index > 0) {
+        lines.push([]);
+      }
+      if (part) {
+        lines[lines.length - 1].push({ ...inline, text: part });
+      }
+    });
+  });
+
+  const hasText = (line: LessonRichInline[]) => line.some((inline) => Boolean(String(inline.text ?? '').trim()));
+  const isFullyItalic = (line: LessonRichInline[]) =>
+    hasText(line) && line.every((inline) => !String(inline.text ?? '').trim() || inline.italic === true);
+  const flattenLines = (selectedLines: LessonRichInline[][]) =>
+    selectedLines.flatMap((line, index) => index === 0 ? line : [{ text: '\n' }, ...line]);
+  let lastContentLine = lines.length - 1;
+  while (lastContentLine >= 0 && !hasText(lines[lastContentLine])) {
+    lastContentLine -= 1;
+  }
+
+  let noteStart = lastContentLine;
+  while (noteStart >= 0 && isFullyItalic(lines[noteStart])) {
+    noteStart -= 1;
+  }
+  noteStart += 1;
+
+  // A few Thai documents place the italic aside before the translation.
+  if (noteStart > lastContentLine && lastContentLine === 2 && isFullyItalic(lines[1]) &&
+      isThaiAudioTranslationLine(lines[2].map((inline) => String(inline.text ?? '')).join(''))) {
+    return {
+      dialogueInlines: flattenLines([lines[0], lines[2]]),
+      noteInlines: flattenLines([lines[1]]),
+    };
+  }
+
+  if (noteStart <= 0 || noteStart > lastContentLine || !hasText(lines[noteStart - 1])) {
+    return { dialogueInlines: originalInlines, noteInlines: [] as LessonRichInline[] };
+  }
+
+  return {
+    dialogueInlines: flattenLines(lines.slice(0, noteStart)),
+    noteInlines: flattenLines(lines.slice(noteStart, lastContentLine + 1)),
+  };
+};
+
+const hasMultipleAudioSpeakers = (node: LessonRichNode, contentLang: UiLanguage) => {
+  const lines = (node.inlines ?? [])
+    .map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang)))
+    .join('')
+    .split('\n');
+  const speakers = new Set(
+    lines
+      .filter(isEnglishSpeakerLineText)
+      .map((line) => line.match(SPEAKER_PREFIX_RE)?.[1].replace(/:\s*$/, '').trim().toLowerCase())
+      .filter((speaker): speaker is string => Boolean(speaker))
+  );
+
+  return speakers.size > 1 && lines.some((line, index) =>
+    isPairedThaiAudioTranslationLine(line, lines[index - 1] ?? '')
+  );
+};
+
 const speakerLineIsThai = (line: string) => {
   if (!isSpeakerLineText(line)) {
     return null;
@@ -2798,6 +2883,22 @@ const isBoldParagraphNode = (node: LessonRichNode) => {
   );
 
   return textSpans.length > 0 && textSpans.every((inline) => Boolean(inline.bold));
+};
+
+const isCyanHighlightBoxNode = (node: LessonRichNode) => {
+  if (node.kind !== 'paragraph' || node.audio_key || node.audio_seq) {
+    return false;
+  }
+
+  const textSpans = (node.inlines ?? []).filter(
+    (inline) => typeof inline?.text === 'string' && cleanAudioTags(inline.text).trim().length > 0
+  );
+
+  return textSpans.some((inline) => inline.highlight?.trim().toLowerCase() === CYAN_HIGHLIGHT) &&
+    textSpans.every((inline) =>
+      inline.highlight?.trim().toLowerCase() === CYAN_HIGHLIGHT ||
+      /^[\s.,!?;:…]+$/.test(cleanAudioTags(String(inline.text ?? '')))
+    );
 };
 
 const normalizeCultureNoteLeadHeadingExceptionText = (value: string) =>
@@ -3414,6 +3515,7 @@ export default function LessonDetailShellScreen() {
   const [activeSnippetKey, setActiveSnippetKey] = useState<string | null>(null);
   const [playingSnippetKey, setPlayingSnippetKey] = useState<string | null>(null);
   const [isSnippetLoading, setIsSnippetLoading] = useState(false);
+  const [expandedRichAudioTranslations, setExpandedRichAudioTranslations] = useState<Record<string, boolean>>({});
   const [applyText, setApplyText] = useState('');
   const [showApplyTask, setShowApplyTask] = useState(false);
   const [showApplyResponse, setShowApplyResponse] = useState(false);
@@ -5435,7 +5537,12 @@ export default function LessonDetailShellScreen() {
     setActivePracticeCardIndex(0);
     setActivePracticeQuestionIndex(0);
     setIsPracticeSetMenuOpen(false);
-  }, [activeTab?.id]);
+    setExpandedRichAudioTranslations({});
+  }, [activeTab?.id, lessonId]);
+
+  useEffect(() => {
+    setExpandedRichAudioTranslations({});
+  }, [contentLang]);
 
   useEffect(() => {
     setIsPracticeSetMenuOpen(false);
@@ -7638,7 +7745,7 @@ export default function LessonDetailShellScreen() {
     return Math.max(0, indentLevel);
   };
 
-  const getRichTextStartOffset = (node: LessonRichNode) => {
+  const getRichTextStartOffset = (node: LessonRichNode, reduceIndent = false) => {
     const indentLevel = getRichIndentLevel(node);
     const isIndented = indentLevel > 0 || node.is_indented === true;
 
@@ -7648,11 +7755,11 @@ export default function LessonDetailShellScreen() {
 
     const baseIndent = indentLevel * RICH_INDENT_STEP;
     const offset = indentLevel > 0 ? RICH_LIST_ITEM_OFFSET : RICH_LIST_ITEM_BASE_OFFSET;
-    return baseIndent + offset;
+    return Math.max(0, baseIndent + offset - (reduceIndent ? RICH_REDUCED_TEXT_INDENT : 0));
   };
 
-  const getRichTextIndentStyle = (node: LessonRichNode) => {
-    const textStartOffset = getRichTextStartOffset(node);
+  const getRichTextIndentStyle = (node: LessonRichNode, reduceIndent = false) => {
+    const textStartOffset = getRichTextStartOffset(node, reduceIndent);
     if (!textStartOffset) {
       return null;
     }
@@ -7925,6 +8032,8 @@ export default function LessonDetailShellScreen() {
       phraseShowDivider?: boolean;
       phraseIsLeadAudio?: boolean;
       compactBody?: boolean;
+      audioCard?: boolean;
+      showThaiTranslations?: boolean;
     }
   ) => {
     if (!Array.isArray(inlines) || !inlines.length) {
@@ -8089,8 +8198,9 @@ export default function LessonDetailShellScreen() {
       });
     }
 
-    const lineMetadata = lines.map((lineSpans) => {
+    const lineMetadata = lines.map((lineSpans, lineIndex) => {
       const lineText = lineSpans.map((span) => String(span.text ?? '')).join('');
+      const previousLine = lines[lineIndex - 1]?.map((span) => String(span.text ?? '')).join('') ?? '';
       const speakerPrefixMatch = lineText.match(SPEAKER_PREFIX_RE);
       const speakerPrefix = speakerPrefixMatch?.[1] ?? '';
       const isSpeakerLine = isSpeakerLineText(lineText);
@@ -8106,6 +8216,8 @@ export default function LessonDetailShellScreen() {
         isSpeakerLine,
         isEnglishSpeakerLine: isEnglishSpeakerLineText(lineText),
         isThaiLineForPhraseCard,
+        isThaiTranslationLine: isThaiAudioTranslationLine(lineText),
+        isPairedThaiTranslationLine: isPairedThaiAudioTranslationLine(lineText, previousLine),
         firstThaiCharIndex,
       };
     });
@@ -8126,7 +8238,7 @@ export default function LessonDetailShellScreen() {
       const lineText = lineMeta?.lineText ?? lineSpans.map((span) => String(span.text ?? '')).join('');
       const isThaiLine = options?.isPhraseCard
         ? Boolean(lineMeta?.isThaiLineForPhraseCard)
-        : contentLang === 'th' && THAI_TEXT_RE.test(lineText);
+        : contentLang === 'th' && (options?.audioCard ? Boolean(lineMeta?.isThaiTranslationLine) : THAI_TEXT_RE.test(lineText));
       const firstThaiCharIndex = typeof lineMeta?.firstThaiCharIndex === 'number' ? lineMeta.firstThaiCharIndex : -1;
       const speakerPrefixLength = lineMeta?.speakerPrefixLength ?? 0;
       let lineOffset = 0;
@@ -8173,6 +8285,7 @@ export default function LessonDetailShellScreen() {
                   ...getRichInlineSegmentStyle('en', inline, {
                     shouldShowHighlight,
                     highlightColor,
+                    audioCard: options?.audioCard,
                     isLink,
                     manualFontScale,
                     extraStyle: phraseInlineSizing,
@@ -8219,6 +8332,7 @@ export default function LessonDetailShellScreen() {
                     isLink,
                     shouldShowHighlight,
                     highlightColor,
+                    audioCard: options?.audioCard,
                     extraStyle: resolvedExtraStyle,
                     manualFontScale,
                   })}
@@ -8233,14 +8347,18 @@ export default function LessonDetailShellScreen() {
                 const restPart = piece.slice(prefixLengthInsidePiece);
                 pushPiece(prefixPart, options?.isPhraseCard
                   ? (shouldMutePiece ? styles.phraseSpeakerPrefixThai : styles.phraseSpeakerPrefix)
-                  : (shouldMutePiece ? styles.richSpeakerPrefixThai : styles.richSpeakerPrefix));
+                  : (shouldMutePiece
+                      ? options?.audioCard ? styles.richAudioSpeakerPrefixThai : styles.richSpeakerPrefixThai
+                      : styles.richSpeakerPrefix));
                 if (restPart) {
                   pushPiece(restPart);
                 }
               } else {
                 pushPiece(piece, options?.isPhraseCard
                   ? (shouldMutePiece ? styles.phraseSpeakerPrefixThai : styles.phraseSpeakerPrefix)
-                  : (shouldMutePiece ? styles.richSpeakerPrefixThai : styles.richSpeakerPrefix));
+                  : (shouldMutePiece
+                      ? options?.audioCard ? styles.richAudioSpeakerPrefixThai : styles.richSpeakerPrefixThai
+                      : styles.richSpeakerPrefix));
               }
             } else {
               pushPiece(piece);
@@ -8255,11 +8373,19 @@ export default function LessonDetailShellScreen() {
     const LineStack = options?.isPhraseCard ? PhraseTextLane : View;
 
     return (
-      <LineStack style={[styles.richAudioLineStack, options?.isPhraseCard ? styles.phraseAudioLineStack : null]}>
+      <LineStack style={[
+        styles.richAudioLineStack,
+        options?.isPhraseCard ? styles.phraseAudioLineStack : null,
+        options?.audioCard ? styles.richAudioCardLineStack : null,
+      ]}>
         {lines.map((lineSpans, lineIndex) => {
           const lineMeta = lineMetadata[lineIndex];
           const manualFontScale = manualAudioFontScales[lineIndex];
           const phraseTextScale = manualFontScale ?? 1;
+
+          if (options?.audioCard && options.showThaiTranslations === false && lineMeta?.isPairedThaiTranslationLine) {
+            return null;
+          }
 
           if (options?.isPhraseCard && lineMeta?.isThaiLineForPhraseCard) {
             const speakerPrefix = lineMeta.speakerPrefix;
@@ -8323,6 +8449,10 @@ export default function LessonDetailShellScreen() {
                   ? styles.phraseDialogueEnglishTurn
                   : null,
                 options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
+                options?.audioCard && lineMeta?.isThaiTranslationLine ? styles.richAudioThaiTranslationRow : null,
+                options?.audioCard && lineIndex > 0 && lineMeta?.isEnglishSpeakerLine
+                  ? styles.richAudioSpeakerTurnAfterFirst
+                  : null,
                 options?.isPhraseCard
                   ? {
                       fontSize: 15 * phraseTextScale,
@@ -8634,7 +8764,6 @@ export default function LessonDetailShellScreen() {
   const renderRichAudioRow = (
     node: LessonRichNode,
     nodeKey: string,
-    textIndentStyle: object | null,
     hasAccent: boolean,
     options?: {
       enableHighlights?: boolean;
@@ -8643,10 +8772,10 @@ export default function LessonDetailShellScreen() {
       isPhraseCard?: boolean;
       phraseShowDivider?: boolean;
       phraseIsLeadAudio?: boolean;
+      compactBody?: boolean;
+      isUnderstandSection?: boolean;
     }
   ) => {
-    const audioTextColumnStyle = addColumnOffset(textIndentStyle, RICH_AUDIO_COLUMN_EXTRA_OFFSET);
-    const accentTextColumnStyle = addColumnOffset(textIndentStyle, RICH_ACCENT_COLUMN_EXTRA_OFFSET);
     const snippet =
       getSnippetForNode(node, snippetIndex) ??
       getPhraseSnippetForNode(node, phraseSnippetIndex, options?.phraseId, options?.phraseVariant);
@@ -8669,6 +8798,7 @@ export default function LessonDetailShellScreen() {
         hitSlop={options?.isPhraseCard ? 11 : undefined}
         isLoading={isLoading}
         isPlaying={isPlaying}
+        appearance={options?.isPhraseCard ? 'default' : 'plain'}
         size={options?.isPhraseCard ? PHRASE_DIALOGUE_AUDIO_BUTTON_SIZE : undefined}
         onPress={() => {
           void handleToggleSnippet(snippet);
@@ -8681,12 +8811,7 @@ export default function LessonDetailShellScreen() {
                   : styles.phraseAudioButtonOffset,
               ]
             : [
-                styles.richAudioMarkerButton,
-                options?.isPhraseCard
-                  ? options.phraseIsLeadAudio
-                    ? styles.phraseLeadAudioButtonOffset
-                    : styles.phraseAudioButtonOffset
-                  : null,
+                styles.richAudioCardButton,
               ]
         }
       />
@@ -8722,28 +8847,54 @@ export default function LessonDetailShellScreen() {
       );
     }
 
+    const { dialogueInlines, noteInlines } = options?.isUnderstandSection
+      ? splitTrailingItalicAudioNote(node.inlines, contentLang)
+      : { dialogueInlines: node.inlines ?? [], noteInlines: [] as LessonRichInline[] };
+    const translationKey = `${activeTab?.id ?? 'section'}:${nodeKey}`;
+    const hasTranslationToggle = contentLang === 'th' && hasMultipleAudioSpeakers({ ...node, inlines: dialogueInlines }, contentLang);
+    const translationsExpanded = expandedRichAudioTranslations[translationKey] === true;
+
     return (
-      <View
-        key={nodeKey}
-        style={[
-          styles.phraseAudioBlock,
-          shouldUseCompactAudioSpacing ? styles.phraseAudioBlockCompact : null,
-          options?.isPhraseCard && !options.phraseIsLeadAudio ? styles.phraseAudioBlockAfterFirst : null,
-        ]}>
-        {options?.isPhraseCard && options.phraseShowDivider ? <View style={styles.phraseDivider} /> : null}
-        <View
-          style={[
-            styles.richTextColumnLane,
-            options?.isPhraseCard ? styles.phraseAudioRow : null,
-            options?.isPhraseCard && shouldUseCompactAudioSpacing ? styles.phraseAudioRowCompact : null,
-            hasAccent ? accentTextColumnStyle : audioTextColumnStyle,
-          ]}>
-          {hasAccent ? <View style={styles.richAccentMarker} /> : null}
-          {audioButton}
-          <View style={styles.richAudioTextWrap}>
-            {renderRichAudioBulletLines(node.inlines, nodeKey, options)}
+      <View key={nodeKey} style={styles.richAudioCard}>
+        <View style={styles.richAudioCardBody}>
+          <View style={styles.richAudioCardMainRow}>
+            {audioButton}
+            <View style={styles.richAudioTextWrap}>
+              {renderRichAudioBulletLines(dialogueInlines, nodeKey, {
+                ...options,
+                audioCard: true,
+                showThaiTranslations: !hasTranslationToggle || translationsExpanded,
+              })}
+            </View>
           </View>
+          {hasTranslationToggle ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translationsExpanded ? 'ซ่อนคำแปล' : 'ดูคำแปล'}
+              accessibilityState={{ expanded: translationsExpanded }}
+              onPress={() => setExpandedRichAudioTranslations((previous) => ({
+                ...previous,
+                [translationKey]: !previous[translationKey],
+              }))}
+              style={styles.richAudioTranslationToggle}>
+              <MaterialIcons
+                name={translationsExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+                size={20}
+                color="#91CAFF"
+              />
+              <AppText language="th" variant="caption" style={styles.richAudioTranslationToggleText}>
+                {translationsExpanded ? 'ซ่อนคำแปล' : 'ดูคำแปล'}
+              </AppText>
+            </Pressable>
+          ) : null}
         </View>
+        {noteInlines.length > 0 ? (
+          <View style={styles.richAudioNoteFooter}>
+            <AppText language={contentLang} variant="body" style={styles.richAudioNoteText}>
+              {renderRichInlines(noteInlines, `${nodeKey}-note`)}
+            </AppText>
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -9259,13 +9410,19 @@ export default function LessonDetailShellScreen() {
       forceSubheader?: boolean;
       compactBody?: boolean;
       preserveNumberedItems?: boolean;
+      isUnderstandSection?: boolean;
+      isAudioLeadIn?: boolean;
     }
   ) => {
     const nodeKey = `${options?.keyPrefix ?? 'rich-node'}-${index}`;
-    const textIndentStyle = getRichTextIndentStyle(node);
+    const hasAudio = Boolean(node.audio_key || node.audio_seq);
+    const reduceTextIndent =
+      !options?.isPhraseCard &&
+      ((node.kind === 'paragraph' && !hasAudio) ||
+        (node.kind === 'numbered_item' && (!hasAudio || options?.preserveNumberedItems === true)));
+    const textIndentStyle = options?.isAudioLeadIn ? null : getRichTextIndentStyle(node, reduceTextIndent);
     const bulletRowIndentStyle = getRichRowIndentStyle(node, RICH_BULLET_MARKER_SPAN);
     const hasAccent = applyNodeHasAccent(node);
-    const hasAudio = Boolean(node.audio_key || node.audio_seq);
     const normalizedNodeHeadingText = normalizeForcedSubheaderText(getNodeHeadingText(node, 'en'));
     const isLesson153 = activeLessonNumber === '15.3' || coverLessonNumber === '15.3';
     const forceSubheaderByLessonOverride =
@@ -9297,12 +9454,12 @@ export default function LessonDetailShellScreen() {
           style={[
             styles.richParagraph,
             contentLang === 'th' ? styles.richThaiTextCompact : null,
-            styles.richSubheader,
+            options?.isPhraseCard ? styles.richSubheader : styles.richSectionSubheader,
             options?.isPhraseCard ? styles.phraseHeading : null,
           ]}>
           {renderRichInlines(node.inlines, nodeKey, {
             ...options,
-            isSubheader: true,
+            isSubheader: options?.isPhraseCard === true,
             forceSemibold: true,
           })}
         </AppText>
@@ -9332,7 +9489,7 @@ export default function LessonDetailShellScreen() {
 
     if (node.kind === 'numbered_item') {
       if (hasAudio && options?.preserveNumberedItems !== true) {
-        return renderRichAudioRow(node, nodeKey, textIndentStyle, hasAccent, options);
+        return renderRichAudioRow(node, nodeKey, hasAccent, options);
       }
 
       return (
@@ -9346,7 +9503,7 @@ export default function LessonDetailShellScreen() {
           {hasAccent ? <View style={styles.richAccentMarker} /> : null}
           <View style={styles.richNumberBadgeMarker}>
             <AppText language="en" variant="caption" style={styles.richNumberBadgeText}>
-              {options?.numberedLabel ?? `${index + 1}.`}
+              {(options?.numberedLabel ?? `${index + 1}.`).replace(/\.\s*$/, '')}
             </AppText>
           </View>
           <AppText
@@ -9380,7 +9537,7 @@ export default function LessonDetailShellScreen() {
 
     if (node.kind === 'list_item' || node.kind === 'misc_item') {
       if (hasAudio) {
-        return renderRichAudioRow(node, nodeKey, textIndentStyle, hasAccent, options);
+        return renderRichAudioRow(node, nodeKey, hasAccent, options);
       }
 
       return (
@@ -9424,7 +9581,7 @@ export default function LessonDetailShellScreen() {
 
     if (node.kind === 'paragraph') {
       if (hasAudio) {
-        return renderRichAudioRow(node, nodeKey, textIndentStyle, hasAccent, options);
+        return renderRichAudioRow(node, nodeKey, hasAccent, options);
       }
 
       if (options?.isPhraseCard && richNodeHasSpeakerPrefix(node, contentLang)) {
@@ -9447,7 +9604,7 @@ export default function LessonDetailShellScreen() {
             contentLang === 'th' ? styles.richThaiTextCompact : null,
             options?.compactBody ? styles.richBodyTextCompact : null,
             options?.isPhraseCard ? styles.phraseBodyText : null,
-            isSubheader ? styles.richSubheader : null,
+            isSubheader ? (options?.isPhraseCard ? styles.richSubheader : styles.richSectionSubheader) : null,
             isSubheader && options?.isPhraseCard ? styles.phraseSubheader : null,
             manualFontScale
               ? {
@@ -9458,12 +9615,20 @@ export default function LessonDetailShellScreen() {
           ]}>
           {renderRichInlines(node.inlines, nodeKey, {
             ...options,
-            isSubheader,
+            isSubheader: isSubheader && options?.isPhraseCard === true,
             forceSemibold: options?.forceSubheader === true || forceSubheaderByLessonOverride,
             manualFontScale,
           })}
         </AppText>
       );
+
+      if (!options?.isPhraseCard && isCyanHighlightBoxNode(node)) {
+        return (
+          <View key={nodeKey} style={[styles.richBlueHighlightBox, textIndentStyle]}>
+            {paragraphText}
+          </View>
+        );
+      }
 
       if (hasAccent) {
         return (
@@ -9482,7 +9647,7 @@ export default function LessonDetailShellScreen() {
           options?.compactBody ? styles.richBodyTextCompact : null,
           textIndentStyle,
           options?.isPhraseCard ? styles.phraseBodyText : null,
-          isSubheader ? styles.richSubheader : null,
+          isSubheader ? (options?.isPhraseCard ? styles.richSubheader : styles.richSectionSubheader) : null,
           isSubheader && options?.isPhraseCard ? styles.phraseSubheader : null,
           manualFontScale
             ? {
@@ -9593,6 +9758,15 @@ export default function LessonDetailShellScreen() {
 
   const isAudioRichNode = (node: LessonRichNode | undefined) => Boolean(node && (node.audio_key || node.audio_seq));
 
+  const isUnderstandAudioLeadIn = (node: LessonRichNode | undefined, nextNode: LessonRichNode | undefined) => {
+    if (!node || node.kind !== 'paragraph' || isAudioRichNode(node) || !isAudioRichNode(nextNode)) {
+      return false;
+    }
+
+    const visibleInlines = (node.inlines ?? []).filter((inline) => resolveRichInlineText(inline, contentLang).trim());
+    return visibleInlines.length > 0 && visibleInlines.every((inline) => inline.italic === true);
+  };
+
   const renderUnderstandGroupBody = (nodes: LessonRichNode[], keyPrefix: string) => {
     const zebraGroups: LessonRichNode[][] = [];
     let currentGroup: LessonRichNode[] = [];
@@ -9627,25 +9801,36 @@ export default function LessonDetailShellScreen() {
       return `${nextIndex}.`;
     };
 
+    const renderUnderstandBodyNode = (node: LessonRichNode, nodeIndex: number, isAudioLeadIn = false) =>
+      renderRichNode(node, nodeIndex, {
+        keyPrefix: 'understand-node',
+        enableHighlights: true,
+        compactBody: true,
+        isUnderstandSection: true,
+        isAudioLeadIn,
+        numberedLabel: node.kind === 'numbered_item' ? getUnderstandNumberedLabel(node) : undefined,
+      });
+
     return zebraGroups.map((group, index) => (
       <View
         key={`${keyPrefix}-group-${index}`}
         style={[styles.richGroupBand, index % 2 === 0 ? styles.richGroupBandEven : styles.richGroupBandOdd]}>
         {group.map((node, nodeIndex) => {
-          if (node.kind === 'numbered_item') {
-            return renderRichNode(node, nodeIndex, {
-              keyPrefix: 'understand-node',
-              enableHighlights: true,
-              numberedLabel: getUnderstandNumberedLabel(node),
-              compactBody: true,
-            });
+          if (nodeIndex > 0 && isUnderstandAudioLeadIn(group[nodeIndex - 1], node)) {
+            return null;
           }
 
-          return renderRichNode(node, nodeIndex, {
-            keyPrefix: 'understand-node',
-            enableHighlights: true,
-            compactBody: true,
-          });
+          const nextNode = group[nodeIndex + 1];
+          if (isUnderstandAudioLeadIn(node, nextNode) && nextNode) {
+            return (
+              <View key={`${keyPrefix}-audio-pair-${index}-${nodeIndex}`} style={styles.richAudioLeadInPair}>
+                {renderUnderstandBodyNode(node, nodeIndex, true)}
+                {renderUnderstandBodyNode(nextNode, nodeIndex + 1)}
+              </View>
+            );
+          }
+
+          return renderUnderstandBodyNode(node, nodeIndex);
         })}
       </View>
     ));
@@ -12138,6 +12323,13 @@ const mergeAdjacentPracticeRowTokens = (
   const activePagerHeading = activePagerGroup?.heading
     ? getNodeHeadingText(activePagerGroup.heading, contentLang)
     : '';
+  const isLessonFocusHeading =
+    isUnderstandTab &&
+    /^LESSON FOCUS\b/i.test(
+      typeof activePagerGroup?.heading?.text === 'object'
+        ? String(activePagerGroup.heading.text?.en ?? activePagerHeading)
+        : activePagerHeading
+    );
   const activeCommonMistakeScm = useMemo(() => {
     if (!isCommonMistakeTab || !activeSection || !activePagerGroup) {
       return false;
@@ -12797,6 +12989,7 @@ const mergeAdjacentPracticeRowTokens = (
                           variant="title"
                           style={[
                             styles.lessonHeaderTitle,
+                            isRichPagerTab ? styles.lessonHeaderTitleWithCounter : null,
                             pageLanguage === 'th' ? styles.studySectionTitleThai : styles.studySectionTitleEnglish,
                             isPrepareTab && !isListenPage
                               ? (pageLanguage === 'th' ? styles.prepareHeaderTitleThai : styles.prepareHeaderTitleEnglish)
@@ -12814,6 +13007,11 @@ const mergeAdjacentPracticeRowTokens = (
                             ? (pageLanguage === 'th' ? 'ฟัง' : 'Listen')
                             : activeSectionTitle ?? pageCopy.noSectionAvailable}
                         </AppText>
+                        {isRichPagerTab && activeInnerCardCount > 0 ? (
+                          <AppText language="en" variant="caption" style={styles.richPagerCounterText}>
+                            {`${Math.min(activeInnerCardIndex + 1, activeInnerCardCount)} of ${activeInnerCardCount}`}
+                          </AppText>
+                        ) : null}
                       </View>
 
                       <View style={styles.studyNavActions}>
@@ -13494,9 +13692,23 @@ const mergeAdjacentPracticeRowTokens = (
                                   ]}>
                                   {activePagerHeading ? (
                                     <View style={styles.richPagerHeadingWrap}>
-                                      <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
-                                        {activePagerHeading}
-                                      </AppText>
+                                      <View
+                                        style={[
+                                          styles.richPagerHeadingCard,
+                                          isLessonFocusHeading && styles.richPagerHeadingCardLessonFocus,
+                                        ]}>
+                                        <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
+                                          {activePagerHeading}
+                                        </AppText>
+                                        {isLessonFocusHeading ? (
+                                          <Image
+                                            source={require('@/assets/images/characters/pailin_thumbs_up_head.webp')}
+                                            contentFit="contain"
+                                            style={styles.richPagerHeadingLessonFocusImage}
+                                            accessibilityLabel="Pailin giving a thumbs up"
+                                          />
+                                        ) : null}
+                                      </View>
                                       {isCommonMistakeTab && activeCommonMistakeScm ? (
                                         <AppText language={pageLanguage} variant="caption" style={styles.commonMistakeScmLabel}>
                                           {commonMistakeScmLabel}
@@ -13504,12 +13716,6 @@ const mergeAdjacentPracticeRowTokens = (
                                       ) : null}
                                     </View>
                                   ) : null}
-
-                                  <View style={styles.richPagerCounterPill}>
-                                    <AppText language="en" variant="caption" style={styles.richPagerCounterText}>
-                                      {`${Math.min(activeInnerCardIndex + 1, activeInnerCardCount)} of ${activeInnerCardCount}`}
-                                    </AppText>
-                                  </View>
                                 </View>
                               )}
 
@@ -14467,6 +14673,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 30,
   },
+  lessonHeaderTitleWithCounter: {
+    flex: 0,
+    flexShrink: 1,
+  },
   prepareHeaderTitleEnglish: {
     fontFamily: theme.typography.fontFaces.en.bold,
     fontSize: 20,
@@ -14702,13 +14912,12 @@ const styles = StyleSheet.create({
   richPagerMetaRowRichSection: {
     marginTop: 0,
   },
-  richPagerCounterPill: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
   richPagerCounterText: {
     color: '#787B82',
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: theme.typography.weights.medium,
+    flexShrink: 0,
   },
   practicePagerHeaderRow: {
     flexDirection: 'row',
@@ -14778,11 +14987,32 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     gap: 6,
   },
+  richPagerHeadingCard: {
+    minHeight: 56,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderWidth: 1.5,
+    borderColor: '#B9E671',
+    borderRadius: 11,
+    backgroundColor: '#F1FFDA',
+  },
+  richPagerHeadingCardLessonFocus: {
+    paddingRight: 72,
+    marginBottom: 10,
+  },
   richPagerHeadingLabel: {
     color: theme.colors.text,
     fontSize: 21,
     lineHeight: 25,
     fontWeight: theme.typography.weights.semibold,
+  },
+  richPagerHeadingLessonFocusImage: {
+    position: 'absolute',
+    right: 5,
+    bottom: -22,
+    width: 62,
+    height: 62,
   },
   practicePagerHeadingLabel: {
     flex: 1,
@@ -15301,6 +15531,23 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
     marginBottom: theme.spacing.sm,
   },
+  richSectionSubheader: {
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 25,
+    fontWeight: theme.typography.weights.semibold,
+    letterSpacing: 0.5,
+    marginBottom: theme.spacing.sm,
+  },
+  richBlueHighlightBox: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderWidth: 1.5,
+    borderColor: '#3CA0FE',
+    borderRadius: 12,
+    backgroundColor: '#E5F8FF',
+    boxShadow: '4px 5px 0px #3CA0FE',
+  },
   richInlineText: {
     color: theme.colors.text,
     fontSize: 15,
@@ -15336,8 +15583,21 @@ const styles = StyleSheet.create({
   richInlineThaiMuted: {
     color: '#8C8D93',
   },
+  richAudioThaiText: {
+    color: '#979797',
+  },
+  richAudioUnderlinedEnglish: {
+    color: '#2563EB',
+  },
+  richAudioUnderlinedThai: {
+    color: '#979797',
+  },
   richSpeakerPrefixThai: {
     color: '#8C8D93',
+    fontFamily: theme.typography.fontFaces.th.semibold,
+  },
+  richAudioSpeakerPrefixThai: {
+    color: '#979797',
     fontFamily: theme.typography.fontFaces.th.semibold,
   },
   phraseSpeakerPrefix: {
@@ -15390,11 +15650,6 @@ const styles = StyleSheet.create({
   understandAudioRow: {
     minWidth: 0,
   },
-  richAudioMarkerButton: {
-    position: 'absolute',
-    left: RICH_AUDIO_MARKER_LEFT,
-    top: 0,
-  },
   richAccentMarker: {
     position: 'absolute',
     left: RICH_ACCENT_MARKER_LEFT,
@@ -15408,6 +15663,55 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexShrink: 1,
   },
+  richAudioCard: {
+    borderWidth: 1,
+    borderColor: '#C8CDD3',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  richAudioCardBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  richAudioNoteFooter: {
+    backgroundColor: '#FFE6D2',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  richAudioNoteText: {
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 25,
+  },
+  richAudioLeadInPair: {
+    gap: 4,
+  },
+  richAudioCardMainRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  richAudioCardButton: {
+    marginTop: 0,
+    flexShrink: 0,
+  },
+  richAudioTranslationToggle: {
+    borderTopWidth: 1,
+    borderTopColor: '#D6DDE3',
+    paddingTop: 10,
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  richAudioTranslationToggleText: {
+    color: '#91CAFF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   understandAudioText: {
     fontSize: 15,
     lineHeight: 18,
@@ -15420,6 +15724,15 @@ const styles = StyleSheet.create({
     paddingTop: 1,
     minWidth: 0,
     flexShrink: 1,
+  },
+  richAudioCardLineStack: {
+    gap: 4,
+  },
+  richAudioThaiTranslationRow: {
+    marginTop: 4,
+  },
+  richAudioSpeakerTurnAfterFirst: {
+    marginTop: 7,
   },
   phraseAudioLineStack: {
     gap: 4,
