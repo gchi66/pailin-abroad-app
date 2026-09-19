@@ -43,6 +43,7 @@ export type SpeakingCoachLessonSummary = {
   title_th: string | null;
   practice_set_count: number;
   question_count: number;
+  is_completed?: boolean;
 };
 
 export type SpeakingCoachSession = {

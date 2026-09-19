@@ -15,6 +15,7 @@ type LessonSnippetAudioButtonProps = {
   onPress: () => void;
   size?: number;
   style?: StyleProp<ViewStyle>;
+  tapFeedback?: boolean;
 };
 
 export function LessonSnippetAudioButton({
@@ -27,8 +28,22 @@ export function LessonSnippetAudioButton({
   onPress,
   size = 28,
   style,
+  tapFeedback = false,
 }: LessonSnippetAudioButtonProps) {
   const iconSize = Math.max(14, size - 4);
+  const [showTapFeedback, setShowTapFeedback] = React.useState(false);
+  const feedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => () => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+  }, []);
+
+  const flashTapFeedback = () => {
+    if (!tapFeedback) return;
+    setShowTapFeedback(true);
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setShowTapFeedback(false), 280);
+  };
 
   return (
     <Pressable
@@ -37,12 +52,17 @@ export function LessonSnippetAudioButton({
       accessibilityState={{ disabled, busy: isLoading, selected: isPlaying }}
       disabled={disabled}
       hitSlop={hitSlop}
-      onPress={onPress}
+      onPressIn={tapFeedback ? flashTapFeedback : undefined}
+      onPress={() => {
+        flashTapFeedback();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.button,
         { width: size, height: size },
         disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.buttonPressed : null,
+        tapFeedback && (pressed || showTapFeedback) && !disabled ? styles.buttonTapFeedback : null,
         style,
       ]}>
       {appearance === 'plain' ? (
@@ -70,6 +90,12 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.8,
+  },
+  buttonTapFeedback: {
+    backgroundColor: '#E6F6FF',
+    borderRadius: 14,
+    opacity: 0.75,
+    transform: [{ translateY: 2 }, { scale: 0.9 }],
   },
   icon: {
     width: 24,

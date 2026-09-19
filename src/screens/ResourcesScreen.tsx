@@ -147,7 +147,7 @@ export function ResourcesScreen() {
         ? `/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(returnTo)}`
         : '/(tabs)/resources/topic-library');
     } else if (card.id === 'pronunciation') {
-      router.push('/speaking-coach');
+      router.push('/(tabs)/resources/speaking-practice');
     }
   };
 

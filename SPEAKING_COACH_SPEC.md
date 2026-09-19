@@ -750,6 +750,12 @@ The route remains admin-only while the Azure hybrid evaluator is benchmarked. Th
 
 This section documents the current Speaking Coach frontend screens, behavior, and implementation decisions.
 
+### Resources entry
+
+The Resources card opens Speaking Practice Home, with the available speaking lessons grouped by stage and level using the same expandable selector as the Lesson Library. Its level tabs stay visible when the stage menu is closed, and it starts on the saved Lesson Library level when that level has speaking content. Lessons with a completed Speaking Coach session show a green check. Selecting a lesson opens its current practice question directly, using the existing recording and feedback screens. This route shows the lesson number, lesson title, and close button instead of the standalone development selectors. The set-completion action reads `GO TO NEXT SET` when another set remains and returns to Speaking Practice Home after the final set. Saved prompts and bookmark controls are deferred.
+
+The Speaking button on a lesson overview opens that lesson's Speaking Coach practice directly, with the same guided header and question screens. It skips the standalone welcome and development selectors. The first practice set loads for entry, while the remaining sets load in the background; the next-set action waits or retries if needed. Closing or finishing returns to the lesson overview.
+
 ### Shared development controls
 
 - During standalone Speaking Coach development, keep the existing lesson selector controls (`1.1`, `1.2`, and so on) at the top of every screen being designed.

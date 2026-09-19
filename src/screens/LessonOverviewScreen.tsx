@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Image } from 'expo-image';
 import pailinHead from '@/assets/images/characters/pailin_head.webp';
 import lockBlackImage from '@/assets/images/lock-black.png';
@@ -35,13 +35,42 @@ const icons: Record<string, React.ComponentProps<typeof MaterialIcons>['name']> 
 };
 export function LessonOverviewScreen(p: Props) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const contentRef = useRef<View>(null);
+  const activeRowRef = useRef<View>(null);
+  const viewportHeightRef = useRef(0);
+  const didScrollToActiveRef = useRef(false);
+  const scrollToActiveRow = useCallback(() => {
+    if (didScrollToActiveRef.current || viewportHeightRef.current <= 0 || !contentRef.current || !activeRowRef.current) return;
+    requestAnimationFrame(() => {
+      if (didScrollToActiveRef.current || viewportHeightRef.current <= 0 || !contentRef.current || !activeRowRef.current) return;
+      activeRowRef.current.measureLayout(contentRef.current, (_x, y, _width, height) => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, y - (viewportHeightRef.current - height) / 2),
+          animated: false,
+        });
+        didScrollToActiveRef.current = true;
+      });
+    });
+  }, []);
+  useEffect(() => {
+    didScrollToActiveRef.current = false;
+    scrollToActiveRow();
+  }, [p.activeIndex, p.activeType, scrollToActiveRow]);
   const th = p.language === 'th';
   const rows = [...p.rows];
   if (p.onListen) rows.push({ id: 'listen', type: 'listen', index: -1, complete: p.listenComplete });
   if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: false });
   rows.push({ id: 'discussion', type: 'discussion', index: -3, complete: false });
   return <View style={[s.screen, { paddingTop: insets.top }]}>
-    <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 110 }]}>
+    <ScrollView
+      ref={scrollRef}
+      onContentSizeChange={scrollToActiveRow}
+      onLayout={(event) => {
+        viewportHeightRef.current = event.nativeEvent.layout.height;
+        scrollToActiveRow();
+      }}>
+      <View ref={contentRef} style={[s.content, { paddingBottom: insets.bottom + 110 }]}>
       <Pressable accessibilityRole="button" onPress={p.tabs[2].onPress} style={s.back}>
         <MaterialIcons name="arrow-back" size={20} /><AppText language={p.language} style={s.backText}>{th ? 'คลังบทเรียน' : 'Lesson library'}</AppText>
       </Pressable>
@@ -88,7 +117,8 @@ export function LessonOverviewScreen(p: Props) {
             return <View key={row.id} style={s.rowWrap}>
               <View style={[s.line, done && s.doneLine, active && !done && s.activeLine]} />
               <View style={[s.dot, active && !done && s.activeDot, done && s.doneDot]}>{done && <MaterialIcons name="check" size={12} color="#1E1E1E" />}</View>
-              <Pressable accessibilityRole="button" accessibilityLabel={locked ? `${label}: ${th ? 'อัปเกรดเพื่อปลดล็อก' : 'upgrade to unlock'}` : label} onPress={onPress}
+              <Pressable ref={active ? activeRowRef : undefined} onLayout={active ? scrollToActiveRow : undefined}
+                accessibilityRole="button" accessibilityLabel={locked ? `${label}: ${th ? 'อัปเกรดเพื่อปลดล็อก' : 'upgrade to unlock'}` : label} onPress={onPress}
                 accessibilityState={{ selected: active }}
                 accessibilityHint={!locked && done ? (th ? 'เรียนส่วนนี้เสร็จแล้ว' : 'Completed') : undefined}
                 style={[s.row, done && s.doneRow, active && s.activeRow, locked && s.lockedRow, active && s.shadow]}>
@@ -115,6 +145,7 @@ export function LessonOverviewScreen(p: Props) {
           })}
         </View>;
       })}
+      </View>
     </ScrollView>
     <LessonOverviewTabBar actions={p.tabs.map(tab => tab.onPress)} />
   </View>;

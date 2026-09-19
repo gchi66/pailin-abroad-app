@@ -60,12 +60,18 @@ async function responseJson<T>(response: Response): Promise<T> {
   return json;
 }
 
-export async function fetchSpeakingCoachLesson(lessonExternalId: string): Promise<SpeakingCoachLesson> {
+export async function fetchSpeakingCoachLesson(
+  lessonExternalId: string,
+  options?: { firstSetOnly?: boolean; includeTestAnswers?: boolean }
+): Promise<SpeakingCoachLesson> {
   const { baseUrl, accessToken } = await apiContext();
+  const query = new URLSearchParams();
+  if (options?.includeTestAnswers !== false) query.set('include_test_answers', '1');
+  if (options?.firstSetOnly) query.set('first_set_only', '1');
 
   const response = await timedFetch(
     `lesson ${lessonExternalId}`,
-    `${baseUrl}/api/speaking/lessons/${encodeURIComponent(lessonExternalId)}?include_test_answers=1`,
+    `${baseUrl}/api/speaking/lessons/${encodeURIComponent(lessonExternalId)}?${query.toString()}`,
     {
       headers: {
         Accept: 'application/json',

@@ -11,6 +11,7 @@ import { prefetchPricing } from '@/src/api/pricing';
 import { fetchUserLessonEngagements } from '@/src/api/user';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
+import { LibraryStageLevelSelector } from '@/src/components/lesson/LibraryStageLevelSelector';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -167,25 +168,18 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             placeholderTextColor="#777777" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" />
         ) : null}
         {!searching ? (
-          <View style={styles.navigationShadow}><View style={styles.navigation}>
-            {!freeOnly ? <Pressable accessibilityRole="button" accessibilityLabel={th ? 'เลือกช่วงการเรียน' : 'Choose stage'} accessibilityState={{ expanded: stageOpen }} onPress={() => setStageOpen((value) => !value)} style={styles.stageHeader}>
-              <View style={styles.stageHeading}><View style={styles.stageDot} /><AppText language={language} variant="caption" style={styles.stageName}>{stageLabel(stage)}</AppText></View>
-              <MaterialIcons name={stageOpen ? 'remove' : 'add'} size={17} color={theme.colors.text} />
-            </Pressable> : null}
-            {stageOpen || freeOnly ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stages}>
-                {stages.map((value) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === stage }} onPress={() => chooseStage(value)} style={styles.stageTouch}>
-                  <View style={[styles.stagePill, value === stage ? styles.activeStage : null]}><AppText language={language} variant="caption" style={[styles.stageName, value === stage ? styles.activeStageText : null]}>{stageLabel(value)}</AppText></View>
-                </Pressable>)}
-              </ScrollView>
-            ) : null}
-            {!freeOnly ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levels}>
-              {levels.map((value) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === level }}
-                onPress={() => { setLevel(value); setStoryOpen(false); setSelectedId(null); }} style={[styles.level, value === level ? styles.activeLevel : null]}>
-                <AppText language={language} variant="caption" style={[styles.levelText, value === level ? { fontFamily: theme.typography.fontFaces[language].bold } : null]}>{th ? 'เลเวล' : 'LEVEL'} {value}</AppText>
-              </Pressable>)}
-            </ScrollView> : null}
-          </View></View>
+          <LibraryStageLevelSelector
+            language={language}
+            stage={stage}
+            stages={stages}
+            level={level}
+            levels={levels}
+            stageOpen={stageOpen}
+            freeOnly={freeOnly}
+            onToggleStage={() => setStageOpen((value) => !value)}
+            onSelectStage={chooseStage}
+            onSelectLevel={(value) => { setLevel(value); setStoryOpen(false); setSelectedId(null); }}
+          />
         ) : <AppText language={language} variant="caption" style={styles.resultsLabel}>{th ? `พบ ${lessons.length} บทเรียน` : `${lessons.length} lessons found`}</AppText>}
 
         {!hasMembership && !searching ? <View style={styles.upgrade}>
@@ -262,13 +256,6 @@ const styles = StyleSheet.create({
   headerTitleTouch: { flex: 1 }, headerTitle: { fontSize: 20, lineHeight: 28 }, searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   searchInput: { borderWidth: 1, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 14, color: '#222222' },
   libraryMenu: { borderWidth: 1, borderColor: '#DDDDDD', borderRadius: 8, backgroundColor: '#FFFFFF', marginBottom: 12 }, menuChoice: { padding: 12 },
-  navigationShadow: { backgroundColor: '#222222', borderRadius: 10, marginBottom: 24, marginRight: -3, marginLeft: 3 },
-  navigation: { transform: [{ translateX: -3 }, { translateY: -3 }], borderWidth: 1, borderColor: '#222222', borderRadius: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
-  stageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, minHeight: 27 }, stageHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#BCE574' }, stageName: { fontSize: 12, lineHeight: 18, letterSpacing: 0.65, textTransform: 'uppercase' },
-  stages: { flexGrow: 1, justifyContent: 'space-between', gap: 4, paddingHorizontal: 4, paddingTop: 4, paddingBottom: 4 }, stageTouch: { padding: 4, justifyContent: 'center', minHeight: 32 },
-  stagePill: { borderRadius: 4, backgroundColor: '#EEEEEE', paddingHorizontal: 5, paddingVertical: 2 }, activeStage: { backgroundColor: '#2860F0' }, activeStageText: { color: '#FFFFFF' },
-  levels: { flexGrow: 1 }, level: { flex: 1, minWidth: 72, minHeight: 36, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6, borderTopWidth: 1, borderRightWidth: 1, borderColor: '#333333' }, activeLevel: { backgroundColor: '#BFEDFC' }, levelText: { fontSize: 13, lineHeight: 19 },
   storyShadow: { backgroundColor: '#222222', borderRadius: 10, marginHorizontal: 20, marginBottom: 22 }, story: { backgroundColor: '#FFFCE5', borderWidth: 1, borderColor: '#222222', borderRadius: 10, transform: [{ translateX: -2 }, { translateY: -2 }] },
   storyHeader: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 }, storyLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 0.65 }, storyBody: { fontSize: 13, lineHeight: 20, paddingHorizontal: 12, paddingBottom: 12 },
   lessonList: { marginHorizontal: 20 }, lessonRow: { paddingBottom: 22, position: 'relative' },

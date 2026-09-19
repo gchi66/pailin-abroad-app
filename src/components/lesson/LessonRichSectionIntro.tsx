@@ -15,7 +15,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
-type RichSectionType = 'understand' | 'common_mistake' | 'culture_note' | 'extra_tip';
+type RichSectionType = 'understand' | 'common_mistake' | 'culture_note' | 'extra_tip' | 'phrases_verbs';
 
 type LessonRichSectionIntroProps = {
   sectionType: RichSectionType;
@@ -39,7 +39,7 @@ const introCopy = {
       body: 'เจาะลึกเนื้อหาหลักของบทเรียน พร้อมตัวอย่างจากบทสนทนา',
     },
     accent: '#C99500',
-    artwork: require('@/assets/images/speaking-coach/pailin-do-the-task.webp'),
+    artwork: require('@/assets/images/pailin-understand.webp'),
   },
   common_mistake: {
     en: {
@@ -67,7 +67,7 @@ const introCopy = {
       body: 'เรียนรู้วัฒนธรรมอเมริกันที่กล่าวถึงในบทสนทนา',
     },
     accent: '#77B93A',
-    artwork: require('@/assets/images/speaking-coach/pailin-good-job.webp'),
+    artwork: require('@/assets/images/pailin-culture-note.webp'),
   },
   extra_tip: {
     en: {
@@ -81,7 +81,21 @@ const introCopy = {
       body: 'เนื้อหาเหล่านี้ไม่ใช่หัวข้อหลักของบทเรียน แต่มีประโยชน์ที่ควรรู้',
     },
     accent: '#C99500',
-    artwork: require('@/assets/images/characters/pailin_thumbs_up_head.webp'),
+    artwork: require('@/assets/images/pailin-extra-tips.webp'),
+  },
+  phrases_verbs: {
+    en: {
+      title: 'PHRASES & VERBS',
+      tagline: 'Say it your way!',
+      body: 'Explore useful phrases and phrasal verbs from the conversation, with examples you can use every day.',
+    },
+    th: {
+      title: 'วลีและคำกริยา',
+      tagline: 'พูดได้หลากหลายขึ้น!',
+      body: 'เรียนรู้วลีและ phrasal verbs ที่ใช้ในบทสนทนา พร้อมตัวอย่างที่นำไปใช้ได้ในชีวิตประจำวัน',
+    },
+    accent: '#3CA0FE',
+    artwork: require('@/assets/images/pailin-phrases-verbs.webp'),
   },
 } as const;
 
@@ -128,16 +142,6 @@ export function LessonRichSectionIntro({
           style={[styles.card, { width: Math.min(width * 0.86, 360) }]}>
           <View style={styles.artworkWrap}>
             <Image source={config.artwork} contentFit="contain" style={styles.artwork} />
-            {sectionType === 'understand' ? (
-              <MaterialIcons name="lightbulb" size={31} color="#F1D15A" style={styles.bulbIcon} />
-            ) : null}
-            {sectionType === 'culture_note' ? (
-              <Image
-                source={require('@/assets/images/free_lesson_intermediate_hollywood.webp')}
-                contentFit="contain"
-                style={styles.hollywoodArt}
-              />
-            ) : null}
           </View>
           <AppText language={language} style={[styles.title, language === 'th' ? styles.titleThai : null]}>
             {copy.title}
@@ -209,18 +213,6 @@ const styles = StyleSheet.create({
   artwork: {
     width: '100%',
     height: '100%',
-  },
-  bulbIcon: {
-    position: 'absolute',
-    right: -4,
-    top: 16,
-  },
-  hollywoodArt: {
-    position: 'absolute',
-    right: -12,
-    bottom: 6,
-    width: 95,
-    height: 50,
   },
   title: {
     width: '100%',

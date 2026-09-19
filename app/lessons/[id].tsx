@@ -71,6 +71,7 @@ import {
   getLessonSectionLabel,
   getLessonSectionTitle,
 } from '@/src/copy/lesson-detail';
+import { getCultureNoteCategoryLabels } from '@/src/copy/culture-note-categories';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
@@ -1103,6 +1104,35 @@ const getInlineMarkerDisplay = (marker: string) => {
   const markerKey = getInlineMarkerKey(marker);
   return markerKey ? INLINE_MARKER_DISPLAY[markerKey] : null;
 };
+type CommonMistakeMarker = '[check]' | '[x]' | '[-]';
+const COMMON_MISTAKE_CARD_COLORS: Record<CommonMistakeMarker, { border: string; footer: string; emphasis: string; symbol: string }> = {
+  '[check]': { border: '#91CAFF', footer: '#E6F6FF', emphasis: '#2563EB', symbol: '✓' },
+  '[x]': { border: '#FD6969', footer: '#FFE9E9', emphasis: '#FD6969', symbol: '×' },
+  '[-]': { border: '#8AB742', footer: '#F0FFD7', emphasis: '#8AB742', symbol: '−' },
+};
+const getCommonMistakeMarkers = (inlines: LessonRichInline[] | null | undefined, contentLang: UiLanguage) =>
+  [...new Set((inlines ?? []).flatMap((inline) =>
+    [...resolveRichInlineText(inline, contentLang).matchAll(INLINE_MARKER_RE)]
+      .map((match) => getInlineMarkerKey(match[0]))
+      .filter((marker): marker is CommonMistakeMarker => marker === '[check]' || marker === '[x]' || marker === '[-]')
+  ))];
+const stripCommonMistakeMarkers = (inlines: LessonRichInline[] | null | undefined, contentLang: UiLanguage) =>
+  (inlines ?? []).map((inline) => ({
+    ...inline,
+    text: resolveRichInlineText(inline, contentLang).replace(/[ \t]*\[\s*(?:X|x|✓|√|✔|check|-|✗|✕|✖|×)\ufe0e?\ufe0f?\s*\]/g, ''),
+  }));
+const splitCommonMistakeLines = (inlines: LessonRichInline[] | null | undefined, contentLang: UiLanguage) => {
+  const lines: LessonRichInline[][] = [[]];
+  (inlines ?? []).forEach((inline) => {
+    resolveRichInlineText(inline, contentLang).split('\n').forEach((text, index) => {
+      if (index > 0) lines.push([]);
+      if (text) lines[lines.length - 1].push({ ...inline, text });
+    });
+  });
+  return lines;
+};
+const joinCommonMistakeLines = (lines: LessonRichInline[][]) =>
+  lines.flatMap((line, index) => index === 0 ? line : [{ text: '\n' }, ...line]);
 const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
   byKey: {},
   bySection: {},
@@ -2493,6 +2523,7 @@ const getRichInlineSegmentStyle = (
     shouldShowHighlight?: boolean;
     highlightColor?: string;
     audioCard?: boolean;
+    emphasisColor?: string;
     extraStyle?: object | null;
     manualFontScale?: number;
     englishFontSize?: number;
@@ -2534,7 +2565,7 @@ const getRichInlineSegmentStyle = (
   options?.audioCard && inline.underline
     ? options.muted || scriptLanguage === 'th'
       ? styles.richAudioUnderlinedThai
-      : styles.richAudioUnderlinedEnglish
+      : options.emphasisColor ? { color: options.emphasisColor } : styles.richAudioUnderlinedEnglish
     : null,
 ];
 
@@ -2550,6 +2581,7 @@ const renderRichTextScriptSegments = (
     shouldShowHighlight?: boolean;
     highlightColor?: string;
     audioCard?: boolean;
+    emphasisColor?: string;
     extraStyle?: object | null;
     manualFontScale?: number;
     englishFontSize?: number;
@@ -4614,7 +4646,8 @@ export default function LessonDetailShellScreen() {
     activeTab?.type === 'understand' ||
     activeTab?.type === 'extra_tip' ||
     activeTab?.type === 'common_mistake' ||
-    activeTab?.type === 'culture_note'
+    activeTab?.type === 'culture_note' ||
+    activeTab?.type === 'phrases_verbs'
       ? activeTab.type
       : null;
   const isRichIntroPending =
@@ -8033,6 +8066,7 @@ export default function LessonDetailShellScreen() {
       phraseIsLeadAudio?: boolean;
       compactBody?: boolean;
       audioCard?: boolean;
+      emphasisColor?: string;
       showThaiTranslations?: boolean;
     }
   ) => {
@@ -8333,6 +8367,7 @@ export default function LessonDetailShellScreen() {
                     shouldShowHighlight,
                     highlightColor,
                     audioCard: options?.audioCard,
+                    emphasisColor: options?.emphasisColor,
                     extraStyle: resolvedExtraStyle,
                     manualFontScale,
                   })}
@@ -8774,11 +8809,14 @@ export default function LessonDetailShellScreen() {
       phraseIsLeadAudio?: boolean;
       compactBody?: boolean;
       isUnderstandSection?: boolean;
+      mistakeMarker?: CommonMistakeMarker;
     }
   ) => {
-    const snippet =
-      getSnippetForNode(node, snippetIndex) ??
-      getPhraseSnippetForNode(node, phraseSnippetIndex, options?.phraseId, options?.phraseVariant);
+    const hasNodeAudio = Boolean(node.audio_key || node.audio_seq);
+    const snippet = hasNodeAudio
+      ? getSnippetForNode(node, snippetIndex) ??
+        getPhraseSnippetForNode(node, phraseSnippetIndex, options?.phraseId, options?.phraseVariant)
+      : null;
     const audioKey = snippet?.audio_key?.trim() || node.audio_key?.trim() || null;
     const isPlaying = Boolean(audioKey) && playingSnippetKey === audioKey;
     const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
@@ -8787,6 +8825,7 @@ export default function LessonDetailShellScreen() {
     const centerEnglishPhraseAudio = options?.isPhraseCard && contentLang === 'en' && !hasSpeakerPrefix;
     const audioButton = (
       <LessonSnippetAudioButton
+        tapFeedback
         accessibilityLabel={
           pageLanguage === 'th'
             ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
@@ -8847,25 +8886,33 @@ export default function LessonDetailShellScreen() {
       );
     }
 
-    const { dialogueInlines, noteInlines } = options?.isUnderstandSection
-      ? splitTrailingItalicAudioNote(node.inlines, contentLang)
-      : { dialogueInlines: node.inlines ?? [], noteInlines: [] as LessonRichInline[] };
+    const mistakeColors = options?.mistakeMarker ? COMMON_MISTAKE_CARD_COLORS[options.mistakeMarker] : null;
+    const sourceInlines = mistakeColors ? stripCommonMistakeMarkers(node.inlines, contentLang) : node.inlines;
+    const { dialogueInlines, noteInlines } = options?.isUnderstandSection || mistakeColors
+      ? splitTrailingItalicAudioNote(sourceInlines, contentLang)
+      : { dialogueInlines: sourceInlines ?? [], noteInlines: [] as LessonRichInline[] };
     const translationKey = `${activeTab?.id ?? 'section'}:${nodeKey}`;
     const hasTranslationToggle = contentLang === 'th' && hasMultipleAudioSpeakers({ ...node, inlines: dialogueInlines }, contentLang);
     const translationsExpanded = expandedRichAudioTranslations[translationKey] === true;
 
     return (
-      <View key={nodeKey} style={styles.richAudioCard}>
+      <View key={nodeKey} style={[styles.richAudioCard, mistakeColors ? { borderColor: mistakeColors.border } : null]}>
         <View style={styles.richAudioCardBody}>
           <View style={styles.richAudioCardMainRow}>
-            {audioButton}
+            {hasNodeAudio ? audioButton : <View style={styles.richAudioCardButtonPlaceholder} />}
             <View style={styles.richAudioTextWrap}>
               {renderRichAudioBulletLines(dialogueInlines, nodeKey, {
                 ...options,
                 audioCard: true,
+                emphasisColor: mistakeColors?.emphasis,
                 showThaiTranslations: !hasTranslationToggle || translationsExpanded,
               })}
             </View>
+            {mistakeColors ? (
+              <AppText language="en" variant="body" style={[styles.richMistakeCardSymbol, { color: mistakeColors.border }]}>
+                {mistakeColors.symbol}
+              </AppText>
+            ) : null}
           </View>
           {hasTranslationToggle ? (
             <Pressable
@@ -8889,9 +8936,9 @@ export default function LessonDetailShellScreen() {
           ) : null}
         </View>
         {noteInlines.length > 0 ? (
-          <View style={styles.richAudioNoteFooter}>
+          <View style={[styles.richAudioNoteFooter, mistakeColors ? { backgroundColor: mistakeColors.footer } : null]}>
             <AppText language={contentLang} variant="body" style={styles.richAudioNoteText}>
-              {renderRichInlines(noteInlines, `${nodeKey}-note`)}
+              {renderRichInlines(mistakeColors ? noteInlines.map((inline) => ({ ...inline, italic: false })) : noteInlines, `${nodeKey}-note`)}
             </AppText>
           </View>
         ) : null}
@@ -9079,6 +9126,7 @@ export default function LessonDetailShellScreen() {
         return (
           <View key={`${cellKey}-line-${lineIndex}`} style={styles.richTableAudioLine}>
             <LessonSnippetAudioButton
+              tapFeedback
               accessibilityLabel={
                 pageLanguage === 'th'
                   ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
@@ -9411,6 +9459,7 @@ export default function LessonDetailShellScreen() {
       compactBody?: boolean;
       preserveNumberedItems?: boolean;
       isUnderstandSection?: boolean;
+      isCommonMistakeSection?: boolean;
       isAudioLeadIn?: boolean;
     }
   ) => {
@@ -9439,6 +9488,14 @@ export default function LessonDetailShellScreen() {
 
     if (node.kind === 'spacer') {
       return <View key={nodeKey} style={styles.richSpacer} />;
+    }
+
+    if (options?.isCommonMistakeSection &&
+        (node.kind === 'paragraph' || node.kind === 'list_item' || node.kind === 'misc_item' || node.kind === 'numbered_item')) {
+      const markers = getCommonMistakeMarkers(node.inlines, contentLang);
+      if (markers.length === 1) {
+        return renderRichAudioRow(node, nodeKey, hasAccent, { ...options, mistakeMarker: markers[0] });
+      }
     }
 
     if (node.kind === 'heading') {
@@ -9624,7 +9681,7 @@ export default function LessonDetailShellScreen() {
 
       if (!options?.isPhraseCard && isCyanHighlightBoxNode(node)) {
         return (
-          <View key={nodeKey} style={[styles.richBlueHighlightBox, textIndentStyle]}>
+          <View key={nodeKey} style={styles.richBlueHighlightBox}>
             {paragraphText}
           </View>
         );
@@ -9864,18 +9921,56 @@ export default function LessonDetailShellScreen() {
             return null;
           }
 
+          const nodeMarkers = getCommonMistakeMarkers(node.inlines, contentLang);
+          if (nodeMarkers.length > 1 && Array.isArray(node.inlines)) {
+            const lineGroups: { marker: CommonMistakeMarker | null; lines: LessonRichInline[][] }[] = [];
+            splitCommonMistakeLines(node.inlines, contentLang).forEach((line) => {
+              const lineMarker = getCommonMistakeMarkers(line, contentLang)[0] ?? null;
+              const current = lineGroups[lineGroups.length - 1];
+              if (!current || (lineMarker && lineMarker !== current.marker)) {
+                lineGroups.push({ marker: lineMarker, lines: [line] });
+              } else {
+                current.lines.push(line);
+              }
+            });
+            const audioGroupIndex = lineGroups.findIndex(({ lines }) =>
+              lines.flat().some((inline) => /\[audio:/i.test(String(inline.text ?? ''))));
+            return (
+              <View key={`${keyPrefix}-mixed-${index}-${nodeIndex}`} style={styles.richMistakeCardGroup}>
+                {lineGroups.map(({ lines }, lineGroupIndex) => {
+                  const ownsAudio = Boolean(node.audio_key || node.audio_seq) &&
+                    lineGroupIndex === (audioGroupIndex >= 0 ? audioGroupIndex : 0);
+                  const splitNode: LessonRichNode = {
+                    ...node,
+                    inlines: joinCommonMistakeLines(lines),
+                    audio_key: ownsAudio ? node.audio_key : null,
+                    audio_section: ownsAudio ? node.audio_section : null,
+                    audio_seq: ownsAudio ? node.audio_seq : null,
+                  };
+                  return renderRichNode(splitNode, lineGroupIndex, {
+                    keyPrefix: `${keyPrefix}-mixed-${index}-${nodeIndex}`,
+                    enableHighlights: false,
+                    isCommonMistakeSection: true,
+                  });
+                })}
+              </View>
+            );
+          }
+
           if (node.kind === 'numbered_item') {
             numberedIndex += 1;
             return renderRichNode(node, nodeIndex, {
               keyPrefix: 'common-mistake-node',
               enableHighlights: false,
               numberedLabel: `${numberedIndex}.`,
+              isCommonMistakeSection: true,
             });
           }
 
           return renderRichNode(node, nodeIndex, {
             keyPrefix: 'common-mistake-node',
             enableHighlights: false,
+            isCommonMistakeSection: true,
           });
         })}
       </View>
@@ -9925,7 +10020,24 @@ export default function LessonDetailShellScreen() {
 
   const renderCultureNoteBody = (nodes: LessonRichNode[]) => {
     let renderedLeadHeading = false;
+    let renderedCategoryPill = false;
     const numberedCountsByIndent = new Map<number, number>();
+    const pagerHeadingNode = activePagerGroup?.heading;
+    const categoryHeading = pagerHeadingNode && typeof pagerHeadingNode.text === 'object'
+      ? pagerHeadingNode.text?.en ?? getNodeHeadingText(pagerHeadingNode, 'en')
+      : pagerHeadingNode ? getNodeHeadingText(pagerHeadingNode, 'en') : null;
+    const categoryLabels = getCultureNoteCategoryLabels(activeLessonNumber, categoryHeading, contentLang);
+    const categoryPill = categoryLabels.length ? (
+      <View style={styles.cultureNoteCategoryPillRow}>
+        {categoryLabels.map((categoryLabel) => (
+          <View key={categoryLabel} style={styles.cultureNoteCategoryPill}>
+            <AppText language={contentLang} variant="caption" style={styles.cultureNoteCategoryPillText}>
+              {categoryLabel}
+            </AppText>
+          </View>
+        ))}
+      </View>
+    ) : null;
 
     const getCultureNoteLeadText = (node: LessonRichNode) => {
       if (node.kind === 'heading') {
@@ -9995,13 +10107,21 @@ export default function LessonDetailShellScreen() {
     return (
       <Stack gap="sm">
         {nodes.map((node, index) => {
+          if (!renderedCategoryPill && node.kind === 'spacer') {
+            return null;
+          }
+
           if (isCultureNoteLeadHeading(node)) {
             renderedLeadHeading = true;
+            renderedCategoryPill = true;
             resetNumberedCounters();
             return (
-              <AppText key={`culture-note-lead-${index}`} language={contentLang} variant="body" style={styles.cultureNoteLeadHeading}>
-                {getCultureNoteLeadText(node)}
-              </AppText>
+              <View key={`culture-note-lead-${index}`} style={styles.cultureNoteLeadGroup}>
+                <AppText language={contentLang} variant="body" style={styles.cultureNoteLeadHeading}>
+                  {getCultureNoteLeadText(node)}
+                </AppText>
+                {categoryPill}
+              </View>
             );
           }
 
@@ -10009,13 +10129,18 @@ export default function LessonDetailShellScreen() {
             resetNumberedCounters();
           }
 
-          return renderRichNode(node, index, {
+          const renderedNode = renderRichNode(node, index, {
             keyPrefix: 'culture-note-node',
             allowHeadings: true,
             enableHighlights: false,
             preserveNumberedItems: true,
             numberedLabel: node.kind === 'numbered_item' ? getNumberedLabel(node) : undefined,
           });
+          if (!renderedCategoryPill && node.kind !== 'spacer' && renderedNode) {
+            renderedCategoryPill = true;
+            return <View key={`culture-note-first-${index}`} style={styles.cultureNotePillContentGroup}>{categoryPill}{renderedNode}</View>;
+          }
+          return renderedNode;
         })}
       </Stack>
     );
@@ -10660,7 +10785,7 @@ const mergeAdjacentPracticeRowTokens = (
     const displayItems = visibleItemKey
       ? exercise.items.filter(
           (item) =>
-            (item.isExample && isPracticeExampleExpanded) ||
+            (item.isExample && (isPracticeExampleExpanded || isSentenceTransformExercise)) ||
             item.key === visibleItemKey ||
             isPracticePromptOnlyImageItem(exercise, item)
         )
@@ -10766,7 +10891,7 @@ const mergeAdjacentPracticeRowTokens = (
 
         {renderPracticePromptBlocks(exercise)}
 
-        {!isInlineQuickPractice && hasPracticeExample ? (
+        {!isInlineQuickPractice && hasPracticeExample && !isSentenceTransformExercise ? (
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ expanded: isPracticeExampleExpanded }}
@@ -11164,11 +11289,6 @@ const mergeAdjacentPracticeRowTokens = (
                 : item.correctTag === 'no'
                   ? false
                   : null;
-              const resolvedExampleAnswerMarkState = item.isExample && isSentenceTransformExercise
-                ? answerValue.trim().length > 0
-                  ? true
-                  : null
-                : resolvedPromptMarkState;
               const displayMarkState = item.isExample ? resolvedPromptMarkState : markState;
               const evaluationCorrect =
                 evaluation && typeof evaluation.correct === 'boolean'
@@ -11176,6 +11296,7 @@ const mergeAdjacentPracticeRowTokens = (
                   : null;
               const isExerciseChecked = checkedPracticeItems[answerKey] === true;
               const shouldUseSentenceExampleShell = item.isExample && isSentenceTransformExercise;
+              const isCollapsibleSentenceExample = shouldUseSentenceExampleShell && !isInlineQuickPractice;
               const shouldStackPracticeMedia = false;
               const inputCount = isOpenExercise ? getPracticeOpenInputCount(exercise, item) : 1;
               const openAnswerKeys = Array.from({ length: inputCount }, (_, inputIndex) =>
@@ -11186,6 +11307,27 @@ const mergeAdjacentPracticeRowTokens = (
                 : null;
               const isPromptOnlyImage = isPracticePromptOnlyImageItem(exercise, item);
               const shouldUseLargePromptImage = item.imageKey === '2.9_practice' || isPromptOnlyImage;
+              const renderExampleMarkButtons = () => showMarkButtons ? (
+                <View style={styles.practiceSentenceToggleRow}>
+                  {([true, false] as const).map((value) => (
+                    <Pressable
+                      key={String(value)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: displayMarkState === value }}
+                      disabled
+                      style={[
+                        styles.practiceSentenceToggle,
+                        styles.practiceSentenceToggleFocused,
+                        displayMarkState === value ? styles.practiceSentenceToggleActive : null,
+                        displayMarkState === value ? styles.practiceSentenceToggleFocusedActive : null,
+                      ]}>
+                      <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
+                        {value ? 'CORRECT ✓' : 'INCORRECT X'}
+                      </AppText>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null;
 
               if (isPromptOnlyImage) {
                 return itemImageUrl ? (
@@ -11199,14 +11341,33 @@ const mergeAdjacentPracticeRowTokens = (
               }
 
               return item.isExample ? (
-                <View key={answerKey} style={styles.practiceExampleCard}>
-                  <View style={styles.practiceExampleHeader}>
-                    <AppText language="en" variant="caption" style={styles.practiceExampleLabel}>
-                      EXAMPLE
-                    </AppText>
-                  </View>
+                <View key={answerKey} style={isCollapsibleSentenceExample ? styles.practiceExampleCollapsibleCard : styles.practiceExampleCard}>
+                  {isCollapsibleSentenceExample ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: isPracticeExampleExpanded }}
+                      onPress={() => setExpandedPracticeExampleIds((previous) => ({
+                        ...previous,
+                        [exercise.id]: !previous[exercise.id],
+                      }))}
+                      style={styles.practiceExampleCollapsibleHeader}>
+                      <AppText language={pageLanguage} variant="caption" style={styles.practiceExampleToggleLabel}>
+                        {pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
+                      </AppText>
+                      <AppText language="en" variant="body" style={styles.practiceExampleToggleArrow}>
+                        {isPracticeExampleExpanded ? '↑' : '↓'}
+                      </AppText>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.practiceExampleHeader}>
+                      <AppText language="en" variant="caption" style={styles.practiceExampleLabel}>
+                        EXAMPLE
+                      </AppText>
+                    </View>
+                  )}
 
-                  <View style={[styles.practiceExampleBody, useCompactPracticeMediaLayout ? styles.practiceExampleBodyStacked : null]}>
+                  {!isCollapsibleSentenceExample || isPracticeExampleExpanded ? (
+                  <View style={[styles.practiceExampleBody, useCompactPracticeMediaLayout ? styles.practiceExampleBodyStacked : null, isCollapsibleSentenceExample ? styles.practiceExampleCollapsibleBody : null]}>
                     {itemImageUrl ? (
                       renderPracticeImage(itemImageUrl, itemAltText, {
                         shellStyle: [styles.practiceExampleImageShell, useCompactPracticeMediaLayout ? styles.practiceExampleImageShellStacked : null],
@@ -11232,26 +11393,7 @@ const mergeAdjacentPracticeRowTokens = (
                               { enableHighlights: true, muteThaiTranslationLines: true, englishFontSize: 14.5, englishLineHeight: 21 }
                             )}
                           </AppText>
-                          {showMarkButtons ? (
-                            <View style={styles.practiceSentenceToggleRow}>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled
-                                style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
-                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                                  ✓
-                                </AppText>
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled
-                                style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
-                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                                  X
-                                </AppText>
-                              </Pressable>
-                            </View>
-                          ) : null}
+                          {renderExampleMarkButtons()}
                           {shouldUseSentenceExampleShell ? (
                             <View style={styles.practiceExampleSentenceAnswerRow}>
                               <View
@@ -11274,17 +11416,6 @@ const mergeAdjacentPracticeRowTokens = (
                                   ]}>
                                   {answerValue}
                                 </AppText>
-                                {resolvedExampleAnswerMarkState !== null ? (
-                                  <View
-                                    style={[
-                                      styles.practiceExampleSentenceCorrectBadge,
-                                      resolvedExampleAnswerMarkState === false ? styles.practiceExampleSentenceIncorrectBadge : null,
-                                    ]}>
-                                    <Text style={styles.practiceExampleSentenceCorrectBadgeText}>
-                                      {resolvedExampleAnswerMarkState ? '✓' : 'X'}
-                                    </Text>
-                                  </View>
-                                ) : null}
                               </View>
                             </View>
                           ) : (
@@ -11322,26 +11453,7 @@ const mergeAdjacentPracticeRowTokens = (
                               {abPromptLayout.thaiLine}
                             </AppText>
                           ) : null}
-                          {showMarkButtons ? (
-                            <View style={styles.practiceSentenceToggleRow}>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled
-                                style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
-                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                                  ✓
-                                </AppText>
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled
-                                style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
-                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                                  X
-                                </AppText>
-                              </Pressable>
-                            </View>
-                          ) : null}
+                          {renderExampleMarkButtons()}
                           <View style={styles.practiceAbAnswerRow}>
                             <AppText
                               language="en"
@@ -11378,11 +11490,6 @@ const mergeAdjacentPracticeRowTokens = (
                                   ]}>
                                   {answerValue}
                                 </AppText>
-                                {resolvedExampleAnswerMarkState === true ? (
-                                  <View style={styles.practiceExampleSentenceCorrectBadge}>
-                                    <Text style={styles.practiceExampleSentenceCorrectBadgeText}>✓</Text>
-                                  </View>
-                                ) : null}
                               </View>
                             </View>
                           </View>
@@ -11413,26 +11520,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 : item.promptTh || item.textTh}
                             </AppText>
                           ) : null}
-                          {showMarkButtons ? (
-                            <View style={styles.practiceSentenceToggleRow}>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled
-                                style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
-                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                                  ✓
-                                </AppText>
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled
-                                style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
-                                <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                                  X
-                                </AppText>
-                              </Pressable>
-                            </View>
-                          ) : null}
+                          {renderExampleMarkButtons()}
 
                           {shouldUseSentenceExampleShell ? (
                             <View style={styles.practiceExampleSentenceAnswerRow}>
@@ -11456,17 +11544,6 @@ const mergeAdjacentPracticeRowTokens = (
                                   ]}>
                                   {answerValue}
                                 </AppText>
-                                {resolvedExampleAnswerMarkState !== null ? (
-                                  <View
-                                    style={[
-                                      styles.practiceExampleSentenceCorrectBadge,
-                                      resolvedExampleAnswerMarkState === false ? styles.practiceExampleSentenceIncorrectBadge : null,
-                                    ]}>
-                                    <Text style={styles.practiceExampleSentenceCorrectBadgeText}>
-                                      {resolvedExampleAnswerMarkState ? '✓' : 'X'}
-                                    </Text>
-                                  </View>
-                                ) : null}
                               </View>
                             </View>
                           ) : (
@@ -11483,6 +11560,7 @@ const mergeAdjacentPracticeRowTokens = (
                       )}
                     </View>
                   </View>
+                  ) : null}
                 </View>
               ) : (
                 <View
@@ -12773,7 +12851,7 @@ const mergeAdjacentPracticeRowTokens = (
           listenComplete={hasAudioFinished || writtenAppProgressUnitKeysRef.current.has(buildAppPageKey('listen'))}
           onSpeaking={!isCheckpointCoverLesson ? () => {
             if (!hasMembership) { router.push('/(tabs)/account/membership'); return; }
-            router.push({ pathname: '/speaking-coach', params: { lesson: coverLessonNumber } });
+            router.push({ pathname: '/speaking-coach', params: { lesson: coverLessonNumber, entry: 'lesson' } });
           } : undefined}
           onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
           onUpgrade={() => router.push('/(tabs)/account/membership')}
@@ -13695,12 +13773,31 @@ const mergeAdjacentPracticeRowTokens = (
                                       <View
                                         style={[
                                           styles.richPagerHeadingCard,
+                                          isExtraTipTab && styles.richPagerHeadingCardExtraTip,
                                           isLessonFocusHeading && styles.richPagerHeadingCardLessonFocus,
+                                          isCommonMistakeTab && styles.richPagerHeadingCardCommonMistake,
+                                          isCultureNoteTab && styles.richPagerHeadingCardCultureNote,
                                         ]}>
                                         <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
                                           {activePagerHeading}
                                         </AppText>
                                         {isLessonFocusHeading ? (
+                                          <Image
+                                            source={require('@/assets/images/characters/pailin_thumbs_up_head.webp')}
+                                            contentFit="contain"
+                                            style={styles.richPagerHeadingLessonFocusImage}
+                                            accessibilityLabel="Pailin giving a thumbs up"
+                                          />
+                                        ) : null}
+                                        {isCommonMistakeTab ? (
+                                          <Image
+                                            source={require('@/assets/images/characters/pailin_sweat_head.webp')}
+                                            contentFit="contain"
+                                            style={styles.richPagerHeadingCommonMistakeImage}
+                                            accessibilityLabel="Pailin looking worried"
+                                          />
+                                        ) : null}
+                                        {isCultureNoteTab ? (
                                           <Image
                                             source={require('@/assets/images/characters/pailin_thumbs_up_head.webp')}
                                             contentFit="contain"
@@ -14161,10 +14258,11 @@ const mergeAdjacentPracticeRowTokens = (
                               : nextSectionButtonLabel}
                         </AppText>
                       </Pressable>
-                      {isPracticeTab && isCurrentPracticeChecked && !isCurrentPracticeCorrect && !isCurrentPracticeChecking ? (
+                      {isPracticeTab && activePracticeExercise && activePracticeQuestion ? (
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={pageLanguage === 'th' ? 'ข้ามคำถามนี้' : 'Skip question'}
+                          disabled={isCurrentPracticeChecking || isSavingLessonCompletion}
                           onPress={handleAdvancePracticeQuestion}
                           style={styles.practiceSkipQuestionButton}>
                           <AppText language={pageLanguage} style={styles.practiceSkipQuestionText}>
@@ -14176,11 +14274,15 @@ const mergeAdjacentPracticeRowTokens = (
                       !isCurrentComprehensionCorrect && !showComprehensionResults ? (
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel="Go to next question"
+                          accessibilityLabel={clampedComprehensionQuestionIndex >= comprehensionQuestionCount - 1
+                            ? (pageLanguage === 'th' ? 'จบแบบทดสอบ' : 'Finish quiz')
+                            : (pageLanguage === 'th' ? 'ไปคำถามถัดไป' : 'Go to next question')}
                           onPress={handleAdvanceComprehensionQuestion}
                           style={styles.comprehensionSkipQuestionButton}>
                           <AppText language={pageLanguage} style={styles.comprehensionSkipQuestionText}>
-                            {pageLanguage === 'th' ? 'ไปคำถามถัดไป' : 'Go to next question'}
+                            {clampedComprehensionQuestionIndex >= comprehensionQuestionCount - 1
+                              ? (pageLanguage === 'th' ? 'จบแบบทดสอบ' : 'Finish quiz')
+                              : (pageLanguage === 'th' ? 'ไปคำถามถัดไป' : 'Go to next question')}
                           </AppText>
                         </Pressable>
                       ) : null}
@@ -14865,10 +14967,10 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   studySectionTitleEnglish: {
-    fontFamily: theme.typography.fontFaces.en.semibold,
+    fontFamily: theme.typography.fontFaces.en.bold,
   },
   studySectionTitleThai: {
-    fontFamily: theme.typography.fontFaces.th.semibold,
+    fontFamily: theme.typography.fontFaces.th.bold,
   },
   fullscreenButton: {
     width: 36,
@@ -14918,6 +15020,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     fontWeight: theme.typography.weights.medium,
     flexShrink: 0,
+    transform: [{ translateY: 2 }],
   },
   practicePagerHeaderRow: {
     flexDirection: 'row',
@@ -14997,15 +15100,32 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     backgroundColor: '#F1FFDA',
   },
+  richPagerHeadingCardExtraTip: {
+    borderColor: '#F6D45A',
+    backgroundColor: '#FFFCE5',
+  },
   richPagerHeadingCardLessonFocus: {
     paddingRight: 72,
     marginBottom: 10,
+  },
+  richPagerHeadingCardCommonMistake: {
+    borderColor: '#FF7676',
+    backgroundColor: '#FFF1F1',
+    paddingRight: 72,
+    marginBottom: 10,
+  },
+  richPagerHeadingCardCultureNote: {
+    borderColor: '#FFBD87',
+    backgroundColor: '#FFE6D2',
+    paddingRight: 72,
+    marginBottom: 0,
   },
   richPagerHeadingLabel: {
     color: theme.colors.text,
     fontSize: 21,
     lineHeight: 25,
     fontWeight: theme.typography.weights.semibold,
+    transform: [{ translateY: 4 }],
   },
   richPagerHeadingLessonFocusImage: {
     position: 'absolute',
@@ -15013,6 +15133,15 @@ const styles = StyleSheet.create({
     bottom: -22,
     width: 62,
     height: 62,
+    transform: [{ scaleX: -1 }],
+  },
+  richPagerHeadingCommonMistakeImage: {
+    position: 'absolute',
+    right: 5,
+    bottom: -22,
+    width: 62,
+    height: 62,
+    transform: [{ scaleX: -1 }],
   },
   practicePagerHeadingLabel: {
     flex: 1,
@@ -15494,14 +15623,38 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFaces.th.semibold,
   },
   cultureNoteShell: {
-    paddingVertical: theme.spacing.xs,
+    paddingBottom: theme.spacing.xs,
   },
   cultureNoteLeadHeading: {
     color: theme.colors.text,
     fontSize: 21,
     lineHeight: 25,
     fontWeight: theme.typography.weights.semibold,
-    marginBottom: theme.spacing.sm,
+  },
+  cultureNoteLeadGroup: {
+    gap: 4,
+  },
+  cultureNotePillContentGroup: {
+    gap: 22,
+  },
+  cultureNoteCategoryPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#F6D45A',
+    borderRadius: 999,
+    backgroundColor: '#FFFCE5',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  cultureNoteCategoryPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  cultureNoteCategoryPillText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 18,
   },
   richGroupBand: {
     marginHorizontal: -14,
@@ -15670,6 +15823,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
+  richMistakeCardGroup: {
+    gap: 10,
+  },
   richAudioCardBody: {
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -15695,6 +15851,19 @@ const styles = StyleSheet.create({
   },
   richAudioCardButton: {
     marginTop: 0,
+    flexShrink: 0,
+  },
+  richAudioCardButtonPlaceholder: {
+    width: 28,
+    height: 28,
+    flexShrink: 0,
+  },
+  richMistakeCardSymbol: {
+    width: 24,
+    fontSize: 27,
+    lineHeight: 29,
+    fontWeight: '600',
+    textAlign: 'center',
     flexShrink: 0,
   },
   richAudioTranslationToggle: {
@@ -16679,6 +16848,26 @@ const styles = StyleSheet.create({
     color: '#686868',
     fontSize: 16,
     lineHeight: 18,
+  },
+  practiceExampleCollapsibleCard: {
+    borderWidth: 1,
+    borderColor: '#D9D9D9',
+    borderRadius: 11,
+    backgroundColor: '#F3F3F3',
+    overflow: 'hidden',
+  },
+  practiceExampleCollapsibleHeader: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  practiceExampleCollapsibleBody: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   comprehensionQuestionCard: {
     paddingLeft: 0,
@@ -17734,26 +17923,6 @@ const styles = StyleSheet.create({
     color: '#62656D',
     fontSize: theme.typography.sizes.md,
     lineHeight: 20,
-  },
-  practiceExampleSentenceCorrectBadge: {
-    marginLeft: theme.spacing.sm,
-    width: 14,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: '#99C64F',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  practiceExampleSentenceIncorrectBadge: {
-    backgroundColor: '#FF5858',
-  },
-  practiceExampleSentenceCorrectBadgeText: {
-    color: theme.colors.surface,
-    fontSize: 8,
-    lineHeight: 8,
-    fontWeight: theme.typography.weights.bold,
-    includeFontPadding: false,
   },
   practiceOpenInputStatusBadge: {
     position: 'absolute',

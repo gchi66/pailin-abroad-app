@@ -535,7 +535,10 @@ export default function SpeakingCoachEntryScreen() {
 function SpeakingCoachTestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ lesson?: string }>();
+  const params = useLocalSearchParams<{ lesson?: string; entry?: string }>();
+  const resourceMode = params.entry === 'resources';
+  const lessonMode = params.entry === 'lesson';
+  const guidedMode = resourceMode || lessonMode;
   const initialLessonId = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '1.1';
   const [lessonId, setLessonId] = useState(initialLessonId);
   const [selectedLevel, setSelectedLevel] = useState(lessonLevel(initialLessonId));
@@ -544,7 +547,7 @@ function SpeakingCoachTestScreen() {
   const [lessonOptionsError, setLessonOptionsError] = useState<string | null>(null);
   const [lesson, setLesson] = useState<SpeakingCoachLesson | null>(null);
   const [session, setSession] = useState<SpeakingCoachSession | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(!guidedMode);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -562,6 +565,8 @@ function SpeakingCoachTestScreen() {
   const [showConversationDetails, setShowConversationDetails] = useState(true);
   const [completedPracticeSetId, setCompletedPracticeSetId] = useState<number | null>(null);
   const [locallyCorrectQuestionIds, setLocallyCorrectQuestionIds] = useState<number[]>([]);
+  const [advancePending, setAdvancePending] = useState(false);
+  const fullLessonPromiseRef = useRef<Promise<SpeakingCoachLesson> | null>(null);
   const questionPresentedAtRef = useRef(Date.now());
   const promptPlayedForQuestionRef = useRef(false);
   const recordingOrdinalRef = useRef(0);
@@ -712,6 +717,10 @@ function SpeakingCoachTestScreen() {
   );
 
   useEffect(() => {
+    if (guidedMode) {
+      setLessonOptionsLoading(false);
+      return;
+    }
     let cancelled = false;
     setLessonOptionsLoading(true);
     setLessonOptionsError(null);
@@ -738,7 +747,7 @@ function SpeakingCoachTestScreen() {
     return () => {
       cancelled = true;
     };
-  }, [initialLessonId]);
+  }, [guidedMode, initialLessonId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -746,7 +755,7 @@ function SpeakingCoachTestScreen() {
     setLoadError(null);
     setLesson(null);
     setSession(null);
-    setShowWelcome(true);
+    setShowWelcome(!guidedMode);
     setQuestionIndex(0);
     setPhase('prompt');
     setRecordedUri(null);
@@ -759,13 +768,27 @@ function SpeakingCoachTestScreen() {
     setShowConversationDetails(true);
     setCompletedPracticeSetId(null);
     setLocallyCorrectQuestionIds([]);
+    fullLessonPromiseRef.current = null;
 
     void Promise.all([
-      fetchSpeakingCoachLesson(lessonId),
+      fetchSpeakingCoachLesson(lessonId, {
+        firstSetOnly: lessonMode,
+        includeTestAnswers: !guidedMode,
+      }),
       createOrResumeSpeakingSession(lessonId),
     ])
-      .then(([nextLesson, nextSession]) => {
+      .then(async ([firstLesson, nextSession]) => {
         if (!cancelled) {
+          const fullLessonPromise = lessonMode
+            ? fetchSpeakingCoachLesson(lessonId, { includeTestAnswers: false })
+            : null;
+          fullLessonPromiseRef.current = fullLessonPromise;
+          let nextLesson = firstLesson;
+          const firstQuestionIds = new Set(firstLesson.practice_sets.flatMap((set) => set.questions.map((question) => question.id)));
+          if (fullLessonPromise && nextSession.current_question_id !== null && !firstQuestionIds.has(nextSession.current_question_id)) {
+            nextLesson = await fullLessonPromise;
+            if (cancelled) return;
+          }
           const nextQuestions = nextLesson.practice_sets.flatMap((practiceSet) =>
             practiceSet.questions.map((question) => ({ practiceSet, question }))
           );
@@ -777,6 +800,13 @@ function SpeakingCoachTestScreen() {
           setQuestionIndex(resumedIndex >= 0 ? resumedIndex : 0);
           setInstructionalAttemptNumber(nextSession.instructional_attempt_number);
           setPreviousAttemptId(nextSession.previous_attempt_id);
+          if (fullLessonPromise && nextLesson === firstLesson) {
+            void fullLessonPromise.then((fullLesson) => {
+              if (!cancelled) setLesson(fullLesson);
+            }).catch(() => {
+              // The next-set action retries if the background request failed.
+            });
+          }
         }
       })
       .catch((error) => {
@@ -791,7 +821,7 @@ function SpeakingCoachTestScreen() {
     return () => {
       cancelled = true;
     };
-  }, [lessonId]);
+  }, [guidedMode, lessonId, lessonMode]);
 
   const resetQuestion = () => {
     promptPlayer.pause();
@@ -832,13 +862,42 @@ function SpeakingCoachTestScreen() {
     goToQuestion(nextIndex);
   };
 
-  const continueAfterSet = () => {
-    if (!session || completedPracticeSetId === null) return;
+  const continueAfterSet = async () => {
+    if (!session || completedPracticeSetId === null || advancePending) return;
     const nextIndex = session.current_question_id === null
       ? -1
       : questions.findIndex(({ question }) => question.id === session.current_question_id);
     if (nextIndex >= 0) {
       goToQuestion(nextIndex);
+      return;
+    }
+    if (session.current_question_id !== null && lessonMode) {
+      setAdvancePending(true);
+      setLoading(true);
+      try {
+        let fullLesson: SpeakingCoachLesson;
+        try {
+          fullLesson = await (fullLessonPromiseRef.current ?? fetchSpeakingCoachLesson(lessonId, { includeTestAnswers: false }));
+        } catch {
+          fullLessonPromiseRef.current = null;
+          fullLesson = await fetchSpeakingCoachLesson(lessonId, { includeTestAnswers: false });
+        }
+        const fullQuestions = fullLesson.practice_sets.flatMap((practiceSet) =>
+          practiceSet.questions.map((question) => ({ practiceSet, question }))
+        );
+        const fullIndex = fullQuestions.findIndex(({ question }) => question.id === session.current_question_id);
+        if (fullIndex < 0) throw new Error('The next speaking set could not be found.');
+        setLesson(fullLesson);
+        resetQuestion();
+        setCompletedPracticeSetId(null);
+        setQuestionIndex(fullIndex);
+      } catch (error) {
+        fullLessonPromiseRef.current = null;
+        Alert.alert('Could not load the next set', error instanceof Error ? error.message : 'Please try again.');
+      } finally {
+        setLoading(false);
+        setAdvancePending(false);
+      }
       return;
     }
     router.back();
@@ -1187,7 +1246,7 @@ function SpeakingCoachTestScreen() {
           errorBody={loadError || 'This lesson has no speaking questions.'}
         />
         <View style={styles.errorActions}>
-          <Button title="Back to profile" variant="outline" onPress={() => router.back()} />
+          <Button title={lessonMode ? 'Back to lesson' : resourceMode ? 'Back to Speaking Practice' : 'Back to profile'} variant="outline" onPress={() => router.back()} />
         </View>
       </View>
     );
@@ -1275,6 +1334,20 @@ function SpeakingCoachTestScreen() {
         )}
       </View>
     </>
+  );
+
+  const renderGuidedHeader = () => (
+    <View style={styles.resourceHeader}>
+      <View style={styles.resourceHeaderCopy}>
+        <AppText variant="caption" style={styles.resourceLessonNumber}>{lessonId}</AppText>
+        <AppText variant="caption" numberOfLines={1} style={styles.resourceLessonTitle}>
+          {lesson?.title ?? ''}
+        </AppText>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={lessonMode ? 'Back to lesson' : 'Back to Speaking Practice'} onPress={() => router.back()} style={styles.closeButton}>
+        <MaterialIcons name="close" size={25} color={theme.colors.text} />
+      </Pressable>
+    </View>
   );
 
   if (showWelcome) {
@@ -2363,8 +2436,9 @@ function SpeakingCoachTestScreen() {
     const nextQuestionIndex = session.current_question_id === null
       ? -1
       : questions.findIndex(({ question }) => question.id === session.current_question_id);
-    const hasNextSet = nextQuestionIndex >= 0
-      && questions[nextQuestionIndex].practiceSet.id !== completedSet.id;
+    const hasNextSet = session.current_question_id !== null
+      && !questionIds.has(session.current_question_id)
+      && (nextQuestionIndex < 0 || questions[nextQuestionIndex].practiceSet.id !== completedSet.id);
     const copy = SET_COMPLETION_COPY[completedSet.practice_type];
     const itemLabel = completedSet.question_count === 1 ? copy.singular : copy.plural;
 
@@ -2420,16 +2494,17 @@ function SpeakingCoachTestScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={continueAfterSet}
+          disabled={advancePending}
+          onPress={() => void continueAfterSet()}
           style={({ pressed }) => [
             styles.setCompletionButton,
             pressed ? styles.welcomeStartButtonPressed : null,
           ]}
         >
           <AppText variant="caption" style={styles.setCompletionButtonLabel}>
-            {hasNextSet ? 'NEXT SET' : 'FINISH LESSON!'}
+            {hasNextSet ? (guidedMode ? 'GO TO NEXT SET' : 'NEXT SET') : lessonMode ? 'BACK TO LESSON' : resourceMode ? 'BACK TO SPEAKING PRACTICE' : 'FINISH LESSON!'}
           </AppText>
-          {!hasNextSet ? (
+          {!hasNextSet && !guidedMode ? (
             <Image source={celebrateWhiteImage} contentFit="contain" style={styles.setCompletionButtonIcon} />
           ) : null}
         </Pressable>
@@ -2440,7 +2515,7 @@ function SpeakingCoachTestScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      {renderLessonControls()}
+      {guidedMode ? renderGuidedHeader() : renderLessonControls()}
 
       {completedPracticeSetId !== null ? (
         renderSetCompletion()
@@ -3139,6 +3214,10 @@ const styles = StyleSheet.create({
   translationHearPailinLabel: { color: '#666666', fontSize: 10, lineHeight: 15, fontWeight: theme.typography.weights.medium },
   translationReferenceAnswer: { color: '#6F6F6F', fontSize: 12, lineHeight: 18, fontStyle: 'italic', textAlign: 'center' },
   topBar: { minHeight: 64, paddingHorizontal: theme.spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  resourceHeader: { width: '100%', maxWidth: 480, alignSelf: 'center', minHeight: 49, paddingLeft: 18, paddingRight: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  resourceHeaderCopy: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  resourceLessonNumber: { fontSize: 11, fontWeight: theme.typography.weights.bold },
+  resourceLessonTitle: { flex: 1, fontSize: 11 },
   screenTitleBlock: { gap: 1 },
   screenEyebrow: { color: theme.colors.accent, fontWeight: theme.typography.weights.bold, letterSpacing: 0.5 },
   selectedLessonTitle: { fontWeight: theme.typography.weights.semibold },
