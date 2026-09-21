@@ -104,6 +104,11 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
       practiceLoginRequired: 'กรุณาเข้าสู่ระบบเพื่อตรวจคำตอบ',
       practiceCorrect: 'ถูกต้อง',
       practiceNeedsWork: 'ลองแก้อีกนิด',
+      practiceShowAnswer: 'ดูคำตอบ',
+      practiceHideAnswer: 'ซ่อนคำตอบ',
+      practiceRetryAnswer: 'ลองอีกครั้ง',
+      practicePreparingAnswer: 'กำลังเตรียมคำตอบ…',
+      practiceAnswerUnavailable: 'ยังไม่สามารถแสดงคำตอบได้',
       phrasesIntro:
         'เราเลือกวลีสำคัญจากบทเรียนนี้มาให้ทีละใบ เพื่อให้คุณโฟกัสกับความหมาย การแปล และเสียงตัวอย่างได้ง่ายขึ้น',
       phrasesEmpty: 'ยังไม่มี phrase card ที่พร้อมแสดงใน section นี้',
@@ -216,6 +221,11 @@ export const getLessonDetailCopy = (language: UiLanguage) => {
     practiceLoginRequired: 'Please log in to check your answers.',
     practiceCorrect: 'CORRECT',
     practiceNeedsWork: 'NEEDS ANOTHER TRY',
+    practiceShowAnswer: 'Show Answer',
+    practiceHideAnswer: 'Hide Answer',
+    practiceRetryAnswer: 'Try Again',
+    practicePreparingAnswer: 'Preparing answer…',
+    practiceAnswerUnavailable: 'Answer unavailable right now.',
     phrasesIntro:
       'This section works best one phrase card at a time so you can focus on the wording, translation, and example audio.',
     phrasesEmpty: 'There are no phrase cards ready to show in this section yet.',

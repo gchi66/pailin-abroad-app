@@ -18,7 +18,7 @@ type Props = {
   rows: OverviewRow[]; activeIndex: number | null; complete: boolean; hasAccount: boolean;
   activeType?: string | null;
   hasMembership: boolean; onSection: (index: number) => void; onListen?: () => void;
-  listenComplete: boolean; onSpeaking?: () => void; onDiscussion: () => void; onUpgrade: () => void;
+  listenComplete: boolean; speakingComplete: boolean; onSpeaking?: () => void; onDiscussion: () => void; onUpgrade: () => void;
   tabs: { key: string; onPress: () => void }[];
 };
 const groups = [
@@ -60,7 +60,7 @@ export function LessonOverviewScreen(p: Props) {
   const th = p.language === 'th';
   const rows = [...p.rows];
   if (p.onListen) rows.push({ id: 'listen', type: 'listen', index: -1, complete: p.listenComplete });
-  if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: false });
+  if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: p.speakingComplete });
   rows.push({ id: 'discussion', type: 'discussion', index: -3, complete: false });
   return <View style={[s.screen, { paddingTop: insets.top }]}>
     <ScrollView
@@ -82,7 +82,7 @@ export function LessonOverviewScreen(p: Props) {
         <AppText language={p.language} style={s.title}>{p.title}</AppText>
         <AppText language={p.language} style={s.focus}>{p.focus}</AppText>
         <View style={s.status}><MaterialIcons name={p.complete ? 'check-circle' : 'check'} size={14} color="#8BBD3F" />
-          <AppText language={p.language} style={s.statusText}>{p.complete ? (th ? 'เรียนจบแล้ว' : 'Lesson complete') : p.hasAccount ? (th ? 'บันทึกความคืบหน้าอัตโนมัติ' : 'Progress saved automatically') : (th ? 'เลือกส่วนที่ต้องการเรียน' : 'Choose a section to begin')}</AppText>
+          <AppText language={p.language} style={[s.statusText, !p.complete && p.hasAccount ? s.statusTextSaved : null]}>{p.complete ? (th ? 'เรียนจบแล้ว' : 'Lesson complete') : p.hasAccount ? (th ? 'บันทึกความคืบหน้าอัตโนมัติ' : 'Progress saved automatically') : (th ? 'เลือกส่วนที่ต้องการเรียน' : 'Choose a section to begin')}</AppText>
         </View>
       </View>
       {groups.map(group => {
@@ -157,7 +157,7 @@ const s = StyleSheet.create({
   avatar: { width: 38, height: 38 },
   header: { padding: 16, paddingRight: 40, borderWidth: 1, borderColor: '#D5D5D5', borderRadius: 10, backgroundColor: '#FFF', gap: 4 },
   eyebrow: { fontSize: 10, lineHeight: 15, fontWeight: '700', letterSpacing: .8 }, title: { fontSize: 20, lineHeight: 27, fontWeight: '700' },
-  focus: { fontSize: 13, lineHeight: 19, color: '#777' }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }, statusText: { fontSize: 10, lineHeight: 16, color: '#777' },
+  focus: { fontSize: 13, lineHeight: 19, color: '#777' }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }, statusText: { fontSize: 10, lineHeight: 16, color: '#777' }, statusTextSaved: { fontStyle: 'italic' },
   group: { marginTop: 26, paddingLeft: 30 }, groupLabel: { alignSelf: 'flex-start', backgroundColor: '#FFFCE5', padding: 8, borderRadius: 4, borderWidth: 1, marginBottom: 15 },
   rowWrap: { paddingBottom: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, padding: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 4 },
   rowText: { flex: 1, fontSize: 14, lineHeight: 21 }, dot: { position: 'absolute', left: -29, top: 14, width: 17, height: 17, borderWidth: 1, borderColor: '#CCC', borderRadius: 9, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },

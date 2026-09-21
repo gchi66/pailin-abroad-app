@@ -362,6 +362,7 @@ export type EvaluateLessonAnswerInput = {
   exerciseId: string;
   questionNumber?: number | string;
   questionPrompt?: string;
+  instruction?: string;
   extra?: Record<string, unknown>;
 };
 
@@ -394,6 +395,7 @@ export async function evaluateLessonAnswer(
     source_type: input.sourceType,
     question_number: input.questionNumber,
     question_prompt: input.questionPrompt ?? '',
+    exercise_instruction: input.instruction ?? '',
   };
 
   if (input.sourceType === 'practice') {
@@ -422,6 +424,19 @@ export async function evaluateLessonAnswer(
   }
 
   return (json ?? {}) as EvaluateLessonAnswerResult;
+}
+
+export async function fetchPracticeReviewAnswer(exerciseId: string, itemKey: string): Promise<string> {
+  const response = await fetch(`${assertApiBaseUrl()}/api/lessons/practice/review-answer`, {
+    method: 'POST',
+    headers: await getLessonAuthHeaders(),
+    body: JSON.stringify({ exercise_id: exerciseId, item_key: itemKey }),
+  });
+  const body = (await response.json().catch(() => null)) as { review_answer?: string; error?: string } | null;
+  if (!response.ok || !body?.review_answer?.trim()) {
+    throw new Error(body?.error || 'The answer is not available yet.');
+  }
+  return body.review_answer.trim();
 }
 
 type LessonAudioUrls = {

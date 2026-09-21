@@ -356,6 +356,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
       avatar_image:
         userRow?.avatar_image ??
         (typeof currentUser.user_metadata?.avatar_image === 'string' ? currentUser.user_metadata.avatar_image : null),
+      has_password: null,
       is_admin: userRow?.is_admin === true,
       created_at: userRow?.created_at ?? null,
       is_paid: userRow?.is_paid === true,
@@ -400,6 +401,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
         userRow?.avatar_image ??
         backendProfile.avatar_image ??
         (typeof currentUser.user_metadata?.avatar_image === 'string' ? currentUser.user_metadata.avatar_image : null),
+      has_password: backendProfile.has_password ?? null,
       is_admin: userRow?.is_admin ?? backendProfile.is_admin ?? false,
       created_at: userRow?.created_at ?? backendProfile.created_at ?? null,
       is_paid: userRow?.is_paid === true,

@@ -21,6 +21,7 @@ import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
@@ -337,12 +338,11 @@ type MyPathwayScreenProps = {
 export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwayScreenProps = {}) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { uiLanguage, setUiLanguage } = useUiLanguage();
+  const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, isGuestMode, profile, user } = useAppSession();
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
   const copy = getCopy(uiLanguage);
-  const pathwayToggleLabel = uiLanguage === 'th' ? 'EN' : 'TH';
   const {
     allLessons,
     completedLessons,
@@ -584,19 +584,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                       </View>
 
                       <View style={styles.planMeta}>
-                        <View style={styles.languagePillWrap}>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
-                            onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-                            style={styles.languagePill}>
-                            <View style={styles.languagePillLabel}>
-                              <AppText language="en" variant="caption" style={styles.languagePillText}>
-                                {pathwayToggleLabel}
-                              </AppText>
-                            </View>
-                          </Pressable>
-                        </View>
+                        <LanguageToggle pathway />
                       </View>
                     </View>
                   </View>
@@ -878,39 +866,6 @@ const styles = StyleSheet.create({
   planMeta: {
     alignItems: 'flex-start',
     gap: 4,
-  },
-  languagePill: {
-    minWidth: 48,
-    height: 24,
-    minHeight: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 0,
-  },
-  languagePillWrap: {
-    position: 'relative',
-  },
-  languagePillLabel: {
-    minWidth: 22,
-    minHeight: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ translateY: 1 }],
-  },
-  languagePillText: {
-    color: theme.colors.text,
-    fontSize: 11,
-    lineHeight: 14,
-    fontFamily: theme.typography.fontFaces.en.medium,
-    fontWeight: theme.typography.weights.medium,
-    includeFontPadding: false,
-    textAlign: 'center',
-    textAlignVertical: 'center',
   },
   guestOverlay: {
     ...StyleSheet.absoluteFillObject,

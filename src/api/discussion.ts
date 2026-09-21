@@ -24,6 +24,48 @@ export async function fetchLessonComments(lessonId: string): Promise<LessonComme
   return (data ?? []) as unknown as LessonComment[];
 }
 
+export async function fetchUserComments(userId: string): Promise<LessonComment[]> {
+  const { data, error } = await supabase
+    .from('comments')
+    .select(COMMENT_SELECT)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throwDiscussionError(error.message);
+  }
+
+  return (data ?? []) as unknown as LessonComment[];
+}
+
+export async function fetchRepliesToComments(commentIds: string[]): Promise<LessonComment[]> {
+  if (commentIds.length === 0) return [];
+  const batches = await Promise.all(
+    Array.from({ length: Math.ceil(commentIds.length / 50) }, (_, index) => commentIds.slice(index * 50, (index + 1) * 50))
+      .map(async (ids) => {
+        const { data, error } = await supabase.from('comments').select(COMMENT_SELECT).in('parent_comment_id', ids).order('created_at', { ascending: true });
+        if (error) throwDiscussionError(error.message);
+        return (data ?? []) as unknown as LessonComment[];
+      })
+  );
+  return batches.flat();
+}
+
+export type CommentLesson = { id: string; level: number | null; lesson_order: number | null; focus: string | null; focus_th: string | null; title: string | null; title_th: string | null };
+
+export async function fetchCommentLessons(lessonIds: string[]): Promise<CommentLesson[]> {
+  if (lessonIds.length === 0) return [];
+  const batches = await Promise.all(
+    Array.from({ length: Math.ceil(lessonIds.length / 50) }, (_, index) => lessonIds.slice(index * 50, (index + 1) * 50))
+      .map(async (ids) => {
+        const { data, error } = await supabase.from('lessons').select('id,level,lesson_order,focus,focus_th,title,title_th').in('id', ids);
+        if (error) throwDiscussionError(error.message);
+        return (data ?? []) as CommentLesson[];
+      })
+  );
+  return batches.flat();
+}
+
 export async function createLessonComment(params: {
   lessonId: string;
   userId: string;

@@ -1,24 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { getPricing, prefetchPricing } from '@/src/api/pricing';
 import { BillingInvoice, BillingPaymentMethod, deleteUserAccount, fetchBillingInvoices, fetchBillingPaymentMethod } from '@/src/api/user';
+import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { getPlanPackageMap, getRevenueCatCustomerInfo, getRevenueCatOffering } from '@/src/lib/revenuecat';
-import {
-  disableDailyReminder,
-  isDailyReminderEnabled,
-  requestDailyReminderPermission,
-} from '@/src/lib/daily-reminder';
 import { theme } from '@/src/theme/theme';
 
 type SectionKey = 'billing-history' | 'more';
@@ -26,6 +22,7 @@ type SectionKey = 'billing-history' | 'more';
 type SettingsCopy = {
   title: string;
   back: string;
+  subtitle: string;
   subscriptionInfoTitle: string;
   planLabel: string;
   billingLabel: string;
@@ -59,14 +56,6 @@ type SettingsCopy = {
   errorTitle: string;
   deleteSuccess: string;
   genericError: string;
-  remindersTitle: string;
-  remindersHint: string;
-  remindersEnabled: string;
-  remindersDisabled: string;
-  remindersPermissionDeniedTitle: string;
-  remindersPermissionDeniedBody: string;
-  openSettings: string;
-  cancel: string;
 };
 
 const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
@@ -74,6 +63,7 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     return {
       title: 'การตั้งค่า',
       back: 'ย้อนกลับ',
+      subtitle: 'จัดการสมาชิกและการชำระเงิน',
       subscriptionInfoTitle: 'ข้อมูลการสมัครสมาชิก',
       planLabel: 'แผนปัจจุบัน',
       billingLabel: 'รอบบิลถัดไป',
@@ -107,20 +97,13 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
       errorTitle: 'เกิดข้อผิดพลาด',
       deleteSuccess: 'ลบบัญชีเรียบร้อยแล้ว',
       genericError: 'มีบางอย่างผิดพลาด กรุณาลองอีกครั้ง',
-      remindersTitle: 'การแจ้งเตือนประจำวัน',
-      remindersHint: 'แจ้งเตือนเวลา 19:00 น. เฉพาะวันที่คุณยังไม่ได้เปิดแอป',
-      remindersEnabled: 'เปิดอยู่',
-      remindersDisabled: 'ปิดอยู่',
-      remindersPermissionDeniedTitle: 'ปิดการแจ้งเตือนอยู่',
-      remindersPermissionDeniedBody: 'โปรดเปิดการแจ้งเตือนสำหรับ Pailin Abroad ในการตั้งค่าอุปกรณ์',
-      openSettings: 'เปิดการตั้งค่า',
-      cancel: 'ยกเลิก',
     };
   }
 
   return {
     title: 'Settings',
     back: 'Back',
+    subtitle: 'Manage your membership and billing.',
     subscriptionInfoTitle: 'Subscription Info',
     planLabel: 'Current Plan',
     billingLabel: 'Next Billing Date',
@@ -154,14 +137,6 @@ const getCopy = (uiLanguage: 'en' | 'th'): SettingsCopy => {
     errorTitle: 'Something went wrong',
     deleteSuccess: 'Your account has been deleted successfully.',
     genericError: 'Something went wrong. Please try again.',
-    remindersTitle: 'Daily reminders',
-    remindersHint: "One reminder at 7:00 PM on days you haven't opened the app.",
-    remindersEnabled: 'On',
-    remindersDisabled: 'Off',
-    remindersPermissionDeniedTitle: 'Notifications are turned off',
-    remindersPermissionDeniedBody: 'Enable notifications for Pailin Abroad in your device settings.',
-    openSettings: 'Open Settings',
-    cancel: 'Cancel',
   };
 };
 
@@ -251,8 +226,6 @@ export function SettingsScreen() {
   const copy = getCopy(uiLanguage);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [isUpdatingReminders, setIsUpdatingReminders] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfoState>({
     currentPlanId: null,
     priceText: null,
@@ -264,10 +237,6 @@ export function SettingsScreen() {
     isLoading: false,
     hasLoaded: false,
   });
-
-  useEffect(() => {
-    void isDailyReminderEnabled().then(setRemindersEnabled);
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -486,46 +455,16 @@ export function SettingsScreen() {
     ]);
   };
 
-  const handleReminderPress = () => {
-    if (isUpdatingReminders) {
-      return;
-    }
-
-    void (async () => {
-      setIsUpdatingReminders(true);
-      try {
-        if (remindersEnabled) {
-          await disableDailyReminder();
-          setRemindersEnabled(false);
-          return;
-        }
-
-        const enabled = await requestDailyReminderPermission(uiLanguage);
-        setRemindersEnabled(enabled);
-        if (!enabled) {
-          Alert.alert(copy.remindersPermissionDeniedTitle, copy.remindersPermissionDeniedBody, [
-            { text: copy.cancel, style: 'cancel' },
-            { text: copy.openSettings, onPress: () => void Linking.openSettings() },
-          ]);
-        }
-      } catch (error) {
-        Alert.alert(copy.errorTitle, error instanceof Error ? error.message : copy.genericError);
-      } finally {
-        setIsUpdatingReminders(false);
-      }
-    })();
-  };
-
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
       <Stack gap="md">
-        <StandardPageHeader
+        <AccountPageHeader
           language={uiLanguage}
           title={copy.title}
           onBackPress={() => router.push('/(tabs)/account')}
           backLabel={copy.back}
-          topInsetOffset={52}
+          subtitle={copy.subtitle}
         />
 
         <Card padding="lg" radius="lg" style={styles.neoCard}>
@@ -547,35 +486,8 @@ export function SettingsScreen() {
               ))}
             </Stack>
 
-            <Button language={uiLanguage} title={copy.changePlan} onPress={handleChangePlan} />
+            <Button language={uiLanguage} title={copy.changePlan} onPress={handleChangePlan} style={styles.changePlanButton} textStyle={styles.changePlanButtonText} />
           </Stack>
-        </Card>
-
-        <Card padding="lg" radius="lg" style={styles.neoCard}>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: remindersEnabled, disabled: isUpdatingReminders }}
-            disabled={isUpdatingReminders}
-            onPress={handleReminderPress}
-            style={styles.reminderRow}>
-            <View style={styles.reminderTextBlock}>
-              <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                {copy.remindersTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="muted" style={styles.dangerHint}>
-                {copy.remindersHint}
-              </AppText>
-            </View>
-            {isUpdatingReminders ? (
-              <ActivityIndicator color={theme.colors.text} size="small" />
-            ) : (
-              <View style={[styles.reminderStatus, remindersEnabled ? styles.reminderStatusEnabled : null]}>
-                <AppText language={uiLanguage} variant="caption" style={styles.reminderStatusText}>
-                  {remindersEnabled ? copy.remindersEnabled : copy.remindersDisabled}
-                </AppText>
-              </View>
-            )}
-          </Pressable>
         </Card>
 
         <Card padding="lg" radius="lg" style={styles.neoCard}>
@@ -738,44 +650,21 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   neoCard: {
-    borderWidth: 1.5,
-    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
+    borderWidth: 1,
+    borderRadius: 13,
+    boxShadow: `4px 4px 0px ${theme.colors.shadow}`,
   },
   sectionTitle: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.bold,
+    fontSize: 18,
+    lineHeight: 26,
   },
-  reminderRow: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  reminderTextBlock: {
-    flex: 1,
-    gap: theme.spacing.xs,
-  },
-  reminderStatus: {
-    minWidth: 52,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    backgroundColor: theme.colors.surface,
-  },
-  reminderStatusEnabled: {
-    backgroundColor: theme.colors.success,
-  },
-  reminderStatusText: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
-  },
+  changePlanButton: { minHeight: 56, backgroundColor: '#BCECFF', borderColor: theme.colors.border },
+  changePlanButtonText: { color: theme.colors.text, textTransform: 'uppercase', fontWeight: theme.typography.weights.medium },
   infoRow: {
     minHeight: 52,
     flexDirection: 'row',
@@ -806,7 +695,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   moreTrigger: {
-    minHeight: 44,
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -815,6 +704,8 @@ const styles = StyleSheet.create({
   moreTitle: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.bold,
+    fontSize: 18,
+    lineHeight: 26,
   },
   moreCardContent: {
     gap: theme.spacing.xs,

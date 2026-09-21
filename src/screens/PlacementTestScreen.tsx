@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Polygon } from 'react-native-svg';
 
-import placementTestLoadingPailin from '@/assets/images/placement-test-loading-pailin.gif';
+import appLogo from '@/assets/images/app-logo-pailin-abroad-smile.png';
 import placementTestPailinThumbsUp from '@/assets/images/placement-test-pailin-thumbs-up.webp';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import {
@@ -70,6 +70,7 @@ export function PlacementTestScreen() {
   const delayedPlaybackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultReveal = useRef(new Animated.Value(0)).current;
+  const logoPulse = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,6 +164,30 @@ export function PlacementTestScreen() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCalculating) {
+      logoPulse.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoPulse, {
+          toValue: 1,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoPulse, {
+          toValue: 0,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [isCalculating, logoPulse]);
 
   const submitConversation = () => {
     if (!conversation) {
@@ -275,9 +300,15 @@ export function PlacementTestScreen() {
 
             {isCalculating ? (
               <View style={styles.calculatingContent}>
-                <Image
-                  source={placementTestLoadingPailin}
-                  style={styles.calculatingImage}
+                <Animated.Image
+                  source={appLogo}
+                  style={[
+                    styles.calculatingImage,
+                    {
+                      opacity: logoPulse.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }),
+                      transform: [{ scale: logoPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }],
+                    },
+                  ]}
                   resizeMode="contain"
                 />
                 <View style={styles.calculatingPill}>
@@ -602,7 +633,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   calculatingContent: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
-  calculatingImage: { width: 180, height: 180 },
+  calculatingImage: { width: 180, height: 180, borderRadius: 28 },
   calculatingPill: { marginTop: 8, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: placementColors.note },
   calculatingText: {
     color: theme.colors.text,

@@ -252,36 +252,28 @@ export function ExerciseBankCollectionScreen() {
                       offset={2}
                     />
                     <View style={styles.topicCard}>
-                      <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
-                        {topic.display_title}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="muted" style={styles.topicTechnicalTitle}>
-                        {topic.topic}
-                      </AppText>
+                      <View style={styles.topicCopy}>
+                        <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
+                          {topic.display_title}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="muted" style={styles.topicTechnicalTitle}>
+                          {topic.topic}
+                        </AppText>
+                      </View>
                       {topic.progress ? (
                         <View style={styles.progressBlock}>
-                          <View style={styles.progressCopyRow}>
+                          {topic.progress.is_completed ? (
+                            <AppText language="en" variant="caption" style={styles.completedIcon}>✓</AppText>
+                          ) : (
                             <AppText language={uiLanguage} variant="caption" style={styles.progressCopy}>
                               {`${topic.progress.completed_sets}/${topic.progress.total_sets} ${copy.complete}`}
                             </AppText>
-                            {topic.progress.has_new_content ? (
-                              <AppText language={uiLanguage} variant="caption" style={styles.newContentBadge}>
-                                {copy.newContent}
-                              </AppText>
-                            ) : null}
-                          </View>
-                          <View style={styles.progressTrack}>
-                            <View
-                              style={[
-                                styles.progressFill,
-                                {
-                                  width: `${topic.progress.total_sets > 0
-                                    ? (topic.progress.completed_sets / topic.progress.total_sets) * 100
-                                    : 0}%`,
-                                },
-                              ]}
-                            />
-                          </View>
+                          )}
+                          {topic.progress.has_new_content ? (
+                            <AppText language={uiLanguage} variant="caption" style={styles.newContentBadge}>
+                              {copy.newContent}
+                            </AppText>
+                          ) : null}
                         </View>
                       ) : null}
                     </View>
@@ -367,31 +359,35 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topicCard: {
-    minHeight: 88,
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: TOPIC_CARD_RADIUS,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     justifyContent: 'center',
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
+  topicCopy: { flex: 1, minWidth: 0, gap: 2 },
   topicDisplayTitle: {
     color: theme.colors.text,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 19,
     fontWeight: theme.typography.weights.bold,
   },
   topicTechnicalTitle: {
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
   },
   progressBlock: {
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.xs,
+    alignItems: 'flex-end',
+    gap: 2,
   },
+  completedIcon: { color: '#2F80D5', fontSize: 19, fontWeight: theme.typography.weights.bold },
   progressCopyRow: {
     flexDirection: 'row',
     alignItems: 'center',

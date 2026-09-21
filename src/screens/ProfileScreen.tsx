@@ -1,15 +1,16 @@
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { updateOnboardingProfile } from '@/src/api/onboarding';
+import { fetchUserProfile, updateUserPassword } from '@/src/api/user';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -111,7 +112,10 @@ const getCopy = (uiLanguage: UiLanguage) => {
       signOutSuccess: 'ออกจากระบบแล้ว',
       placementPreview: 'ทำแบบประเมินระดับ',
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
+      lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
       avatarLabel: 'PP',
+      setPassword: 'ตั้งรหัสผ่าน',
+      subtitle: 'จัดการข้อมูลบัญชีของคุณ', password: 'รหัสผ่าน', changePassword: 'เปลี่ยนรหัสผ่าน', currentPassword: 'รหัสผ่านปัจจุบัน', newPassword: 'รหัสผ่านใหม่', confirmPassword: 'ยืนยันรหัสผ่านใหม่', savePassword: 'บันทึกรหัสผ่าน', passwordSaved: 'เปลี่ยนรหัสผ่านแล้ว', passwordMismatch: 'รหัสผ่านใหม่ไม่ตรงกัน', passwordRules: 'กรุณาตั้งรหัสผ่านให้ตรงตามเงื่อนไขทั้งหมด', passwordRule1: 'อย่างน้อย 8 ตัวอักษร', passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว', passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว', saveAvatar: 'บันทึกรูปโปรไฟล์',
     };
   }
 
@@ -137,7 +141,10 @@ const getCopy = (uiLanguage: UiLanguage) => {
     signOutSuccess: 'Signed out successfully.',
     placementPreview: 'Take placement test',
     speakingCoachPreview: 'Open speaking coach preview',
+    lessonCompletePreview: 'Open lesson complete preview',
     avatarLabel: 'PP',
+    setPassword: 'Set Password',
+    subtitle: 'Manage your account information.', password: 'Password', changePassword: 'Change Password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', savePassword: 'Save Password', passwordSaved: 'Password updated.', passwordMismatch: 'New passwords do not match.', passwordRules: 'Please meet all password requirements.', passwordRule1: 'At least 8 characters', passwordRule2: 'At least 1 number and 1 special character', passwordRule3: 'At least 1 uppercase and 1 lowercase letter', saveAvatar: 'Save Avatar',
   };
 };
 
@@ -150,6 +157,15 @@ export function ProfileScreen() {
   const [draftUsername, setDraftUsername] = useState('');
   const [draftAvatarPath, setDraftAvatarPath] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordMode, setPasswordMode] = useState<boolean | null>(null);
+  const [isOpeningPassword, setIsOpeningPassword] = useState(false);
   const displayName =
     (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
     (!isEmailLike(profile?.username) ? profile?.username?.trim() || '' : '') ||
@@ -177,7 +193,6 @@ export function ProfileScreen() {
     profile?.avatar_image ||
     (typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null) ||
     AVATAR_OPTIONS[0];
-  const draftAvatarSource = useMemo(() => resolveAvatarSource(draftAvatarPath), [draftAvatarPath]);
 
   useEffect(() => {
     if (isEditing) {
@@ -204,11 +219,11 @@ export function ProfileScreen() {
     const username = draftUsername.trim();
     if (!username) {
       Alert.alert(copy.editCardTitle, copy.profileNameError);
-      return;
+      return false;
     }
 
     if (!draftAvatarPath) {
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -220,10 +235,66 @@ export function ProfileScreen() {
       await refreshProfile();
       setIsEditing(false);
       Alert.alert(copy.editCardTitle, copy.updateSuccess);
+      return true;
     } catch (error) {
       Alert.alert(copy.editCardTitle, error instanceof Error ? error.message : 'Something went wrong.');
+      return false;
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const passwordRules = [
+    newPassword.length >= 8,
+    /\d/.test(newPassword) && /[!@#$%^&*(),.?":{}|<>_;'\-+=/\\[\]~`]/.test(newPassword),
+    /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword),
+  ];
+
+  const openPasswordScreen = async () => {
+    if (isOpeningPassword) return;
+    setIsOpeningPassword(true);
+    try {
+      const hasPassword = profile?.has_password ?? (await fetchUserProfile()).has_password;
+      if (typeof hasPassword !== 'boolean') throw new Error('Could not load password settings.');
+      setPasswordMode(hasPassword);
+      setIsChangingPassword(true);
+    } catch (error) {
+      Alert.alert(copy.password, error instanceof Error ? error.message : 'Something went wrong.');
+    } finally {
+      setIsOpeningPassword(false);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    if (passwordMode === null) return;
+    if (passwordMode && !currentPassword) {
+      Alert.alert(copy.changePassword, copy.currentPassword);
+      return;
+    }
+    if (!passwordRules.every(Boolean)) {
+      Alert.alert(copy.changePassword, copy.passwordRules);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert(copy.changePassword, copy.passwordMismatch);
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await updateUserPassword({ newPassword, ...(passwordMode ? { currentPassword } : {}) });
+      setPasswordMode(true);
+      await refreshProfile();
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setVisiblePasswords({});
+      setIsChangingPassword(false);
+      Alert.alert(passwordMode ? copy.changePassword : copy.setPassword, copy.passwordSaved);
+    } catch (error) {
+      Alert.alert(passwordMode ? copy.changePassword : copy.setPassword, error instanceof Error ? error.message : 'Something went wrong.');
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
@@ -269,183 +340,126 @@ export function ProfileScreen() {
     );
   }
 
-  const profileContent = (
-    <>
-      <StandardPageHeader
-        language={uiLanguage}
-        title={copy.title}
-        onBackPress={() => router.push('/(tabs)/account')}
-        backLabel={copy.back}
-        rightActionLabel={isEditing ? copy.cancel : copy.edit}
-        onRightActionPress={isEditing ? handleCancelEditing : handleStartEditing}
-        topInsetOffset={52}
-      />
-
-      <View style={isEditing ? null : styles.pageCenterGroup}>
-        <Card padding="lg" radius="lg" style={styles.neoCard}>
-          <Stack gap="md" style={!isEditing ? styles.profileCardContent : null}>
-            <View style={styles.profileHeaderRow}>
-              <View style={styles.avatar}>
-                {isEditing && draftAvatarSource ? (
-                  <Image source={draftAvatarSource} style={styles.avatarImage} resizeMode="cover" />
-                ) : avatarSource ? (
-                  <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" />
-                ) : (
-                  <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>
-                    {avatarLabel || copy.avatarLabel}
-                  </AppText>
-                )}
-              </View>
-              <View style={styles.profileIdentity}>
-                <AppText language={uiLanguage} variant="body" style={styles.profileName}>
-                  {profileData.displayName}
-                </AppText>
-                {email ? (
-                  <AppText language={uiLanguage} variant="muted">
-                    {profileData.email}
-                  </AppText>
-                ) : null}
-              </View>
-            </View>
-
-            {isEditing ? (
-              <Stack gap="md">
-                <AppText language={uiLanguage} variant="body" style={styles.sectionTitle}>
-                  {copy.editCardTitle}
-                </AppText>
-                <Stack gap="xs">
-                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
-                    {copy.usernameLabel}
-                  </AppText>
-                  <View style={styles.inputShell}>
-                    <ScriptAwareTextInput
-                      placeholder={copy.usernamePlaceholder}
-                      placeholderTextColor={theme.colors.mutedText}
-                      style={styles.textInput}
-                      value={draftUsername}
-                      onChangeText={setDraftUsername}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                  </View>
-                </Stack>
-
-                <Stack gap="xs">
-                  <AppText language={uiLanguage} variant="caption" style={styles.fieldLabel}>
-                    {copy.avatarPickerTitle}
-                  </AppText>
-                  <View style={styles.avatarGrid}>
-                    {AVATAR_OPTIONS.map((avatarPath) => {
-                      const optionSource = resolveAvatarSource(avatarPath);
-                      if (!optionSource) {
-                        return null;
-                      }
-
-                      return (
-                        <Pressable
-                          key={avatarPath}
-                          accessibilityRole="button"
-                          style={[styles.avatarOption, draftAvatarPath === avatarPath ? styles.avatarOptionSelected : null]}
-                          onPress={() => setDraftAvatarPath(avatarPath)}>
-                          <Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" />
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </Stack>
-
-                <Button
-                  title={isSaving ? copy.saving : copy.saveChanges}
-                  language={uiLanguage}
-                  onPress={() => {
-                    void handleSaveProfile();
-                  }}
-                  disabled={isSaving}
-                />
-              </Stack>
-            ) : (
-              <Stack gap="sm">
-                <View style={styles.metaRow}>
-                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                    {copy.membershipLabel}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                    {profileData.membershipLabel}
-                  </AppText>
-                </View>
-                <View style={styles.metaRow}>
-                  <AppText language={uiLanguage} variant="muted" style={styles.metaLabel}>
-                    {copy.joinedLabel}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="body" style={styles.metaValue}>
-                    {profileData.joinedLabel}
-                  </AppText>
-                </View>
-              </Stack>
-            )}
-          </Stack>
-        </Card>
-
-        {!isEditing && profile?.is_admin === true ? (
-          <Stack gap="sm">
-            <Button
-              title={copy.placementPreview}
-              language={uiLanguage}
-              variant="outline"
-              onPress={() => router.push('/placement-entry')}
-            />
-            <Button
-              title={copy.speakingCoachPreview}
-              language={uiLanguage}
-              variant="outline"
-              onPress={() => router.push('/speaking-coach?lesson=4.1')}
-            />
-          </Stack>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          style={styles.signOutRow}
-          onPress={() => {
-            void signOut().then(({ error }) => {
-              if (error) {
-                Alert.alert(copy.signOut, error);
-                return;
-              }
-              Alert.alert(copy.signOut, copy.signOutSuccess);
-              router.replace('/(tabs)');
-            });
-          }}>
-          <AppText language={uiLanguage} variant="body" style={styles.signOutText}>
-            {copy.signOut}
-          </AppText>
+  const passwordField = (key: string, label: string, value: string, onChangeText: (value: string) => void) => (
+    <View style={styles.passwordField}>
+      <AppText language={uiLanguage} variant="caption" style={styles.passwordLabel}>{label}</AppText>
+      <View style={styles.passwordInputRow}>
+        <ScriptAwareTextInput
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={!visiblePasswords[key]}
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType={key === 'current' ? 'password' : 'newPassword'}
+          style={styles.passwordInput}
+        />
+        <Pressable accessibilityRole="button" accessibilityLabel={visiblePasswords[key] ? 'Hide password' : 'Show password'} onPress={() => setVisiblePasswords((previous) => ({ ...previous, [key]: !previous[key] }))}>
+          <MaterialIcons name={visiblePasswords[key] ? 'visibility-off' : 'visibility'} size={22} color="#85898C" />
         </Pressable>
       </View>
-    </>
+    </View>
   );
 
-  if (isEditing) {
-    return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-        <ResponsivePageShell>
-          <Stack gap="md" style={styles.pageContent}>
-            {profileContent}
-          </Stack>
-        </ResponsivePageShell>
-      </ScrollView>
-    );
-  }
-
   return (
-    <View style={styles.screen}>
-      <View style={styles.contentContainerStatic}>
-        <ResponsivePageShell style={styles.pageContent}>
-          <Stack gap="md" style={styles.pageContent}>
-            {profileContent}
-          </Stack>
-        </ResponsivePageShell>
-      </View>
-    </View>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+      <ResponsivePageShell>
+        <AccountPageHeader
+          language={uiLanguage}
+          title={isChangingPassword ? (passwordMode ? copy.changePassword : copy.setPassword) : (uiLanguage === 'en' ? 'My Profile' : copy.title)}
+          backLabel={isChangingPassword ? copy.title : copy.back}
+          onBackPress={() => isChangingPassword ? setIsChangingPassword(false) : router.push('/(tabs)/account')}
+          subtitle={isChangingPassword ? undefined : copy.subtitle}
+          illustration={isChangingPassword ? undefined : require('@/assets/images/characters/pailin_thumbs_up_head.webp')}
+          flipIllustration
+        />
+
+        {isChangingPassword ? (
+          <View style={styles.passwordCard}>
+            {passwordMode ? passwordField('current', copy.currentPassword, currentPassword, setCurrentPassword) : null}
+            {passwordField('new', copy.newPassword, newPassword, setNewPassword)}
+            <View style={styles.rules}>
+              {[copy.passwordRule1, copy.passwordRule2, copy.passwordRule3].map((rule, index) => (
+                <View key={rule} style={styles.ruleRow}>
+                  <MaterialIcons name="check-circle" size={18} color={passwordRules[index] ? '#3CA0FE' : '#929698'} />
+                  <AppText language={uiLanguage} variant="caption" style={styles.ruleText}>{rule}</AppText>
+                </View>
+              ))}
+            </View>
+            {passwordField('confirm', copy.confirmPassword, confirmPassword, setConfirmPassword)}
+            <Pressable accessibilityRole="button" disabled={isSavingPassword} onPress={() => void handleSavePassword()} style={styles.savePasswordButton}>
+              <AppText language={uiLanguage} variant="body" style={styles.savePasswordText}>{isSavingPassword ? copy.saving : copy.savePassword}</AppText>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <View style={styles.profileCard}>
+              <View style={styles.profileHeaderRow}>
+                <Pressable accessibilityRole="button" accessibilityLabel={copy.avatarPickerTitle} onPress={() => { setDraftAvatarPath(initialAvatarPath); setShowAvatarPicker(true); }} style={styles.avatar}>
+                  {avatarSource ? <Image source={avatarSource} style={styles.avatarImage} resizeMode="cover" /> : <AppText language={uiLanguage} variant="caption" style={styles.avatarText}>{avatarLabel || copy.avatarLabel}</AppText>}
+                  <View style={styles.avatarEditBadge}><MaterialIcons name="edit" size={12} color="#2563EB" /></View>
+                </Pressable>
+                <View style={styles.profileIdentity}>
+                  {isEditing ? (
+                    <View style={styles.editNameRow}>
+                      <ScriptAwareTextInput value={draftUsername} onChangeText={setDraftUsername} style={styles.editNameInput} autoFocus />
+                      <Pressable accessibilityRole="button" onPress={() => void handleSaveProfile()} disabled={isSaving}><MaterialIcons name="check" size={23} color="#2563EB" /></Pressable>
+                      <Pressable accessibilityRole="button" onPress={handleCancelEditing}><MaterialIcons name="close" size={23} color={theme.colors.text} /></Pressable>
+                    </View>
+                  ) : (
+                    <Pressable accessibilityRole="button" onPress={handleStartEditing} style={styles.nameRow}>
+                      <AppText language={uiLanguage} variant="body" style={styles.profileName}>{profileData.displayName}</AppText>
+                      <MaterialIcons name="edit" size={18} color="#2563EB" />
+                    </Pressable>
+                  )}
+                  {email ? <AppText language={uiLanguage} variant="muted" numberOfLines={1} style={styles.email}>{profileData.email}</AppText> : null}
+                </View>
+              </View>
+              <View style={styles.metaRow}>
+                <MaterialIcons name="workspace-premium" size={24} color={theme.colors.text} />
+                <AppText language={uiLanguage} variant="body" style={styles.metaLabel}>{copy.membershipLabel}</AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.metaValue}>{profileData.membershipLabel}</AppText>
+              </View>
+              <View style={styles.metaRow}>
+                <MaterialIcons name="calendar-today" size={22} color={theme.colors.text} />
+                <AppText language={uiLanguage} variant="body" style={styles.metaLabel}>{copy.joinedLabel}</AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.metaValue}>{profileData.joinedLabel}</AppText>
+              </View>
+            <Pressable accessibilityRole="button" onPress={() => void openPasswordScreen()} style={styles.metaRow}>
+                <MaterialIcons name="lock-outline" size={23} color={theme.colors.text} />
+                <AppText language={uiLanguage} variant="body" style={styles.metaLabel}>{copy.password}</AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.passwordDots}>{profile?.has_password === false ? copy.setPassword : profile?.has_password === true ? '********' : '…'}</AppText>
+                <MaterialIcons name="chevron-right" size={22} color={theme.colors.text} />
+              </Pressable>
+            </View>
+            {profile?.is_admin === true ? <Stack gap="sm" style={styles.adminLinks}>
+              <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
+              <Button title={copy.speakingCoachPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/speaking-coach?lesson=4.1')} />
+              <Button title={copy.lessonCompletePreview} language={uiLanguage} variant="outline" onPress={() => router.push('/lesson-complete-preview')} />
+            </Stack> : null}
+            <Pressable accessibilityRole="button" style={styles.signOutRow} onPress={() => { void signOut().then(({ error }) => { if (error) { Alert.alert(copy.signOut, error); return; } router.replace('/(tabs)'); }); }}>
+              <MaterialIcons name="logout" size={21} color="#FF4545" />
+              <AppText language={uiLanguage} variant="body" style={styles.signOutText}>{copy.signOut}</AppText>
+            </Pressable>
+          </>
+        )}
+      </ResponsivePageShell>
+      <Modal visible={showAvatarPicker} transparent animationType="fade" onRequestClose={() => setShowAvatarPicker(false)}>
+        <View style={styles.modalShade}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAvatarPicker(false)} />
+          <View style={styles.avatarModal}>
+            <View style={styles.avatarGrid}>
+              {AVATAR_OPTIONS.map((avatarPath) => {
+                const optionSource = resolveAvatarSource(avatarPath);
+                return optionSource ? <Pressable key={avatarPath} accessibilityRole="button" accessibilityLabel={avatarPath} style={[styles.avatarOption, draftAvatarPath === avatarPath && styles.avatarOptionSelected]} onPress={() => setDraftAvatarPath(avatarPath)}><Image source={optionSource} style={styles.avatarOptionImage} resizeMode="contain" /></Pressable> : null;
+              })}
+            </View>
+            <Pressable accessibilityRole="button" disabled={isSaving} onPress={() => { void handleSaveProfile().then((saved) => { if (saved) setShowAvatarPicker(false); }); }} style={styles.saveAvatarButton}>
+              <AppText language={uiLanguage} variant="body" style={styles.saveAvatarText}>{isSaving ? copy.saving : copy.saveAvatar}</AppText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 }
 
@@ -459,6 +473,7 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
     flexGrow: 1,
   },
+  profileCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 13, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6, boxShadow: '4px 4px 0px #1E1E1E' },
   contentContainerStatic: {
     flex: 1,
     padding: theme.spacing.md,
@@ -490,9 +505,6 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.text,
-  },
-  subtitle: {
-    color: theme.colors.mutedText,
   },
   guestTitle: {
     color: theme.colors.text,
@@ -533,26 +545,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
+    paddingBottom: 16,
   },
   profileCardContent: {
     minHeight: 148,
     justifyContent: 'center',
   },
   avatar: {
-    width: 64,
-    height: 64,
+    width: 78,
+    height: 78,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: '#91CAFF',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 999,
   },
+  avatarEditBadge: { position: 'absolute', right: 0, bottom: 0, width: 21, height: 21, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#999', backgroundColor: '#FFFFFF' },
   avatarText: {
     color: theme.colors.text,
     fontSize: theme.typography.sizes.lg,
@@ -561,11 +575,15 @@ const styles = StyleSheet.create({
   },
   profileIdentity: {
     flex: 1,
-    gap: theme.spacing.xs,
+    gap: 2,
   },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  editNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editNameInput: { minWidth: 0, flex: 1, borderBottomWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, fontSize: 19 },
+  email: { fontSize: 12 },
   profileName: {
     fontWeight: theme.typography.weights.bold,
-    fontSize: theme.typography.sizes.lg,
+    fontSize: 22,
     lineHeight: theme.typography.lineHeights.lg,
   },
   fieldLabel: {
@@ -590,7 +608,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: theme.spacing.md,
+    rowGap: 12,
   },
   avatarOption: {
     width: '23%',
@@ -602,7 +620,7 @@ const styles = StyleSheet.create({
   },
   avatarOptionSelected: {
     borderWidth: 2,
-    borderColor: theme.colors.text,
+    borderColor: '#F6A75C',
   },
   avatarOptionImage: {
     width: '100%',
@@ -610,17 +628,23 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: 12,
+    minHeight: 56,
+    borderTopWidth: 1,
+    borderTopColor: '#D8D8D8',
   },
   metaLabel: {
     flex: 1,
+    color: '#666666',
   },
   metaValue: {
-    flex: 1,
     textAlign: 'right',
+    fontWeight: theme.typography.weights.semibold,
+    fontSize: 14,
   },
+  passwordDots: { fontWeight: theme.typography.weights.bold },
+  adminLinks: { marginTop: 22 },
   linkRow: {
     minHeight: 52,
     flexDirection: 'row',
@@ -637,15 +661,37 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontWeight: theme.typography.weights.medium,
-    color: theme.colors.primary,
+    color: '#FF4545',
   },
   signOutRow: {
-    minHeight: 44,
+    minHeight: 56,
+    flexDirection: 'row',
+    gap: 10,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
+    marginTop: 34,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    backgroundColor: '#FFEDED',
+    boxShadow: '4px 4px 0px #1E1E1E',
   },
+  passwordCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 13, padding: 20, marginTop: 14, boxShadow: '4px 4px 0px #1E1E1E' },
+  passwordField: { marginBottom: 24 },
+  passwordLabel: { marginBottom: 7, fontWeight: theme.typography.weights.medium },
+  passwordInputRow: { flexDirection: 'row', alignItems: 'center', height: 42, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 6, paddingHorizontal: 12 },
+  passwordInput: { flex: 1, minWidth: 0, height: 42, color: theme.colors.text, fontSize: 15 },
+  rules: { gap: 5, marginTop: -12, marginBottom: 25 },
+  ruleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ruleText: { flex: 1, fontSize: 12 },
+  savePasswordButton: { minHeight: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 999, backgroundColor: '#BCECFF', boxShadow: '4px 4px 0px #1E1E1E' },
+  savePasswordText: { textTransform: 'uppercase', fontWeight: theme.typography.weights.medium, letterSpacing: 0.5 },
+  modalShade: { flex: 1, backgroundColor: '#00000040', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  avatarModal: { width: '100%', maxWidth: 360, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12, padding: 18, boxShadow: '4px 4px 0px #1E1E1E' },
+  saveAvatarButton: { marginTop: 20, minHeight: 44, backgroundColor: '#2563EB', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 999, alignItems: 'center', justifyContent: 'center', boxShadow: '4px 4px 0px #1E1E1E' },
+  saveAvatarText: { color: '#FFFFFF', textTransform: 'uppercase', fontWeight: theme.typography.weights.semibold },
   pageCenterGroup: {
     flex: 1,
     justifyContent: 'center',

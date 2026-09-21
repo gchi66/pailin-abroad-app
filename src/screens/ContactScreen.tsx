@@ -15,13 +15,13 @@ import {
 import { useRouter } from 'expo-router';
 
 import { submitContactMessage } from '@/src/api/contact';
+import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
-import { Card } from '@/src/components/ui/Card';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { FACEBOOK_URL, INSTAGRAM_URL, LINE_URL } from '@/src/config/social';
 import { theme } from '@/src/theme/theme';
@@ -48,16 +48,16 @@ const SOCIAL_LINKS = [
     icon: require('@/assets/images/instagram_icon.png'),
   },
   {
-    key: 'facebook',
-    label: 'Facebook',
-    url: FACEBOOK_URL,
-    icon: require('@/assets/images/facebook_icon.png'),
-  },
-  {
     key: 'line',
     label: 'LINE',
     url: LINE_URL,
     icon: require('@/assets/images/line_icon.png'),
+  },
+  {
+    key: 'facebook',
+    label: 'Facebook',
+    url: FACEBOOK_URL,
+    icon: require('@/assets/images/facebook_icon.png'),
   },
 ] as const;
 
@@ -68,7 +68,7 @@ const getCopy = (uiLanguage: 'en' | 'th') => {
       back: 'ย้อนกลับ',
       subtitle: 'เรายินดีรับฟังคำถามและความคิดเห็นจากคุณเสมอ',
       intro:
-        'เราพร้อมช่วยเหลือคุณ หากมีคำถาม กรุณาลองดูหน้า FAQ ของเราก่อน เผื่อจะมีคำตอบที่คุณต้องการอยู่แล้ว หากยังมีคำถามเพิ่มเติมหรือต้องการส่งข้อเสนอแนะ สามารถติดต่อเราได้ผ่านช่องทางต่อไปนี้ หรือกรอกแบบฟอร์มด้านล่าง',
+        'เราพร้อมช่วยเหลือคุณ หากต้องการติดต่อเรา กรุณาส่งข้อความผ่านช่องทางต่อไปนี้ หรือกรอกแบบฟอร์มด้านล่าง',
       nameLabel: 'ชื่อ',
       namePlaceholder: 'ชื่อ',
       emailLabel: 'อีเมล',
@@ -90,7 +90,7 @@ const getCopy = (uiLanguage: 'en' | 'th') => {
     back: 'Back',
     subtitle: 'We love to hear from you! Ask us your questions or leave your feedback.',
     intro:
-      'We’re here to help. Please check out our FAQ page to see if your question has already been answered. To contact us with further questions or feedback, please message us through any of the following platforms, or fill out the form below.',
+      'We’re here to help. To contact us, please message us through any of the following platforms, or fill out the form below.',
     nameLabel: 'Name',
     namePlaceholder: 'Name',
     emailLabel: 'Email',
@@ -167,19 +167,14 @@ export function ContactScreen() {
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <Stack gap="md">
-          <StandardPageHeader
+          <AccountPageHeader
             language={uiLanguage}
             title={copy.title}
             onBackPress={() => router.push('/(tabs)/account')}
             backLabel={copy.back}
-            topInsetOffset={52}
           />
 
-          <Card padding="lg" radius="lg" style={styles.neoCard}>
-            <AppText language={uiLanguage} variant="body" style={styles.introText}>
-              {copy.intro}
-            </AppText>
-          </Card>
+          <AppText language={uiLanguage} variant="body" style={styles.introText}>{copy.intro}</AppText>
 
           <View style={styles.socialLinksRow}>
             {SOCIAL_LINKS.map((link) => (
@@ -209,7 +204,7 @@ export function ContactScreen() {
             </NeoShadowView>
           ) : null}
 
-          <Stack gap="md">
+          <Stack gap="lg">
             <View style={styles.fieldGroup}>
               <AppText language={uiLanguage} variant="caption" style={styles.label}>
                 {copy.nameLabel}
@@ -276,6 +271,7 @@ export function ContactScreen() {
               onPress={handleSubmit}
               title={isSending ? copy.sending : copy.submit}
               style={styles.submitButton}
+              textStyle={styles.submitButtonText}
             />
           </Stack>
         </Stack>
@@ -295,7 +291,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   neoCard: {
     borderWidth: 1.5,
@@ -303,22 +299,24 @@ const styles = StyleSheet.create({
   },
   introText: {
     color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 21,
   },
   socialLinksRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: theme.spacing.lg,
+    gap: 24,
   },
   socialIconButton: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
   socialIconImage: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
   },
   statusBox: {
     minHeight: 52,
@@ -342,30 +340,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   fieldGroup: {
-    gap: theme.spacing.sm,
+    gap: 6,
   },
   label: {
     fontWeight: theme.typography.weights.semibold,
   },
   input: {
-    minHeight: 52,
-    paddingVertical: theme.spacing.sm,
+    minHeight: 36,
+    paddingVertical: 4,
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    fontSize: 14,
+    lineHeight: 22,
   },
   inputShell: {
-    minHeight: 52,
-    borderWidth: 1.5,
+    minHeight: 36,
+    borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
+    borderRadius: 6,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: 12,
     paddingVertical: 0,
     justifyContent: 'center',
   },
   neoInput: {
-    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
+    boxShadow: 'none',
   },
   inputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,
@@ -374,14 +372,19 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFaces.th.regular,
   },
   messageInput: {
-    minHeight: 150,
+    minHeight: 116,
   },
   messageInputShell: {
-    minHeight: 150,
-    paddingVertical: theme.spacing.sm,
+    minHeight: 116,
+    paddingVertical: 4,
     justifyContent: 'flex-start',
   },
   submitButton: {
-    marginTop: theme.spacing.xs,
+    minHeight: 56,
+    marginTop: 2,
+    backgroundColor: '#2563EB',
+    borderColor: theme.colors.border,
+    boxShadow: `4px 4px 0px ${theme.colors.shadow}`,
   },
+  submitButtonText: { color: '#FFFFFF', textTransform: 'uppercase', fontWeight: theme.typography.weights.medium },
 });

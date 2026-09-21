@@ -18,10 +18,12 @@ import { theme } from '@/src/theme/theme';
 import fullLogo from '@/assets/images/full-logo.webp';
 
 type MoreAction = {
-  key: 'profile' | 'about' | 'contact' | 'settings';
+  key: 'profile' | 'comments' | 'about' | 'contact' | 'settings';
   label: string;
+  description: string;
   href:
     | '/(tabs)/account/profile'
+    | '/(tabs)/account/comments'
     | '/(tabs)/account/about'
     | '/(tabs)/account/contact'
     | '/(tabs)/account/settings';
@@ -30,6 +32,11 @@ type MoreAction = {
 const actionIconMap: Record<MoreAction['key'], { icon: React.ComponentProps<typeof MaterialIcons>['name']; tint: string; bg: string }> = {
   profile: {
     icon: 'person',
+    tint: '#1A2332',
+    bg: '#DCEEFF',
+  },
+  comments: {
+    icon: 'chat-bubble-outline',
     tint: '#1A2332',
     bg: '#DCEEFF',
   },
@@ -61,20 +68,22 @@ export function MoreScreen() {
           membershipTitle: 'สมาชิก',
           membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
           actions: [
-            { key: 'profile', label: 'โปรไฟล์', href: '/(tabs)/account/profile' },
-            { key: 'about', label: 'เกี่ยวกับเรา', href: '/(tabs)/account/about' },
-            { key: 'contact', label: 'ติดต่อเรา', href: '/(tabs)/account/contact' },
-            ...(hasAccount ? ([{ key: 'settings', label: 'การตั้งค่า', href: '/(tabs)/account/settings' }] as const) : []),
+            { key: 'profile', label: 'โปรไฟล์ของฉัน', description: 'ดูบัญชี เปลี่ยนรหัสผ่าน และรูปโปรไฟล์', href: '/(tabs)/account/profile' },
+            ...(hasAccount ? ([{ key: 'comments', label: 'ความคิดเห็นของฉัน', description: 'ดูความคิดเห็นที่คุณโพสต์', href: '/(tabs)/account/comments' }] as const) : []),
+            { key: 'about', label: 'เกี่ยวกับเรา', description: 'รู้จัก Pailin Abroad ให้มากขึ้น', href: '/(tabs)/account/about' },
+            { key: 'contact', label: 'ติดต่อเรา', description: 'พูดคุยกับทีมงานของเรา', href: '/(tabs)/account/contact' },
+            ...(hasAccount ? ([{ key: 'settings', label: 'การตั้งค่า', description: 'สมาชิกและการชำระเงิน', href: '/(tabs)/account/settings' }] as const) : []),
           ] satisfies MoreAction[],
         }
       : {
           membershipTitle: 'Membership',
           membershipBody: 'Unlock all lessons and our full content library.',
           actions: [
-            { key: 'profile', label: 'Profile', href: '/(tabs)/account/profile' },
-            { key: 'about', label: 'About', href: '/(tabs)/account/about' },
-            { key: 'contact', label: 'Contact', href: '/(tabs)/account/contact' },
-            ...(hasAccount ? ([{ key: 'settings', label: 'Settings', href: '/(tabs)/account/settings' }] as const) : []),
+            { key: 'profile', label: 'My Profile', description: 'View account, update password, change avatar', href: '/(tabs)/account/profile' },
+            ...(hasAccount ? ([{ key: 'comments', label: 'My Comments', description: 'See your posted comments', href: '/(tabs)/account/comments' }] as const) : []),
+            { key: 'about', label: 'About', description: 'Learn more about Pailin Abroad', href: '/(tabs)/account/about' },
+            { key: 'contact', label: 'Contact', description: 'Get in touch with our team', href: '/(tabs)/account/contact' },
+            ...(hasAccount ? ([{ key: 'settings', label: 'Settings', description: 'Membership and billing', href: '/(tabs)/account/settings' }] as const) : []),
           ] satisfies MoreAction[],
         };
 
@@ -85,68 +94,60 @@ export function MoreScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell style={styles.pageShell}>
-      <Stack gap="md" style={styles.pageContent}>
-        <View style={styles.headerBlock}>
-          <View style={styles.headerRow}>
-            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
-              <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
-            </Pressable>
-            <LanguageToggle style={styles.languagePill} />
+        <Stack gap="md" style={styles.pageContent}>
+          <View style={styles.headerBlock}>
+            <View style={styles.headerRow}>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
+                <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
+              </Pressable>
+              <LanguageToggle pathway />
+            </View>
           </View>
-        </View>
 
-        <View style={styles.actionsWrap}>
-          <Stack gap="md">
-            {!hasMembership ? (
-              <NeoShadowPressable
-                accessibilityRole="button"
-                style={styles.membershipCard}
-                onPress={() => {
-                  prefetchPricing();
-                  router.push('/(tabs)/account/membership');
-                }}>
-                <View style={styles.actionLeading}>
-                  <NeoShadowView style={[styles.iconBadge, styles.membershipIconBadge]}>
-                    <MaterialIcons name="workspace-premium" size={24} color="#1A2332" />
-                  </NeoShadowView>
-                  <View style={styles.membershipCopy}>
-                    <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
-                      {copy.membershipTitle}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.membershipBody}>
-                      {copy.membershipBody}
-                    </AppText>
-                  </View>
-                </View>
-                <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                  ›
-                </AppText>
-              </NeoShadowPressable>
-            ) : null}
+          <View style={styles.actionsWrap}>
+            <Stack gap="lg">
+              {copy.actions.map((action) => {
+                const iconConfig = actionIconMap[action.key];
 
-            {copy.actions.map((action) => {
-              const iconConfig = actionIconMap[action.key];
-
-              return (
-                <NeoShadowPressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
+                return (
+                  <NeoShadowPressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
+                    <View style={styles.actionLeading}>
+                      <NeoShadowView style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
+                        <MaterialIcons name={iconConfig.icon} size={22} color={iconConfig.tint} />
+                      </NeoShadowView>
+                      <View style={styles.actionCopy}>
+                        <AppText language={uiLanguage} variant="body" style={styles.linkText}>{action.label}</AppText>
+                        <AppText language={uiLanguage} variant="muted" style={styles.description}>{action.description}</AppText>
+                      </View>
+                    </View>
+                    <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>›</AppText>
+                  </NeoShadowPressable>
+                );
+              })}
+              {!hasMembership ? (
+                <NeoShadowPressable
+                  accessibilityRole="button"
+                  style={styles.membershipCard}
+                  onPress={() => {
+                    prefetchPricing();
+                    router.push('/(tabs)/account/membership');
+                  }}>
                   <View style={styles.actionLeading}>
-                    <NeoShadowView style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
-                      <MaterialIcons name={iconConfig.icon} size={22} color={iconConfig.tint} />
+                    <NeoShadowView style={[styles.iconBadge, styles.membershipIconBadge]}>
+                      <MaterialIcons name="workspace-premium" size={24} color="#1A2332" />
                     </NeoShadowView>
-                    <AppText language={uiLanguage} variant="body" style={styles.linkText}>
-                      {action.label}
-                    </AppText>
+                    <View style={styles.membershipCopy}>
+                      <AppText language={uiLanguage} variant="body" style={styles.linkText}>{copy.membershipTitle}</AppText>
+                      <AppText language={uiLanguage} variant="muted" style={styles.description}>{copy.membershipBody}</AppText>
+                    </View>
                   </View>
-                <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>
-                  ›
-                </AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>›</AppText>
                 </NeoShadowPressable>
-              );
-            })}
-          </Stack>
-        </View>
-      </Stack>
-          </ResponsivePageShell>
+              ) : null}
+            </Stack>
+          </View>
+        </Stack>
+      </ResponsivePageShell>
     </ScrollView>
   );
 }
@@ -171,8 +172,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.md,
     paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -188,64 +187,39 @@ const styles = StyleSheet.create({
   logoButton: {
     alignSelf: 'center',
   },
-  languagePill: {
-    alignSelf: 'center',
-    minWidth: 78,
-    minHeight: 42,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: '#91CAFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md + 2,
-    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
-  },
-  languagePillText: {
-    color: theme.colors.text,
-    fontSize: 15,
-    lineHeight: 15,
-    fontWeight: theme.typography.weights.bold,
-    includeFontPadding: false,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    transform: [{ translateY: 1 }],
-  },
   actionsWrap: {
     flex: 1,
     justifyContent: 'center',
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
   },
   membershipCard: {
-    minHeight: 92,
+    minHeight: 108,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
-    borderRadius: theme.radii.lg,
-    borderWidth: 1.5,
+    borderRadius: 13,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: '#FFF4D6',
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
+    boxShadow: `5px 5px 0px ${theme.colors.shadow}`,
   },
   actionLeading: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
     minWidth: 0,
   },
   iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    width: 58,
+    height: 58,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '1.5px 1.5px 0px rgba(30, 30, 30, 0.65)',
   },
   membershipIconBadge: {
     backgroundColor: '#FFE6A8',
@@ -255,39 +229,40 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     minWidth: 0,
   },
-  membershipTitle: {
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.lg,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+  actionCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
-  membershipBody: {
-    color: theme.colors.mutedText,
+  description: {
+    color: '#555B62',
+    fontSize: 13,
+    lineHeight: 20,
   },
   actionCard: {
-    minHeight: 68,
+    minHeight: 108,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: theme.spacing.xs,
-    borderRadius: theme.radii.lg,
-    borderWidth: 1.5,
+    borderRadius: 13,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    boxShadow: `5px 5px 0px ${theme.colors.shadow}`,
   },
   linkText: {
-    flex: 1,
-    fontSize: theme.typography.sizes.lg,
-    lineHeight: theme.typography.lineHeights.lg,
+    fontSize: 16,
+    lineHeight: 24,
     fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
   },
   linkChevron: {
     fontSize: 28,
     lineHeight: 30,
-    color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.regular,
   },
 });

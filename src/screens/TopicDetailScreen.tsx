@@ -69,7 +69,7 @@ export function TopicDetailScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const hasLoadedRef = useRef(false);
   const contentToggleLabel = contentLang === 'th' ? 'Translate to English' : 'Translate to Thai';
-  const contentToggleText = contentLang === 'th' ? 'EN' : 'ไทย';
+  const contentToggleText = contentLang === 'th' ? 'EN' : 'TH';
 
   useEffect(() => {
     let isMounted = true;
@@ -298,16 +298,15 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   translatePill: {
-    minWidth: 78,
-    minHeight: 42,
+    minWidth: 60,
+    minHeight: 26,
     borderRadius: 999,
-    backgroundColor: '#91CAFF',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md + 2,
-    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
+    paddingHorizontal: 10,
   },
   translatePillDisabled: {
     opacity: 0.7,
@@ -317,13 +316,12 @@ const styles = StyleSheet.create({
     minHeight: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateY: 1 }],
   },
   translatePillText: {
     color: theme.colors.text,
-    fontSize: 15,
-    lineHeight: 15,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.medium,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',

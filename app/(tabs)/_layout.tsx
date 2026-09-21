@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { PailinTabBar } from '@/src/components/navigation/PailinTabBar';
@@ -31,19 +31,24 @@ const labels: Record<UiLanguage, { home: string; pathway: string; exercises: str
 
 export default function TabLayout() {
   useColorScheme();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, isGuestMode, isLoading } = useAppSession();
 
   const text = labels[uiLanguage];
-  const shouldShowTabBar = isLoading || hasAccount || isGuestMode;
+  const isExerciseSet = pathname.startsWith('/exercises/topic/')
+    || pathname.startsWith('/resources/exercise-bank/topic/');
+  const shouldShowTabBar = (isLoading || hasAccount || isGuestMode) && !isExerciseSet;
 
   const tabsScreenOptions = useMemo(
     () => ({
       headerShown: false,
-      sceneStyle: shouldShowTabBar ? [styles.scene, { paddingTop: insets.top }] : styles.sceneFullscreen,
+      sceneStyle: isExerciseSet || shouldShowTabBar
+        ? [styles.scene, { paddingTop: insets.top }]
+        : styles.sceneFullscreen,
     }),
-    [insets.top, shouldShowTabBar]
+    [insets.top, isExerciseSet, shouldShowTabBar]
   );
 
   return (

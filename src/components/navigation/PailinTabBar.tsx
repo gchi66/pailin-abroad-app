@@ -40,6 +40,9 @@ const ICONS: Record<
   account: { active: 'more-horiz', inactive: 'more-horiz' },
 };
 
+const bottomBarInset = (bottomInset: number) =>
+  Platform.OS === 'android' ? Math.max(bottomInset, 12) + 8 : Math.max(bottomInset - 6, 6);
+
 export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { hasAccount, isGuestMode } = useAppSession();
@@ -51,7 +54,7 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
   );
 
   return (
-    <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: Math.max(insets.bottom - 6, 6) }]}>
+    <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: bottomBarInset(insets.bottom) }]}>
       <View style={styles.barShadow}>
         <View style={styles.bar}>
           {routes.map((route, visibleIndex) => {
@@ -145,7 +148,7 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
 export function LessonOverviewTabBar({ actions }: { actions: (() => void)[] }) {
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  return <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: Math.max(insets.bottom - 6, 6) }]}>
+  return <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: bottomBarInset(insets.bottom) }]}>
     <View style={styles.barShadow}><View style={styles.bar}>
       {VISIBLE_ROUTES.map((name, index) => {
         const active = name === 'lessons';

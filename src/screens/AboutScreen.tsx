@@ -3,11 +3,11 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { aboutImages } from '@/src/assets/app-images';
+import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -257,13 +257,11 @@ export function AboutScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
       <Stack gap="md">
-        <StandardPageHeader
+        <AccountPageHeader
           language={uiLanguage}
           title={copy.title}
-          titleStyle={styles.pageTitle}
           onBackPress={() => router.push('/(tabs)/account')}
           backLabel={copy.back}
-          topInsetOffset={52}
         />
 
         <View style={styles.sectionTabs}>
@@ -274,7 +272,7 @@ export function AboutScreen() {
                 key={option.key}
                 accessibilityRole="button"
                 onPress={() => setActiveSection(option.key)}
-                style={[styles.sectionTab, isActive ? styles.sectionTabActive : null]}>
+                style={[styles.sectionTab, isActive ? styles.sectionTabActive : null, isActive ? (option.key === 'method' ? styles.activeMethodTab : styles.activeTeamTab) : null]}>
                 <AppText
                   language={uiLanguage}
                   variant="caption"
@@ -368,32 +366,32 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
   },
-  pageTitle: {
-    fontSize: 29,
-    lineHeight: 33,
-  },
   sectionTabs: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   sectionTab: {
     flex: 1,
-    minHeight: 52,
-    borderRadius: theme.radii.lg,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    minHeight: 48,
+    borderRadius: 999,
     backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm,
-    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
   },
   sectionTabActive: {
-    backgroundColor: '#91CAFF',
+    backgroundColor: '#BCECFF',
+    borderColor: theme.colors.border,
   },
+  activeMethodTab: { borderRightWidth: StyleSheet.hairlineWidth },
+  activeTeamTab: { borderLeftWidth: StyleSheet.hairlineWidth },
   contentCard: {
-    borderWidth: 1.5,
-    boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
+    borderWidth: 1,
+    borderRadius: 13,
+    boxShadow: `4px 4px 0px ${theme.colors.shadow}`,
   },
   contentCardCollapsed: {
     paddingTop: theme.spacing.md,
@@ -401,12 +399,12 @@ const styles = StyleSheet.create({
   },
   sectionTabText: {
     color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
   },
   sectionTabTextActive: {
     color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: '800',
   },
   cardHeader: {
     minHeight: 32,

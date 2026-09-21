@@ -1,7 +1,8 @@
-import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
+import pailinImage from '@/assets/images/speaking-coach/pailin-time-to-speak.webp';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
 import { prefetchPricing } from '@/src/api/pricing';
@@ -13,7 +14,6 @@ import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { useAppSession } from '@/src/context/app-session-context';
 import { localizeExerciseBankTopic } from '@/src/lib/exercise-bank-localization';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -34,6 +34,8 @@ const getCopy = (language: UiLanguage) =>
   language === 'th'
     ? {
         title: 'คลังแบบฝึกหัด',
+        resources: 'สื่อการเรียน',
+        intro: 'เลือกหมวดหมู่เพื่อเริ่มฝึกไวยากรณ์ทีละหัวข้อ',
         freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
         freeBody: 'คุณสามารถเข้าถึงหัวข้อแนะนำทั้งหมดได้ อัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
         noAccountTitle: 'ปลดล็อกคลังแบบฝึกหัด',
@@ -51,6 +53,8 @@ const getCopy = (language: UiLanguage) =>
       }
     : {
         title: 'Exercise Bank',
+        resources: 'ALL RESOURCES',
+        intro: 'Choose a category to get started! You can practise skills by topic.',
         freeTitle: 'Free plan',
         freeBody: 'You can access all featured topics. Upgrade to access the full bank.',
         noAccountTitle: 'Unlock the exercise bank',
@@ -75,7 +79,6 @@ export function ExerciseBankScreen() {
   const [topics, setTopics] = useState<ExerciseBankTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -114,32 +117,15 @@ export function ExerciseBankScreen() {
   );
 
   const collections = useMemo<TopicCollection[]>(() => {
-    const normalizedSearch = searchTerm.trim().toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en');
-
     return EXERCISE_BANK_COLLECTIONS.map((collection) => {
       const collectionTopics =
         collection.slug === 'featured'
           ? localizedTopics.filter((topic) => topic.is_featured)
           : localizedTopics.filter((topic) => topic.category === collection.category);
 
-      if (!normalizedSearch) {
-        return { ...collection, topicCount: collectionTopics.length };
-      }
-
-      const labelMatches = collection.label[uiLanguage].toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en').includes(normalizedSearch);
-      const matchingTopics = collectionTopics.filter((topic) =>
-        [topic.topic, topic.display_title]
-          .join(' ')
-          .toLocaleLowerCase(uiLanguage === 'th' ? 'th' : 'en')
-          .includes(normalizedSearch)
-      );
-
-      return {
-        ...collection,
-        topicCount: labelMatches ? collectionTopics.length : matchingTopics.length,
-      };
+      return { ...collection, topicCount: collectionTopics.length };
     }).filter((collection) => collection.topicCount > 0);
-  }, [localizedTopics, searchTerm, uiLanguage]);
+  }, [localizedTopics]);
 
   const handleCollectionPress = (collection: TopicCollection) => {
     router.push({
@@ -147,7 +133,6 @@ export function ExerciseBankScreen() {
       params: {
         collectionSlug: collection.slug,
         title: collection.label[uiLanguage],
-        search: searchTerm.trim(),
       },
     });
   };
@@ -159,32 +144,17 @@ export function ExerciseBankScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
-        <Stack gap="md">
-          <StandardPageHeader
-            language={uiLanguage}
-            title={copy.title}
-          />
-
+        <View style={styles.page}>
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
+            <AppText language={uiLanguage} variant="caption" style={styles.backText}>‹  {copy.resources}</AppText>
+          </Pressable>
+          <AppText language={uiLanguage} variant="title" style={styles.pageTitle}>{copy.title}</AppText>
+          <View style={styles.introRow}>
+            <AppText language={uiLanguage} variant="caption" style={styles.intro}>{copy.intro}</AppText>
+            <Image source={pailinImage} contentFit="cover" style={styles.pailin} />
+          </View>
           <View style={styles.contentWrap}>
             <Stack gap="lg">
-              <View style={styles.searchShell}>
-                <ScriptAwareTextInput
-                  accessibilityLabel={copy.searchLabel}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  clearButtonMode="while-editing"
-                  placeholder={copy.searchPlaceholder}
-                  placeholderTextColor={theme.colors.mutedText}
-                  style={[styles.searchInput, uiLanguage === 'th' ? styles.searchInputThai : styles.searchInputEnglish]}
-                  value={searchTerm}
-                  onChangeText={setSearchTerm}
-                />
-                <View pointerEvents="none" style={styles.searchIconWrap}>
-                  <AppText language="en" variant="caption" style={styles.searchIcon}>
-                    ⌕
-                  </AppText>
-                </View>
-              </View>
 
               {!hasMembership ? (
                 <Card padding="lg" radius="lg" style={styles.noticeCard}>
@@ -266,7 +236,7 @@ export function ExerciseBankScreen() {
                       style={styles.collectionCardWrap}
                       onPress={() => handleCollectionPress(collection)}>
                       <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
-                      <View style={styles.collectionCard}>
+                      <View style={[styles.collectionCard, collection.slug === 'verbs-and-tenses' ? styles.featuredCollectionCard : null]}>
                         <AppText language="en" variant="body" style={styles.collectionEmoji}>
                           {collection.emoji}
                         </AppText>
@@ -293,7 +263,7 @@ export function ExerciseBankScreen() {
               ) : null}
             </Stack>
           </View>
-        </Stack>
+        </View>
       </ResponsivePageShell>
     </ScrollView>
   );
@@ -302,15 +272,19 @@ export function ExerciseBankScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FBFF',
   },
   contentContainer: {
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
-  contentWrap: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-  },
+  page: { paddingHorizontal: 18, paddingTop: 12 },
+  backButton: { alignSelf: 'flex-start', paddingVertical: 5 },
+  backText: { fontSize: 10, textDecorationLine: 'underline', letterSpacing: 0.5 },
+  pageTitle: { marginTop: 8, fontSize: 22, lineHeight: 29, fontWeight: theme.typography.weights.bold },
+  introRow: { minHeight: 78, position: 'relative' },
+  intro: { width: '60%', paddingTop: 14, fontSize: 11, lineHeight: 15 },
+  pailin: { position: 'absolute', right: 0, bottom: -6, width: 126, height: 98, transform: [{ scaleX: -1 }] },
+  contentWrap: { paddingTop: theme.spacing.sm },
   searchShell: {
     minHeight: 48,
     flexDirection: 'row',
@@ -385,12 +359,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: theme.spacing.lg,
+    rowGap: 12,
   },
   collectionCardWrap: {
     position: 'relative',
-    width: '47.5%',
-    minHeight: 132,
+    width: '48.5%',
+    minHeight: 116,
   },
   collectionCard: {
     flex: 1,
@@ -398,16 +372,20 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    padding: theme.spacing.md,
+    padding: 15,
     justifyContent: 'flex-start',
   },
+  featuredCollectionCard: { backgroundColor: '#C8F0FF' },
   collectionEmoji: {
-    fontSize: 28,
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    fontSize: 24,
     lineHeight: 32,
+    includeFontPadding: true,
   },
   collectionCopy: {
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.xs,
+    marginTop: 5,
+    gap: 2,
   },
   collectionTitle: {
     color: theme.colors.text,
@@ -417,8 +395,8 @@ const styles = StyleSheet.create({
   },
   collectionCount: {
     color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 17,
   },
   stateCard: {
     backgroundColor: theme.colors.surface,

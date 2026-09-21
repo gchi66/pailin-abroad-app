@@ -26,10 +26,8 @@
     "android": {
       "package": "com.pailinabroad.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/pailin-android-foreground-1024.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#C7F0FF",
+        "foregroundImage": "./assets/images/app-logo-pailin-abroad-smile.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

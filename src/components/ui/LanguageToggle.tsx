@@ -8,13 +8,14 @@ import { AppText } from './AppText';
 
 type LanguageToggleProps = {
   compact?: boolean;
+  pathway?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
 
-export function LanguageToggle({ compact = false, style, textStyle }: LanguageToggleProps) {
+export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
   const { uiLanguage, setUiLanguage } = useUiLanguage();
-  const toggleLabel = uiLanguage === 'th' ? 'EN' : 'ไทย';
+  const toggleLabel = uiLanguage === 'th' ? 'EN' : 'TH';
 
   return (
     <View style={styles.wrap}>
@@ -22,11 +23,11 @@ export function LanguageToggle({ compact = false, style, textStyle }: LanguageTo
         accessibilityRole="button"
         accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
         onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-        style={[styles.languagePill, compact ? styles.compactPill : null, style]}>
+        style={[styles.languagePill, style]}>
         <AppText
-          language={uiLanguage === 'th' ? 'en' : 'th'}
+          language="en"
           variant="caption"
-          style={[styles.languagePillText, compact ? styles.compactPillText : null, textStyle]}>
+          style={[styles.languagePillText, textStyle]}>
           {toggleLabel}
         </AppText>
       </Pressable>
@@ -39,34 +40,23 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   languagePill: {
-    minWidth: 78,
-    minHeight: 42,
+    minWidth: 60,
+    minHeight: 26,
     borderRadius: 999,
-    backgroundColor: '#91CAFF',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md + 2,
-    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
+    paddingHorizontal: 10,
   },
   languagePillText: {
     color: theme.colors.text,
-    fontWeight: theme.typography.weights.bold,
-    fontSize: 15,
-    lineHeight: 15,
+    fontWeight: theme.typography.weights.medium,
+    fontSize: 11,
+    lineHeight: 14,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
-    transform: [{ translateY: 1 }],
-  },
-  compactPill: {
-    minWidth: 62,
-    minHeight: 34,
-    paddingHorizontal: theme.spacing.sm + 2,
-  },
-  compactPillText: {
-    fontSize: 13,
-    lineHeight: 13,
   },
 });

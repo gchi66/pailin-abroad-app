@@ -10,6 +10,7 @@ export type UserProfile = {
   username: string | null;
   email: string | null;
   avatar_image: string | null;
+  has_password?: boolean | null;
   onboarding_completed?: boolean | null;
   is_admin: boolean;
   created_at: string | null;
@@ -136,6 +137,16 @@ async function fetchAuthedJson<T>(
 export async function fetchUserProfile() {
   const json = await fetchAuthedJson<UserProfileResponse>('/api/user/profile');
   return json.profile;
+}
+
+export async function updateUserPassword(params: { newPassword: string; currentPassword?: string }) {
+  return fetchAuthedJson<{ has_password: boolean }>('/api/user/password', {
+    method: 'POST',
+    body: {
+      new_password: params.newPassword,
+      ...(params.currentPassword ? { current_password: params.currentPassword } : {}),
+    },
+  });
 }
 
 export async function fetchUserStats() {

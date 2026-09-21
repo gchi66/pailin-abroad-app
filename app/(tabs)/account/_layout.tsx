@@ -6,6 +6,7 @@ export default function AccountTabLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="comments" />
       <Stack.Screen name="membership" />
       <Stack.Screen name="about" />
       <Stack.Screen name="contact" />

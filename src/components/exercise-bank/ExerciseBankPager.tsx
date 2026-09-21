@@ -864,6 +864,7 @@ export function ExerciseBankPager({
         userAnswer: params.userAnswer,
         correctAnswer: params.item.answer || params.item.answersV2.flat().join(' | '),
         questionNumber: params.item.numberLabel,
+        instruction: params.exercise.prompt || params.exercise.paragraph || '',
         questionPrompt: params.item.prompt || params.item.text,
       });
 
@@ -1104,8 +1105,8 @@ export function ExerciseBankPager({
             accessibilityLabel={contentLang === 'th' ? 'Switch exercise language to English' : 'เปลี่ยนภาษาแบบฝึกหัดเป็นไทย'}
             onPress={() => onSetContentLang(contentLang === 'th' ? 'en' : 'th')}
             style={styles.translatePill}>
-            <AppText language={contentLang === 'th' ? 'en' : 'th'} variant="caption" style={styles.translatePillText}>
-              {contentLang === 'th' ? 'EN' : 'ไทย'}
+            <AppText language="en" variant="caption" style={styles.translatePillText}>
+              {contentLang === 'th' ? 'EN' : 'TH'}
             </AppText>
           </Pressable>
         </View>
@@ -1710,28 +1711,26 @@ const styles = StyleSheet.create({
   },
   translatePill: {
     minWidth: 60,
-    minHeight: 34,
+    minHeight: 26,
     borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: '#91CAFF',
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm + 2,
-    boxShadow: `1.5px 1.5px 0px ${theme.colors.shadow}`,
   },
   translatePillWrap: {
     position: 'relative',
   },
   translatePillText: {
     color: theme.colors.text,
-    fontSize: 14,
+    fontSize: 11,
     lineHeight: 14,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.medium,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
-    transform: [{ translateY: 1 }],
   },
   headerBlock: {
     marginBottom: theme.spacing.sm,
