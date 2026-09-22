@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { completeOnboarding, ensureOnboardingUserRecord, setOnboardingPassword, updateOnboardingProfile } from '@/src/api/onboarding';
@@ -545,6 +545,7 @@ export function OnboardingScreen() {
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ devtools?: string }>();
   const { uiLanguage } = useUiLanguage();
   const { markOnboardingComplete } = useOnboarding();
   const { hasMembership, isGuestConversionPending, isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
@@ -563,8 +564,9 @@ export function OnboardingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const authProvider = typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null;
   const isAppleAuthProvider = authProvider === 'apple';
-  const skipPasswordStep = Boolean(authProvider && authProvider !== 'email');
-  const skipBenefitsStep = hasMembership || isGuestConversionPending;
+  const isDevtoolsMode = params.devtools === '1' && profile?.is_admin === true;
+  const skipPasswordStep = !isDevtoolsMode && Boolean(authProvider && authProvider !== 'email');
+  const skipBenefitsStep = !isDevtoolsMode && (hasMembership || isGuestConversionPending);
   const visibleStepIds = useMemo<StepId[]>(
     () =>
       STEP_IDS.filter((stepId) => {
@@ -679,15 +681,20 @@ export function OnboardingScreen() {
   }, []);
 
   useEffect(() => {
-    if (!sessionLoading && user) {
+    if (!sessionLoading && user && !isDevtoolsMode) {
       void ensureUserRecord().catch(() => {
         // The submitting step retries and surfaces the error if prefetching fails.
       });
     }
-  }, [ensureUserRecord, sessionLoading, user]);
+  }, [ensureUserRecord, isDevtoolsMode, sessionLoading, user]);
 
   const handleSetPassword = useCallback(async () => {
     setErrorMessage('');
+
+    if (isDevtoolsMode) {
+      goToStep(2);
+      return;
+    }
 
     if (!meetsLength || !meetsNumberAndSymbol || !meetsLetterCases) {
       setErrorMessage(copy.passwordRequirements);
@@ -710,10 +717,15 @@ export function OnboardingScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [copy.passwordMismatch, copy.passwordRequirements, ensureUserRecord, goToStep, meetsLength, meetsLetterCases, meetsNumberAndSymbol, passwords.newPassword, passwordsMatch]);
+  }, [copy.passwordMismatch, copy.passwordRequirements, ensureUserRecord, goToStep, isDevtoolsMode, meetsLength, meetsLetterCases, meetsNumberAndSymbol, passwords.newPassword, passwordsMatch]);
 
   const handleCompleteProfile = useCallback(async () => {
     setErrorMessage('');
+
+    if (isDevtoolsMode) {
+      goToStep(3);
+      return;
+    }
 
     const resolvedUsername = (
       username ||
@@ -760,6 +772,7 @@ export function OnboardingScreen() {
     copy.profileNameError,
     goToStep,
     isAppleAuthProvider,
+    isDevtoolsMode,
     profile?.name,
     profile?.username,
     refreshProfile,
@@ -774,6 +787,12 @@ export function OnboardingScreen() {
 
   const handleFinishOnboarding = useCallback(async () => {
     setErrorMessage('');
+
+    if (isDevtoolsMode) {
+      router.replace('/(tabs)/account/profile');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await completeOnboarding();
@@ -789,7 +808,7 @@ export function OnboardingScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [markOnboardingComplete, posthog, refreshProfile, router, skipBenefitsStep, skipPasswordStep]);
+  }, [isDevtoolsMode, markOnboardingComplete, posthog, refreshProfile, router, skipBenefitsStep, skipPasswordStep]);
 
   const handleBack = useCallback(() => {
     setErrorMessage('');

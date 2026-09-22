@@ -110,6 +110,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       joinedLabel: 'เข้าร่วมเมื่อ',
       signOut: 'ออกจากระบบ',
       signOutSuccess: 'ออกจากระบบแล้ว',
+      onboardingPreview: 'เปิดตัวอย่างการเริ่มต้นใช้งาน',
       placementPreview: 'ทำแบบประเมินระดับ',
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
@@ -139,6 +140,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     joinedLabel: 'Joined',
     signOut: 'Log Out',
     signOutSuccess: 'Signed out successfully.',
+    onboardingPreview: 'Open onboarding preview',
     placementPreview: 'Take placement test',
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
@@ -432,6 +434,7 @@ export function ProfileScreen() {
               </Pressable>
             </View>
             {profile?.is_admin === true ? <Stack gap="sm" style={styles.adminLinks}>
+              <Button title={copy.onboardingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/onboarding?devtools=1')} />
               <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
               <Button title={copy.speakingCoachPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/speaking-coach?lesson=4.1')} />
               <Button title={copy.lessonCompletePreview} language={uiLanguage} variant="outline" onPress={() => router.push('/lesson-complete-preview')} />
