@@ -634,13 +634,13 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     ) : null;
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top + 4 }]}>
       <ScrollView
         style={styles.screen}
         contentContainerStyle={[
           styles.contentContainer,
           {
-            paddingTop: insets.top + (showCloseButton ? 18 : 44),
+            paddingTop: showCloseButton ? 18 : 44,
             paddingBottom: showFreeAccountOption ? Math.max(insets.bottom, 16) + 170 : Math.max(insets.bottom, 16) + 28,
           },
         ]}>

@@ -9,6 +9,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { queueLessonLibraryPreview, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
@@ -64,9 +65,16 @@ export function ChooseLevelResultScreen() {
 
   const openLesson = () => {
     if (!lessonId) return;
+    const stage = level <= 4 ? 'Beginner' : level <= 8 ? 'Intermediate' : 'Advanced';
+    setLessonLibrarySelection({
+      stage,
+      level,
+      lessonId,
+      route: 'free-library',
+    });
+    queueLessonLibraryPreview(lessonId);
     router.replace({
-      pathname: '/lessons/[id]',
-      params: { id: lessonId, locked: '0' },
+      pathname: '/(tabs)/lessons/free-library',
     });
   };
 

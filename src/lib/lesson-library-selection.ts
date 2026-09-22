@@ -21,6 +21,7 @@ let currentSelection: LessonLibrarySelection = {
 };
 let progressRefreshToken = 0;
 let hasHydratedSelection = false;
+let pendingPreviewLessonId: string | null = null;
 
 const normalizeSelection = (value: unknown): LessonLibrarySelection | null => {
   if (!value || typeof value !== 'object') {
@@ -71,6 +72,16 @@ export function clearLessonLibraryAnchor() {
     ...currentSelection,
     lessonId: null,
   };
+}
+
+export function queueLessonLibraryPreview(lessonId: string) {
+  pendingPreviewLessonId = lessonId;
+}
+
+export function takeLessonLibraryPreview() {
+  const lessonId = pendingPreviewLessonId;
+  pendingPreviewLessonId = null;
+  return lessonId;
 }
 
 export async function hydrateLessonLibrarySelection() {

@@ -8,41 +8,64 @@ import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
 type PlacementTestIntroCardProps = {
+  language: 'en' | 'th';
   onChooseManually: () => void;
   onStart: () => void;
 };
 
-export function PlacementTestIntroCard({ onChooseManually, onStart }: PlacementTestIntroCardProps) {
+const copy = {
+  en: {
+    title: "Let's find your English level!",
+    body: 'Take a short placement test so we can find the best starting point for you. It only takes a few minutes!',
+    headphones: 'Grab headphones',
+    listen: 'Listen to short conversations',
+    answer: 'Answer a few questions',
+    start: 'Start placement test',
+    manual: 'Choose my level instead',
+  },
+  th: {
+    title: 'มาวัดระดับภาษาอังกฤษคุณกัน!',
+    body: 'ทำแบบทดสอบวัดระดับสั้น ๆ เพื่อค้นหาจุดเริ่มต้นที่เหมาะกับคุณ ใช้เวลาเพียงไม่กี่นาที!',
+    headphones: 'หยิบหูฟัง',
+    listen: 'ฟังบทสนทนาสั้น ๆ',
+    answer: 'ตอบคำถามสองสามข้อ',
+    start: 'ทำแบบทดสอบวัดระดับ',
+    manual: 'เลือกระดับด้วยตัวเองแทน',
+  },
+} as const;
+
+export function PlacementTestIntroCard({ language, onChooseManually, onStart }: PlacementTestIntroCardProps) {
   const [isStartPressed, setIsStartPressed] = useState(false);
+  const text = copy[language];
 
   return (
     <View style={styles.cardWrap}>
       <View pointerEvents="none" style={styles.cardShadow} />
       <View style={styles.card}>
-        <AppText language="th" variant="title" style={styles.title}>
-          มาวัดระดับภาษาอังกฤษคุณกัน!
+        <AppText language={language} variant="title" style={styles.title}>
+          {text.title}
         </AppText>
-        <AppText language="th" variant="body" style={styles.body}>
-          ทำแบบทดสอบวัดระดับสั้น ๆ เพื่อค้นหาจุดเริ่มต้นที่เหมาะกับคุณ ใช้เวลาเพียงไม่กี่นาที!
+        <AppText language={language} variant="body" style={styles.body}>
+          {text.body}
         </AppText>
 
         <View style={styles.instructions}>
           <View style={styles.instructionRow}>
             <MaterialIcons name="headphones" size={23} color={theme.colors.text} />
-            <AppText language="th" variant="body" style={styles.instructionText}>
-              หยิบหูฟัง
+            <AppText language={language} variant="body" style={styles.instructionText}>
+              {text.headphones}
             </AppText>
           </View>
           <View style={styles.instructionRow}>
             <MaterialIcons name="chat-bubble-outline" size={22} color={theme.colors.text} />
-            <AppText language="th" variant="body" style={styles.instructionText}>
-              ฟังบทสนทนาสั้น ๆ
+            <AppText language={language} variant="body" style={styles.instructionText}>
+              {text.listen}
             </AppText>
           </View>
           <View style={styles.instructionRow}>
             <MaterialIcons name="help-outline" size={24} color={theme.colors.text} />
-            <AppText language="th" variant="body" style={styles.instructionText}>
-              ตอบคำถามสองสามข้อ
+            <AppText language={language} variant="body" style={styles.instructionText}>
+              {text.answer}
             </AppText>
           </View>
         </View>
@@ -50,8 +73,8 @@ export function PlacementTestIntroCard({ onChooseManually, onStart }: PlacementT
         <View style={styles.buttonWrap}>
           <View pointerEvents="none" style={[styles.buttonShadow, isStartPressed ? styles.shadowPressed : null]} />
           <Button
-            language="th"
-            title="ทำแบบทดสอบวัดระดับ"
+            language={language}
+            title={text.start}
             onPress={onStart}
             onPressIn={() => setIsStartPressed(true)}
             onPressOut={() => setIsStartPressed(false)}
@@ -61,8 +84,8 @@ export function PlacementTestIntroCard({ onChooseManually, onStart }: PlacementT
         </View>
 
         <Pressable accessibilityRole="button" onPress={onChooseManually} style={styles.manualLinkButton}>
-          <AppText language="th" variant="muted" style={styles.manualLink}>
-            เลือกระดับด้วยตัวเองแทน
+          <AppText language={language} variant="muted" style={styles.manualLink}>
+            {text.manual}
           </AppText>
         </Pressable>
       </View>

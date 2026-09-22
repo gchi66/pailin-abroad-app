@@ -4,7 +4,6 @@ import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } f
 import type { ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import exerciseBankImage from '@/assets/images/resources_exercise_bank.webp';
 import lockWhiteImage from '@/assets/images/lock-white.png';
@@ -25,6 +24,7 @@ import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
+import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
@@ -195,23 +195,6 @@ function LessonArtwork({ path }: { path: string | null }) {
 
   return <Image source={source}
     onError={() => setFailed(true)} style={styles.lessonArtwork} resizeMode="contain" accessible={false} />;
-}
-
-function UnlockArtwork({ large = false }: { large?: boolean }) {
-  return (
-    <View style={large ? styles.lessonArtwork : styles.upgradeArtwork} accessible={false}>
-      <Svg width="100%" height="100%" viewBox="0 0 120 120">
-        <Circle cx="59" cy="64" r="46" fill="#FFF3C5" />
-        <G rotation={-16} origin="60,65" stroke="#333333" strokeWidth={1.5} strokeLinejoin="round">
-          <Path d="M39 58V34a21 21 0 0 1 42 0" fill="none" strokeWidth={7} strokeLinecap="round" />
-          <Path d="M39 58V34a21 21 0 0 1 42 0" fill="none" stroke="#FFFFFF" strokeWidth={4} strokeLinecap="round" />
-          <Rect x="28" y="55" width="64" height="48" fill="#F8D469" />
-          <Path d="M60 68a6 6 0 0 0-3 11v10h6V79a6 6 0 0 0-3-11Z" fill="#BCA35C" />
-        </G>
-        <Path d="m100 29 2 5 5 2-5 2-2 5-2-5-5-2 5-2ZM15 75l2 4 5 1-4 3 1 5-4-3-4 2 1-5-3-3 5-1Z" fill="#F8D469" stroke="#333333" strokeWidth={1.2} />
-      </Svg>
-    </View>
-  );
 }
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
@@ -502,14 +485,15 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   );
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[
-        styles.contentContainer,
-        isTabletScreen ? styles.contentContainerTablet : null,
-      ]}>
-      <ResponsivePageShell>
-        <View style={styles.pageFrame}>
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.contentContainer,
+          isTabletScreen ? styles.contentContainerTablet : null,
+        ]}>
+        <ResponsivePageShell>
+          <View style={styles.pageFrame}>
           <View pointerEvents={showGuestOverlay ? 'none' : 'auto'}>
             <Stack
               gap="md"
@@ -611,7 +595,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                             <AppText language={uiLanguage} variant="title" style={[styles.resumeTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.allFreeComplete}</AppText>
                             <AppText language={uiLanguage} variant="muted" style={styles.resumeFocus}>{copy.allFreeCompleteBody}</AppText>
                           </View>
-                          <UnlockArtwork large />
+                          <UnlockArtwork style={styles.lessonArtwork} />
                         </View>
                         <Button language={uiLanguage} title={copy.becomeMember} onPress={handleUpgrade} style={styles.resumeButton} textStyle={styles.ctaText} />
                       </Stack>
@@ -687,7 +671,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                 <Card style={styles.upgradeCard}>
                   {!freeCourseComplete ? (
                     <View style={styles.upgradeMain}>
-                      <UnlockArtwork />
+                      <UnlockArtwork style={styles.upgradeArtwork} />
                       <View style={styles.upgradeCopy}>
                         <AppText language={uiLanguage} variant="title" style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.upgradeTitle}</AppText>
                         <AppText language={uiLanguage} variant="muted" style={styles.upgradeBody}>{copy.upgradeBody(freePathway.totalCount)}</AppText>
@@ -719,40 +703,41 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
             </Stack>
           </View>
 
-          {showGuestOverlay ? (
-            <View style={styles.guestOverlay}>
-              <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
-                <Stack gap="md">
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
-                    onPress={() => setIsGuestOverlayDismissed(true)}
-                    style={styles.guestOverlayCloseButton}>
-                    <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
-                  </Pressable>
-                  <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
-                    {copy.guestOverlayTitle}
-                  </AppText>
-                  <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
-                    {copy.guestOverlayBody}
-                  </AppText>
-                  <View style={styles.guestOverlayButtonWrap}>
-                    <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
-                    <Button
-                      language={uiLanguage}
-                      title={copy.guestOverlayCta}
-                      onPress={() => router.push('/account/auth')}
-                      style={styles.guestOverlayButton}
-                    />
-                  </View>
-                </Stack>
-              </Card>
-            </View>
-          ) : null}
+          </View>
+        </ResponsivePageShell>
+      </ScrollView>
 
+      {showGuestOverlay ? (
+        <View style={styles.guestOverlay}>
+          <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
+            <Stack gap="md">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
+                onPress={() => setIsGuestOverlayDismissed(true)}
+                style={styles.guestOverlayCloseButton}>
+                <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
+              </Pressable>
+              <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
+                {copy.guestOverlayTitle}
+              </AppText>
+              <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
+                {copy.guestOverlayBody}
+              </AppText>
+              <View style={styles.guestOverlayButtonWrap}>
+                <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
+                <Button
+                  language={uiLanguage}
+                  title={copy.guestOverlayCta}
+                  onPress={() => router.push('/account/auth')}
+                  style={styles.guestOverlayButton}
+                />
+              </View>
+            </Stack>
+          </Card>
         </View>
-      </ResponsivePageShell>
-    </ScrollView>
+      ) : null}
+    </View>
   );
 }
 
@@ -872,6 +857,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
     backgroundColor: 'rgba(255, 253, 249, 0.4)',
   },
   guestOverlayCard: {

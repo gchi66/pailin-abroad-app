@@ -6,6 +6,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
     flexGrow: 1,
   },
   profileCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 13, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6, boxShadow: '4px 4px 0px #1E1E1E' },

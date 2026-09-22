@@ -3,9 +3,10 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import pailinAvatar from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import pailinAvatar from '@/assets/images/characters/pailin_blue_circle.webp';
 import { PlacementTestIntroCard } from '@/src/components/placement-test/PlacementTestIntroCard';
 import { AppText } from '@/src/components/ui/AppText';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -51,19 +52,20 @@ export function PlacementEntryScreen() {
                       : `ยินดีต้อนรับ${firstName && !isGuest ? `, ${firstName}` : ''}!`}
                   </AppText>
                 </View>
-                <AppText language="th" variant="body" style={styles.subheader}>
-                  พร้อมเรียนภาษาอังกฤษกับไพลินไหม?
+                <AppText language={uiLanguage} variant="body" style={styles.subheader}>
+                  {uiLanguage === 'en'
+                    ? 'Ready to learn English with Pailin?'
+                    : 'พร้อมเรียนภาษาอังกฤษกับไพลินไหม?'}
                 </AppText>
               </View>
-              <View style={styles.languagePill}>
-                <AppText language="en" variant="caption" style={styles.languagePillText}>TH</AppText>
-              </View>
+              <LanguageToggle style={styles.languageToggle} textStyle={styles.languageToggleText} />
             </View>
           </ResponsivePageShell>
         </View>
 
         <ResponsivePageShell style={styles.cardShell}>
           <PlacementTestIntroCard
+            language={uiLanguage}
             onChooseManually={() => router.push('/choose-level')}
             onStart={() => router.push('/placement-test')}
           />
@@ -79,13 +81,13 @@ const styles = StyleSheet.create({
   headerBorder: { borderBottomWidth: 1, borderBottomColor: '#E3E5E8', backgroundColor: theme.colors.surface },
   headerShell: { paddingHorizontal: theme.spacing.md, paddingVertical: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: '#D9F1FA' },
+  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, backgroundColor: '#D9F1FA' },
   headerCopy: { flex: 1, gap: 1 },
   welcomeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' },
   welcomeText: { fontSize: 20, lineHeight: 26, fontWeight: theme.typography.weights.bold },
   subheader: { fontSize: 13, lineHeight: 19 },
-  languagePill: { minWidth: 38, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#D5D9DE', borderRadius: 999, alignItems: 'center', alignSelf: 'flex-start' },
-  languagePillText: { fontSize: 10, lineHeight: 13 },
+  languageToggle: { minWidth: 62, minHeight: 32, borderColor: '#D5D9DE', alignSelf: 'flex-start' },
+  languageToggleText: { fontSize: 10, lineHeight: 13 },
   cardShell: {
     flex: 1,
     width: '100%',

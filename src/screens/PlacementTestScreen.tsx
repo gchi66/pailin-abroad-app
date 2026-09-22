@@ -32,6 +32,7 @@ import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { queueLessonLibraryPreview, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
@@ -259,9 +260,20 @@ export function PlacementTestScreen() {
 
   const openResultLesson = () => {
     if (!resultLessonId) return;
+    const stage = resultLevel && resultLevel <= 4
+      ? 'Beginner'
+      : resultLevel && resultLevel <= 8
+        ? 'Intermediate'
+        : 'Advanced';
+    setLessonLibrarySelection({
+      stage,
+      level: resultLevel,
+      lessonId: resultLessonId,
+      route: 'free-library',
+    });
+    queueLessonLibraryPreview(resultLessonId);
     router.replace({
-      pathname: '/lessons/[id]',
-      params: { id: resultLessonId, locked: '0' },
+      pathname: '/(tabs)/lessons/free-library',
     });
   };
 

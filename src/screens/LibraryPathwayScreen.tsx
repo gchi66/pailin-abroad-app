@@ -12,13 +12,14 @@ import { fetchUserLessonEngagements } from '@/src/api/user';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { LibraryStageLevelSelector } from '@/src/components/lesson/LibraryStageLevelSelector';
+import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { clearLessonLibraryAnchor, getLessonLibrarySelection, hydrateLessonLibrarySelection, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
+import { clearLessonLibraryAnchor, getLessonLibrarySelection, hydrateLessonLibrarySelection, setLessonLibrarySelection, takeLessonLibraryPreview } from '@/src/lib/lesson-library-selection';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
 import { freeLibraryIds, LIBRARY_STAGES, LibraryStage, lessonMarker, lessonNumber, matchesLessonSearch, shortLessonFocus } from '@/src/lib/library-pathway';
 import { theme } from '@/src/theme/theme';
@@ -100,6 +101,31 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
     if (level == null || !levels.includes(level)) { setLevel(levels[0] ?? null); return; }
     setLessonLibrarySelection({ stage, level, route: libraryRoute });
   }, [hydrated, items.length, level, levels, libraryRoute, loading, stage, stages]);
+
+  useEffect(() => {
+    if (loading || !items.length) return;
+    const lessonId = takeLessonLibraryPreview();
+    if (!lessonId) return;
+    const lesson = items.find((item) => item.id === lessonId);
+    if (!lesson || (freeOnly && !freeIds.has(lesson.id))) return;
+    const nextStage = lesson.stage as LibraryStage;
+    const nextLevel = lesson.level;
+    if (!LIBRARY_STAGES.includes(nextStage) || nextLevel == null) return;
+
+    setStage(nextStage);
+    setLevel(nextLevel);
+    setSelectedId(lesson.id);
+    setLessonLibrarySelection({
+      stage: nextStage,
+      level: nextLevel,
+      route: libraryRoute,
+    });
+    prefetchResolvedLesson(lesson.id, 'en');
+    router.push({
+      pathname: '/lesson-preview/[id]',
+      params: { id: lesson.id, libraryRoute, locked: '0' },
+    });
+  }, [freeIds, freeOnly, items, libraryRoute, loading, refresh, router]);
 
   const lessons = useMemo(() => items.filter((lesson) => {
     if (freeOnly && !freeIds.has(lesson.id)) return false;
@@ -183,10 +209,17 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
         ) : <AppText language={language} variant="caption" style={styles.resultsLabel}>{th ? `พบ ${lessons.length} บทเรียน` : `${lessons.length} lessons found`}</AppText>}
 
         {!hasMembership && !searching ? <View style={styles.upgrade}>
-          <AppText language={language} variant="title" style={styles.upgradeTitle}>{th ? 'ปลดล็อกคอร์สทั้งหมด' : 'UNLOCK THE FULL COURSE'}</AppText>
-          <AppText language={language} variant="muted">{th ? `คุณสามารถเรียนฟรีได้ ${freeIds.size} บทเรียน` : `You have access to ${freeIds.size} free lessons.`}</AppText>
-          <Button language={language} title={th ? 'ดูแพ็กเกจ →' : 'VIEW PLANS →'} style={styles.upgradeButton} textStyle={styles.upgradeButtonText}
-            onPress={() => { prefetchPricing(); router.push('/(tabs)/account/membership'); }} />
+          <UnlockArtwork style={styles.upgradeArtwork} />
+          <View style={styles.upgradeContent}>
+            <AppText language={language} variant="title" style={styles.upgradeTitle}>{th ? 'ปลดล็อกคอร์สทั้งหมด' : 'UNLOCK THE FULL COURSE'}</AppText>
+            <AppText language={language} variant="muted" style={styles.upgradeBody}>
+              {th
+                ? `คุณสามารถเรียนฟรีได้ ${freeIds.size} บทเรียน\nอัปเกรดเพื่อปลดล็อกคลังบทเรียนทั้งหมด!`
+                : `You have access to ${freeIds.size} free lessons.\nUpgrade to unlock the full lesson library!`}
+            </AppText>
+            <Button language={language} title={th ? 'ดูแพ็กเกจ →' : 'VIEW PLANS →'} style={styles.upgradeButton} textStyle={styles.upgradeButtonText}
+              onPress={() => { prefetchPricing(); router.push('/(tabs)/account/membership'); }} />
+          </View>
         </View> : null}
 
         {!searching && !freeOnly && story ? <View style={styles.storyShadow}><View style={styles.story}>
@@ -269,5 +302,11 @@ const styles = StyleSheet.create({
   selectedMarker: { backgroundColor: '#3CA0FE', borderColor: '#222222' }, completeMarker: { backgroundColor: '#BCE574', borderColor: '#222222' },
   progressMarker: { position: 'absolute', width: 20, height: 22, left: -10, top: '50%', marginTop: -14, alignItems: 'center' },
   resultsLabel: { marginBottom: 18, color: '#666666' }, searchContext: { fontSize: 10, lineHeight: 16, color: '#777777' }, empty: { paddingVertical: 24, textAlign: 'center', gap: 12 },
-  upgrade: { borderWidth: 1, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 16, gap: 8, marginBottom: 24 }, upgradeTitle: { fontSize: 16, lineHeight: 22 }, upgradeButton: { backgroundColor: '#F9DA60', alignSelf: 'flex-start', minHeight: 32 }, upgradeButtonText: { fontSize: 12, lineHeight: 18, color: '#222222' },
+  upgrade: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 12, gap: 12, marginBottom: 24 },
+  upgradeArtwork: { width: 96, height: 96, flexShrink: 0 },
+  upgradeContent: { flex: 1, minWidth: 0, gap: 4 },
+  upgradeTitle: { fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.bold },
+  upgradeBody: { fontSize: 11, lineHeight: 16, color: '#666666' },
+  upgradeButton: { backgroundColor: '#F9DA60', alignSelf: 'flex-start', minHeight: 32, marginTop: 3, paddingHorizontal: 24 },
+  upgradeButtonText: { fontSize: 11, lineHeight: 17, color: '#222222' },
 });

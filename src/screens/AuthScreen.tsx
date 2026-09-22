@@ -602,7 +602,7 @@ export function AuthScreen() {
                       ]}
                       onPress={handleSubmit}
                       disabled={isBusy}>
-                      {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                      {isSubmitting ? <ActivityIndicator color="#FFFFFF" style={styles.ctaSpinner} /> : null}
                       <AuthText
                         language={uiLanguage}
                         variant="caption"
@@ -1134,11 +1134,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 2,
     borderColor: '#1A2332',
-    backgroundColor: '#FF4545',
+    backgroundColor: '#2563EB',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingHorizontal: 16,
     boxShadow: '1.75px 1.75px 0px #1A2332',
   },
   ctaButtonCompact: {
@@ -1158,6 +1159,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 18,
     fontWeight: '900',
+    textAlign: 'center',
+  },
+  ctaSpinner: {
+    position: 'absolute',
+    left: 16,
   },
   ctaTextCompact: {
     fontSize: 14,

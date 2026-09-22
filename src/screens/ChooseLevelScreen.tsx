@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import placementTestPailin from '@/assets/images/placement-test-pailin.webp';
+import pailinHead from '@/assets/images/characters/pailin_head.webp';
 import placementTest0Bars from '@/assets/images/placement-test-0-bars.webp';
 import placementTest1Bar from '@/assets/images/placement-test-1-bar.webp';
 import placementTest2Bars from '@/assets/images/placement-test-2-bars.webp';
@@ -11,21 +11,40 @@ import placementTest3Bars from '@/assets/images/placement-test-3-bars.webp';
 import placementTest4Bars from '@/assets/images/placement-test-4-bars.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { useUiLanguage } from '@/src/context/ui-language-context';
 import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
 const LEVEL_OPTIONS = [
-  { label: 'ฉันเพิ่งเริ่มเรียนภาษาอังกฤษ!', bars: placementTest0Bars, level: 1 },
-  { label: 'ฉันรู้คำศัพท์และประโยคง่ายๆ บางคำ', bars: placementTest1Bar, level: 2 },
-  { label: 'ฉันสามารถสนทนาพื้นฐานได้', bars: placementTest2Bars, level: 5 },
-  { label: 'ฉันสามารถพูดคุยเกี่ยวกับความคิดเห็นและประสบการณ์ของตัวเองได้', bars: placementTest3Bars, level: 6 },
-  { label: 'ฉันสามารถอภิปรายเกี่ยวกับความคิดเห็น ธรรมเนียม และเหตุการณ์ปัจจุบันได้', bars: placementTest4Bars, level: 9 },
+  { label: { en: "I'm just starting to learn English!", th: 'ฉันเพิ่งเริ่มเรียนภาษาอังกฤษ!' }, bars: placementTest0Bars, level: 1 },
+  { label: { en: 'I know some basic English words and sentences', th: 'ฉันรู้คำศัพท์และประโยคง่ายๆ บางคำ' }, bars: placementTest1Bar, level: 2 },
+  { label: { en: 'I can have basic conversations', th: 'ฉันสามารถสนทนาพื้นฐานได้' }, bars: placementTest2Bars, level: 5 },
+  { label: { en: 'I can talk about my opinions and experiences', th: 'ฉันสามารถพูดคุยเกี่ยวกับความคิดเห็นและประสบการณ์ของตัวเองได้' }, bars: placementTest3Bars, level: 6 },
+  { label: { en: 'I can discuss opinions, culture, and current events', th: 'ฉันสามารถอภิปรายเกี่ยวกับความคิดเห็น ธรรมเนียม และเหตุการณ์ปัจจุบันได้' }, bars: placementTest4Bars, level: 9 },
 ] as const;
+
+const COPY = {
+  en: {
+    title: 'What is your English level?',
+    body: 'You can change your level later at any time!',
+    start: 'Start your first lesson!',
+    test: 'Not sure yet? Take a short placement test instead!',
+  },
+  th: {
+    title: 'ระดับอังกฤษคุณคือระดับไหน?',
+    body: 'คุณสามารถเปลี่ยนระดับในภายหลังได้ตลอดเวลา!',
+    start: 'เริ่มบทเรียนแรกของคุณ!',
+    test: 'ยังไม่แน่ใจใช่ไหม? มาทำแบบทดสอบวัดระดับสั้นๆ แทนได้นะ!',
+  },
+} as const;
 
 export function ChooseLevelScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { uiLanguage } = useUiLanguage();
+  const copy = COPY[uiLanguage];
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isStartPressed, setIsStartPressed] = useState(false);
 
@@ -33,48 +52,54 @@ export function ChooseLevelScreen() {
     <View style={styles.screen}>
       <ScrollView
         bounces={false}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 42 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
         showsVerticalScrollIndicator={false}>
         <ResponsivePageShell style={styles.pageShell}>
-          <View style={styles.introRow}>
-            <Image source={placementTestPailin} style={styles.pailinImage} resizeMode="contain" />
-
-            <View style={styles.bubbleWrap}>
-              <View pointerEvents="none" style={styles.bubbleShadow} />
-              <View style={styles.bubble}>
-                <AppText language="th" variant="body" style={styles.bubbleTitle}>
-                  ระดับอังกฤษคุณคือระดับไหน?
-                </AppText>
-                <AppText language="th" variant="muted" style={styles.bubbleBody}>
-                  คุณสามารถเปลี่ยนระดับในภายหลังได้ตลอดเวลา!
-                </AppText>
-              </View>
-            </View>
+          <View style={styles.topBar}>
+            <LanguageToggle />
           </View>
 
-          <View style={styles.optionsList}>
-            {LEVEL_OPTIONS.map((option, index) => {
-              const isSelected = selectedOption === index;
-              return (
-                <View key={option.label} style={styles.optionWrap}>
-                  <View pointerEvents="none" style={styles.optionShadow} />
-                  <Pressable
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: isSelected }}
-                    onPress={() => setSelectedOption(index)}
-                    style={({ pressed }) => [
-                      styles.optionCard,
-                      isSelected ? styles.optionCardSelected : null,
-                      pressed ? styles.optionCardPressed : null,
-                    ]}>
-                    <Image source={option.bars} style={styles.barsImage} resizeMode="contain" />
-                    <AppText language="th" variant="body" style={styles.optionLabel}>
-                      {option.label}
-                    </AppText>
-                  </Pressable>
+          <View style={styles.levelContent}>
+            <View style={styles.introRow}>
+              <Image source={pailinHead} style={styles.pailinImage} resizeMode="contain" />
+
+              <View style={styles.bubbleWrap}>
+                <View pointerEvents="none" style={styles.bubbleShadow} />
+                <View style={styles.bubble}>
+                  <AppText language={uiLanguage} variant="body" style={styles.bubbleTitle}>
+                    {copy.title}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="muted" style={styles.bubbleBody}>
+                    {copy.body}
+                  </AppText>
                 </View>
-              );
-            })}
+              </View>
+            </View>
+
+            <View style={styles.optionsList}>
+              {LEVEL_OPTIONS.map((option, index) => {
+                const isSelected = selectedOption === index;
+                return (
+                  <View key={option.level} style={styles.optionWrap}>
+                    <View pointerEvents="none" style={styles.optionShadow} />
+                    <Pressable
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isSelected }}
+                      onPress={() => setSelectedOption(index)}
+                      style={({ pressed }) => [
+                        styles.optionCard,
+                        isSelected ? styles.optionCardSelected : null,
+                        pressed ? styles.optionCardPressed : null,
+                      ]}>
+                      <Image source={option.bars} style={styles.barsImage} resizeMode="contain" />
+                      <AppText language={uiLanguage} variant="body" style={styles.optionLabel}>
+                        {option.label[uiLanguage]}
+                      </AppText>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
           </View>
 
           <View style={styles.footer}>
@@ -82,8 +107,8 @@ export function ChooseLevelScreen() {
               <View style={styles.startButtonWrap}>
                 <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
                 <Button
-                  language="th"
-                  title="เริ่มบทเรียนแรกของคุณ!"
+                  language={uiLanguage}
+                  title={copy.start}
                   onPress={() => router.push({
                     pathname: '/choose-level-result',
                     params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
@@ -97,8 +122,8 @@ export function ChooseLevelScreen() {
             ) : null}
 
             <Pressable accessibilityRole="link" onPress={() => router.push('/placement-test')} style={styles.testLinkButton}>
-              <AppText language="th" variant="muted" style={styles.testLinkText}>
-                ยังไม่แน่ใจใช่ไหม? มาทำแบบทดสอบวัดระดับสั้นๆ แทนได้นะ!
+              <AppText language={uiLanguage} variant="muted" style={styles.testLinkText}>
+                {copy.test}
               </AppText>
             </Pressable>
           </View>
@@ -122,6 +147,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
+  topBar: {
+    width: '100%',
+    maxWidth: 440,
+    minHeight: 32,
+    alignSelf: 'center',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  levelContent: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+  },
   introRow: {
     width: '100%',
     maxWidth: 440,
@@ -131,9 +169,9 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -10 }],
   },
   pailinImage: {
-    width: 114,
-    height: 117,
-    marginRight: -26,
+    width: 70,
+    height: 72,
+    marginRight: -2,
     zIndex: 2,
   },
   bubbleWrap: {
