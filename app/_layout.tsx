@@ -60,6 +60,7 @@ function AppRouteGate() {
   }, [pathname]);
 
   const isOnOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
+  const isOnMembershipRoute = pathname === '/membership';
   const isOnAuthRoute = pathname === '/account/auth';
   const isOnAuthCallbackRoute = pathname === '/auth/callback';
   const isOnProtectedAccountRoute = pathname === '/account' || (pathname.startsWith('/account/') && pathname !== '/account/auth');
@@ -70,6 +71,7 @@ function AppRouteGate() {
     hasAccount &&
     !hasCompletedOnboarding &&
     !isOnOnboardingRoute &&
+    !isOnMembershipRoute &&
     !(isOnAuthCallbackRoute && authError);
   const shouldRedirectToApp = !isLoading && hasAccount && hasCompletedOnboarding && isOnOnboardingRoute && !isOnboardingDevtoolsMode;
   const shouldRedirectAuthenticatedAuthRoute = !isLoading && hasAccount && isOnAuthRoute;

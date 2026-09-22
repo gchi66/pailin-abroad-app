@@ -25,7 +25,9 @@ import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
 import fullLogoImage from '@/assets/images/full-logo.webp';
 import greyPasswordCheckmarkImage from '@/assets/images/grey-password-checkmark.webp';
 import hidePasswordImage from '@/assets/images/hide-password.webp';
-import pailinWelcomeImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import pailinWelcomeImage from '@/assets/images/characters/pailin_blue_circle.webp';
+import pailinThumbsUpImage from '@/assets/images/characters/pailin_thumbs_up_head.webp';
+import pailinPlanImage from '@/assets/images/speaking-coach/pailin-lesson-finished.webp';
 import passwordLockImage from '@/assets/images/password-lock.webp';
 import showPasswordImage from '@/assets/images/show-password.webp';
 import { AppText } from '@/src/components/ui/AppText';
@@ -34,7 +36,7 @@ import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useOnboarding } from '@/src/context/onboarding-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { createNeoShadow } from '@/src/theme/shadows';
+import { getPlanPackageMap, getRevenueCatOffering, isRevenueCatAvailable } from '@/src/lib/revenuecat';
 import { theme } from '@/src/theme/theme';
 import { usePostHog } from 'posthog-react-native';
 
@@ -62,18 +64,19 @@ type OnboardingCopy = {
   profileAvatarError: string;
   benefitsTitle: string;
   benefitsSubtitle: string;
-  freeLabel: string;
-  fullLabel: string;
   freeTitle: string;
   paidTitle: string;
   freeBenefit1: string;
   freeBenefit2: string;
   freeBenefit3: string;
-  freeBenefit4: string;
   paidBenefit1: string;
   paidBenefit2: string;
   paidBenefit3: string;
   paidBenefit4: string;
+  paidBenefit5: string;
+  pricingFrom: string;
+  pricingAmount: string;
+  pricingPerMonth: string;
   upgradeCta: string;
   continueFree: string;
   confirmationTitle: string;
@@ -115,6 +118,7 @@ type ProfileStepProps = StepBaseProps & {
 };
 
 type BenefitsStepProps = StepBaseProps & {
+  threeMonthMonthlyPrice: string | null;
   onContinueFree: () => void;
   onUpgrade: () => void;
 };
@@ -128,6 +132,34 @@ const isEmailLike = (value: string | null | undefined) => {
   }
 
   return /\S+@\S+\.\S+/.test(value.trim());
+};
+
+const formatStorefrontMonthlyPrice = (currency: string, value: number) => {
+  const minimumFractionDigits = currency === 'USD' ? 2 : 0;
+  const maximumFractionDigits = currency === 'THB' ? 0 : 2;
+  const formattedAmount = value.toLocaleString(undefined, {
+    maximumFractionDigits,
+    minimumFractionDigits,
+  });
+
+  if (currency === 'USD') {
+    return `$${formattedAmount}`;
+  }
+
+  if (currency === 'THB') {
+    return `฿${formattedAmount}`;
+  }
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      currency,
+      maximumFractionDigits,
+      minimumFractionDigits,
+      style: 'currency',
+    }).format(value);
+  } catch {
+    return `${currency} ${formattedAmount}`;
+  }
 };
 
 const AVATAR_OPTIONS = [
@@ -163,22 +195,23 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
       namePlaceholder: 'พิมพ์ชื่อของคุณ',
       profileNameError: 'กรุณาใส่ชื่อของคุณ',
       profileAvatarError: 'กรุณาเลือกรูปโปรไฟล์',
-      benefitsTitle: 'เลือกวิธีเรียนของคุณ',
-      benefitsSubtitle: 'ดูว่าคุณจะได้อะไรเมื่ออัปเกรด',
-      freeLabel: 'FREE',
-      fullLabel: 'FULL',
-      freeTitle: 'เริ่มต้นเรียน',
+      benefitsTitle: 'เลือกแพ็กเกจ',
+      benefitsSubtitle: 'ดูสิ่งที่รอคุณอยู่เมื่ออัปเกรด!',
+      freeTitle: 'บัญชีฟรี',
       paidTitle: 'สมาชิกแบบเต็ม',
-      freeBenefit1: 'บทเรียนแรกของแต่ละระดับ',
-      freeBenefit2: 'แบบฝึกหัดแนะนำ',
-      freeBenefit3: 'พรีวิวคลังหัวข้อ',
-      freeBenefit4: 'ฟีดแบ็กในบทเรียนฟรี',
-      paidBenefit1: 'ปลดล็อกทุกบทเรียน',
-      paidBenefit2: 'เส้นทางการเรียนแบบเต็ม',
-      paidBenefit3: 'คลังแบบฝึกหัดครบ',
-      paidBenefit4: 'เครื่องมือเรียน + ทบทวนคำศัพท์',
-      upgradeCta: 'ปลดล็อกการเข้าถึงทั้งหมด',
-      continueFree: 'ใช้บัญชีฟรีต่อ',
+      freeBenefit1: 'บทเรียนฟรี 16 บท',
+      freeBenefit2: 'แบบฝึกหัดแนะนำใน Exercise Bank',
+      freeBenefit3: 'หัวข้อแนะนำใน Topic Library',
+      paidBenefit1: 'ฝึกพูดกับ AI',
+      paidBenefit2: 'เข้าถึงคลังบทเรียนทั้งหมด 250+ บท!',
+      paidBenefit3: 'เข้าถึง Exercise Bank ทั้งหมด พร้อมแบบฝึกหัด 1,900+ ข้อ!',
+      paidBenefit4: 'เข้าถึง Topic Library ทั้งหมด',
+      paidBenefit5: 'สถิติความก้าวหน้าแบบละเอียด',
+      pricingFrom: 'เริ่มต้น',
+      pricingAmount: '฿350',
+      pricingPerMonth: '/ เดือน',
+      upgradeCta: 'ดูราคา',
+      continueFree: 'ไปต่อ',
       confirmationTitle: 'คุณพร้อมแล้ว!',
       confirmationSubtitle: 'โปรไฟล์ผู้ใช้ของคุณสมบูรณ์แล้ว และตอนนี้คุณก็ได้เป็นส่วนหนึ่งของชุมชน Pailin Abroad อย่างเป็นทางการ',
       confirmationCta: 'มาเตรียมตัวเริ่มเรียนกันเถอะ!',
@@ -207,22 +240,23 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
     namePlaceholder: 'Enter your name',
     profileNameError: 'Please enter your name.',
     profileAvatarError: 'Please select an avatar.',
-    benefitsTitle: 'Choose how you learn',
-    benefitsSubtitle: "See what's waiting when you upgrade",
-    freeLabel: 'FREE',
-    fullLabel: 'FULL',
-    freeTitle: 'Getting started',
-    paidTitle: 'Full membership',
-    freeBenefit1: '1st lesson of each level',
-    freeBenefit2: 'Featured exercises',
-    freeBenefit3: 'Topics library preview',
-    freeBenefit4: 'Feedback on free lessons',
-    paidBenefit1: 'All lessons unlocked',
-    paidBenefit2: 'Complete pathway access',
-    paidBenefit3: 'Full exercise library',
-    paidBenefit4: 'Study tools + vocab review',
-    upgradeCta: 'Unlock Full Access',
-    continueFree: 'Continue with free account',
+    benefitsTitle: 'Choose a plan',
+    benefitsSubtitle: "See what's waiting for you when you upgrade!",
+    freeTitle: 'Free Account',
+    paidTitle: 'Full Membership',
+    freeBenefit1: '16 free lessons',
+    freeBenefit2: 'Featured exercises in Exercise Bank access',
+    freeBenefit3: 'Featured topics in Topic Library access',
+    paidBenefit1: 'AI-guided speaking practice',
+    paidBenefit2: 'Full lesson library access, 250+ lessons!',
+    paidBenefit3: 'Full Exercise Bank access, 1,900+ exercises!',
+    paidBenefit4: 'Full Topic Library access',
+    paidBenefit5: 'Detailed stats on your progress',
+    pricingFrom: 'FROM',
+    pricingAmount: '฿350',
+    pricingPerMonth: '/ month',
+    upgradeCta: 'SEE PRICING',
+    continueFree: 'CONTINUE',
     confirmationTitle: "You're all set!",
     confirmationSubtitle: "Your profile is complete and you're officially part of the Pailin Abroad community.",
     confirmationCta: 'Get ready to learn!',
@@ -235,14 +269,14 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
 function WelcomeStep({ copy, uiLanguage, cardWidth, compact, veryCompact }: StepBaseProps) {
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
-      <Stack gap={compact ? 'sm' : 'md'} align="center" style={styles.centeredStep}>
+      <Stack gap={compact ? 'md' : 'lg'} align="center" style={styles.centeredStep}>
+        <AppText language={uiLanguage} variant="title" style={[styles.welcomeTitle, compact ? styles.welcomeTitleCompact : null]}>
+          {copy.welcomeTitle}
+        </AppText>
         <View style={[styles.avatarWrap, compact ? styles.avatarWrapCompact : null, veryCompact ? styles.avatarWrapVeryCompact : null]}>
           <Image source={pailinWelcomeImage} style={styles.welcomeAvatar} contentFit="contain" />
         </View>
-        <Stack gap={compact ? 'xs' : 'sm'} align="center">
-          <AppText language={uiLanguage} variant="title" style={[styles.welcomeTitle, compact ? styles.welcomeTitleCompact : null]}>
-            {copy.welcomeTitle}
-          </AppText>
+        <Stack gap={compact ? 'sm' : 'lg'} align="center">
           <AppText language={uiLanguage} variant="body" style={[styles.centerText, compact ? styles.centerTextCompact : null]}>
             {copy.welcomeSubtitle}
           </AppText>
@@ -418,9 +452,20 @@ function ProfileStep({
   );
 }
 
-function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onContinueFree, onUpgrade }: BenefitsStepProps) {
-  const freeBenefits = [copy.freeBenefit1, copy.freeBenefit2, copy.freeBenefit3, copy.freeBenefit4];
-  const paidBenefits = [copy.paidBenefit1, copy.paidBenefit2, copy.paidBenefit3, copy.paidBenefit4];
+function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, threeMonthMonthlyPrice, onContinueFree, onUpgrade }: BenefitsStepProps) {
+  const [selectedPlan, setSelectedPlan] = useState<'paid' | 'free'>('paid');
+  const freeBenefits = [copy.freeBenefit1, copy.freeBenefit2, copy.freeBenefit3];
+  const paidBenefits = [copy.paidBenefit1, copy.paidBenefit2, copy.paidBenefit3, copy.paidBenefit4, copy.paidBenefit5];
+  const isPaidSelected = selectedPlan === 'paid';
+
+  const handlePlanCta = () => {
+    if (isPaidSelected) {
+      onUpgrade();
+      return;
+    }
+
+    onContinueFree();
+  };
 
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
@@ -441,52 +486,94 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onCon
             </AppText>
           </Stack>
 
-          <View style={styles.planCardsRow}>
-            <View style={[styles.planCardFree, compact ? styles.planCardCompact : null]}>
-              <View style={styles.planPillFree}>
-                <AppText language={uiLanguage} variant="caption" style={styles.planPillFreeText}>
-                  {copy.freeLabel}
-                </AppText>
-              </View>
-              <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
-                {copy.freeTitle}
-              </AppText>
-              <Stack gap={compact ? 'xs' : 'sm'} style={styles.planFeatureList}>
-                {freeBenefits.map((benefit) => (
-                  <View key={benefit} style={styles.planFeatureRow}>
-                    <View style={styles.freeCheckCircle}>
-                      <AppText language="en" variant="caption" style={styles.freeCheckMark}>
-                        ✓
-                      </AppText>
-                    </View>
-                    <AppText
-                      language={uiLanguage}
-                      variant="body"
-                      style={[styles.planFeatureText, compact ? styles.planFeatureTextCompact : null, veryCompact ? styles.planFeatureTextVeryCompact : null]}>
-                      {benefit}
-                    </AppText>
+          <Stack gap={compact ? 'sm' : 'md'}>
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ checked: isPaidSelected }}
+              onPress={() => setSelectedPlan('paid')}
+              style={[styles.planCard, isPaidSelected ? styles.planCardSelected : null]}>
+              <View style={[styles.planCardHeader, isPaidSelected ? styles.planCardHeaderSelected : styles.planCardHeaderUnselected]}>
+                <View style={styles.planCardTitleRow}>
+                  <View style={[styles.planRadio, isPaidSelected ? styles.planRadioSelected : null]}>
+                    {isPaidSelected ? <View style={styles.planRadioDot} /> : null}
                   </View>
-                ))}
-              </Stack>
-            </View>
+                  <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
+                    {copy.paidTitle}
+                  </AppText>
+                </View>
+                <View style={styles.planPriceRow}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.planPriceFrom}>{copy.pricingFrom}</AppText>
+                  <AppText language={uiLanguage} variant="body" style={styles.planPriceAmount}>
+                    {threeMonthMonthlyPrice ?? copy.pricingAmount}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={styles.planPricePeriod}>{copy.pricingPerMonth}</AppText>
+                </View>
+              </View>
+              <View style={[styles.planCardBody, styles.paidPlanCardBody]}>
+                <Stack gap={compact ? 'xs' : 'sm'}>
+                  {paidBenefits.map((benefit, index) => (
+                    <View key={benefit} style={[styles.planFeatureRow, index >= 3 ? styles.planFeatureRowWithImage : null]}>
+                      <AppText language="en" variant="body" style={styles.paidCheckMark}>✓</AppText>
+                      {index === 0 ? (
+                        <View style={styles.newFeatureRow}>
+                          <AppText
+                            language={uiLanguage}
+                            variant="body"
+                            numberOfLines={1}
+                            style={[
+                              styles.planFeatureText,
+                              compact ? styles.planFeatureTextCompact : null,
+                              veryCompact ? styles.planFeatureTextVeryCompact : null,
+                              styles.newFeatureText,
+                            ]}>
+                            {benefit}
+                          </AppText>
+                          <AppText
+                            language="en"
+                            variant="body"
+                            style={[
+                              styles.featureEmoji,
+                              compact ? styles.featureEmojiCompact : null,
+                              veryCompact ? styles.featureEmojiVeryCompact : null,
+                            ]}>
+                            🎉
+                          </AppText>
+                        </View>
+                      ) : (
+                        <AppText
+                          language={uiLanguage}
+                          variant="body"
+                          style={[styles.planFeatureText, compact ? styles.planFeatureTextCompact : null, veryCompact ? styles.planFeatureTextVeryCompact : null]}>
+                          {benefit}
+                        </AppText>
+                      )}
+                    </View>
+                  ))}
+                </Stack>
+                <Image source={pailinPlanImage} style={styles.pailinPlanImage} contentFit="contain" contentPosition="bottom right" />
+              </View>
+            </Pressable>
 
-            <View style={[styles.planCardPaid, compact ? styles.planCardCompact : null]}>
-              <View style={styles.planPillPaid}>
-                <AppText language={uiLanguage} variant="caption" style={styles.planPillPaidText}>
-                  {copy.fullLabel}
-                </AppText>
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ checked: !isPaidSelected }}
+              onPress={() => setSelectedPlan('free')}
+              style={[styles.planCard, !isPaidSelected ? styles.planCardSelected : null]}>
+              <View style={[styles.planCardHeader, !isPaidSelected ? styles.planCardHeaderSelected : styles.planCardHeaderUnselected]}>
+                <View style={styles.planCardTitleRow}>
+                  <View style={[styles.planRadio, !isPaidSelected ? styles.planRadioSelected : null]}>
+                    {!isPaidSelected ? <View style={styles.planRadioDot} /> : null}
+                  </View>
+                  <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
+                    {copy.freeTitle}
+                  </AppText>
+                </View>
               </View>
-              <AppText language={uiLanguage} variant="body" style={[styles.planTitle, compact ? styles.planTitleCompact : null]}>
-                {copy.paidTitle}
-              </AppText>
-              <Stack gap={compact ? 'xs' : 'sm'} style={styles.planFeatureList}>
-                {paidBenefits.map((benefit) => (
+              <View style={styles.planCardBody}>
+                <Stack gap={compact ? 'xs' : 'sm'}>
+                  {freeBenefits.map((benefit) => (
                   <View key={benefit} style={styles.planFeatureRow}>
-                    <View style={styles.paidCheckCircle}>
-                      <AppText language="en" variant="caption" style={styles.paidCheckMark}>
-                        ✓
-                      </AppText>
-                    </View>
+                    <AppText language="en" variant="body" style={styles.freeCheckMark}>✓</AppText>
                     <AppText
                       language={uiLanguage}
                       variant="body"
@@ -495,20 +582,15 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onCon
                     </AppText>
                   </View>
                 ))}
-              </Stack>
-            </View>
-          </View>
+                </Stack>
+              </View>
+            </Pressable>
+          </Stack>
 
           <View style={styles.benefitsActions}>
-            <Pressable accessibilityRole="button" style={[styles.upgradeButton, compact ? styles.upgradeButtonCompact : null]} onPress={onUpgrade}>
+            <Pressable accessibilityRole="button" style={[styles.upgradeButton, compact ? styles.upgradeButtonCompact : null]} onPress={handlePlanCta}>
               <AppText language={uiLanguage} variant="caption" style={styles.upgradeButtonText}>
-                {copy.upgradeCta}
-              </AppText>
-              <Image source={arrowRightImage} style={styles.upgradeButtonIcon} contentFit="contain" />
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={onContinueFree}>
-              <AppText language={uiLanguage} variant="caption" style={styles.continueFreeText}>
-                {copy.continueFree}
+                {isPaidSelected ? copy.upgradeCta : copy.continueFree}
               </AppText>
             </Pressable>
           </View>
@@ -521,21 +603,18 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, onCon
 function ConfirmationStep({ copy, uiLanguage, cardWidth, compact }: StepBaseProps) {
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
-      <Stack gap={compact ? 'md' : 'lg'} align="center" style={styles.centeredStep}>
-        <View style={styles.confirmationBadge}>
-          <Image source={blueCheckmarkImage} style={styles.confirmationIcon} contentFit="contain" />
-        </View>
-        <Stack gap={compact ? 'xs' : 'sm'} align="center">
-          <AppText language={uiLanguage} variant="title" style={[styles.sectionTitleCentered, compact ? styles.sectionTitleCenteredCompact : null]}>
-            {copy.confirmationTitle}
-          </AppText>
-          <AppText language={uiLanguage} variant="body" style={[styles.centerText, compact ? styles.centerTextCompact : null]}>
-            {copy.confirmationSubtitle}
-          </AppText>
-          <AppText language={uiLanguage} variant="body" style={styles.confirmationCta}>
-            {copy.confirmationCta}
-          </AppText>
-        </Stack>
+      <Stack gap={compact ? 'lg' : 'xl'} align="center" style={styles.centeredStep}>
+        <AppText language={uiLanguage} variant="title" style={[styles.sectionTitleCentered, compact ? styles.sectionTitleCenteredCompact : null]}>
+          {copy.confirmationTitle}
+        </AppText>
+        <Image
+          source={pailinThumbsUpImage}
+          style={[styles.confirmationImage, compact ? styles.confirmationImageCompact : null]}
+          contentFit="contain"
+        />
+        <AppText language={uiLanguage} variant="body" style={[styles.confirmationMessage, compact ? styles.centerTextCompact : null]}>
+          {copy.confirmationSubtitle} {copy.confirmationCta}
+        </AppText>
       </Stack>
     </View>
   );
@@ -562,6 +641,7 @@ export function OnboardingScreen() {
   const [selectedAvatarPath, setSelectedAvatarPath] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [threeMonthMonthlyPrice, setThreeMonthMonthlyPrice] = useState<string | null>(null);
   const authProvider = typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null;
   const isAppleAuthProvider = authProvider === 'apple';
   const isDevtoolsMode = params.devtools === '1' && profile?.is_admin === true;
@@ -594,12 +674,8 @@ export function OnboardingScreen() {
       : height <= 620;
   const shellInnerHorizontalPadding = theme.spacing.sm;
   const shellInnerWidth = Math.max(width - theme.spacing.md * 2 - shellInnerHorizontalPadding * 2 - 2, 240);
-  const shellHeight =
-    Platform.OS === 'android'
-      ? Math.max(0, Math.min(compact ? 620 : 720, availableShellHeight))
-      : compact
-        ? Math.max(520, Math.min(620, height - insets.top - theme.spacing.sm * 2 - 8))
-        : Math.max(620, Math.min(720, height - insets.top - theme.spacing.md * 2 - 12));
+  const shellMaxHeight = currentStep === 3 ? (compact ? 600 : 650) : (compact ? 540 : 570);
+  const shellHeight = Math.max(0, Math.min(shellMaxHeight, availableShellHeight));
 
   const meetsLength = passwords.newPassword.length >= 8;
   const meetsNumber = /\d/.test(passwords.newPassword);
@@ -644,6 +720,39 @@ export function OnboardingScreen() {
       setCurrentStep(4);
     }
   }, [currentStep, skipBenefitsStep]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadThreeMonthPrice = async () => {
+      if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !isRevenueCatAvailable()) {
+        return;
+      }
+
+      const offering = await getRevenueCatOffering();
+      const threeMonthPackage = getPlanPackageMap(offering)['3-month'];
+      const totalPrice = threeMonthPackage?.product.price;
+      const currency = threeMonthPackage?.product.currencyCode;
+
+      if (
+        cancelled ||
+        !currency ||
+        typeof totalPrice !== 'number' ||
+        !Number.isFinite(totalPrice) ||
+        totalPrice <= 0
+      ) {
+        return;
+      }
+
+      setThreeMonthMonthlyPrice(formatStorefrontMonthlyPrice(currency, totalPrice / 3));
+    };
+
+    void loadThreeMonthPrice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const goToStep = useCallback(
     (nextStep: StepId) => {
@@ -902,6 +1011,7 @@ export function OnboardingScreen() {
           cardWidth={shellInnerWidth}
           compact={compact}
           veryCompact={veryCompact}
+          threeMonthMonthlyPrice={threeMonthMonthlyPrice}
           onContinueFree={() => {
             posthog.capture('onboarding_free_plan_chosen');
             goToStep(4);
@@ -909,7 +1019,7 @@ export function OnboardingScreen() {
           onUpgrade={() => {
             posthog.capture('onboarding_upgrade_pressed');
             prefetchPricing();
-            router.push('/(tabs)/account/membership');
+            router.push('/membership?source=onboarding');
           }}
         />
       ),
@@ -945,6 +1055,7 @@ export function OnboardingScreen() {
     veryCompact,
     visibleStepIds,
     goToStep,
+    threeMonthMonthlyPrice,
     posthog,
   ]);
 
@@ -960,15 +1071,26 @@ export function OnboardingScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.contentContainer, { paddingTop: insets.top + theme.spacing.sm }]}>
-        <Stack gap="md">
+        <Stack gap="md" style={styles.onboardingLayout}>
+          <View style={styles.onboardingHeader}>
+            <Image source={fullLogoImage} style={styles.onboardingLogo} contentFit="contain" />
+            <LanguageToggle />
+          </View>
           <View style={[styles.onboardingShell, compact ? styles.onboardingShellCompact : null, { height: shellHeight, paddingHorizontal: shellInnerHorizontalPadding }]}>
-            <View style={styles.shellTopRow}>
-              <Image source={fullLogoImage} style={styles.shellLogo} contentFit="contain" />
-              <LanguageToggle />
-            </View>
+            {currentStep !== 4 ? (
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${((currentStepIndex + 1) / visibleStepIds.length) * 100}%` },
+                  ]}
+                />
+              </View>
+            ) : null}
 
             <ScrollView
               ref={scrollRef}
+              style={styles.pager}
               horizontal
               pagingEnabled
               scrollEnabled={currentStep !== 3 && !isSubmitting}
@@ -981,36 +1103,55 @@ export function OnboardingScreen() {
             </ScrollView>
 
             <View style={styles.shellFooter}>
-              <View style={styles.progressRow}>
-                {visibleStepIds.map((stepId, index) => (
-                  <View key={stepId} style={[styles.progressDot, index === currentStepIndex ? styles.progressDotActive : null]} />
-                ))}
-              </View>
-
-              <View style={styles.navigationRow}>
-                {currentStep > 0 ? (
-                  <Pressable accessibilityRole="button" style={[styles.backButton, isSubmitting ? styles.navButtonDisabled : null]} disabled={isSubmitting} onPress={handleBack}>
+              {currentStep === 4 ? (
+                <View style={styles.confirmationFooter}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isSubmitting}
+                    onPress={handleNext}
+                    style={[styles.confirmationButton, isSubmitting ? styles.navButtonDisabled : null]}>
+                    {isSubmitting ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
+                    <AppText language={uiLanguage} variant="body" style={styles.confirmationButtonText}>
+                      {copy.finish}
+                    </AppText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isSubmitting}
+                    onPress={handleBack}
+                    style={[styles.backButton, isSubmitting ? styles.navButtonDisabled : null]}>
                     <Image source={arrowLeftImage} style={styles.backButtonIcon} contentFit="contain" />
                     <AppText language={uiLanguage} variant="caption" style={styles.backButtonText}>
                       {copy.back}
                     </AppText>
                   </Pressable>
-                ) : (
-                  <View style={styles.backButtonPlaceholder} />
-                )}
+                </View>
+              ) : (
+                <View style={styles.navigationRow}>
+                  {currentStep > 0 ? (
+                    <Pressable accessibilityRole="button" style={[styles.backButton, isSubmitting ? styles.navButtonDisabled : null]} disabled={isSubmitting} onPress={handleBack}>
+                      <Image source={arrowLeftImage} style={styles.backButtonIcon} contentFit="contain" />
+                      <AppText language={uiLanguage} variant="caption" style={styles.backButtonText}>
+                        {copy.back}
+                      </AppText>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.backButtonPlaceholder} />
+                  )}
 
-                {currentStep === 3 ? (
-                  <View style={styles.nextButtonPlaceholder} />
-                ) : (
-                  <Pressable accessibilityRole="button" style={[styles.nextButton, isSubmitting ? styles.navButtonDisabled : null]} disabled={isSubmitting} onPress={handleNext}>
-                    {isSubmitting ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
-                    <AppText language={uiLanguage} variant="caption" style={styles.nextButtonText}>
-                      {currentStep === 4 ? copy.finish : copy.next}
-                    </AppText>
-                    <Image source={arrowRightImage} style={styles.nextButtonIcon} contentFit="contain" />
-                  </Pressable>
-                )}
-              </View>
+                  {currentStep === 3 ? (
+                    <View style={styles.nextButtonPlaceholder} />
+                  ) : (
+                    <Pressable accessibilityRole="button" style={[styles.nextButton, isSubmitting ? styles.navButtonDisabled : null]} disabled={isSubmitting} onPress={handleNext}>
+                      {isSubmitting ? <ActivityIndicator color={theme.colors.text} size="small" /> : null}
+                      <AppText language={uiLanguage} variant="caption" style={styles.nextButtonText}>
+                        {copy.next}
+                      </AppText>
+                      <Image source={arrowRightImage} style={styles.nextButtonIcon} contentFit="contain" />
+                    </Pressable>
+                  )}
+                </View>
+              )}
             </View>
           </View>
 
@@ -1041,7 +1182,26 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: theme.spacing.md,
     paddingBottom: theme.spacing.md,
+  },
+  onboardingLayout: {
+    flex: 1,
     justifyContent: 'center',
+  },
+  onboardingHeader: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    zIndex: 2,
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.sm,
+  },
+  onboardingLogo: {
+    width: 136,
+    height: 30,
   },
   onboardingShell: {
     borderWidth: 1,
@@ -1049,26 +1209,33 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: theme.colors.surface,
     paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: theme.spacing.sm,
+    boxShadow: `4px 4px 0px ${theme.colors.shadow}`,
   },
   onboardingShellCompact: {
     paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.xs,
   },
-  shellTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-    minHeight: 32,
-    paddingHorizontal: theme.spacing.sm,
+  progressTrack: {
+    height: 8,
+    overflow: 'hidden',
+    marginTop: theme.spacing.xs,
+    marginHorizontal: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#E8E8E8',
   },
-  shellLogo: {
-    width: 136,
-    height: 30,
+  progressFill: {
+    height: '100%',
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#B9E671',
   },
   pagerContent: {
     alignItems: 'stretch',
+  },
+  pager: {
+    flex: 1,
   },
   stepPage: {
     justifyContent: 'center',
@@ -1079,19 +1246,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarWrap: {
-    width: 184,
-    height: 184,
+    width: 142,
+    height: 142,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
   },
   avatarWrapCompact: {
-    width: 150,
-    height: 150,
+    width: 124,
+    height: 124,
   },
   avatarWrapVeryCompact: {
-    width: 132,
-    height: 132,
+    width: 108,
+    height: 108,
   },
   welcomeAvatar: {
     width: '100%',
@@ -1281,26 +1447,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  confirmationBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FCFF',
+  confirmationImage: {
+    width: 156,
+    height: 156,
   },
-  confirmationIcon: {
-    width: 34,
-    height: 34,
+  confirmationImageCompact: {
+    width: 128,
+    height: 128,
   },
-  confirmationCta: {
+  confirmationMessage: {
+    maxWidth: 330,
     textAlign: 'center',
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: 16,
+    lineHeight: 25,
   },
   benefitsStepContent: {
     paddingTop: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
     justifyContent: 'flex-start',
   },
   benefitsScroll: {
@@ -1329,122 +1492,169 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  planCardsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-    alignItems: 'stretch',
-  },
-  planCardFree: {
-    flex: 1,
-    borderWidth: 2,
+  planCard: {
+    width: '100%',
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
-    borderRadius: 18,
+    borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surface,
-    padding: theme.spacing.md,
   },
-  planCardPaid: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    borderRadius: 18,
-    backgroundColor: theme.colors.accentMuted,
-    padding: theme.spacing.md,
-    ...createNeoShadow({
-      color: theme.colors.shadow,
-      elevation: 3,
-      offset: 3,
-    }),
+  planCardSelected: {
+    boxShadow: '0px 0px 12px #F2CF55',
+    elevation: 4,
   },
-  planCardCompact: {
-    padding: theme.spacing.xs,
+  planCardHeader: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
   },
-  planPillFree: {
-    alignSelf: 'flex-start',
+  planCardHeaderSelected: {
+    backgroundColor: '#BCECFF',
+  },
+  planCardHeaderUnselected: {
+    backgroundColor: '#E4E4E4',
+  },
+  planCardTitleRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  planRadio: {
+    width: 20,
+    height: 20,
+    flexShrink: 0,
+    borderWidth: 1.5,
+    borderColor: '#2563EB',
     borderRadius: 999,
-    backgroundColor: '#EFEFEF',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 5,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  planPillPaid: {
-    alignSelf: 'flex-start',
+  planRadioSelected: {
+    backgroundColor: theme.colors.surface,
+  },
+  planRadioDot: {
+    width: 10,
+    height: 10,
     borderRadius: 999,
-    backgroundColor: theme.colors.accent,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 5,
-  },
-  planPillFreeText: {
-    color: '#6E6E6E',
-    fontWeight: '800',
-  },
-  planPillPaidText: {
-    color: theme.colors.surface,
-    fontWeight: '800',
+    backgroundColor: '#2563EB',
   },
   planTitle: {
-    marginTop: theme.spacing.sm,
     fontWeight: '800',
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 23,
   },
   planTitleCompact: {
     fontSize: 15,
-    lineHeight: 18,
+    lineHeight: 20,
   },
-  planFeatureList: {
-    marginTop: theme.spacing.md,
+  planPriceRow: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  planPriceFrom: {
+    color: '#707780',
+    fontSize: 9,
+    lineHeight: 13,
+    letterSpacing: 0.5,
+  },
+  planPriceAmount: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.bold,
+  },
+  planPricePeriod: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  planCardBody: {
+    position: 'relative',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+  },
+  paidPlanCardBody: {
+    minHeight: 158,
   },
   planFeatureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
-  freeCheckCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#D9D9D9',
-    marginTop: 2,
-  },
-  paidCheckCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#7DBE45',
-    marginTop: 2,
+  planFeatureRowWithImage: {
+    paddingRight: 58,
   },
   freeCheckMark: {
-    color: theme.colors.surface,
-    fontSize: 11,
-    lineHeight: 11,
-    fontWeight: '800',
+    width: 18,
+    color: '#C8C8C8',
+    fontSize: 20,
+    lineHeight: 20,
   },
   paidCheckMark: {
-    color: theme.colors.surface,
-    fontSize: 11,
-    lineHeight: 11,
-    fontWeight: '800',
+    width: 18,
+    color: '#A9E64D',
+    fontSize: 20,
+    lineHeight: 20,
   },
   planFeatureText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 17,
   },
   planFeatureTextCompact: {
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 16,
   },
   planFeatureTextVeryCompact: {
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 15,
   },
+  featureEmoji: {
+    flexShrink: 0,
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  newFeatureText: {
+    flex: 0,
+    flexShrink: 1,
+  },
+  featureEmojiCompact: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  featureEmojiVeryCompact: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  newFeatureRow: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+  },
+  pailinPlanImage: {
+    position: 'absolute',
+    right: 4,
+    bottom: 0,
+    width: 74,
+    height: 104,
+    transform: [{ scaleX: -1 }],
+  },
   benefitsActions: {
+    width: '100%',
     alignItems: 'center',
     gap: theme.spacing.sm,
     marginTop: theme.spacing.xs,
+    paddingHorizontal: 4,
   },
   upgradeButton: {
     minHeight: 46,
@@ -1452,7 +1662,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#2563EB',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1466,17 +1676,6 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     color: theme.colors.surface,
     fontWeight: '800',
-  },
-  upgradeButtonIcon: {
-    width: 16,
-    height: 16,
-    tintColor: theme.colors.surface,
-  },
-  continueFreeText: {
-    color: '#7A7A7A',
-    textDecorationLine: 'underline',
-    fontSize: 12,
-    lineHeight: 16,
   },
   keyboardAccessoryBar: {
     flexDirection: 'row',
@@ -1507,26 +1706,34 @@ const styles = StyleSheet.create({
     marginTop: -10,
   },
   shellFooter: {
-    marginTop: theme.spacing.xs,
+    marginTop: 'auto',
+    paddingBottom: theme.spacing.xs,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
-  progressRow: {
+  confirmationFooter: {
+    width: '100%',
+    gap: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  confirmationButton: {
+    width: '100%',
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.sm,
-    width: '100%',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#2563EB',
+    boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
   },
-  progressDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    backgroundColor: '#DDDDDD',
-  },
-  progressDotActive: {
-    backgroundColor: theme.colors.text,
+  confirmationButtonText: {
+    color: theme.colors.surface,
+    fontWeight: theme.typography.weights.semibold,
+    textTransform: 'uppercase',
   },
   navigationRow: {
     width: '100%',
@@ -1542,28 +1749,28 @@ const styles = StyleSheet.create({
     width: 110,
   },
   backButton: {
-    minHeight: 40,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   backButtonIcon: {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
   },
   backButtonText: {
     color: theme.colors.text,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: theme.typography.weights.semibold,
     textTransform: 'uppercase',
   },
   nextButton: {
-    minHeight: 40,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-end',
-    gap: 6,
+    gap: 4,
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
@@ -1572,14 +1779,14 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: theme.colors.text,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: theme.typography.weights.semibold,
     textTransform: 'uppercase',
   },
   nextButtonIcon: {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
   },
   errorText: {
     textAlign: 'center',

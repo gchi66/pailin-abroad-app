@@ -61,6 +61,7 @@ export function MoreScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
   const { hasAccount, hasMembership, isGuestMode } = useAppSession();
+  const membershipSource = isGuestMode && !hasAccount ? 'guest' : 'free-account';
 
   const copy =
     uiLanguage === 'th'
@@ -130,7 +131,10 @@ export function MoreScreen() {
                   style={styles.membershipCard}
                   onPress={() => {
                     prefetchPricing();
-                    router.push('/(tabs)/account/membership');
+                    router.push({
+                      pathname: '/membership',
+                      params: { source: membershipSource },
+                    });
                   }}>
                   <View style={styles.actionLeading}>
                     <NeoShadowView style={[styles.iconBadge, styles.membershipIconBadge]}>

@@ -10,6 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Stack } from '@/src/components/ui/Stack';
 import { updateOnboardingProfile } from '@/src/api/onboarding';
+import { prefetchPricing } from '@/src/api/pricing';
 import { fetchUserProfile, updateUserPassword } from '@/src/api/user';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -112,6 +113,9 @@ const getCopy = (uiLanguage: UiLanguage) => {
       signOutSuccess: 'ออกจากระบบแล้ว',
       onboardingPreview: 'เปิดตัวอย่างการเริ่มต้นใช้งาน',
       placementPreview: 'ทำแบบประเมินระดับ',
+      membershipPreviewGuest: 'เปิด Membership แบบ Guest',
+      membershipPreviewFree: 'เปิด Membership แบบ Free Account',
+      membershipPreviewOnboarding: 'เปิด Membership แบบ Onboarding',
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
       avatarLabel: 'PP',
@@ -142,6 +146,9 @@ const getCopy = (uiLanguage: UiLanguage) => {
     signOutSuccess: 'Signed out successfully.',
     onboardingPreview: 'Open onboarding preview',
     placementPreview: 'Take placement test',
+    membershipPreviewGuest: 'Open membership page / guest mode',
+    membershipPreviewFree: 'Open membership page / free account',
+    membershipPreviewOnboarding: 'Open membership page / onboarding',
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
     avatarLabel: 'PP',
@@ -436,6 +443,9 @@ export function ProfileScreen() {
             {profile?.is_admin === true ? <Stack gap="sm" style={styles.adminLinks}>
               <Button title={copy.onboardingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/onboarding?devtools=1')} />
               <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
+              <Button title={copy.membershipPreviewGuest} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=guest'); }} />
+              <Button title={copy.membershipPreviewFree} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=free-account'); }} />
+              <Button title={copy.membershipPreviewOnboarding} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=onboarding'); }} />
               <Button title={copy.speakingCoachPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/speaking-coach?lesson=4.1')} />
               <Button title={copy.lessonCompletePreview} language={uiLanguage} variant="outline" onPress={() => router.push('/lesson-complete-preview')} />
             </Stack> : null}
