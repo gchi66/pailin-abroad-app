@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
-import { Stack, useRouter } from 'expo-router';
-import React from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -11,36 +11,106 @@ import pailinImage from '@/assets/images/speaking-coach/pailin-lesson-finished.w
 import confettiImage from '@/assets/images/speaking-coach/lesson-complete-confetti.png';
 import { AppText } from '@/src/components/ui/AppText';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 
-const getCopy = (thai: boolean) => thai ? {
-  title: 'เรียนจบบทเรียนแล้ว!',
-  subtitle: 'คุณเรียนจบบทเรียน 5.3 แล้ว!',
-  discussion: 'ร่วมพูดคุย',
-  discussionBody: 'ตอบคำถามประจำบทเรียนหรือถามคำถามของคุณ',
-  viewDiscussion: 'ดูการพูดคุย →',
-  nextLesson: 'ไปบทเรียนถัดไป',
-  close: 'ปิดตัวอย่าง',
-  previewTitle: 'ตัวอย่างหน้าเรียนจบ',
-  previewBody: 'ปุ่มนี้จะแสดงการทำงานเมื่อเชื่อมกับบทเรียนจริง',
-} : {
-  title: 'LESSON COMPLETE!',
-  subtitle: 'You finished Lesson 5.3!',
-  discussion: 'JOIN THE DISCUSSION',
-  discussionBody: 'Answer this lesson’s discussion question or ask a question you have!',
-  viewDiscussion: 'VIEW DISCUSSION →',
-  nextLesson: 'GO TO NEXT LESSON',
-  close: 'Close preview',
-  previewTitle: 'Lesson complete preview',
-  previewBody: 'This action will be available when the page is connected to a real lesson.',
+const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
+
+const getCopy = (thai: boolean, lessonNumber: string) => {
+  const checkpointMatch = lessonNumber.match(/^(\d+)\.chp$/i);
+  const completionName = checkpointMatch
+    ? thai
+      ? `เช็คพอยต์เลเวล ${checkpointMatch[1]}`
+      : `the Level ${checkpointMatch[1]} Checkpoint`
+    : thai
+      ? `บทเรียน ${lessonNumber}`
+      : `Lesson ${lessonNumber}`;
+
+  return thai
+    ? {
+        title: 'เรียนจบบทเรียนแล้ว!',
+        subtitle: `คุณเรียนจบ${completionName}แล้ว!`,
+        discussion: 'ร่วมพูดคุย',
+        discussionBody: 'ตอบคำถามประจำบทเรียนหรือถามคำถามของคุณ',
+        viewDiscussion: 'ดูการพูดคุย →',
+        nextLesson: 'ไปบทเรียนถัดไป',
+        close: 'ปิดตัวอย่าง',
+        previewTitle: 'ตัวอย่างหน้าเรียนจบ',
+        previewBody: 'ปุ่มนี้จะแสดงการทำงานเมื่อเชื่อมกับบทเรียนจริง',
+      }
+    : {
+        title: 'LESSON COMPLETE!',
+        subtitle: `You finished ${completionName}!`,
+        discussion: 'JOIN THE DISCUSSION',
+        discussionBody: 'Answer this lesson’s discussion question or ask a question you have!',
+        viewDiscussion: 'VIEW DISCUSSION →',
+        nextLesson: 'GO TO NEXT LESSON',
+        close: 'Close preview',
+        previewTitle: 'Lesson complete preview',
+        previewBody: 'This action will be available when the page is connected to a real lesson.',
+      };
 };
 
 export function LessonCompletePreviewScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    lesson?: string;
+    lessonId?: string;
+    libraryRoute?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const copy = getCopy(uiLanguage === 'th');
+  const lessonNumber = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '5.3';
+  const lessonId = typeof params.lessonId === 'string' && params.lessonId.trim() ? params.lessonId : null;
+  const libraryRoute = typeof params.libraryRoute === 'string' ? params.libraryRoute : null;
+  const [isNavigating, setIsNavigating] = useState(false);
+  const copy = getCopy(uiLanguage === 'th', lessonNumber);
   const showPreviewNotice = () => Alert.alert(copy.previewTitle, copy.previewBody);
+  const closeCompletion = () => {
+    router.back();
+  };
+  const openDiscussion = () => {
+    if (!lessonId) {
+      showPreviewNotice();
+      return;
+    }
+    router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } });
+  };
+  const openNextLesson = async () => {
+    if (!lessonId) {
+      showPreviewNotice();
+      return;
+    }
+
+    setIsNavigating(true);
+    try {
+      const lessons = [...await getLessonsIndex()].sort((left, right) => {
+        const leftStage = LESSON_STAGE_ORDER.indexOf((left.stage ?? '') as (typeof LESSON_STAGE_ORDER)[number]);
+        const rightStage = LESSON_STAGE_ORDER.indexOf((right.stage ?? '') as (typeof LESSON_STAGE_ORDER)[number]);
+        const stageDelta = (leftStage < 0 ? Number.MAX_SAFE_INTEGER : leftStage) -
+          (rightStage < 0 ? Number.MAX_SAFE_INTEGER : rightStage);
+        if (stageDelta !== 0) return stageDelta;
+        const levelDelta = (left.level ?? Number.MAX_SAFE_INTEGER) - (right.level ?? Number.MAX_SAFE_INTEGER);
+        if (levelDelta !== 0) return levelDelta;
+        return (left.lesson_order ?? Number.MAX_SAFE_INTEGER) - (right.lesson_order ?? Number.MAX_SAFE_INTEGER);
+      });
+      const currentIndex = lessons.findIndex((lesson) => lesson.id === lessonId);
+      const nextLesson = currentIndex >= 0 ? lessons[currentIndex + 1] : null;
+      if (!nextLesson?.id) {
+        Alert.alert(copy.title, uiLanguage === 'th' ? 'ไม่มีบทเรียนถัดไป' : 'There is no next lesson yet.');
+        return;
+      }
+      prefetchResolvedLesson(nextLesson.id, uiLanguage);
+      router.replace({
+        pathname: '/lessons/[id]',
+        params: { id: nextLesson.id, ...(libraryRoute ? { libraryRoute } : {}) },
+      });
+    } catch {
+      Alert.alert(copy.title, uiLanguage === 'th' ? 'ไม่สามารถเปิดบทเรียนถัดไปได้' : 'Could not open the next lesson.');
+    } finally {
+      setIsNavigating(false);
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -66,7 +136,7 @@ export function LessonCompletePreviewScreen() {
             accessibilityRole="button"
             accessibilityLabel={copy.close}
             hitSlop={12}
-            onPress={() => router.back()}
+            onPress={closeCompletion}
             style={styles.closeButton}>
             <MaterialIcons name="close" size={22} color="#232629" />
           </Pressable>
@@ -75,7 +145,7 @@ export function LessonCompletePreviewScreen() {
           <AppText language={uiLanguage} style={styles.title}>{copy.title}</AppText>
           <AppText language={uiLanguage} style={styles.subtitle}>{copy.subtitle}</AppText>
 
-          <Pressable accessibilityRole="button" onPress={showPreviewNotice} style={styles.discussionCard}>
+          <Pressable accessibilityRole="button" onPress={openDiscussion} style={styles.discussionCard}>
             <View style={styles.discussionHeading}>
               <MaterialIcons name="question-answer" size={18} color="#232629" />
               <AppText language={uiLanguage} style={styles.discussionTitle}>{copy.discussion}</AppText>
@@ -84,7 +154,7 @@ export function LessonCompletePreviewScreen() {
             <AppText language={uiLanguage} style={styles.discussionLink}>{copy.viewDiscussion}</AppText>
           </Pressable>
 
-          <Pressable accessibilityRole="button" onPress={showPreviewNotice} style={styles.nextButton}>
+          <Pressable accessibilityRole="button" disabled={isNavigating} onPress={() => void openNextLesson()} style={[styles.nextButton, isNavigating ? styles.disabled : null]}>
             <AppText language={uiLanguage} style={styles.nextButtonText}>{copy.nextLesson}</AppText>
           </Pressable>
         </View>
@@ -148,4 +218,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 3, height: 4 }, shadowRadius: 0, elevation: 4,
   },
   nextButtonText: { color: '#FFFFFF', fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  disabled: { opacity: 0.55 },
 });

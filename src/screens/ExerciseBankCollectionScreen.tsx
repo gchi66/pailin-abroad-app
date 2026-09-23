@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -239,46 +240,53 @@ export function ExerciseBankCollectionScreen() {
 
             {!errorMessage && visibleTopics.length > 0 ? (
               <Stack gap="md" style={styles.topicList}>
-                {visibleTopics.map((topic) => (
-                  <Pressable
-                    key={String(topic.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${topic.display_title}, ${topic.topic}`}
-                    style={styles.topicCardWrap}
-                    onPress={() => handleTopicPress(topic)}>
-                    <AndroidNeoShadowLayer
-                      borderRadius={TOPIC_CARD_RADIUS}
-                      color={theme.colors.shadow}
-                      offset={2}
-                    />
-                    <View style={styles.topicCard}>
-                      <View style={styles.topicCopy}>
-                        <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
-                          {topic.display_title}
-                        </AppText>
-                        <AppText language={uiLanguage} variant="muted" style={styles.topicTechnicalTitle}>
-                          {topic.topic}
-                        </AppText>
-                      </View>
-                      {topic.progress ? (
-                        <View style={styles.progressBlock}>
-                          {topic.progress.is_completed ? (
-                            <AppText language="en" variant="caption" style={styles.completedIcon}>✓</AppText>
-                          ) : (
-                            <AppText language={uiLanguage} variant="caption" style={styles.progressCopy}>
-                              {`${topic.progress.completed_sets}/${topic.progress.total_sets} ${copy.complete}`}
-                            </AppText>
-                          )}
-                          {topic.progress.has_new_content ? (
-                            <AppText language={uiLanguage} variant="caption" style={styles.newContentBadge}>
-                              {copy.newContent}
-                            </AppText>
-                          ) : null}
+                {visibleTopics.map((topic) => {
+                  const isLocked = !hasMembership && !topic.is_featured;
+                  return (
+                    <Pressable
+                      key={String(topic.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${topic.display_title}, ${topic.topic}${isLocked ? (uiLanguage === 'th' ? ', ล็อกอยู่' : ', locked') : ''}`}
+                      style={styles.topicCardWrap}
+                      onPress={() => handleTopicPress(topic)}>
+                      <AndroidNeoShadowLayer
+                        borderRadius={TOPIC_CARD_RADIUS}
+                        color={theme.colors.shadow}
+                        offset={2}
+                      />
+                      <View style={[styles.topicCard, isLocked ? styles.topicCardLocked : null]}>
+                        <View style={styles.topicCopy}>
+                          <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
+                            {topic.display_title}
+                          </AppText>
+                          <AppText language={uiLanguage} variant="muted" style={styles.topicTechnicalTitle}>
+                            {topic.topic}
+                          </AppText>
                         </View>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ))}
+                        {isLocked ? (
+                          <View style={styles.lockBlock}>
+                            <MaterialIcons name="lock-outline" size={19} color="#777777" />
+                          </View>
+                        ) : topic.progress ? (
+                          <View style={styles.progressBlock}>
+                            {topic.progress.is_completed ? (
+                              <AppText language="en" variant="caption" style={styles.completedIcon}>✓</AppText>
+                            ) : (
+                              <AppText language={uiLanguage} variant="caption" style={styles.progressCopy}>
+                                {`${topic.progress.completed_sets}/${topic.progress.total_sets} ${copy.complete}`}
+                              </AppText>
+                            )}
+                            {topic.progress.has_new_content ? (
+                              <AppText language={uiLanguage} variant="caption" style={styles.newContentBadge}>
+                                {copy.newContent}
+                              </AppText>
+                            ) : null}
+                          </View>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </Stack>
             ) : null}
           </View>
@@ -371,6 +379,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: theme.spacing.sm,
   },
+  topicCardLocked: {
+    backgroundColor: '#EAEAEA',
+  },
   topicCopy: { flex: 1, minWidth: 0, gap: 2 },
   topicDisplayTitle: {
     color: theme.colors.text,
@@ -386,6 +397,11 @@ const styles = StyleSheet.create({
   progressBlock: {
     alignItems: 'flex-end',
     gap: 2,
+  },
+  lockBlock: {
+    minWidth: 72,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   completedIcon: { color: '#2F80D5', fontSize: 19, fontWeight: theme.typography.weights.bold },
   progressCopyRow: {

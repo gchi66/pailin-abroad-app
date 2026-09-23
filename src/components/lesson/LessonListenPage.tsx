@@ -34,6 +34,12 @@ const formatTime = (millis: number) => {
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
 };
 
+const formatSpeakerNames = (speakers: { name: string }[]) => {
+  const names = speakers.map((speaker) => speaker.name);
+  if (names.length < 3) return names.join(' & ');
+  return `${names.slice(0, -1).join(', ')}, & ${names.at(-1)}`;
+};
+
 export function LessonListenPage({
   language,
   title,
@@ -70,14 +76,20 @@ export function LessonListenPage({
         {speakers.length ? (
           <View style={styles.avatars}>
             {speakers.map((speaker, index) => (
-              <View key={`${speaker.name}-${index}`} style={[styles.avatar, index > 0 ? styles.avatarBack : styles.avatarFront]}>
+              <View
+                key={`${speaker.name}-${index}`}
+                style={[
+                  styles.avatar,
+                  index > 0 ? styles.avatarBack : null,
+                  { zIndex: speakers.length - index },
+                ]}>
                 <Image source={speaker.image} contentFit="contain" style={styles.avatarImage} />
               </View>
             ))}
           </View>
         ) : null}
         <AppText language={language} style={styles.peopleLabel}>
-          {speakers.length ? speakers.map((speaker) => speaker.name).join(' & ') : language === 'th' ? 'บทสนทนา' : 'Conversation'}
+          {speakers.length ? formatSpeakerNames(speakers) : language === 'th' ? 'บทสนทนา' : 'Conversation'}
         </AppText>
       </View>
 
@@ -215,10 +227,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  avatarFront: { zIndex: 2 },
   avatarBack: { marginLeft: -7 },
   avatarImage: { width: '100%', height: '100%' },
-  peopleLabel: { color: '#2864F0', fontSize: 13, lineHeight: 18 },
+  peopleLabel: { flexShrink: 1, color: '#2864F0', fontSize: 13, lineHeight: 18 },
   copyBlock: { gap: 3 },
   title: {
     color: '#000000',

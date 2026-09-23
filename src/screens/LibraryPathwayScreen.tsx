@@ -167,26 +167,34 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
   };
 
   if (loading) return <PageLoadingState language={language} />;
-  const title = freeOnly ? (th ? 'คลังบทเรียนฟรี' : 'Free lesson library') : (th ? 'คลังบทเรียน' : 'Lesson Library');
+  const title = freeOnly ? (th ? 'คลังบทเรียนฟรี' : 'Free Lesson Library') : (th ? 'คลังบทเรียน' : 'Lesson Library');
   return (
     <ScrollView ref={scrollRef} style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
       onScroll={({ nativeEvent }) => { scrollY.current = nativeEvent.contentOffset.y; }} scrollEventThrottle={32}>
       <ResponsivePageShell>
-        <View style={styles.header}>
-          <Pressable disabled={hasMembership} onPress={() => setLibraryMenu((value) => !value)} accessibilityRole={hasMembership ? 'header' : 'button'} accessibilityState={!hasMembership ? { expanded: libraryMenu } : undefined} style={styles.headerTitleTouch}>
-            <AppText language={language} variant="title" style={[styles.headerTitle, { fontFamily: theme.typography.fontFaces[language].bold }]}>{title}{!hasMembership ? ' ▾' : ''}</AppText>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? (th ? 'ปิดการค้นหา' : 'Close search') : (th ? 'ค้นหาบทเรียน' : 'Search lessons')}
-            style={styles.searchButton} onPress={() => {
-              if (searchOpen) closeSearch();
-              else { beforeSearchY.current = scrollY.current; setSearchOpen(true); }
-            }}><MaterialIcons name={searchOpen ? 'close' : 'search'} size={25} color={theme.colors.text} /></Pressable>
+        <View style={styles.headerArea}>
+          <View style={styles.header}>
+            <Pressable disabled={hasMembership} onPress={() => setLibraryMenu((value) => !value)} accessibilityRole={hasMembership ? 'header' : 'button'} accessibilityState={!hasMembership ? { expanded: libraryMenu } : undefined} style={styles.headerTitleTouch}>
+              <AppText language={language} variant="title" style={[styles.headerTitle, { fontFamily: theme.typography.fontFaces[language].bold }]}>{title}</AppText>
+              {!hasMembership ? <MaterialIcons name="arrow-drop-down" size={25} color={theme.colors.text} /> : null}
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? (th ? 'ปิดการค้นหา' : 'Close search') : (th ? 'ค้นหาบทเรียน' : 'Search lessons')}
+              style={styles.searchButton} onPress={() => {
+                setLibraryMenu(false);
+                if (searchOpen) closeSearch();
+                else { beforeSearchY.current = scrollY.current; setSearchOpen(true); }
+              }}><MaterialIcons name={searchOpen ? 'close' : 'search'} size={25} color={theme.colors.text} /></Pressable>
+          </View>
+          {libraryMenu ? <View style={styles.libraryMenuShadow}><View style={styles.libraryMenu}>{[false, true].map((free) => {
+            const active = free === freeOnly;
+            return (
+              <Pressable key={String(free)} accessibilityRole="button" accessibilityState={{ selected: active }} style={styles.menuChoice} onPress={() => { setLibraryMenu(false); router.replace(free ? '/(tabs)/lessons/free-library' : '/(tabs)/lessons/library'); }}>
+                <AppText language={language} style={[styles.menuChoiceText, active ? styles.activeMenuChoiceText : null]}>{free ? (th ? 'คลังบทเรียนฟรี' : 'Free Lesson Library') : (th ? 'คลังบทเรียน' : 'Lesson Library')}</AppText>
+                {active ? <View style={styles.activeMenuDot} /> : null}
+              </Pressable>
+            );
+          })}</View></View> : null}
         </View>
-        {libraryMenu ? <View style={styles.libraryMenu}>{[false, true].map((free) => (
-          <Pressable key={String(free)} style={styles.menuChoice} onPress={() => { setLibraryMenu(false); router.replace(free ? '/(tabs)/lessons/free-library' : '/(tabs)/lessons/library'); }}>
-            <AppText language={language}>{free ? (th ? 'คลังบทเรียนฟรี' : 'Free lesson library') : (th ? 'คลังบทเรียนทั้งหมด' : 'Full lesson library')}</AppText>
-          </Pressable>
-        ))}</View> : null}
         {searchOpen ? (
           <ScriptAwareTextInput ref={searchRef} autoFocus value={query} onChangeText={setQuery} style={styles.searchInput}
             accessibilityLabel={th ? 'ค้นหาบทเรียนภาษาไทยหรืออังกฤษ' : 'Search lessons in English or Thai'}
@@ -200,9 +208,9 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             stages={stages}
             level={level}
             levels={levels}
-            stageOpen={stageOpen}
+            stageOpen={freeOnly ? undefined : stageOpen}
             freeOnly={freeOnly}
-            onToggleStage={() => setStageOpen((value) => !value)}
+            onToggleStage={freeOnly ? undefined : () => setStageOpen((value) => !value)}
             onSelectStage={chooseStage}
             onSelectLevel={(value) => { setLevel(value); setStoryOpen(false); setSelectedId(null); }}
           />
@@ -285,10 +293,16 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F7FAFD' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
+  headerArea: { position: 'relative', zIndex: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
-  headerTitleTouch: { flex: 1 }, headerTitle: { fontSize: 20, lineHeight: 28 }, searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitleTouch: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center' }, headerTitle: { fontSize: 20, lineHeight: 28 }, searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   searchInput: { borderWidth: 1, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 14, color: '#222222' },
-  libraryMenu: { borderWidth: 1, borderColor: '#DDDDDD', borderRadius: 8, backgroundColor: '#FFFFFF', marginBottom: 12 }, menuChoice: { padding: 12 },
+  libraryMenuShadow: { position: 'absolute', top: 46, left: 4, width: 294, maxWidth: '100%', borderRadius: 5, backgroundColor: '#222222', zIndex: 30, elevation: 12 },
+  libraryMenu: { borderWidth: 1, borderColor: '#222222', borderRadius: 5, backgroundColor: '#FFFFFF', paddingVertical: 7, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  menuChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, gap: 9 },
+  menuChoiceText: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.semibold },
+  activeMenuChoiceText: { fontWeight: theme.typography.weights.bold },
+  activeMenuDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#A7E464' },
   storyShadow: { backgroundColor: '#222222', borderRadius: 10, marginHorizontal: 20, marginBottom: 22 }, story: { backgroundColor: '#FFFCE5', borderWidth: 1, borderColor: '#222222', borderRadius: 10, transform: [{ translateX: -2 }, { translateY: -2 }] },
   storyHeader: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 }, storyLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 0.65 }, storyBody: { fontSize: 13, lineHeight: 20, paddingHorizontal: 12, paddingBottom: 12 },
   lessonList: { marginHorizontal: 20 }, lessonRow: { paddingBottom: 22, position: 'relative' },

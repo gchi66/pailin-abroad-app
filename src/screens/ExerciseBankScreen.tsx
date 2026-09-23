@@ -7,13 +7,14 @@ import pailinImage from '@/assets/images/speaking-coach/pailin-time-to-speak.web
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
 import { prefetchPricing } from '@/src/api/pricing';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
+import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
-import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
+import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { useAppSession } from '@/src/context/app-session-context';
 import { localizeExerciseBankTopic } from '@/src/lib/exercise-bank-localization';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -34,13 +35,10 @@ const getCopy = (language: UiLanguage) =>
   language === 'th'
     ? {
         title: 'คลังแบบฝึกหัด',
-        resources: 'สื่อการเรียน',
         intro: 'เลือกหมวดหมู่เพื่อเริ่มฝึกไวยากรณ์ทีละหัวข้อ',
-        freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
-        freeBody: 'คุณสามารถเข้าถึงหัวข้อแนะนำทั้งหมดได้ อัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
-        noAccountTitle: 'ปลดล็อกคลังแบบฝึกหัด',
-        noAccountBody: 'สร้างบัญชี จากนั้นอัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
-        membershipCta: 'อัปเกรด',
+        unlockTitle: 'ปลดล็อกแบบฝึกหัดทั้งหมด',
+        unlockBody: 'คุณสามารถใช้แบบฝึกหัดแนะนำของเราได้\nอัปเกรดเพื่อปลดล็อกคลังแบบฝึกหัดทั้งหมด!',
+        membershipCta: 'ดูแพ็กเกจ →',
         loadingFallback: 'ไม่สามารถโหลดคลังแบบฝึกหัดได้',
         searchPlaceholder: 'ค้นหาหัวข้อแบบฝึกหัด',
         searchLabel: 'ค้นหาหัวข้อแบบฝึกหัด',
@@ -53,13 +51,10 @@ const getCopy = (language: UiLanguage) =>
       }
     : {
         title: 'Exercise Bank',
-        resources: 'ALL RESOURCES',
         intro: 'Choose a category to get started! You can practise skills by topic.',
-        freeTitle: 'Free plan',
-        freeBody: 'You can access all featured topics. Upgrade to access the full bank.',
-        noAccountTitle: 'Unlock the exercise bank',
-        noAccountBody: 'Create an account, then upgrade for full access.',
-        membershipCta: 'Upgrade',
+        unlockTitle: 'UNLOCK ALL EXERCISES',
+        unlockBody: 'You have access to our featured exercises.\nUpgrade to unlock the full Exercise Bank!',
+        membershipCta: 'VIEW PLANS →',
         loadingFallback: 'Failed to load the exercise bank.',
         searchPlaceholder: 'Search exercise topics',
         searchLabel: 'Search exercise topics',
@@ -74,7 +69,7 @@ const getCopy = (language: UiLanguage) =>
 export function ExerciseBankScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership } = useAppSession();
+  const { hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
   const [topics, setTopics] = useState<ExerciseBankTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,44 +140,31 @@ export function ExerciseBankScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <View style={styles.page}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
-            <AppText language={uiLanguage} variant="caption" style={styles.backText}>‹  {copy.resources}</AppText>
-          </Pressable>
-          <AppText language={uiLanguage} variant="title" style={styles.pageTitle}>{copy.title}</AppText>
-          <View style={styles.introRow}>
-            <AppText language={uiLanguage} variant="caption" style={styles.intro}>{copy.intro}</AppText>
-            <Image source={pailinImage} contentFit="cover" style={styles.pailin} />
-          </View>
+          <ResourcePageHeader
+            language={uiLanguage}
+            title={copy.title}
+            subtitle={copy.intro}
+            onBackPress={() => router.push('/(tabs)/resources')}
+            illustration={<Image source={pailinImage} contentFit="cover" style={styles.pailin} />}
+          />
           <View style={styles.contentWrap}>
             <Stack gap="lg">
 
               {!hasMembership ? (
-                <Card padding="lg" radius="lg" style={styles.noticeCard}>
-                  <View style={styles.noticeRow}>
-                    <View style={styles.noticeCopy}>
-                      <AppText language={uiLanguage} variant="body" style={styles.noticeTitle}>
-                        {hasAccount ? copy.freeTitle : copy.noAccountTitle}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="muted" style={styles.noticeBody}>
-                        {hasAccount ? copy.freeBody : copy.noAccountBody}
-                      </AppText>
-                    </View>
-                    <NeoShadowPressable
-                      accessibilityRole="button"
-                      style={styles.noticeButton}
-                      onPress={() => {
-                        prefetchPricing();
-                        router.push({
-                          pathname: '/(tabs)/account/membership',
-                          params: { returnTo: '/(tabs)/exercises' },
-                        });
-                      }}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
-                        {copy.membershipCta}
-                      </AppText>
-                    </NeoShadowPressable>
-                  </View>
-                </Card>
+                <ResourceUnlockCard
+                  language={uiLanguage}
+                  title={copy.unlockTitle}
+                  body={copy.unlockBody}
+                  italicWord={uiLanguage === 'en' ? 'full' : undefined}
+                  buttonLabel={copy.membershipCta}
+                  onPress={() => {
+                    prefetchPricing();
+                    router.push({
+                      pathname: '/(tabs)/account/membership',
+                      params: { returnTo: '/(tabs)/exercises' },
+                    });
+                  }}
+                />
               ) : null}
 
               {errorMessage ? (
@@ -278,11 +260,6 @@ const styles = StyleSheet.create({
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  backButton: { alignSelf: 'flex-start', paddingVertical: 5 },
-  backText: { fontSize: 10, textDecorationLine: 'underline', letterSpacing: 0.5 },
-  pageTitle: { marginTop: 8, fontSize: 22, lineHeight: 29, fontWeight: theme.typography.weights.bold },
-  introRow: { minHeight: 78, position: 'relative' },
-  intro: { width: '60%', paddingTop: 14, fontSize: 11, lineHeight: 15 },
   pailin: { position: 'absolute', right: 0, bottom: -6, width: 126, height: 98, transform: [{ scaleX: -1 }] },
   contentWrap: { paddingTop: theme.spacing.sm },
   searchShell: {
@@ -323,37 +300,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 25,
     lineHeight: 25,
-  },
-  noticeCard: {
-    backgroundColor: '#FFF4E8',
-  },
-  noticeRow: {
-    gap: theme.spacing.md,
-  },
-  noticeCopy: {
-    gap: theme.spacing.xs,
-  },
-  noticeTitle: {
-    fontWeight: theme.typography.weights.semibold,
-  },
-  noticeBody: {
-    color: theme.colors.mutedText,
-  },
-  noticeButton: {
-    minHeight: 44,
-    width: '100%',
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
-  },
-  noticeButtonText: {
-    color: theme.colors.surface,
-    fontWeight: theme.typography.weights.bold,
   },
   collectionGrid: {
     flexDirection: 'row',

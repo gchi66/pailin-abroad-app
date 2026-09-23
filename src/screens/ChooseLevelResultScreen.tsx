@@ -3,8 +3,9 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import placementTestPailinThumbsUp from '@/assets/images/placement-test-pailin-thumbs-up.webp';
+import pailinThumbsUpHead from '@/assets/images/characters/pailin_thumbs_up_head.webp';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
+import { PlacementLevelTitle } from '@/src/components/placement/PlacementLevelTitle';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -91,14 +92,14 @@ export function ChooseLevelResultScreen() {
           <View style={styles.cardWrap}>
             <View pointerEvents="none" style={styles.cardShadow} />
             <View style={styles.card}>
-              <Image source={placementTestPailinThumbsUp} style={styles.pailinImage} resizeMode="contain" />
+              <Image source={pailinThumbsUpHead} style={styles.pailinImage} resizeMode="contain" />
 
               <AppText language={uiLanguage} variant="muted" style={styles.eyebrow}>
                 {uiLanguage === 'en' ? 'YOUR STARTING POINT' : 'จุดเริ่มต้นของคุณ'}
               </AppText>
-              <AppText language={uiLanguage} variant="title" style={styles.levelTitle}>
+              <PlacementLevelTitle language={uiLanguage}>
                 {uiLanguage === 'en' ? `Level ${level}` : `ระดับ ${level}`}
-              </AppText>
+              </PlacementLevelTitle>
               <AppText language={uiLanguage} variant="body" style={styles.levelSubtitle}>
                 {uiLanguage === 'en'
                   ? level <= 4 ? 'BEGINNER' : level <= 8 ? 'INTERMEDIATE' : 'ADVANCED'
@@ -181,6 +182,7 @@ const styles = StyleSheet.create({
   pailinImage: {
     width: 112,
     height: 112,
+    transform: [{ scaleX: -1 }],
   },
   eyebrow: {
     marginTop: 8,
@@ -189,17 +191,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     letterSpacing: 1.1,
     textAlign: 'center',
-  },
-  levelTitle: {
-    marginTop: 2,
-    color: placementColors.level,
-    fontSize: 40,
-    lineHeight: 50,
-    fontWeight: theme.typography.weights.bold,
-    textAlign: 'center',
-    textShadowColor: theme.colors.shadow,
-    textShadowOffset: { width: 2, height: 3 },
-    textShadowRadius: 0,
   },
   levelSubtitle: {
     color: placementColors.level,

@@ -65,14 +65,12 @@ const THB_FALLBACKS = {
   lifetime: 4999,
   monthly: 450,
   threeMonthMonthly: 350,
-  threeMonthOriginalMonthly: 450,
 };
 
 const USD_FALLBACKS = {
   lifetime: 149,
   monthly: 14.99,
   threeMonthMonthly: 11.99,
-  threeMonthOriginalMonthly: 14.99,
 };
 
 const normalizeSource = (value: string | string[] | undefined, fallback: MembershipSource): MembershipSource => {
@@ -132,7 +130,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
         'Access to featured topics in Topic Library',
       ],
       lifetimeSummary: 'No renewals - Full access for life!',
-      threeMonthSavings: "You're saving ฿300 total with this plan!",
+      threeMonthSavings: (amount: string) => `You're saving ${amount} total with this plan!`,
     };
   }
 
@@ -180,7 +178,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       'Access to featured topics in Topic Library',
     ],
     lifetimeSummary: 'No renewals - Full access for life!',
-    threeMonthSavings: "You're saving ฿300 total with this plan!",
+    threeMonthSavings: (amount: string) => `You're saving ${amount} total with this plan!`,
   };
 };
 
@@ -240,8 +238,15 @@ const buildPaidPlans = (
     threeMonthPackage?.product.price ??
     Number(threeMonthPricing?.amount_total ?? (threeMonthPricing?.amount_per_month ? Number(threeMonthPricing.amount_per_month) * 3 : fallbacks.threeMonthMonthly * 3));
   const threeMonthMonthly = threeMonthTotal / 3;
-  const threeMonthOriginalMonthly = fallbacks.threeMonthOriginalMonthly;
-  const threeMonthOriginalTotal = threeMonthOriginalMonthly * 3;
+  const canCompareRecurringPrices = monthlyCurrency === threeMonthCurrency;
+  const comparisonTotal = canCompareRecurringPrices ? monthlyTotal * 3 : null;
+  const threeMonthSavingsAmount = comparisonTotal === null ? null : comparisonTotal - threeMonthTotal;
+  const hasThreeMonthSavings = threeMonthSavingsAmount !== null && threeMonthSavingsAmount > 0;
+  const threeMonthOriginalMonthly = hasThreeMonthSavings ? monthlyTotal : null;
+  const threeMonthOriginalTotal = hasThreeMonthSavings ? comparisonTotal : null;
+  const threeMonthSavingsSummary = threeMonthSavingsAmount !== null && threeMonthSavingsAmount > 0
+    ? copy.threeMonthSavings(buildPriceWithSymbol(threeMonthCurrency, threeMonthSavingsAmount))
+    : null;
 
   return {
     lifetime: {
@@ -275,7 +280,7 @@ const buildPaidPlans = (
       originalMonthlyPrice: threeMonthOriginalMonthly,
       billingCurrency: threeMonthCurrency,
       periodLabel: copy.monthLabel,
-      savingsSummary: copy.threeMonthSavings,
+      savingsSummary: threeMonthSavingsSummary,
     },
   };
 };
@@ -392,6 +397,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [purchaseInProgress, setPurchaseInProgress] = useState(false);
   const [restoreInProgress, setRestoreInProgress] = useState(false);
+  const [stickyFooterHeight, setStickyFooterHeight] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -594,7 +600,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     : null;
   const renderSummary = () =>
     selectedOption !== 'free' && selectedPaidPlan ? (
-      <View style={[styles.summaryBlock, showFreeAccountOption ? styles.stickySummaryBlock : null]}>
+      <View style={[styles.summaryBlock, styles.stickySummaryBlock]}>
         {summaryOriginalPrice ? (
           <AppText language={uiLanguage} variant="caption" style={styles.summaryOriginalPrice}>
             {summaryOriginalPrice}
@@ -641,7 +647,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
           styles.contentContainer,
           {
             paddingTop: showCloseButton ? 18 : 44,
-            paddingBottom: showFreeAccountOption ? Math.max(insets.bottom, 16) + 170 : Math.max(insets.bottom, 16) + 28,
+            paddingBottom: Math.max(stickyFooterHeight, 170) + 24,
           },
         ]}>
         <ResponsivePageShell>
@@ -687,7 +693,10 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
                   styles.toggleOption,
                   recurringPeriod === 'monthly' ? [styles.toggleOptionSelected, styles.toggleOptionSelectedMonthly] : null,
                 ]}>
-                <AppText language={uiLanguage} variant="caption" style={styles.toggleText}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[styles.toggleText, recurringPeriod === 'monthly' ? styles.toggleTextSelected : null]}>
                   {copy.monthlyToggle}
                 </AppText>
               </Pressable>
@@ -699,7 +708,10 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
                   styles.toggleOption,
                   recurringPeriod === '3-month' ? [styles.toggleOptionSelected, styles.toggleOptionSelectedThreeMonth] : null,
                 ]}>
-                <AppText language={uiLanguage} variant="caption" style={styles.toggleText}>
+                <AppText
+                  language={uiLanguage}
+                  variant="caption"
+                  style={[styles.toggleText, recurringPeriod === '3-month' ? styles.toggleTextSelected : null]}>
                   {copy.threeMonthToggle}
                 </AppText>
               </Pressable>
@@ -739,24 +751,19 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
                 {copy.guaranteeLineTwo}
               </AppText>
             </View>
-
-            {!showFreeAccountOption ? (
-              <>
-                {renderSummary()}
-                {renderPrimaryCta()}
-                {renderRestorePurchases()}
-              </>
-            ) : null}
           </Stack>
         </ResponsivePageShell>
       </ScrollView>
-      {showFreeAccountOption ? (
-        <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          {renderSummary()}
-          {renderPrimaryCta()}
-          {renderRestorePurchases()}
-        </View>
-      ) : null}
+      <View
+        onLayout={(event) => {
+          const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+          setStickyFooterHeight((currentHeight) => currentHeight === nextHeight ? currentHeight : nextHeight);
+        }}
+        style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {renderSummary()}
+        {renderPrimaryCta()}
+        {renderRestorePurchases()}
+      </View>
     </View>
   );
 }
@@ -930,20 +937,24 @@ const styles = StyleSheet.create({
   },
   toggleOptionSelected: {
     backgroundColor: '#FFFCEB',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: 999,
+    marginVertical: -1,
   },
   toggleOptionSelectedMonthly: {
-    borderRightWidth: 1,
-    borderRightColor: theme.colors.border,
+    marginLeft: -1,
   },
   toggleOptionSelectedThreeMonth: {
-    borderLeftWidth: 1,
-    borderLeftColor: theme.colors.border,
+    marginRight: -1,
   },
   toggleText: {
     color: theme.colors.text,
     fontSize: 12,
     lineHeight: 16,
+    fontWeight: theme.typography.weights.regular,
+  },
+  toggleTextSelected: {
     fontWeight: theme.typography.weights.bold,
   },
   guaranteeBlock: {

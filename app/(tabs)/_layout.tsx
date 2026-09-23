@@ -39,7 +39,11 @@ export default function TabLayout() {
   const text = labels[uiLanguage];
   const isExerciseSet = pathname.startsWith('/exercises/topic/')
     || pathname.startsWith('/resources/exercise-bank/topic/');
-  const shouldShowTabBar = (isLoading || hasAccount || isGuestMode) && !isExerciseSet;
+  // Placement results open the free library directly. Keep that destination in
+  // the app shell even if the persisted guest session has not hydrated yet (or
+  // was lost), so it still receives the top safe area and bottom navigation.
+  const isFreeLessonLibrary = pathname === '/lessons/free-library';
+  const shouldShowTabBar = (isLoading || hasAccount || isGuestMode || isFreeLessonLibrary) && !isExerciseSet;
 
   const tabsScreenOptions = useMemo(
     () => ({

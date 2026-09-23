@@ -41,16 +41,22 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         enabled: true,
       },
       {
+        id: 'pronunciation',
+        title: 'Speaking Coach',
+        description: 'Practise your English speaking with our AI coach!',
+        enabled: true,
+      },
+      {
         id: 'topic-library',
         title: 'Topic Library',
         description: 'In-depth explanations of a range of ESL topics',
         enabled: true,
       },
       {
-        id: 'pronunciation',
-        title: 'Speaking Coach',
-        description: 'Practise your English speaking with our AI coach!',
-        enabled: true,
+        id: 'conversations',
+        title: 'Conversations',
+        description: 'Listen to only the conversations from beginning to end',
+        enabled: false,
       },
       {
         id: 'common-mistakes',
@@ -62,12 +68,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         id: 'phrases-verbs',
         title: 'Phrases & Verbs',
         description: 'In-depth explanations of a range of ESL topics',
-        enabled: false,
-      },
-      {
-        id: 'conversations',
-        title: 'Conversations',
-        description: 'Listen to only the conversations from beginning to end',
         enabled: false,
       },
       {
@@ -90,16 +90,22 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         enabled: true,
       },
       {
+        id: 'pronunciation',
+        title: 'โค้ชฝึกพูด',
+        description: 'ฝึกพูดภาษาอังกฤษกับโค้ช AI ของเรา',
+        enabled: true,
+      },
+      {
         id: 'topic-library',
         title: 'คลังหัวข้อการเรียนรู้',
         description: 'คำอธิบายเชิงลึกเกี่ยวกับหัวข้อภาษาอังกฤษหลากหลายเรื่อง',
         enabled: true,
       },
       {
-        id: 'pronunciation',
-        title: 'โค้ชฝึกพูด',
-        description: 'ฝึกพูดภาษาอังกฤษกับโค้ช AI ของเรา',
-        enabled: true,
+        id: 'conversations',
+        title: 'บทสนทนา',
+        description: 'ฟังบทสนทนาจากต้นจนจบ',
+        enabled: false,
       },
       {
         id: 'common-mistakes',
@@ -111,12 +117,6 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         id: 'phrases-verbs',
         title: 'วลีและคำกริยา',
         description: 'คำอธิบายเชิงลึกเกี่ยวกับวลีและคำกริยาในภาษาอังกฤษ',
-        enabled: false,
-      },
-      {
-        id: 'conversations',
-        title: 'บทสนทนา',
-        description: 'ฟังบทสนทนาจากต้นจนจบ',
         enabled: false,
       },
       {
@@ -140,8 +140,8 @@ export function ResourcesScreen() {
   const handleCardPress = (card: ResourceCardCopy) => {
     if (card.id === 'exercise-bank') {
       router.push(returnTo
-        ? `/(tabs)/exercises?returnTo=${encodeURIComponent(returnTo)}`
-        : '/(tabs)/exercises');
+        ? `/(tabs)/resources/exercise-bank?returnTo=${encodeURIComponent(returnTo)}`
+        : '/(tabs)/resources/exercise-bank');
     } else if (card.id === 'topic-library') {
       router.push(returnTo
         ? `/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(returnTo)}`

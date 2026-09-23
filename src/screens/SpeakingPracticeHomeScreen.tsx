@@ -9,6 +9,7 @@ import { getLessonsIndex } from '@/src/api/lessons';
 import { fetchAvailableSpeakingCoachLessons } from '@/src/api/speaking-coach';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { LibraryStageLevelSelector } from '@/src/components/lesson/LibraryStageLevelSelector';
+import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -91,20 +92,15 @@ export function SpeakingPracticeHomeScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <ResponsivePageShell>
         <View style={styles.page}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
-            <AppText variant="caption" style={styles.backText}>‹  {uiLanguage === 'th' ? 'สื่อการเรียน' : 'ALL RESOURCES'}</AppText>
-          </Pressable>
-          <View style={styles.titleRow}>
-            <AppText variant="title" style={styles.title}>{uiLanguage === 'th' ? 'ฝึกพูด' : 'Speaking Practice'}</AppText>
-          </View>
-          <View style={styles.introRow}>
-            <AppText variant="caption" style={styles.intro}>
-              {uiLanguage === 'th'
-                ? 'ฝึกการออกเสียงและการพูด Pailin จะให้คำแนะนำที่เป็นประโยชน์!'
-                : 'Work on your pronunciation and speaking. Our AI checker will give you valuable feedback!'}
-            </AppText>
-            <Image source={pailinImage} contentFit="cover" style={styles.pailin} />
-          </View>
+          <ResourcePageHeader
+            language={uiLanguage}
+            title={uiLanguage === 'th' ? 'ฝึกพูด' : 'Speaking Practice'}
+            subtitle={uiLanguage === 'th'
+              ? 'ฝึกการออกเสียงและการพูด Pailin จะให้คำแนะนำที่เป็นประโยชน์!'
+              : 'Work on your pronunciation and speaking. Our AI checker will give you valuable feedback!'}
+            onBackPress={() => router.push('/(tabs)/resources')}
+            illustration={<Image source={pailinImage} contentFit="cover" style={styles.pailin} />}
+          />
 
           {loading ? <ActivityIndicator style={styles.loading} color={theme.colors.accent} /> : null}
           {error ? <AppText variant="body" style={styles.error}>{error}</AppText> : null}
@@ -159,12 +155,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8FBFF' },
   content: { paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  backButton: { alignSelf: 'flex-start', paddingVertical: 5 },
-  backText: { fontSize: 10, fontWeight: theme.typography.weights.regular, textDecorationLine: 'underline', letterSpacing: 0.5 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  title: { fontSize: 22, lineHeight: 29, fontWeight: '700' },
-  introRow: { minHeight: 78, position: 'relative' },
-  intro: { width: '60%', paddingTop: 14, fontSize: 11, lineHeight: 15, fontWeight: theme.typography.weights.regular },
   pailin: { position: 'absolute', right: 0, bottom: -6, width: 126, height: 98, transform: [{ scaleX: -1 }] },
   loading: { marginTop: 50 },
   error: { marginTop: 28, color: theme.colors.error },

@@ -1,12 +1,13 @@
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import lockImage from '@/assets/images/lock.webp';
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
+import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
@@ -32,9 +33,9 @@ type TopicLibraryCopy = {
   emptyBody: string;
   loadingErrorFallback: string;
   untitledTopic: string;
-  freeTitle: string;
-  freeDesc: string;
-  freeCta: string;
+  unlockTitle: string;
+  unlockBody: string;
+  unlockCta: string;
   lockedBody: string;
   openTopicPlaceholder: string;
 };
@@ -73,9 +74,9 @@ const getCopy = (uiLanguage: UiLanguage): TopicLibraryCopy => {
       emptyBody: 'หัวข้อจะปรากฏที่นี่เมื่อมีการเพิ่มเข้าในคลัง',
       loadingErrorFallback: 'เราไม่สามารถโหลดคลังหัวข้อได้ กรุณาลองอีกครั้ง',
       untitledTopic: 'ไม่มีชื่อหัวข้อ',
-      freeTitle: 'คุณกำลังใช้งานแพ็กเกจเรียนฟรี',
-      freeDesc: 'คุณสามารถเข้าถึงหัวข้อแนะนำทั้งหมดของเราได้ อัปเกรดเพื่อเข้าถึงคลังทั้งหมด',
-      freeCta: 'สมัครสมาชิก',
+      unlockTitle: 'ปลดล็อกหัวข้อทั้งหมด',
+      unlockBody: 'คุณสามารถเข้าถึงหัวข้อแนะนำของเราได้\nอัปเกรดเพื่อปลดล็อกคลังหัวข้อทั้งหมด!',
+      unlockCta: 'ดูแพ็กเกจ →',
       lockedBody: 'อัปเกรดเพื่อปลดล็อกหัวข้อนี้',
       openTopicPlaceholder: 'หน้ารายละเอียดหัวข้อจะเชื่อมในขั้นตอนถัดไป',
     };
@@ -92,9 +93,9 @@ const getCopy = (uiLanguage: UiLanguage): TopicLibraryCopy => {
     emptyBody: 'Try clearing your search or switching the active filter.',
     loadingErrorFallback: 'Failed to load topics.',
     untitledTopic: 'Untitled topic',
-    freeTitle: 'Free plan',
-    freeDesc: 'You can access all of our featured topics. Upgrade to access the full library.',
-    freeCta: 'Upgrade',
+    unlockTitle: 'UNLOCK ALL TOPICS',
+    unlockBody: 'You have access to our featured topics.\nUpgrade to unlock the full Topic Library!',
+    unlockCta: 'VIEW PLANS →',
     lockedBody: 'Upgrade to unlock this topic',
     openTopicPlaceholder: 'Topic detail will be connected in the next step.',
   };
@@ -271,42 +272,32 @@ export function TopicLibraryScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
       <Stack gap="md">
-        <StandardPageHeader
-          language={uiLanguage}
-          title={copy.title}
-          onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
-          backLabel={uiLanguage === 'th' ? 'กลับ' : 'Back'}
-        />
+        <View style={styles.pageHeader}>
+          <ResourcePageHeader
+            language={uiLanguage}
+            title={copy.title}
+            subtitle={copy.subtitle}
+            onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
+          />
+        </View>
 
         <View style={styles.contentWrap}>
           <Stack gap="md">
             {!hasMembership ? (
-              <Card padding="lg" radius="lg" style={styles.noticeCard}>
-                <View style={styles.noticeRow}>
-                  <View style={styles.noticeCopy}>
-                    <AppText language={uiLanguage} variant="body" style={styles.noticeTitle}>
-                      {copy.freeTitle}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.noticeBody}>
-                      {copy.freeDesc}
-                    </AppText>
-                  </View>
-                  <NeoShadowPressable
-                    accessibilityRole="button"
-                    style={styles.noticeButton}
-                    onPress={() => {
-                      prefetchPricing();
-                      router.push({
-                        pathname: '/(tabs)/account/membership',
-                        params: { returnTo: '/(tabs)/resources/topic-library' },
-                      });
-                    }}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.noticeButtonText}>
-                      {copy.freeCta}
-                    </AppText>
-                  </NeoShadowPressable>
-                </View>
-              </Card>
+              <ResourceUnlockCard
+                language={uiLanguage}
+                title={copy.unlockTitle}
+                body={copy.unlockBody}
+                italicWord={uiLanguage === 'en' ? 'full' : undefined}
+                buttonLabel={copy.unlockCta}
+                onPress={() => {
+                  prefetchPricing();
+                  router.push({
+                    pathname: '/(tabs)/account/membership',
+                    params: { returnTo: '/(tabs)/resources/topic-library' },
+                  });
+                }}
+              />
             ) : null}
 
             <View style={styles.toolbarShell}>
@@ -374,6 +365,29 @@ export function TopicLibraryScreen() {
               ) : visibleTopics.length > 0 ? (
                 visibleTopics.map((topic) => {
                   const isLocked = !hasMembership && !topic.is_featured;
+                  const topicCopy = (
+                    <View style={styles.topicCopy}>
+                      <AppText language={uiLanguage} variant="body" style={styles.topicTitle}>
+                        {formatTopicTitle(topic.name) || copy.untitledTopic}
+                      </AppText>
+                      {topic.subtitle ? (
+                        <AppText language={uiLanguage} variant="muted" style={styles.topicSubtitle}>
+                          {topic.subtitle}
+                        </AppText>
+                      ) : null}
+                      {topic.tags.length > 0 ? (
+                        <View style={styles.tagRow}>
+                          {topic.tags.map((tag) => (
+                            <View key={`${topic.id}-${tag}`} style={styles.tagChip}>
+                              <AppText language={uiLanguage} variant="caption" style={styles.tagText}>
+                                {tag}
+                              </AppText>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
                   return (
                     <Pressable
                       key={topic.id}
@@ -388,46 +402,28 @@ export function TopicLibraryScreen() {
                           isLocked ? styles.topicCardLocked : null,
                           isLocked ? styles.topicCardLockedAccent : null,
                         ]}>
-                        <View style={styles.topicRow}>
-                          <View style={styles.topicCopy}>
-                            <AppText language={uiLanguage} variant="body" style={styles.topicTitle}>
-                              {formatTopicTitle(topic.name) || copy.untitledTopic}
-                            </AppText>
-                            {topic.subtitle ? (
-                              <AppText language={uiLanguage} variant="muted" style={styles.topicSubtitle}>
-                                {topic.subtitle}
-                              </AppText>
-                            ) : null}
-                            {topic.tags.length > 0 ? (
-                              <View style={styles.tagRow}>
-                                {topic.tags.map((tag) => (
-                                  <View key={`${topic.id}-${tag}`} style={styles.tagChip}>
-                                    <AppText language={uiLanguage} variant="caption" style={styles.tagText}>
-                                      {tag}
-                                    </AppText>
-                                  </View>
-                                ))}
-                              </View>
-                            ) : null}
-                          </View>
-
-                          <View style={styles.topicAside}>
-                            {isLocked ? (
-                              <View style={styles.lockBadge}>
-                                <Image source={lockImage} style={styles.lockIcon} resizeMode="contain" />
-                              </View>
-                            ) : null}
-                            <AppText language="en" variant="body" style={styles.topicArrow}>
-                              ▸
-                            </AppText>
-                          </View>
-                        </View>
-
                         {isLocked ? (
-                          <AppText language={uiLanguage} variant="muted" style={styles.lockedBody}>
-                            {copy.lockedBody}
-                          </AppText>
-                        ) : null}
+                          <View style={styles.lockedCardRow}>
+                            <View style={styles.lockedCardCopy}>
+                              {topicCopy}
+                              <AppText language={uiLanguage} variant="muted" style={styles.lockedBody}>
+                                {copy.lockedBody}
+                              </AppText>
+                            </View>
+                            <View style={styles.lockBlock}>
+                              <MaterialIcons name="lock-outline" size={24} color="#666666" />
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.topicRow}>
+                            {topicCopy}
+                            <View style={styles.topicAside}>
+                              <AppText language="en" variant="body" style={styles.topicArrow}>
+                                ▸
+                              </AppText>
+                            </View>
+                          </View>
+                        )}
                       </Card>
                     </Pressable>
                   );
@@ -461,39 +457,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.xl * 2,
   },
+  pageHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+  },
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
-  },
-  noticeCard: {
-    backgroundColor: '#FFF4E8',
-  },
-  noticeRow: {
-    gap: theme.spacing.md,
-  },
-  noticeCopy: {
-    gap: theme.spacing.xs,
-  },
-  noticeTitle: {
-    fontWeight: theme.typography.weights.semibold,
-  },
-  noticeBody: {
-    color: theme.colors.mutedText,
-  },
-  noticeButton: {
-    minHeight: 44,
-    width: '100%',
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
-  },
-  noticeButtonText: {
-    color: theme.colors.surface,
-    fontWeight: theme.typography.weights.bold,
   },
   toolbarShell: {
     gap: theme.spacing.md,
@@ -586,6 +555,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   topicCard: {
+    position: 'relative',
     backgroundColor: theme.colors.surface,
     boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
@@ -630,14 +600,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: theme.spacing.sm,
   },
-  lockBadge: {
-    minWidth: 24,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
+  lockedCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
   },
-  lockIcon: {
-    width: 18,
-    height: 18,
+  lockedCardCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  lockBlock: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topicArrow: {
     fontSize: 24,

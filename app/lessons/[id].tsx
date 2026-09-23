@@ -5256,7 +5256,6 @@ export default function LessonDetailShellScreen() {
         image: image ?? (speakers.length === 0 ? listenLeftAvatar : listenRightAvatar),
       });
       seen.add(key);
-      if (speakers.length === 2) break;
     }
 
     return speakers;
@@ -5364,7 +5363,9 @@ export default function LessonDetailShellScreen() {
     sectionCount === 0
       ? pageCopy.backToLessonCover
       : isLastSection
-        ? pageCopy.finishLesson
+        ? isCheckpointCoverLesson
+          ? (pageLanguage === 'th' ? 'กลับไปที่บทเรียน' : 'BACK TO LESSON')
+          : (pageLanguage === 'th' ? 'ฝึกพูด' : 'SPEAKING PRACTICE')
         : pageLanguage === 'th'
             ? 'ส่วนถัดไป'
             : 'NEXT SECTION';
@@ -5498,6 +5499,20 @@ export default function LessonDetailShellScreen() {
       await voiceSound.seekTo(millisToSeconds(startPositionMillis));
     }
     voiceSound.play();
+  };
+
+  const handlePlayFromListenPage = async () => {
+    const voiceSound = voiceSoundRef.current;
+    if (!voiceSound?.isLoaded || isAudioLoading) {
+      return;
+    }
+
+    try {
+      await playConversationAudio();
+      finishConversationIntroTransition(conversationIntroTargetSectionIndex, true);
+    } catch {
+      return;
+    }
   };
 
   useFocusEffect(
@@ -5843,6 +5858,34 @@ export default function LessonDetailShellScreen() {
     router.push('/(tabs)/exercises');
   }, [flushPendingLessonPersistence, router]);
 
+  const openSpeakingPractice = useCallback(() => {
+    if (!hasMembership) {
+      router.push('/(tabs)/account/membership');
+      return;
+    }
+    router.push({
+      pathname: '/speaking-coach',
+      params: {
+        lesson: activeLessonNumber,
+        entry: 'lesson',
+        ...(lessonCover?.id ? { lessonId: lessonCover.id } : {}),
+        ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
+      },
+    });
+  }, [activeLessonNumber, hasMembership, lessonCover?.id, libraryRouteParam, router]);
+
+  const openLessonCompletePage = useCallback(() => {
+    if (!lessonCover?.id) return;
+    router.push({
+      pathname: '/lesson-complete-preview',
+      params: {
+        lesson: activeLessonNumber,
+        lessonId: lessonCover.id,
+        ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
+      },
+    });
+  }, [activeLessonNumber, lessonCover?.id, libraryRouteParam, router]);
+
   const navigateToAccountTab = useCallback(async () => {
     await flushPendingLessonPersistence();
     router.push('/(tabs)/account');
@@ -6028,7 +6071,7 @@ export default function LessonDetailShellScreen() {
   const completeLesson = useCallback(async () => {
     if (isLessonCompleted) {
       setLessonCompletionError(null);
-      setCompletionModalState('success');
+      openLessonCompletePage();
       return;
     }
 
@@ -6044,20 +6087,20 @@ export default function LessonDetailShellScreen() {
       await upsertLessonCompletion({ lessonId: lessonCover.id, completed: true });
       bumpLessonLibraryProgressRefreshToken();
       setIsLessonCompleted(true);
-      setCompletionModalState('success');
+      openLessonCompletePage();
     } catch (error) {
       setLessonCompletionError(error instanceof Error ? error.message : pageCopy.completionSavedError);
     } finally {
       setIsSavingLessonCompletion(false);
     }
-  }, [flushPendingLessonPersistence, isLessonCompleted, lessonCover?.id, pageCopy.completionSavedError]);
+  }, [flushPendingLessonPersistence, isLessonCompleted, lessonCover?.id, openLessonCompletePage, pageCopy.completionSavedError]);
 
   const handleFinishLessonPress = useCallback(async () => {
     await flushPendingLessonPersistence();
 
     if (isLessonCompleted) {
       setLessonCompletionError(null);
-      setCompletionModalState('success');
+      openLessonCompletePage();
       return;
     }
 
@@ -6072,7 +6115,16 @@ export default function LessonDetailShellScreen() {
     completeLesson,
     flushPendingLessonPersistence,
     isLessonCompleted,
+    openLessonCompletePage,
   ]);
+
+  const handleEndOfLessonContent = useCallback(() => {
+    if (isCheckpointCoverLesson) {
+      setShowOverview(true);
+      return;
+    }
+    openSpeakingPractice();
+  }, [isCheckpointCoverLesson, openSpeakingPractice]);
 
   const handleContentTogglePress = useCallback(() => {
     setContentLang((previous) => (previous === 'en' ? 'th' : 'en'));
@@ -8932,7 +8984,6 @@ export default function LessonDetailShellScreen() {
     const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
     const hasSpeakerPrefix = richNodeHasSpeakerPrefix(node, contentLang);
     const shouldUseCompactAudioSpacing = !hasSpeakerPrefix;
-    const centerEnglishPhraseAudio = options?.isPhraseCard && contentLang === 'en' && !hasSpeakerPrefix;
     const audioButton = (
       <LessonSnippetAudioButton
         tapFeedback
@@ -8979,16 +9030,12 @@ export default function LessonDetailShellScreen() {
           <View style={[
             styles.phraseAudioContainedRow,
             shouldUseCompactAudioSpacing ? styles.phraseAudioContainedRowCompact : null,
-            centerEnglishPhraseAudio ? styles.phraseAudioContainedRowCentered : null,
           ]}>
             <View style={styles.phraseAudioMarkerLane}>
               {hasAccent ? <View style={styles.phraseAccentMarkerInline} /> : null}
               {audioButton}
             </View>
-            <View style={[
-              styles.phraseAudioContentLane,
-              centerEnglishPhraseAudio ? styles.phraseAudioContentLaneCentered : null,
-            ]}>
+            <View style={styles.phraseAudioContentLane}>
               {renderRichAudioBulletLines(node.inlines, nodeKey, options)}
             </View>
           </View>
@@ -10831,7 +10878,11 @@ const mergeAdjacentPracticeRowTokens = (
     }
 
     if (isLastSection) {
-      void handleFinishLessonPress();
+      if (isCheckpointCoverLesson) {
+        void handleFinishLessonPress();
+      } else {
+        openSpeakingPractice();
+      }
       return;
     }
 
@@ -10842,8 +10893,10 @@ const mergeAdjacentPracticeRowTokens = (
     if (activePracticeCardIndex < normalizedPracticeExercises.length - 1) {
       setActivePracticeCardIndex((previous) => previous + 1);
       contentScrollRef.current?.scrollTo({ y: 0, animated: true });
-    } else if (isLastSection) {
+    } else if (isCheckpointCoverLesson) {
       void handleFinishLessonPress();
+    } else if (isLastSection) {
+      openSpeakingPractice();
     } else {
       navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, sectionCount - 1));
     }
@@ -10935,12 +10988,16 @@ const mergeAdjacentPracticeRowTokens = (
       void handleCheckOpenExercise(activePracticeExercise, targetItems);
     }
   };
-  const isFooterPrimaryVisuallyDisabled = isPracticeTab
-    ? showPracticeSetResults ? isSavingLessonCompletion : isPracticePrimaryActionDisabled
-    : isPrimaryActionVisuallyDisabled;
-  const isFooterPrimaryActuallyDisabled = isPracticeTab
-    ? showPracticeSetResults ? isSavingLessonCompletion : isPracticePrimaryActionDisabled
-    : isPrimaryActionActuallyDisabled;
+  const isFooterPrimaryVisuallyDisabled = isListenPage
+    ? false
+    : isPracticeTab
+      ? showPracticeSetResults ? isSavingLessonCompletion : isPracticePrimaryActionDisabled
+      : isPrimaryActionVisuallyDisabled;
+  const isFooterPrimaryActuallyDisabled = isListenPage
+    ? false
+    : isPracticeTab
+      ? showPracticeSetResults ? isSavingLessonCompletion : isPracticePrimaryActionDisabled
+      : isPrimaryActionActuallyDisabled;
 
   const renderPracticeExerciseBody = (
     exercise: NormalizedPracticeExercise,
@@ -13109,10 +13166,7 @@ const mergeAdjacentPracticeRowTokens = (
           } : undefined}
           listenComplete={hasAudioFinished || writtenAppProgressUnitKeysRef.current.has(buildAppPageKey('listen'))}
           speakingComplete={completedSpeakingLessonIds.has(activeLessonNumber)}
-          onSpeaking={!isCheckpointCoverLesson ? () => {
-            if (!hasMembership) { router.push('/(tabs)/account/membership'); return; }
-            router.push({ pathname: '/speaking-coach', params: { lesson: coverLessonNumber, entry: 'lesson' } });
-          } : undefined}
+          onSpeaking={!isCheckpointCoverLesson ? openSpeakingPractice : undefined}
           onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
           onUpgrade={() => router.push('/(tabs)/account/membership')}
           tabs={overlayTabItems}
@@ -13429,7 +13483,7 @@ const mergeAdjacentPracticeRowTokens = (
                       currentMillis={audioPositionMillis}
                       durationMillis={audioDurationMillis}
                       rate={audioRate}
-                      onTogglePlay={handleToggleAudio}
+                      onTogglePlay={handlePlayFromListenPage}
                       onSkip={handleSkipAudio}
                       onSeek={handleSeekAudio}
                       onSetRate={handleSetAudioRate}
@@ -14466,7 +14520,7 @@ const mergeAdjacentPracticeRowTokens = (
                           if (isComprehensionTab) {
                             if (showComprehensionResults) {
                               if (isLastSection) {
-                                void handleFinishLessonPress();
+                                handleEndOfLessonContent();
                               } else {
                                 navigateToSectionWithConversationGate(
                                   Math.min(activeSectionIndex + 1, sectionCount - 1)
@@ -14499,7 +14553,7 @@ const mergeAdjacentPracticeRowTokens = (
                           }
 
                           if (isLastSection) {
-                            void handleFinishLessonPress();
+                            handleEndOfLessonContent();
                             return;
                           } else {
                             navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, sectionCount - 1));
@@ -14564,7 +14618,9 @@ const mergeAdjacentPracticeRowTokens = (
                                 ? showPracticeSetResults
                                   ? activePracticeCardIndex < normalizedPracticeExercises.length - 1
                                     ? (pageLanguage === 'th' ? 'ชุดถัดไป' : 'CONTINUE')
-                                    : nextSectionButtonLabel
+                                    : isCheckpointCoverLesson
+                                      ? pageCopy.finishLesson
+                                      : nextSectionButtonLabel
                                 : isCurrentPracticeChecking
                                   ? pageCopy.practiceChecking
                                   : isCurrentPracticeChecked
@@ -15866,11 +15922,6 @@ const styles = StyleSheet.create({
   phraseAudioContainedRowCompact: {
     marginTop: 0,
   },
-  phraseAudioContainedRowCentered: {
-    alignSelf: 'center',
-    alignItems: 'center',
-    maxWidth: '100%',
-  },
   phraseAudioMarkerLane: {
     position: 'relative',
     width: PHRASE_AUDIO_MARKER_LANE_WIDTH,
@@ -15889,10 +15940,6 @@ const styles = StyleSheet.create({
   phraseAudioContentLane: {
     flex: 1,
     minWidth: 0,
-  },
-  phraseAudioContentLaneCentered: {
-    flex: 0,
-    flexShrink: 1,
   },
   phraseAudioRow: {
     alignItems: 'flex-start',

@@ -107,24 +107,6 @@ export function MoreScreen() {
 
           <View style={styles.actionsWrap}>
             <Stack gap="lg">
-              {copy.actions.map((action) => {
-                const iconConfig = actionIconMap[action.key];
-
-                return (
-                  <NeoShadowPressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
-                    <View style={styles.actionLeading}>
-                      <NeoShadowView style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
-                        <MaterialIcons name={iconConfig.icon} size={22} color={iconConfig.tint} />
-                      </NeoShadowView>
-                      <View style={styles.actionCopy}>
-                        <AppText language={uiLanguage} variant="body" style={styles.linkText}>{action.label}</AppText>
-                        <AppText language={uiLanguage} variant="muted" style={styles.description}>{action.description}</AppText>
-                      </View>
-                    </View>
-                    <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>›</AppText>
-                  </NeoShadowPressable>
-                );
-              })}
               {!hasMembership ? (
                 <NeoShadowPressable
                   accessibilityRole="button"
@@ -148,6 +130,24 @@ export function MoreScreen() {
                   <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>›</AppText>
                 </NeoShadowPressable>
               ) : null}
+              {copy.actions.map((action) => {
+                const iconConfig = actionIconMap[action.key];
+
+                return (
+                  <NeoShadowPressable key={action.key} accessibilityRole="button" style={styles.actionCard} onPress={() => router.push(action.href)}>
+                    <View style={styles.actionLeading}>
+                      <NeoShadowView style={[styles.iconBadge, { backgroundColor: iconConfig.bg }]}>
+                        <MaterialIcons name={iconConfig.icon} size={22} color={iconConfig.tint} />
+                      </NeoShadowView>
+                      <View style={styles.actionCopy}>
+                        <AppText language={uiLanguage} variant="body" style={styles.linkText}>{action.label}</AppText>
+                        <AppText language={uiLanguage} variant="muted" style={styles.description}>{action.description}</AppText>
+                      </View>
+                    </View>
+                    <AppText language={uiLanguage} variant="body" style={styles.linkChevron}>›</AppText>
+                  </NeoShadowPressable>
+                );
+              })}
             </Stack>
           </View>
         </Stack>

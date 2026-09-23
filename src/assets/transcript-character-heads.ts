@@ -1,6 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 import chloeHead from '@/assets/images/characters/chloe_head.webp';
+import chaiHead from '@/assets/images/characters/chai_head.webp';
 import daraHead from '@/assets/images/characters/dara_head.webp';
 import emilyHead from '@/assets/images/characters/emily_head.webp';
 import enzoHead from '@/assets/images/characters/enzo_head.webp';
@@ -23,6 +24,7 @@ import tylerHead from '@/assets/images/characters/tyler_head.webp';
 import woman1Head from '@/assets/images/characters/woman1_head.webp';
 import woman2Head from '@/assets/images/characters/woman2_head.webp';
 import chloeBlueCircle from '@/assets/images/characters/chloe_blue_circle.webp';
+import chaiBlueCircle from '@/assets/images/characters/chai_blue_circle.webp';
 import daraBlueCircle from '@/assets/images/characters/dara_blue_circle.webp';
 import emilyBlueCircle from '@/assets/images/characters/emily_blue_circle.webp';
 import enzoBlueCircle from '@/assets/images/characters/enzo_blue_circle.webp';
@@ -46,6 +48,7 @@ import woman1BlueCircle from '@/assets/images/characters/woman1_blue_circle.webp
 import woman2BlueCircle from '@/assets/images/characters/woman2_blue_circle.webp';
 
 const transcriptCharacterHeads = {
+  chai: chaiHead,
   chloe: chloeHead,
   dara: daraHead,
   emily: emilyHead,
@@ -80,7 +83,7 @@ const transcriptCharacterHeadAliases = {
   doug: man3Head,
   emma: emilyHead,
   ethan: markHead,
-  frank: pailinHead,
+  frank: man1Head,
   franklin: man1Head,
   'frat boy': man4Head,
   george: man3Head,
@@ -104,8 +107,9 @@ const transcriptCharacterHeadAliases = {
 } satisfies Record<string, ImageSourcePropType>;
 
 const transcriptCharacterHeadByLesson = {
+  '1.chp|dad': chaiHead,
   '1.13|mom': woman2Head,
-  '2.7|cashier': woman1Head,
+  '2.7|cashier': man3Head,
   '2.9|man': man2Head,
   '3.5|worker': man1Head,
   '3.8|worker': woman2Head,
@@ -162,6 +166,7 @@ export const resolveTranscriptCharacterHead = (
 };
 
 const blueCircleByHead = new Map<ImageSourcePropType, ImageSourcePropType>([
+  [chaiHead, chaiBlueCircle],
   [chloeHead, chloeBlueCircle],
   [daraHead, daraBlueCircle],
   [emilyHead, emilyBlueCircle],

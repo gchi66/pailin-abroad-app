@@ -40,6 +40,8 @@ import {
   fetchSpeakingCoachLesson,
   skipSpeakingCoachQuestion,
 } from '@/src/api/speaking-coach';
+import { upsertLessonCompletion } from '@/src/api/user';
+import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -535,7 +537,12 @@ export default function SpeakingCoachEntryScreen() {
 function SpeakingCoachTestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ lesson?: string; entry?: string }>();
+  const params = useLocalSearchParams<{
+    lesson?: string;
+    entry?: string;
+    lessonId?: string;
+    libraryRoute?: string;
+  }>();
   const resourceMode = params.entry === 'resources';
   const lessonMode = params.entry === 'lesson';
   const guidedMode = resourceMode || lessonMode;
@@ -862,6 +869,35 @@ function SpeakingCoachTestScreen() {
     goToQuestion(nextIndex);
   };
 
+  const finishLessonFromSpeaking = async () => {
+    if (advancePending) return;
+    setAdvancePending(true);
+    try {
+      const suppliedLessonId = typeof params.lessonId === 'string' ? params.lessonId.trim() : '';
+      const lessonRecordId = suppliedLessonId;
+      if (!lessonRecordId) {
+        throw new Error('The lesson record could not be found.');
+      }
+
+      await upsertLessonCompletion({ lessonId: lessonRecordId, completed: true });
+      bumpLessonLibraryProgressRefreshToken();
+      router.replace({
+        pathname: '/lesson-complete-preview',
+        params: {
+          lesson: lessonId,
+          lessonId: lessonRecordId,
+          ...(typeof params.libraryRoute === 'string' ? { libraryRoute: params.libraryRoute } : {}),
+        },
+      });
+    } catch (error) {
+      Alert.alert(
+        'Could not finish lesson',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+      setAdvancePending(false);
+    }
+  };
+
   const continueAfterSet = async () => {
     if (!session || completedPracticeSetId === null || advancePending) return;
     const nextIndex = session.current_question_id === null
@@ -898,6 +934,10 @@ function SpeakingCoachTestScreen() {
         setLoading(false);
         setAdvancePending(false);
       }
+      return;
+    }
+    if (lessonMode) {
+      await finishLessonFromSpeaking();
       return;
     }
     router.back();
@@ -2502,9 +2542,9 @@ function SpeakingCoachTestScreen() {
           ]}
         >
           <AppText variant="caption" style={styles.setCompletionButtonLabel}>
-            {hasNextSet ? (guidedMode ? 'GO TO NEXT SET' : 'NEXT SET') : lessonMode ? 'BACK TO LESSON' : resourceMode ? 'BACK TO SPEAKING PRACTICE' : 'FINISH LESSON!'}
+            {hasNextSet ? (guidedMode ? 'GO TO NEXT SET' : 'NEXT SET') : lessonMode ? 'FINISH LESSON' : resourceMode ? 'BACK TO SPEAKING PRACTICE' : 'FINISH LESSON!'}
           </AppText>
-          {!hasNextSet && !guidedMode ? (
+          {!hasNextSet && (!guidedMode || lessonMode) ? (
             <Image source={celebrateWhiteImage} contentFit="contain" style={styles.setCompletionButtonIcon} />
           ) : null}
         </Pressable>

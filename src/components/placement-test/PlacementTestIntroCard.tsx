@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
   },
   card: {
     paddingHorizontal: 28,
-    paddingTop: 28,
-    paddingBottom: 16,
+    paddingTop: 32,
+    paddingBottom: 20,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
@@ -122,21 +122,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.25,
   },
   body: {
-    marginTop: 4,
+    marginTop: 10,
     fontSize: 13,
     lineHeight: 20,
   },
   instructions: {
-    gap: 8,
-    marginTop: 16,
+    gap: 12,
+    marginTop: 24,
   },
   instructionRow: {
-    minHeight: 43,
+    minHeight: 47,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 9,
     borderRadius: theme.radii.md,
     backgroundColor: placementColors.paleLime,
   },
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   },
   buttonWrap: {
     position: 'relative',
-    marginTop: 16,
+    marginTop: 22,
   },
   buttonShadow: {
     position: 'absolute',

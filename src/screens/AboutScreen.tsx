@@ -272,7 +272,11 @@ export function AboutScreen() {
                 key={option.key}
                 accessibilityRole="button"
                 onPress={() => setActiveSection(option.key)}
-                style={[styles.sectionTab, isActive ? styles.sectionTabActive : null, isActive ? (option.key === 'method' ? styles.activeMethodTab : styles.activeTeamTab) : null]}>
+                style={[
+                  styles.sectionTab,
+                  isActive ? styles.sectionTabActive : null,
+                  isActive ? (option.key === 'method' ? styles.activeMethodTab : styles.activeTeamTab) : null,
+                ]}>
                 <AppText
                   language={uiLanguage}
                   variant="caption"
@@ -368,7 +372,7 @@ const styles = StyleSheet.create({
   },
   sectionTabs: {
     flexDirection: 'row',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 999,
     overflow: 'hidden',
@@ -384,10 +388,12 @@ const styles = StyleSheet.create({
   },
   sectionTabActive: {
     backgroundColor: '#BCECFF',
+    borderWidth: 1,
     borderColor: theme.colors.border,
+    marginVertical: -1,
   },
-  activeMethodTab: { borderRightWidth: StyleSheet.hairlineWidth },
-  activeTeamTab: { borderLeftWidth: StyleSheet.hairlineWidth },
+  activeMethodTab: { marginLeft: -1 },
+  activeTeamTab: { marginRight: -1 },
   contentCard: {
     borderWidth: 1,
     borderRadius: 13,
@@ -399,7 +405,7 @@ const styles = StyleSheet.create({
   },
   sectionTabText: {
     color: theme.colors.mutedText,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.regular,
     textAlign: 'center',
   },
   sectionTabTextActive: {

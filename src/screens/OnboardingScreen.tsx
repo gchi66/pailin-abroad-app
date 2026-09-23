@@ -55,6 +55,7 @@ type OnboardingCopy = {
   passwordRule1: string;
   passwordRule2: string;
   passwordRule3: string;
+  setPassword: string;
   whatToCallYou: string;
   firstNameLabel: string;
   optionalLabel: string;
@@ -105,6 +106,9 @@ type PasswordStepProps = StepBaseProps & {
   meetsLength: boolean;
   meetsNumberAndSymbol: boolean;
   meetsLetterCases: boolean;
+  canSetPassword: boolean;
+  isSubmitting: boolean;
+  onSetPassword: () => void;
 };
 
 type ProfileStepProps = StepBaseProps & {
@@ -188,6 +192,7 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
       passwordRule1: 'อย่างน้อย 8 ตัวอักษร',
       passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว',
       passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว',
+      setPassword: 'ตั้งรหัสผ่าน',
       whatToCallYou: 'อยากให้เราเรียกคุณว่าอะไรดีล่ะ?',
       firstNameLabel: 'ชื่อผู้ใช้',
       optionalLabel: 'ไม่บังคับ',
@@ -222,7 +227,7 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
   }
 
   return {
-    welcomeTitle: 'Welcome to Pailin Abroad!',
+    welcomeTitle: 'Welcome to\nPailin Abroad!',
     welcomeSubtitle: "Hi, I'm Pailin! I'm so excited to be your guide on this English journey.",
     welcomeDescription: "In a few quick steps, we'll get you ready to explore my world and the language I use every day.",
     passwordTitle: "Let's set up your password",
@@ -233,6 +238,7 @@ const getCopy = (uiLanguage: UiLanguage): OnboardingCopy => {
     passwordRule1: 'At least 8 characters',
     passwordRule2: 'At least 1 number and 1 special character',
     passwordRule3: 'At least 1 uppercase and 1 lowercase letter',
+    setPassword: 'SET PASSWORD',
     whatToCallYou: 'What should we call you?',
     firstNameLabel: 'Username',
     optionalLabel: 'Optional',
@@ -301,6 +307,9 @@ function PasswordStep({
   meetsLength,
   meetsNumberAndSymbol,
   meetsLetterCases,
+  canSetPassword,
+  isSubmitting,
+  onSetPassword,
 }: PasswordStepProps) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -314,7 +323,7 @@ function PasswordStep({
   return (
     <View style={[styles.stepPage, { width: cardWidth }]}>
       <Stack gap={compact ? 'lg' : 'xl'}>
-        <AppText language={uiLanguage} variant="title" style={[styles.passwordTitle, compact ? styles.passwordTitleCompact : null]}>
+        <AppText language={uiLanguage} variant="title" style={[styles.stepTitle, compact ? styles.stepTitleCompact : null]}>
           {copy.passwordTitle}
         </AppText>
 
@@ -326,7 +335,7 @@ function PasswordStep({
 
         <Stack gap={compact ? 'md' : 'lg'}>
           <Stack gap="xs">
-            <AppText language={uiLanguage} variant="body" style={[styles.passwordFieldLabel, compact ? styles.passwordFieldLabelCompact : null]}>
+            <AppText language={uiLanguage} variant="body" style={styles.fieldLabel}>
               {copy.newPassword}
             </AppText>
             <View style={[styles.inputShell, compact ? styles.inputShellCompact : null]}>
@@ -348,7 +357,7 @@ function PasswordStep({
           </Stack>
 
           <Stack gap="xs">
-            <AppText language={uiLanguage} variant="body" style={[styles.passwordFieldLabel, compact ? styles.passwordFieldLabelCompact : null]}>
+            <AppText language={uiLanguage} variant="body" style={styles.fieldLabel}>
               {copy.confirmPassword}
             </AppText>
             <View style={[styles.inputShell, compact ? styles.inputShellCompact : null]}>
@@ -370,7 +379,7 @@ function PasswordStep({
           </Stack>
         </Stack>
 
-        <Stack gap={compact ? 'sm' : 'md'}>
+        <Stack gap={compact ? 'xs' : 'sm'}>
           {rules.map((rule) => (
             <View key={rule.label} style={styles.ruleRow}>
               <Image source={rule.met ? blueCheckmarkImage : greyPasswordCheckmarkImage} style={styles.ruleIcon} contentFit="contain" />
@@ -380,6 +389,17 @@ function PasswordStep({
             </View>
           ))}
         </Stack>
+
+        <Pressable
+          accessibilityRole="button"
+          disabled={!canSetPassword || isSubmitting}
+          onPress={onSetPassword}
+          style={[styles.setPasswordButton, !canSetPassword || isSubmitting ? styles.setPasswordButtonDisabled : null]}>
+          {isSubmitting ? <ActivityIndicator color={theme.colors.surface} size="small" /> : null}
+          <AppText language={uiLanguage} variant="caption" style={styles.setPasswordButtonText}>
+            {copy.setPassword}
+          </AppText>
+        </Pressable>
       </Stack>
     </View>
   );
@@ -402,23 +422,25 @@ function ProfileStep({
     <View style={[styles.stepPage, { width: cardWidth }]}>
       <Stack gap={compact ? 'lg' : 'xl'}>
         <Stack gap={compact ? 'sm' : 'md'}>
-          <AppText language={uiLanguage} variant="title" style={[styles.sectionTitle, styles.profileTitle, compact ? styles.sectionTitleCompact : null]}>
+          <AppText language={uiLanguage} variant="title" style={[styles.stepTitle, styles.profileTitle, compact ? styles.stepTitleCompact : null]}>
             {copy.whatToCallYou}
           </AppText>
-          <AppText language={uiLanguage} variant="caption" style={[styles.fieldLabel, compact ? styles.fieldLabelCompact : null]}>
-            {copy.firstNameLabel}
-            {isUsernameOptional ? ` (${copy.optionalLabel})` : ''}
-          </AppText>
-          <View style={[styles.simpleInputShell, compact ? styles.simpleInputShellCompact : null]}>
-            <ScriptAwareTextInput
-              placeholder={copy.namePlaceholder}
-              placeholderTextColor={theme.colors.mutedText}
-              style={styles.simpleTextInput}
-              inputAccessoryViewID={keyboardAccessoryViewID}
-              value={username}
-              onChangeText={onUsernameChange}
-            />
-          </View>
+          <Stack gap="xs">
+            <AppText language={uiLanguage} variant="body" style={styles.fieldLabel}>
+              {copy.firstNameLabel}
+              {isUsernameOptional ? ` (${copy.optionalLabel})` : ''}
+            </AppText>
+            <View style={[styles.simpleInputShell, compact ? styles.simpleInputShellCompact : null]}>
+              <ScriptAwareTextInput
+                placeholder={copy.namePlaceholder}
+                placeholderTextColor={theme.colors.mutedText}
+                style={styles.simpleTextInput}
+                inputAccessoryViewID={keyboardAccessoryViewID}
+                value={username}
+                onChangeText={onUsernameChange}
+              />
+            </View>
+          </Stack>
         </Stack>
 
         {errorMessage ? (
@@ -478,7 +500,7 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, three
         nestedScrollEnabled>
         <Stack gap={compact ? 'md' : 'lg'} style={styles.benefitsStepContent}>
           <Stack gap="xs" align="center">
-            <AppText language={uiLanguage} variant="title" style={[styles.benefitsTitle, compact ? styles.benefitsTitleCompact : null]}>
+            <AppText language={uiLanguage} variant="title" style={[styles.stepTitle, compact ? styles.stepTitleCompact : null]}>
               {copy.benefitsTitle}
             </AppText>
             <AppText language={uiLanguage} variant="muted" style={[styles.benefitsSubtitle, compact ? styles.benefitsSubtitleCompact : null]}>
@@ -492,7 +514,7 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, three
               accessibilityState={{ checked: isPaidSelected }}
               onPress={() => setSelectedPlan('paid')}
               style={[styles.planCard, isPaidSelected ? styles.planCardSelected : null]}>
-              <View style={[styles.planCardHeader, isPaidSelected ? styles.planCardHeaderSelected : styles.planCardHeaderUnselected]}>
+              <View style={[styles.planCardHeader, styles.paidPlanCardHeader]}>
                 <View style={styles.planCardTitleRow}>
                   <View style={[styles.planRadio, isPaidSelected ? styles.planRadioSelected : null]}>
                     {isPaidSelected ? <View style={styles.planRadioDot} /> : null}
@@ -559,7 +581,7 @@ function BenefitsStep({ copy, uiLanguage, cardWidth, compact, veryCompact, three
               accessibilityState={{ checked: !isPaidSelected }}
               onPress={() => setSelectedPlan('free')}
               style={[styles.planCard, !isPaidSelected ? styles.planCardSelected : null]}>
-              <View style={[styles.planCardHeader, !isPaidSelected ? styles.planCardHeaderSelected : styles.planCardHeaderUnselected]}>
+              <View style={[styles.planCardHeader, styles.freePlanCardHeader]}>
                 <View style={styles.planCardTitleRow}>
                   <View style={[styles.planRadio, !isPaidSelected ? styles.planRadioSelected : null]}>
                     {!isPaidSelected ? <View style={styles.planRadioDot} /> : null}
@@ -688,6 +710,7 @@ export function OnboardingScreen() {
     passwords.newPassword.length > 0 &&
     passwords.confirmPassword.length > 0 &&
     passwords.newPassword === passwords.confirmPassword;
+  const canSetPassword = meetsLength && meetsNumberAndSymbol && meetsLetterCases && passwordsMatch;
 
   useEffect(() => {
     if (sessionLoading) {
@@ -984,6 +1007,9 @@ export function OnboardingScreen() {
           meetsLength={meetsLength}
           meetsNumberAndSymbol={meetsNumberAndSymbol}
           meetsLetterCases={meetsLetterCases}
+          canSetPassword={canSetPassword}
+          isSubmitting={isSubmitting}
+          onSetPassword={() => void handleSetPassword()}
         />
       ),
       2: (
@@ -1038,10 +1064,13 @@ export function OnboardingScreen() {
     return visibleStepIds.map((stepId) => stepMap[stepId]);
   }, [
     compact,
+    canSetPassword,
     copy,
     currentStep,
     errorMessage,
     handlePasswordChange,
+    handleSetPassword,
+    isSubmitting,
     meetsLength,
     meetsLetterCases,
     meetsNumberAndSymbol,
@@ -1265,13 +1294,13 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     textAlign: 'center',
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: theme.typography.weights.bold,
   },
   welcomeTitleCompact: {
-    fontSize: 21,
-    lineHeight: 26,
+    fontSize: 25,
+    lineHeight: 31,
   },
   centerText: {
     textAlign: 'center',
@@ -1301,14 +1330,15 @@ const styles = StyleSheet.create({
     fontSize: 21,
     lineHeight: 26,
   },
-  passwordTitle: {
+  stepTitle: {
     textAlign: 'center',
-    fontSize: 28,
-    lineHeight: 34,
-  },
-  passwordTitleCompact: {
     fontSize: 24,
     lineHeight: 30,
+    fontWeight: theme.typography.weights.bold,
+  },
+  stepTitleCompact: {
+    fontSize: 21,
+    lineHeight: 27,
   },
   sectionTitleCentered: {
     textAlign: 'center',
@@ -1320,25 +1350,14 @@ const styles = StyleSheet.create({
     lineHeight: 31,
   },
   fieldLabel: {
-    textAlign: 'center',
+    alignSelf: 'stretch',
+    textAlign: 'left',
+    fontSize: 14,
+    lineHeight: 19,
     fontWeight: theme.typography.weights.semibold,
   },
-  fieldLabelCompact: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  passwordFieldLabel: {
-    textAlign: 'center',
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: theme.typography.weights.bold,
-  },
-  passwordFieldLabelCompact: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
   inputShell: {
-    minHeight: 56,
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -1348,61 +1367,83 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   inputShellCompact: {
-    minHeight: 52,
+    minHeight: 40,
   },
   inputIconBox: {
-    width: 52,
+    width: 44,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'stretch',
   },
   inputIcon: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     opacity: 0.45,
   },
   textInput: {
     flex: 1,
-    minHeight: 56,
+    minHeight: 42,
     paddingHorizontal: theme.spacing.sm,
     color: theme.colors.text,
     fontFamily: theme.typography.fontFaces.en.regular,
     fontSize: theme.typography.sizes.md,
   },
   inputAction: {
-    width: 52,
-    minHeight: 56,
+    width: 44,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inputEyeIcon: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     opacity: 0.45,
   },
   ruleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: 6,
   },
   ruleIcon: {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
   },
   ruleText: {
     flex: 1,
     color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 16,
   },
   ruleTextCompact: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
   },
   ruleTextVeryCompact: {
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  setPasswordButton: {
+    width: '100%',
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#2563EB',
+  },
+  setPasswordButtonDisabled: {
+    borderColor: '#B9BDC2',
+    backgroundColor: '#D9DDE2',
+  },
+  setPasswordButtonText: {
+    color: theme.colors.surface,
+    fontWeight: theme.typography.weights.semibold,
   },
   simpleInputShell: {
-    minHeight: 56,
+    minHeight: 42,
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -1411,10 +1452,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
   },
   simpleInputShellCompact: {
-    minHeight: 52,
+    minHeight: 40,
   },
   simpleTextInput: {
-    minHeight: 56,
+    minHeight: 42,
     color: theme.colors.text,
     fontFamily: theme.typography.fontFaces.en.regular,
     fontSize: theme.typography.sizes.md,
@@ -1474,16 +1515,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: theme.spacing.xs,
   },
-  benefitsTitle: {
-    textAlign: 'center',
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '800',
-  },
-  benefitsTitleCompact: {
-    fontSize: 20,
-    lineHeight: 24,
-  },
   benefitsSubtitle: {
     textAlign: 'center',
     color: '#7A7A7A',
@@ -1514,10 +1545,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 6,
     borderTopRightRadius: 6,
   },
-  planCardHeaderSelected: {
+  paidPlanCardHeader: {
     backgroundColor: '#BCECFF',
   },
-  planCardHeaderUnselected: {
+  freePlanCardHeader: {
     backgroundColor: '#E4E4E4',
   },
   planCardTitleRow: {

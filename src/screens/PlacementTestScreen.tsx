@@ -1,5 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import {
+  setAudioModeAsync,
+  setIsAudioActiveAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+} from 'expo-audio';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -17,8 +22,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Polygon } from 'react-native-svg';
 
-import appLogo from '@/assets/images/app-logo-pailin-abroad-smile.png';
-import placementTestPailinThumbsUp from '@/assets/images/placement-test-pailin-thumbs-up.webp';
+import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
+import pailinThumbsUpHead from '@/assets/images/characters/pailin_thumbs_up_head.webp';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import {
   getPlacementAudioUrl,
@@ -29,6 +34,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
+import { PlacementLevelTitle } from '@/src/components/placement/PlacementLevelTitle';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -38,6 +44,19 @@ import { theme } from '@/src/theme/theme';
 
 const secondsToMillis = (seconds: number) => Math.max(0, seconds * 1000);
 const MINIMUM_CALCULATION_TIME_MS = 3000;
+
+const configurePlacementPlayback = async (resetSession = false) => {
+  if (resetSession) {
+    await setIsAudioActiveAsync(false);
+  }
+  await setAudioModeAsync({
+    allowsRecording: false,
+    playsInSilentMode: true,
+    shouldPlayInBackground: false,
+    interruptionMode: 'doNotMix',
+  });
+  await setIsAudioActiveAsync(true);
+};
 
 const getLevelStageLabel = (level: number) => {
   if (level <= 4) return 'ระดับเริ่มต้น';
@@ -74,18 +93,27 @@ export function PlacementTestScreen() {
   const logoPulse = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAudioSessionReady, setIsAudioSessionReady] = useState(false);
 
   const conversation = useMemo(
     () => conversations.find((item) => item.conversation_order === conversationOrder) ?? null,
     [conversationOrder, conversations]
   );
-  const audioUrl = conversation ? getPlacementAudioUrl(conversation.audio_path) : null;
+  const audioUrl = conversation && isAudioSessionReady
+    ? getPlacementAudioUrl(conversation.audio_path)
+    : null;
   const currentQuestion = conversation?.questions[questionIndex] ?? null;
-  const listeningMessage = conversationOrder === 1
-    ? 'ฟังบทสนทนา แล้วตอบคำถาม'
-    : conversationOrder === 2
-      ? 'เก่งมาก!\nตอนนี้ลองฟังบทสนทนายากขึ้นอีกนิดนะ!'
-      : 'เยี่ยมเลย! ไปต่อที่บทสนทนาสุดท้ายกัน';
+  const listeningMessage = uiLanguage === 'en'
+    ? conversationOrder === 1
+      ? 'Listen to the conversation, then answer the questions.'
+      : conversationOrder === 2
+        ? 'Great job!\nNow try a slightly more difficult conversation.'
+        : 'Excellent! Let’s continue to the final conversation.'
+    : conversationOrder === 1
+      ? 'ฟังบทสนทนา แล้วตอบคำถาม'
+      : conversationOrder === 2
+        ? 'เก่งมาก!\nตอนนี้ลองฟังบทสนทนายากขึ้นอีกนิดนะ!'
+        : 'เยี่ยมเลย! ไปต่อที่บทสนทนาสุดท้ายกัน';
   const player = useAudioPlayer(audioUrl, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
   const closePreview = () => {
@@ -114,13 +142,19 @@ export function PlacementTestScreen() {
     void player.seekTo(nextTime);
   };
 
-  const toggleAudio = () => {
+  const toggleAudio = async () => {
     if (playerStatus.playing) {
       player.pause();
       return;
     }
+    try {
+      await configurePlacementPlayback();
+    } catch (audioSessionError) {
+      console.warn('[placement-test] failed to activate playback session', audioSessionError);
+      return;
+    }
     if (playerStatus.didJustFinish || (playerStatus.duration > 0 && playerStatus.currentTime >= playerStatus.duration)) {
-      void player.seekTo(0);
+      await player.seekTo(0);
     }
     player.play();
   };
@@ -132,7 +166,7 @@ export function PlacementTestScreen() {
     }
     delayedPlaybackRef.current = setTimeout(() => {
       delayedPlaybackRef.current = null;
-      toggleAudio();
+      void toggleAudio();
     }, 1750);
   };
 
@@ -140,6 +174,24 @@ export function PlacementTestScreen() {
     if (introTrackWidth <= 0) return;
     seekToRatio(event.nativeEvent.locationX / introTrackWidth);
   };
+
+  useEffect(() => {
+    let isActive = true;
+
+    void configurePlacementPlayback(true)
+      .catch((audioSessionError) => {
+        console.warn('[placement-test] failed to configure playback session', audioSessionError);
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsAudioSessionReady(true);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     void getPlacementConversations()
@@ -313,7 +365,7 @@ export function PlacementTestScreen() {
             {isCalculating ? (
               <View style={styles.calculatingContent}>
                 <Animated.Image
-                  source={appLogo}
+                  source={pailinBlueCircle}
                   style={[
                     styles.calculatingImage,
                     {
@@ -350,16 +402,16 @@ export function PlacementTestScreen() {
                           },
                         ]}>
                         <Image
-                          source={placementTestPailinThumbsUp}
+                          source={pailinThumbsUpHead}
                           style={styles.resultImage}
                           resizeMode="contain"
                         />
                         <AppText language={uiLanguage} variant="muted" style={styles.resultEyebrow}>
                           {uiLanguage === 'en' ? 'YOUR STARTING POINT' : 'จุดเริ่มต้นของคุณ'}
                         </AppText>
-                        <AppText language={uiLanguage} variant="title" style={styles.resultLevelTitle}>
+                        <PlacementLevelTitle language={uiLanguage}>
                           {uiLanguage === 'en' ? `Level ${resultLevel}` : `ระดับ ${resultLevel}`}
-                        </AppText>
+                        </PlacementLevelTitle>
                         <AppText language={uiLanguage} variant="body" style={styles.resultLevelSubtitle}>
                           {uiLanguage === 'en'
                             ? resultLevel <= 4 ? 'BEGINNER' : resultLevel <= 8 ? 'INTERMEDIATE' : 'ADVANCED'
@@ -413,20 +465,20 @@ export function PlacementTestScreen() {
                 <View pointerEvents="none" style={styles.audioCardShadow} />
                 <View style={styles.audioCard}>
                   <View style={styles.audioCardHeader}>
-                    <AppText language="th" variant="title" style={styles.audioCardTitle}>
-                      แบบทดสอบวัดระดับ
+                    <AppText language={uiLanguage} variant="title" style={styles.audioCardTitle}>
+                      {uiLanguage === 'en' ? 'Placement Test' : 'แบบทดสอบวัดระดับ'}
                     </AppText>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="ปิดแบบทดสอบวัดระดับ"
+                    accessibilityLabel={uiLanguage === 'en' ? 'Close placement test' : 'ปิดแบบทดสอบวัดระดับ'}
                     hitSlop={12}
                     onPress={closePreview}
                     style={styles.audioCardCloseButton}>
                     <MaterialIcons name="close" size={23} color={theme.colors.text} />
                   </Pressable>
 
-                  <AppText language="th" variant="body" style={styles.listenInstruction}>
+                  <AppText language={uiLanguage} variant="body" style={styles.listenInstruction}>
                     {listeningMessage}
                   </AppText>
 
@@ -580,9 +632,11 @@ export function PlacementTestScreen() {
         <View style={styles.audioTrayRegion}>
           <View style={[styles.audioTrayDock, { paddingBottom: insets.bottom }]}> 
             <LessonAudioTray
-              language="th"
-              title="แบบทดสอบวัดระดับ"
-              statusLabel={playerStatus.playing ? 'กำลังเล่น' : 'หยุดชั่วคราว'}
+              language={uiLanguage}
+              title={uiLanguage === 'en' ? 'Placement Test' : 'แบบทดสอบวัดระดับ'}
+              statusLabel={playerStatus.playing
+                ? (uiLanguage === 'en' ? 'Playing' : 'กำลังเล่น')
+                : (uiLanguage === 'en' ? 'Paused' : 'หยุดชั่วคราว')}
               audioUrl={audioUrl}
               isPlaying={playerStatus.playing}
               isLoading={!playerStatus.isLoaded || playerStatus.isBuffering}
@@ -645,7 +699,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   calculatingContent: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
-  calculatingImage: { width: 180, height: 180, borderRadius: 28 },
+  calculatingImage: { width: 180, height: 180, borderRadius: 999 },
   calculatingPill: { marginTop: 8, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: placementColors.note },
   calculatingText: {
     color: theme.colors.text,
@@ -655,7 +709,7 @@ const styles = StyleSheet.create({
   },
   resultCard: { paddingHorizontal: 30, paddingTop: 28, paddingBottom: 30 },
   resultContent: { width: '100%', alignItems: 'center' },
-  resultImage: { width: 112, height: 112 },
+  resultImage: { width: 112, height: 112, transform: [{ scaleX: -1 }] },
   resultEyebrow: {
     marginTop: 8,
     color: '#747474',
@@ -663,17 +717,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     letterSpacing: 1.1,
     textAlign: 'center',
-  },
-  resultLevelTitle: {
-    marginTop: 2,
-    color: placementColors.level,
-    fontSize: 40,
-    lineHeight: 50,
-    fontWeight: theme.typography.weights.bold,
-    textAlign: 'center',
-    textShadowColor: theme.colors.shadow,
-    textShadowOffset: { width: 2, height: 3 },
-    textShadowRadius: 0,
   },
   resultLevelSubtitle: { color: placementColors.level, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   resultPrimer: { marginTop: 22, fontSize: 14, lineHeight: 21, textAlign: 'center' },

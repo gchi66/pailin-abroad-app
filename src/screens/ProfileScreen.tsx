@@ -120,8 +120,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
       avatarLabel: 'PP',
-      setPassword: 'ตั้งรหัสผ่าน',
-      subtitle: 'จัดการข้อมูลบัญชีของคุณ', password: 'รหัสผ่าน', changePassword: 'เปลี่ยนรหัสผ่าน', currentPassword: 'รหัสผ่านปัจจุบัน', newPassword: 'รหัสผ่านใหม่', confirmPassword: 'ยืนยันรหัสผ่านใหม่', savePassword: 'บันทึกรหัสผ่าน', passwordSaved: 'เปลี่ยนรหัสผ่านแล้ว', passwordMismatch: 'รหัสผ่านใหม่ไม่ตรงกัน', passwordRules: 'กรุณาตั้งรหัสผ่านให้ตรงตามเงื่อนไขทั้งหมด', passwordRule1: 'อย่างน้อย 8 ตัวอักษร', passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว', passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว', saveAvatar: 'บันทึกรูปโปรไฟล์',
+      setPassword: 'รีเซ็ตรหัสผ่าน',
+      subtitle: 'จัดการข้อมูลบัญชีของคุณ', password: 'รหัสผ่าน', changePassword: 'รีเซ็ตรหัสผ่าน', currentPassword: 'รหัสผ่านปัจจุบัน', newPassword: 'รหัสผ่านใหม่', confirmPassword: 'ยืนยันรหัสผ่านใหม่', savePassword: 'บันทึกรหัสผ่าน', passwordSaved: 'รีเซ็ตรหัสผ่านแล้ว', passwordMismatch: 'รหัสผ่านใหม่ไม่ตรงกัน', passwordRules: 'กรุณาตั้งรหัสผ่านให้ตรงตามเงื่อนไขทั้งหมด', passwordRule1: 'อย่างน้อย 8 ตัวอักษร', passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว', passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว', saveAvatar: 'บันทึกรูปโปรไฟล์',
     };
   }
 
@@ -153,8 +153,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
     avatarLabel: 'PP',
-    setPassword: 'Set Password',
-    subtitle: 'Manage your account information.', password: 'Password', changePassword: 'Change Password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', savePassword: 'Save Password', passwordSaved: 'Password updated.', passwordMismatch: 'New passwords do not match.', passwordRules: 'Please meet all password requirements.', passwordRule1: 'At least 8 characters', passwordRule2: 'At least 1 number and 1 special character', passwordRule3: 'At least 1 uppercase and 1 lowercase letter', saveAvatar: 'Save Avatar',
+    setPassword: 'Reset Password',
+    subtitle: 'Manage your account information.', password: 'Password', changePassword: 'Reset Password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', savePassword: 'Save Password', passwordSaved: 'Password reset.', passwordMismatch: 'New passwords do not match.', passwordRules: 'Please meet all password requirements.', passwordRule1: 'At least 8 characters', passwordRule2: 'At least 1 number and 1 special character', passwordRule3: 'At least 1 uppercase and 1 lowercase letter', saveAvatar: 'Save Avatar',
   };
 };
 
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
   savePasswordText: { textTransform: 'uppercase', fontWeight: theme.typography.weights.medium, letterSpacing: 0.5 },
   modalShade: { flex: 1, backgroundColor: '#00000040', alignItems: 'center', justifyContent: 'center', padding: 24 },
   avatarModal: { width: '100%', maxWidth: 360, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12, padding: 18, boxShadow: '4px 4px 0px #1E1E1E' },
-  saveAvatarButton: { marginTop: 20, minHeight: 44, backgroundColor: '#2563EB', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 999, alignItems: 'center', justifyContent: 'center', boxShadow: '4px 4px 0px #1E1E1E' },
+  saveAvatarButton: { marginTop: 20, minHeight: 44, backgroundColor: '#2563EB', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   saveAvatarText: { color: '#FFFFFF', textTransform: 'uppercase', fontWeight: theme.typography.weights.semibold },
   pageCenterGroup: {
     flex: 1,

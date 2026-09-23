@@ -172,9 +172,8 @@ export function ContactScreen() {
             title={copy.title}
             onBackPress={() => router.push('/(tabs)/account')}
             backLabel={copy.back}
+            subtitle={copy.intro}
           />
-
-          <AppText language={uiLanguage} variant="body" style={styles.introText}>{copy.intro}</AppText>
 
           <View style={styles.socialLinksRow}>
             {SOCIAL_LINKS.map((link) => (
@@ -296,11 +295,6 @@ const styles = StyleSheet.create({
   neoCard: {
     borderWidth: 1.5,
     boxShadow: `1.75px 1.75px 0px ${theme.colors.shadow}`,
-  },
-  introText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 21,
   },
   socialLinksRow: {
     flexDirection: 'row',
