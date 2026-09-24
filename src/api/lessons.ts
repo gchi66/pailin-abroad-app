@@ -6,13 +6,15 @@ import { supabaseSelect } from '../lib/supabase-rest';
 import {
   LessonAudioSnippet,
   LessonAudioSnippetIndex,
+  ConversationLibraryDetail,
+  ConversationLibraryLesson,
   LessonListItem,
   LessonPhraseAudioSnippetIndex,
   ResolvedLessonPayload,
 } from '../types/lesson';
 
 const LESSON_SELECT_FIELDS =
-  'id,stage,level,lesson_order,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img';
+  'id,stage,level,lesson_order,lesson_external_id,title,title_th,subtitle,subtitle_th,focus,focus_th,backstory,backstory_th,header_img,conversation_audio_url';
 const LESSON_INDEX_SELECT_FIELDS = `${LESSON_SELECT_FIELDS},focus_short,focus_short_th`;
 const LESSONS_INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 const RESOLVED_LESSON_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -260,6 +262,42 @@ export async function getLessonById(lessonId: string): Promise<LessonListItem | 
     limit: 1,
   });
   return rows[0] ?? null;
+}
+
+/**
+ * Conversation-library reads intentionally stop at lesson display/audio metadata.
+ * Lesson sections, exercises, questions, phrases, and images are never requested.
+ */
+export async function getConversationLibrary(): Promise<ConversationLibraryLesson[]> {
+  const lessons = await getLessonsIndex();
+  return lessons
+    .filter((lesson) => Boolean(lesson.conversation_audio_url?.trim()))
+    .map((lesson) => ({
+      ...lesson,
+      lesson_external_id: lesson.lesson_external_id?.trim()
+        || (typeof lesson.level === 'number' && typeof lesson.lesson_order === 'number'
+          ? `${lesson.level}.${lesson.lesson_order}`
+          : null),
+      conversation_audio_url: lesson.conversation_audio_url?.trim() || null,
+    }));
+}
+
+export async function fetchConversationLibraryDetail(
+  lessonId: string
+): Promise<ConversationLibraryDetail> {
+  const lessons = await getConversationLibrary();
+  const lesson = lessons.find((item) => item.id === lessonId);
+  if (!lesson) throw new Error('Conversation not found.');
+
+  const transcript = await supabaseSelect<ConversationLibraryDetail['transcript'][number]>({
+    table: 'transcript_lines',
+    select: 'id,sort_order,speaker,speaker_th,line_text,line_text_th',
+    filters: [`lesson_id=eq.${encodeURIComponent(lessonId)}`],
+    orderBy: { column: 'sort_order', ascending: true },
+    limit: 500,
+  });
+
+  return { ...lesson, transcript };
 }
 
 export async function fetchResolvedLesson(

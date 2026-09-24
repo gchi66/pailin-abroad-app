@@ -1,5 +1,6 @@
 export type LessonListItem = {
   id: string;
+  lesson_external_id?: string | null;
   stage: string | null;
   level: number | null;
   lesson_order: number | null;
@@ -14,6 +15,16 @@ export type LessonListItem = {
   backstory: string | null;
   backstory_th: string | null;
   header_img: string | null;
+  conversation_audio_url?: string | null;
+};
+
+export type ConversationLibraryLesson = LessonListItem & {
+  lesson_external_id: string | null;
+  conversation_audio_url: string | null;
+};
+
+export type ConversationLibraryDetail = ConversationLibraryLesson & {
+  transcript: ResolvedLessonTranscriptLine[];
 };
 
 export type LessonRichInline = {

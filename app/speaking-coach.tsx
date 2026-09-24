@@ -2810,7 +2810,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   pronunciationEyebrow: {
-    marginTop: 5,
+    marginTop: 12,
     color: '#286BEA',
     fontSize: 10,
     lineHeight: 15,

@@ -3,9 +3,11 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
+import { resourceCardImages } from '@/src/assets/resource-images';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { AppText } from '@/src/components/ui/AppText';
@@ -278,6 +280,7 @@ export function TopicLibraryScreen() {
             title={copy.title}
             subtitle={copy.subtitle}
             onBackPress={() => router.push((returnTo || '/(tabs)/resources') as never)}
+            illustration={<Image source={resourceCardImages['topic-library']} contentFit="contain" style={styles.headerIllustration} />}
           />
         </View>
 
@@ -460,6 +463,13 @@ const styles = StyleSheet.create({
   pageHeader: {
     paddingHorizontal: 18,
     paddingTop: 12,
+  },
+  headerIllustration: {
+    position: 'absolute',
+    right: 4,
+    bottom: -3,
+    width: 112,
+    height: 86,
   },
   contentWrap: {
     paddingHorizontal: theme.spacing.md,

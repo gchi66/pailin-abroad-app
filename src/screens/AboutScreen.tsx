@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { aboutImages } from '@/src/assets/app-images';
 import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
@@ -139,8 +140,8 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
     back: 'Back',
     subtitle: 'Learn all you need to know about us - our method, our team, and our story!',
     sections: {
-      method: 'The Method',
-      team: 'Our Team',
+      method: 'The method',
+      team: 'Our team',
     },
     imagePlaceholder: 'Image placeholder',
     methodCards: [
@@ -239,6 +240,7 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
 
 export function AboutScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const copy = useMemo(() => getAboutPageCopy(uiLanguage), [uiLanguage]);
   const [activeSection, setActiveSection] = useState<AboutSectionKey>('method');
@@ -254,7 +256,9 @@ export function AboutScreen() {
   ];
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 112 }]}>
       <ResponsivePageShell>
       <Stack gap="md">
         <AccountPageHeader
@@ -281,7 +285,7 @@ export function AboutScreen() {
                   language={uiLanguage}
                   variant="caption"
                   style={[styles.sectionTabText, isActive ? styles.sectionTabTextActive : null]}>
-                  {option.label.toUpperCase()}
+                  {option.label}
                 </AppText>
               </NeoShadowPressable>
             );

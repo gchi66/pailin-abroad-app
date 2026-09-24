@@ -56,7 +56,7 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         id: 'conversations',
         title: 'Conversations',
         description: 'Listen to only the conversations from beginning to end',
-        enabled: false,
+        enabled: true,
       },
       {
         id: 'common-mistakes',
@@ -105,7 +105,7 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
         id: 'conversations',
         title: 'บทสนทนา',
         description: 'ฟังบทสนทนาจากต้นจนจบ',
-        enabled: false,
+        enabled: true,
       },
       {
         id: 'common-mistakes',
@@ -148,6 +148,8 @@ export function ResourcesScreen() {
         : '/(tabs)/resources/topic-library');
     } else if (card.id === 'pronunciation') {
       router.push('/(tabs)/resources/speaking-practice');
+    } else if (card.id === 'conversations') {
+      router.push('/(tabs)/resources/conversations');
     }
   };
 

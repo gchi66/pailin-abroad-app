@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import pailinImage from '@/assets/images/speaking-coach/pailin-time-to-speak.webp';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
 import { prefetchPricing } from '@/src/api/pricing';
+import { resourceCardImages } from '@/src/assets/resource-images';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
@@ -145,7 +145,7 @@ export function ExerciseBankScreen() {
             title={copy.title}
             subtitle={copy.intro}
             onBackPress={() => router.push('/(tabs)/resources')}
-            illustration={<Image source={pailinImage} contentFit="cover" style={styles.pailin} />}
+            illustration={<Image source={resourceCardImages['exercise-bank']} contentFit="contain" style={styles.headerIllustration} />}
           />
           <View style={styles.contentWrap}>
             <Stack gap="lg">
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  pailin: { position: 'absolute', right: 0, bottom: -6, width: 126, height: 98, transform: [{ scaleX: -1 }] },
+  headerIllustration: { position: 'absolute', right: 4, bottom: -3, width: 112, height: 86 },
   contentWrap: { paddingTop: theme.spacing.sm },
   searchShell: {
     minHeight: 48,

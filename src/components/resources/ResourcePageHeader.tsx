@@ -8,7 +8,7 @@ import { theme } from '@/src/theme/theme';
 type ResourcePageHeaderProps = {
   language: 'en' | 'th';
   title: string;
-  subtitle: string;
+  subtitle?: string;
   onBackPress: () => void;
   illustration?: React.ReactNode;
 };
@@ -25,15 +25,19 @@ export function ResourcePageHeader({ language, title, subtitle, onBackPress, ill
         <LanguageToggle compact />
       </View>
       <AppText language={language} variant="title" style={styles.title}>{title}</AppText>
-      <View style={[styles.introRow, illustration ? styles.introRowWithIllustration : null]}>
-        <AppText
-          language={language}
-          variant="caption"
-          style={[styles.subtitle, illustration ? styles.subtitleWithIllustration : null]}>
-          {subtitle}
-        </AppText>
-        {illustration}
-      </View>
+      {subtitle || illustration ? (
+        <View style={[styles.introRow, illustration ? styles.introRowWithIllustration : null]}>
+          {subtitle ? (
+            <AppText
+              language={language}
+              variant="caption"
+              style={[styles.subtitle, illustration ? styles.subtitleWithIllustration : null]}>
+              {subtitle}
+            </AppText>
+          ) : null}
+          {illustration}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -70,8 +74,9 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   introRowWithIllustration: {
-    minHeight: 78,
+    minHeight: 57,
     paddingBottom: 0,
+    marginBottom: 8,
   },
   subtitle: {
     color: theme.colors.text,

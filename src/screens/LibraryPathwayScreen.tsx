@@ -1,5 +1,6 @@
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -9,6 +10,7 @@ import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { fetchUserLessonEngagements } from '@/src/api/user';
+import { getLessonIconSource } from '@/src/assets/lesson-icons';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { LessonProgressCircle } from '@/src/components/lesson/LessonProgressCircle';
 import { LibraryStageLevelSelector } from '@/src/components/lesson/LibraryStageLevelSelector';
@@ -247,13 +249,14 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             const done = !!progress[lesson.id]?.is_completed;
             const strong = selected || done || !!progress[lesson.id]?.has_started;
             const lessonTitle = localized(lesson.title, lesson.title_th) || (th ? 'ไม่มีชื่อบทเรียน' : 'Untitled lesson');
+            const iconSource = getLessonIconSource(lessonNumber(lesson));
             const status = selected ? (th ? 'เลือกอยู่' : 'Selected') : marker.kind === 'complete' ? (th ? 'เรียนจบแล้ว' : 'Completed') : marker.kind === 'progress' ? `${marker.percent}%` : (th ? 'ยังไม่เริ่ม' : 'Not started');
             return <View key={lesson.id} style={styles.lessonRow} onLayout={({ nativeEvent }) => { offsets.current[lesson.id] = nativeEvent.layout.y; if (anchor === lesson.id) restoreAnchor(); }}>
               {!searching && index < lessons.length - 1 ? <View pointerEvents="none" style={[styles.connector, index < selectedIndex ? styles.connectorActive : null]} /> : null}
               <View style={styles.cardArea}>
                 <View style={styles.cardShadow}>
                   <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${lessonNumber(lesson)} ${lessonTitle}. ${status}${locked ? (th ? ' ล็อกอยู่' : '. Locked') : ''}`}
-                    style={[styles.card, strong ? styles.strongCard : null, selected ? styles.selectedCard : null]}
+                    style={[styles.card, iconSource ? styles.cardWithIcon : null, strong ? styles.strongCard : null, selected ? styles.selectedCard : null]}
                     onPressIn={() => { if (!locked) prefetchResolvedLesson(lesson.id, 'en'); }}
                     onPress={() => {
                       setSelectedId(lesson.id);
@@ -269,6 +272,11 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
                       {locked ? <MaterialIcons name="lock-outline" size={14} color="#777777" /> : null}
                     </View>
                     <AppText language={language} style={[styles.lessonTitle, locked ? styles.lockedTitle : null]}>{lessonTitle}</AppText>
+                    {iconSource ? (
+                      <View pointerEvents="none" style={styles.lessonIconSlot}>
+                        <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} />
+                      </View>
+                    ) : null}
                   </Pressable>
                 </View>
                 {marker.kind === 'progress' ? (
@@ -309,9 +317,12 @@ const styles = StyleSheet.create({
   connector: { position: 'absolute', left: 22, top: 20, bottom: -1, borderLeftWidth: 2, borderStyle: 'dashed', borderColor: '#DDDDDD' }, connectorActive: { borderStyle: 'solid', borderColor: '#2860F0' },
   cardArea: { position: 'relative' }, cardShadow: { backgroundColor: '#222222', borderRadius: 10 },
   card: { paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  cardWithIcon: { paddingRight: 82, minHeight: 88 },
   strongCard: { borderColor: '#222222' }, selectedCard: { backgroundColor: '#BFEDFC' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 }, lessonNumber: { fontSize: 12, lineHeight: 18, fontFamily: theme.typography.fontFaces.en.bold }, topic: { flex: 1, fontSize: 12, lineHeight: 18, color: '#666666' },
   lessonTitle: { fontSize: 14, lineHeight: 22, fontWeight: theme.typography.weights.medium, color: '#222222' }, lockedTitle: { color: '#777777' },
+  lessonIconSlot: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
+  lessonIcon: { width: 58, height: 58 },
   marker: { position: 'absolute', left: -9, top: '50%', marginTop: -11, width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#C6C6C6', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   selectedMarker: { backgroundColor: '#3CA0FE', borderColor: '#222222' }, completeMarker: { backgroundColor: '#BCE574', borderColor: '#222222' },
   progressMarker: { position: 'absolute', width: 20, height: 22, left: -10, top: '50%', marginTop: -14, alignItems: 'center' },
