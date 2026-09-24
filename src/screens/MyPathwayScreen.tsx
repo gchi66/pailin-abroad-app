@@ -568,7 +568,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                       </View>
 
                       <View style={styles.planMeta}>
-                        <LanguageToggle pathway />
+                        <LanguageToggle />
                       </View>
                     </View>
                   </View>

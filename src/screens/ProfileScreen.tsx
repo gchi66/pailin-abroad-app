@@ -337,7 +337,6 @@ export function ProfileScreen() {
                         title={copy.guestCta}
                         onPress={() => router.push('/account/auth')}
                         style={styles.guestButton}
-                        textStyle={styles.guestButtonText}
                       />
                     </View>
                   ) : null}
@@ -379,8 +378,6 @@ export function ProfileScreen() {
           backLabel={isChangingPassword ? copy.title : copy.back}
           onBackPress={() => isChangingPassword ? setIsChangingPassword(false) : router.push('/(tabs)/account')}
           subtitle={isChangingPassword ? undefined : copy.subtitle}
-          illustration={isChangingPassword ? undefined : require('@/assets/images/characters/pailin_thumbs_up_head.webp')}
-          flipIllustration
         />
 
         {isChangingPassword ? (
@@ -487,7 +484,7 @@ const styles = StyleSheet.create({
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
     flexGrow: 1,
   },
-  profileCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 13, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6, boxShadow: '4px 4px 0px #1E1E1E' },
+  profileCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 13, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6, marginTop: theme.spacing.md, boxShadow: '4px 4px 0px #1E1E1E' },
   contentContainerStatic: {
     flex: 1,
     padding: theme.spacing.md,
@@ -551,9 +548,6 @@ const styles = StyleSheet.create({
     left: 3,
     borderRadius: 28,
     backgroundColor: theme.colors.shadow,
-  },
-  guestButtonText: {
-    fontWeight: theme.typography.weights.bold,
   },
   profileHeaderRow: {
     flexDirection: 'row',

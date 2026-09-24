@@ -58,7 +58,7 @@ export function PlacementEntryScreen() {
                     : 'พร้อมเรียนภาษาอังกฤษกับไพลินไหม?'}
                 </AppText>
               </View>
-              <LanguageToggle style={styles.languageToggle} textStyle={styles.languageToggleText} />
+              <LanguageToggle />
             </View>
           </ResponsivePageShell>
         </View>
@@ -86,8 +86,6 @@ const styles = StyleSheet.create({
   welcomeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' },
   welcomeText: { fontSize: 20, lineHeight: 26, fontWeight: theme.typography.weights.bold },
   subheader: { fontSize: 13, lineHeight: 19 },
-  languageToggle: { minWidth: 62, minHeight: 32, borderColor: '#D5D9DE', alignSelf: 'flex-start' },
-  languageToggleText: { fontSize: 10, lineHeight: 13 },
   cardShell: {
     flex: 1,
     width: '100%',

@@ -116,6 +116,7 @@ export function ChooseLevelResultScreen() {
                 <View pointerEvents="none" style={[styles.buttonShadow, isPressed ? styles.shadowPressed : null]} />
                 <Button
                   language={uiLanguage}
+                  size="compact"
                   title={isLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON!' : 'เริ่มบทเรียนแรกของคุณ!')}
                   disabled={isLoading || !lessonId}
                   disabledStyle={styles.buttonDisabledOpacity}
@@ -127,7 +128,6 @@ export function ChooseLevelResultScreen() {
                     isPressed ? styles.buttonPressed : null,
                     isLoading || !lessonId ? styles.buttonDisabled : null,
                   ]}
-                  textStyle={styles.buttonText}
                 />
               </View>
 
@@ -232,12 +232,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#CFCFCF',
   },
   buttonDisabledOpacity: { opacity: 1 },
-  buttonText: {
-    color: theme.colors.surface,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: theme.typography.weights.medium,
-  },
   shadowPressed: {
     opacity: 0,
   },

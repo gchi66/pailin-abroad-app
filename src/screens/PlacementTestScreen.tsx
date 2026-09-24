@@ -434,6 +434,7 @@ export function PlacementTestScreen() {
                           />
                           <Button
                             language={uiLanguage}
+                            size="compact"
                             title={isResultLessonLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON!' : 'เริ่มบทเรียนแรกของคุณ!')}
                             disabled={isResultLessonLoading || !resultLessonId}
                             disabledStyle={styles.resultButtonDisabledOpacity}
@@ -447,7 +448,6 @@ export function PlacementTestScreen() {
                                 : null,
                               isResultButtonPressed ? styles.resultButtonPressed : null,
                             ]}
-                            textStyle={styles.resultButtonText}
                           />
                         </View>
 
@@ -608,6 +608,7 @@ export function PlacementTestScreen() {
                     <Button
                       title="ถัดไป"
                       language="th"
+                      size="compact"
                       disabled={answers[currentQuestion.id] === undefined}
                       disabledStyle={styles.nextButtonDisabledOpacity}
                       onPress={goToNextQuestion}
@@ -618,7 +619,6 @@ export function PlacementTestScreen() {
                         answers[currentQuestion.id] === undefined ? styles.nextButtonDisabled : null,
                         isNextPressed ? styles.nextButtonPressed : null,
                       ]}
-                      textStyle={styles.nextButtonText}
                     />
                   </View>
                 </View>
@@ -738,7 +738,6 @@ const styles = StyleSheet.create({
   resultButtonPressed: { transform: [{ translateX: 4 }, { translateY: 5 }] },
   resultButtonDisabled: { backgroundColor: '#CFCFCF' },
   resultButtonDisabledOpacity: { opacity: 1 },
-  resultButtonText: { fontSize: 14, lineHeight: 20, fontWeight: theme.typography.weights.medium },
   resultErrorText: { marginTop: 12, color: theme.colors.primary, textAlign: 'center' },
   audioCardWrap: {
     width: '100%',
@@ -981,7 +980,6 @@ const styles = StyleSheet.create({
   },
   nextButtonDisabledOpacity: { opacity: 1 },
   nextButtonPressed: { transform: [{ translateX: 4 }, { translateY: 5 }] },
-  nextButtonText: { fontSize: 14, lineHeight: 20, fontWeight: theme.typography.weights.medium },
   audioTrayRegion: {
     position: 'relative',
     zIndex: 2,

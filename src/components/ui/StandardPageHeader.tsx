@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '@/src/theme/theme';
 
 import { AppText } from './AppText';
+import { BackAction } from './BackAction';
 
 type StandardPageHeaderProps = {
   language: 'en' | 'th';
@@ -28,6 +29,7 @@ export function StandardPageHeader({
   language,
   title,
   eyebrow,
+  subtitle,
   titleStyle,
   titleSize = 'default',
   hideTitle = false,
@@ -49,11 +51,7 @@ export function StandardPageHeader({
         <View style={styles.inlineRow}>
           <View style={styles.inlineLeftElement}>
             {onBackPress ? (
-              <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
-                <AppText language={language} variant="caption" style={styles.actionText}>
-                  {backLabel ? `← ${backLabel}` : '←'}
-                </AppText>
-              </Pressable>
+              <BackAction language={language} label={backLabel} onPress={onBackPress} style={styles.backButton} />
             ) : null}
           </View>
           <AppText
@@ -69,11 +67,7 @@ export function StandardPageHeader({
         <>
           <View style={styles.actionRow}>
             {onBackPress ? (
-              <Pressable accessibilityRole="button" style={styles.backButton} onPress={onBackPress}>
-                <AppText language={language} variant="caption" style={styles.actionText}>
-                  {backLabel ? `← ${backLabel}` : '←'}
-                </AppText>
-              </Pressable>
+              <BackAction language={language} label={backLabel} onPress={onBackPress} style={styles.backButton} />
             ) : (
               <View style={styles.actionSpacer} />
             )}
@@ -98,13 +92,20 @@ export function StandardPageHeader({
           ) : null}
 
           {!hideTitle ? (
-            <AppText
-              language={language}
-              variant="title"
-              numberOfLines={1}
-              style={[styles.title, titleSize === 'compact' ? styles.compactTitle : null, titleStyle]}>
-              {title}
-            </AppText>
+            <>
+              <AppText
+                language={language}
+                variant="title"
+                numberOfLines={1}
+                style={[styles.title, subtitle ? styles.titleWithSubtitle : null, titleSize === 'compact' ? styles.compactTitle : null, titleStyle]}>
+                {title}
+              </AppText>
+              {subtitle ? (
+                <AppText language={language} variant="caption" style={styles.subtitle}>
+                  {subtitle}
+                </AppText>
+              ) : null}
+            </>
           ) : null}
         </>
       )}
@@ -130,9 +131,6 @@ const styles = StyleSheet.create({
     minHeight: 28,
   },
   backButton: {
-    minHeight: 28,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
     paddingLeft: theme.spacing.xs,
   },
   rightActionButton: {
@@ -158,6 +156,14 @@ const styles = StyleSheet.create({
     fontSize: 36,
     lineHeight: 40,
     fontWeight: theme.typography.weights.bold,
+  },
+  titleWithSubtitle: {
+    marginBottom: 2,
+  },
+  subtitle: {
+    marginBottom: 8,
+    color: theme.colors.mutedText,
+    textAlign: 'center',
   },
   eyebrow: {
     marginTop: theme.spacing.xs,

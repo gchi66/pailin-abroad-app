@@ -10,6 +10,7 @@ import { fetchTopicLibraryTopics } from '@/src/api/topic-library';
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: theme.spacing.xl * 2,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   pageHeader: {
     paddingHorizontal: 18,
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
   headerIllustration: {
     position: 'absolute',
     right: 4,
-    bottom: -3,
+    bottom: -12,
     width: 112,
     height: 86,
   },

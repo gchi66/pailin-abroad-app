@@ -20,7 +20,7 @@ const copy = {
     headphones: 'Grab headphones',
     listen: 'Listen to short conversations',
     answer: 'Answer a few questions',
-    start: 'Start placement test',
+    start: 'START PLACEMENT TEST',
     manual: 'Choose my level instead',
   },
   th: {
@@ -74,12 +74,12 @@ export function PlacementTestIntroCard({ language, onChooseManually, onStart }: 
           <View pointerEvents="none" style={[styles.buttonShadow, isStartPressed ? styles.shadowPressed : null]} />
           <Button
             language={language}
+            size="compact"
             title={text.start}
             onPress={onStart}
             onPressIn={() => setIsStartPressed(true)}
             onPressOut={() => setIsStartPressed(false)}
             style={[styles.button, isStartPressed ? styles.buttonPressed : null]}
-            textStyle={styles.buttonText}
           />
         </View>
 
@@ -172,12 +172,6 @@ const styles = StyleSheet.create({
   },
   shadowPressed: {
     opacity: 0,
-  },
-  buttonText: {
-    fontSize: 13,
-    lineHeight: 19,
-    letterSpacing: 0.2,
-    fontWeight: theme.typography.weights.medium,
   },
   manualLinkButton: {
     alignSelf: 'center',

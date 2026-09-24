@@ -5,8 +5,8 @@ import { useRouter } from 'expo-router';
 import { getLegalDocumentCopy, LegalDocumentKey } from '@/src/copy/legal';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { PageHeader } from '@/src/components/ui/PageHeader';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -20,7 +20,7 @@ export function LegalScreen({ document }: { document: LegalDocumentKey }) {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
       <Stack gap="md">
-        <StandardPageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account/settings')} topInsetOffset={52} />
+        <PageHeader language={uiLanguage} title={copy.title} onBackPress={() => router.push('/(tabs)/account/settings')} />
 
         <Card padding="lg" radius="lg" style={styles.neoCard}>
           <Stack gap="md">

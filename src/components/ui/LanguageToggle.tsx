@@ -1,19 +1,12 @@
 import React from 'react';
-import { Pressable, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
 import { AppText } from './AppText';
 
-type LanguageToggleProps = {
-  compact?: boolean;
-  pathway?: boolean;
-  style?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>;
-};
-
-export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
+export function LanguageToggle() {
   const { uiLanguage, setUiLanguage } = useUiLanguage();
   const toggleLabel = uiLanguage === 'th' ? 'EN' : 'TH';
 
@@ -23,11 +16,11 @@ export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
         accessibilityRole="button"
         accessibilityLabel={uiLanguage === 'th' ? 'Switch language to English' : 'เปลี่ยนภาษาเป็นไทย'}
         onPress={() => setUiLanguage(uiLanguage === 'th' ? 'en' : 'th')}
-        style={[styles.languagePill, style]}>
+        style={styles.languagePill}>
         <AppText
           language="en"
           variant="caption"
-          style={[styles.languagePillText, textStyle]}>
+          style={styles.languagePillText}>
           {toggleLabel}
         </AppText>
       </Pressable>
@@ -37,11 +30,14 @@ export function LanguageToggle({ style, textStyle }: LanguageToggleProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'relative',
+    width: 60,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   languagePill: {
-    minWidth: 60,
-    minHeight: 26,
+    width: 60,
+    height: 28,
     borderRadius: 999,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,

@@ -24,7 +24,7 @@ import { Button } from '@/src/components/ui/Button';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
   localizeExerciseBankQuestion,
@@ -626,10 +626,15 @@ export function ExerciseBankSessionScreen() {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
-          <StandardPageHeader language={uiLanguage} title="" hideTitle bottomSpacing={16} onBackPress={() => router.back()} backLabel={copy.back} rightElement={<LanguageToggle compact />} />
+          <View style={styles.pickerHeader}>
+            <ResourcePageHeader
+              language={uiLanguage}
+              title={localizedTopicDetail?.display_title ?? ''}
+              subtitle={copy.chooseSet}
+              onBackPress={() => router.back()}
+            />
+          </View>
           <View style={styles.pickerContent}>
-            <AppText language={uiLanguage} variant="title" style={styles.pickerTitle}>{localizedTopicDetail?.display_title}</AppText>
-            <AppText language={uiLanguage} variant="body" style={styles.pickerSubtitle}>{copy.chooseSet}</AppText>
             <View style={styles.setList}>{topicDetail.sets.map((item) => (
               <Pressable key={item.set_number} style={styles.setButton} onPress={() => router.setParams({ setNumber: String(item.set_number) })}>
                 <AppText language={uiLanguage} variant="body" style={styles.setButtonTitle}>{copy.set} {item.set_number}</AppText>
@@ -663,7 +668,7 @@ export function ExerciseBankSessionScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={() => router.back()}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
-              <LanguageToggle pathway />
+              <LanguageToggle />
             </View>
           </View>
           <View style={styles.sessionContent}>
@@ -722,7 +727,7 @@ export function ExerciseBankSessionScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={() => router.back()}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
-              <LanguageToggle pathway />
+              <LanguageToggle />
             </View>
           </View>
           <View style={[styles.sessionContent, styles.questionSessionContent]}>
@@ -1100,9 +1105,8 @@ const styles = StyleSheet.create({
   completeIcon: { width: 68, height: 68, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: 34, backgroundColor: theme.colors.success },
   completeIconText: { fontWeight: theme.typography.weights.bold },
   completeTitle: { textAlign: 'center', fontSize: 28 },
+  pickerHeader: { paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.sm },
   pickerContent: { padding: theme.spacing.lg, gap: theme.spacing.md },
-  pickerTitle: { textAlign: 'left', fontSize: 28, fontWeight: theme.typography.weights.bold },
-  pickerSubtitle: { fontWeight: theme.typography.weights.semibold },
   setList: { gap: theme.spacing.sm },
   setButton: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, padding: theme.spacing.md },
   setButtonTitle: { fontWeight: theme.typography.weights.bold },

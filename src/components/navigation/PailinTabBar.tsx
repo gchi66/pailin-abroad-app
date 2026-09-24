@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 34,
     backgroundColor: theme.colors.surface,
-    transform: [{ translateX: -3 }, { translateY: -3 }],
+    transform: [{ translateX: -1 }, { translateY: -3 }],
   },
   item: {
     flex: 1,

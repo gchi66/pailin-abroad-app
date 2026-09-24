@@ -380,5 +380,5 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     boxShadow: `4px 4px 0px ${theme.colors.shadow}`,
   },
-  submitButtonText: { color: '#FFFFFF', textTransform: 'uppercase', fontWeight: theme.typography.weights.medium },
+  submitButtonText: { color: '#FFFFFF', textTransform: 'uppercase' },
 });

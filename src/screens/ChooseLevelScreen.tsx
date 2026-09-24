@@ -108,6 +108,7 @@ export function ChooseLevelScreen() {
                 <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
                 <Button
                   language={uiLanguage}
+                  size="compact"
                   title={copy.start}
                   onPress={() => router.push({
                     pathname: '/choose-level-result',
@@ -116,7 +117,6 @@ export function ChooseLevelScreen() {
                   onPressIn={() => setIsStartPressed(true)}
                   onPressOut={() => setIsStartPressed(false)}
                   style={[styles.startButton, isStartPressed ? styles.startButtonPressed : null]}
-                  textStyle={styles.startButtonText}
                 />
               </View>
             ) : null}
@@ -282,11 +282,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
     backgroundColor: placementColors.blue,
-  },
-  startButtonText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: theme.typography.weights.medium,
   },
   startButtonPressed: {
     transform: [{ translateX: 4 }, { translateY: 5 }],

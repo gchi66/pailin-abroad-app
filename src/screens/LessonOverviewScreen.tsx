@@ -8,6 +8,7 @@ import speakingIconGray from '@/assets/images/lesson-speaking-icon-gray.png';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/src/components/ui/AppText';
+import { BackAction } from '@/src/components/ui/BackAction';
 import { LessonOverviewTabBar } from '@/src/components/navigation/PailinTabBar';
 import { getLessonSectionLabel } from '@/src/copy/lesson-detail';
 import type { UiLanguage } from '@/src/types/home';
@@ -71,9 +72,12 @@ export function LessonOverviewScreen(p: Props) {
         scrollToActiveRow();
       }}>
       <View ref={contentRef} style={[s.content, { paddingBottom: insets.bottom + 110 }]}>
-      <Pressable accessibilityRole="button" onPress={p.tabs[2].onPress} style={s.back}>
-        <MaterialIcons name="arrow-back" size={20} /><AppText language={p.language} style={s.backText}>{th ? 'คลังบทเรียน' : 'Lesson library'}</AppText>
-      </Pressable>
+      <BackAction
+        language={p.language}
+        label={th ? 'คลังบทเรียน' : 'Lesson library'}
+        onPress={p.tabs[2].onPress}
+        style={s.back}
+      />
       <View style={s.header}>
         <View style={s.avatarCircle}>
           <Image source={pailinHead} style={s.avatar} contentFit="contain" />
@@ -152,7 +156,7 @@ export function LessonOverviewScreen(p: Props) {
 }
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F7F9FC' }, content: { paddingHorizontal: 24 },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12 }, backText: { fontSize: 13 },
+  back: { marginBottom: 4 },
   avatarCircle: { position: 'absolute', right: -8, bottom: -8, width: 48, height: 48, overflow: 'hidden', borderWidth: 1, borderColor: '#222', borderRadius: 24, backgroundColor: '#BDEDFC', alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 38, height: 38 },
   header: { padding: 16, paddingRight: 40, borderWidth: 1, borderColor: '#D5D5D5', borderRadius: 10, backgroundColor: '#FFF', gap: 4 },

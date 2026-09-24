@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
+import { BackAction } from '@/src/components/ui/BackAction';
 import { containsThaiGlyphs } from '@/src/lib/script-aware-text';
 import { Button } from '@/src/components/ui/Button';
 import { Stack } from '@/src/components/ui/Stack';
@@ -1093,11 +1094,7 @@ export function ExerciseBankPager({
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" onPress={onBack} style={styles.topBarButton}>
-          <AppText language={language} variant="caption" style={styles.topBarButtonText}>
-            {`← ${copy.backToBank}`}
-          </AppText>
-        </Pressable>
+        <BackAction language={language} label={copy.backToBank} onPress={onBack} style={styles.topBarButton} />
 
         <View style={styles.translatePillWrap}>
           <Pressable
@@ -1702,12 +1699,6 @@ const styles = StyleSheet.create({
   },
   topBarButton: {
     flex: 1,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  topBarButtonText: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.semibold,
   },
   translatePill: {
     minWidth: 60,

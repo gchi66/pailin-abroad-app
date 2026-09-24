@@ -622,7 +622,6 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
       onPress={selectedOption === 'free' ? handleContinueFree : handleJoinPress}
       disabled={purchaseInProgress}
       style={styles.primaryCta}
-      textStyle={styles.primaryCtaText}
       title={ctaTitle}
     />
   );
@@ -1006,12 +1005,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: '#2D66E8',
     boxShadow: '4px 4px 0px #1E1E1E',
-  },
-  primaryCtaText: {
-    color: '#FFFFFF',
-    fontWeight: theme.typography.weights.bold,
-    fontSize: 15,
-    lineHeight: 19,
   },
   restoreButton: {
     alignSelf: 'center',

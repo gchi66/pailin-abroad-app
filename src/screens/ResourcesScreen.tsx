@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
+import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -134,7 +135,7 @@ export function ResourcesScreen() {
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
   const returnTo = typeof returnToParam === 'string' && returnToParam.trim() ? returnToParam : null;
-  const { uiLanguage, setUiLanguage } = useUiLanguage();
+  const { uiLanguage } = useUiLanguage();
   const copy = resourcePageCopy[uiLanguage];
 
   const handleCardPress = (card: ResourceCardCopy) => {
@@ -157,29 +158,13 @@ export function ResourcesScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <View style={styles.page}>
-          {returnTo ? (
-            <Pressable accessibilityRole="button" onPress={() => router.push(returnTo as never)} style={styles.backButton}>
-              <AppText language={uiLanguage} variant="caption">← {uiLanguage === 'th' ? 'กลับ' : 'Back'}</AppText>
-            </Pressable>
-          ) : null}
-
-          <View style={styles.headingRow}>
-            <AppText language={uiLanguage} variant="title" style={styles.heading}>
-              {copy.title}
-            </AppText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={uiLanguage === 'en' ? 'Switch language to Thai' : 'Switch language to English'}
-              onPress={() => setUiLanguage(uiLanguage === 'en' ? 'th' : 'en')}
-              style={styles.languageButton}>
-              <AppText language={uiLanguage === 'en' ? 'en' : 'th'} variant="caption" style={styles.languageText}>
-                {uiLanguage === 'en' ? 'TH' : 'EN'}
-              </AppText>
-            </Pressable>
-          </View>
-          <AppText language={uiLanguage} variant="body" style={styles.subtitle}>
-            {copy.subtitle}
-          </AppText>
+          <PageHeader
+            language={uiLanguage}
+            variant="root"
+            title={copy.title}
+            subtitle={copy.subtitle}
+            onBackPress={returnTo ? () => router.push(returnTo as never) : undefined}
+          />
 
           <View style={styles.cards}>
             {copy.cards.map((card) => (
@@ -229,42 +214,6 @@ const styles = StyleSheet.create({
   page: {
     paddingHorizontal: 32,
     paddingTop: 16,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 12,
-  },
-  headingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heading: {
-    color: theme.colors.text,
-    fontSize: 21,
-    lineHeight: 30,
-    fontWeight: theme.typography.weights.bold,
-  },
-  languageButton: {
-    minWidth: 52,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D8DDE3',
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  languageText: {
-    fontSize: 11,
-    lineHeight: 15,
-    color: theme.colors.text,
-  },
-  subtitle: {
-    marginTop: 2,
-    color: '#6D737B',
-    fontSize: 13,
-    lineHeight: 20,
   },
   cards: {
     marginTop: 18,

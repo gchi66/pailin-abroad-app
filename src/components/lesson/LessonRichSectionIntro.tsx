@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { Button } from '@/src/components/ui/Button';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
@@ -156,15 +157,13 @@ export function LessonRichSectionIntro({
       </View>
 
       <View style={[styles.footer, { paddingBottom: Math.max(bottomInset, 16) + 16 }]}>
-        <Pressable
-          accessibilityRole="button"
+        <Button
+          language={language}
+          title={language === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE'}
           disabled={isLeaving}
           onPress={handleContinue}
-          style={({ pressed }) => [styles.continueButton, pressed ? styles.continueButtonPressed : null]}>
-          <AppText language={language} style={styles.continueText}>
-            {language === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE'}
-          </AppText>
-        </Pressable>
+          style={styles.continueButton}
+        />
       </View>
     </Animated.View>
   );
@@ -250,24 +249,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   continueButton: {
-    minHeight: 43,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 999,
     backgroundColor: '#2860E8',
     boxShadow: `3px 3px 0px ${theme.colors.shadow}`,
-  },
-  continueButtonPressed: {
-    transform: [{ translateX: 2 }, { translateY: 2 }],
-    boxShadow: `1px 1px 0px ${theme.colors.shadow}`,
-  },
-  continueText: {
-    color: theme.colors.surface,
-    fontSize: 11,
-    lineHeight: 17,
-    fontFamily: theme.typography.fontFaces.en.semibold,
-    textAlign: 'center',
   },
 });

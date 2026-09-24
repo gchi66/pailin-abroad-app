@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  headerIllustration: { position: 'absolute', right: 4, bottom: -3, width: 112, height: 86 },
+  headerIllustration: { position: 'absolute', right: 4, bottom: -12, width: 112, height: 86 },
   contentWrap: { paddingTop: theme.spacing.sm },
   searchShell: {
     minHeight: 48,

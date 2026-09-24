@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   changePlanButton: { minHeight: 56, backgroundColor: '#BCECFF', borderColor: theme.colors.border },
-  changePlanButtonText: { color: theme.colors.text, textTransform: 'uppercase', fontWeight: theme.typography.weights.medium },
+  changePlanButtonText: { color: theme.colors.text, textTransform: 'uppercase' },
   infoRow: {
     minHeight: 52,
     flexDirection: 'row',

@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8FBFF' },
   content: { paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  pailin: { position: 'absolute', right: 0, bottom: -6, width: 126, height: 98, transform: [{ scaleX: -1 }] },
+  pailin: { position: 'absolute', right: 0, bottom: -12, width: 118, height: 92, transform: [{ scaleX: -1 }] },
   loading: { marginTop: 50 },
   error: { marginTop: 28, color: theme.colors.error },
   empty: { marginTop: 28 },

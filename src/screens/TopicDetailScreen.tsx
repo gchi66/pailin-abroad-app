@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { fetchTopicDetail } from '@/src/api/topic-library';
+import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { TopicRichContent } from '@/src/components/topic/TopicRichContent';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -124,21 +126,17 @@ export function TopicDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer} stickyHeaderIndices={[0]}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <View style={styles.topRowWrap}>
         <ResponsivePageShell>
           <View style={styles.topRowShell}>
-            <View style={styles.topRow}>
-              <Pressable
-                accessibilityRole="button"
-                style={styles.backButton}
-                onPress={() => router.push((returnTo || '/(tabs)/resources/topic-library') as never)}>
-                <AppText language={uiLanguage} variant="caption" style={styles.backButtonText}>
-                  ← {backLabel}
-                </AppText>
-              </Pressable>
-
-              <Pressable
+            <ResourcePageHeader
+              language={uiLanguage}
+              title={topicName}
+              subtitle={topic?.subtitle ?? undefined}
+              backLabel={backLabel}
+              onBackPress={() => router.push((returnTo || '/(tabs)/resources/topic-library') as never)}
+              rightElement={<Pressable
                 accessibilityRole="button"
                 accessibilityLabel={contentToggleLabel}
                 disabled={isRefetching}
@@ -149,8 +147,8 @@ export function TopicDetailScreen() {
                     {contentToggleText}
                   </AppText>
                 </View>
-              </Pressable>
-            </View>
+              </Pressable>}
+            />
           </View>
         </ResponsivePageShell>
       </View>
@@ -175,18 +173,8 @@ export function TopicDetailScreen() {
 
               {topic ? (
                 <View style={styles.topicContentBlock}>
-                  <View style={styles.heroSection}>
+                  {topic.tags.length > 0 || isRefetching ? <View style={styles.heroSection}>
                     <Stack gap="sm">
-                      <AppText language={uiLanguage} variant="title" style={styles.heroTitle}>
-                        {topicName}
-                      </AppText>
-
-                      {topic.subtitle ? (
-                        <AppText language={uiLanguage} variant="body" style={styles.heroSubtitle}>
-                          {topic.subtitle}
-                        </AppText>
-                      ) : null}
-
                       {topic.tags.length > 0 ? (
                         <View style={styles.tagRow}>
                           {topic.tags.map((tag) => (
@@ -205,7 +193,7 @@ export function TopicDetailScreen() {
                         </AppText>
                       ) : null}
                     </Stack>
-                  </View>
+                  </View> : null}
 
                   {Array.isArray(topic.content_jsonb) && topic.content_jsonb.length > 0 ? (
                     <TopicRichContent contentLang={contentLang} nodes={topic.content_jsonb} />
@@ -232,36 +220,18 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: theme.spacing.xl * 2,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   contentWrap: {
     paddingHorizontal: 0,
     paddingTop: 0,
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-    minHeight: 36,
-    paddingVertical: theme.spacing.sm,
-  },
   topRowShell: {
     paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
   },
   topRowWrap: {
     backgroundColor: theme.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    flex: 1,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.semibold,
   },
   centerState: {
     paddingVertical: theme.spacing.xl,
@@ -288,14 +258,6 @@ const styles = StyleSheet.create({
   },
   topicContentBlock: {
     gap: 0,
-  },
-  heroTitle: {
-    fontSize: 30,
-    lineHeight: 38,
-    fontWeight: theme.typography.weights.bold,
-  },
-  heroSubtitle: {
-    color: theme.colors.mutedText,
   },
   translatePill: {
     minWidth: 60,

@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8FBFF' },
   content: { paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  illustration: { position: 'absolute', right: 4, bottom: -3, width: 112, height: 86 },
+  illustration: { position: 'absolute', right: 4, bottom: -12, width: 112, height: 86 },
   loading: { marginTop: 50 },
   error: { marginTop: 28, color: theme.colors.error },
   empty: { marginTop: 28 },

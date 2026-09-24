@@ -1,21 +1,19 @@
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
+import { PageHeader } from '@/src/components/ui/PageHeader';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
-
-import fullLogo from '@/assets/images/full-logo.webp';
 
 type MoreAction = {
   key: 'profile' | 'comments' | 'about' | 'contact' | 'settings';
@@ -66,6 +64,7 @@ export function MoreScreen() {
   const copy =
     uiLanguage === 'th'
       ? {
+          title: 'เพิ่มเติม',
           membershipTitle: 'สมาชิก',
           membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
           actions: [
@@ -77,6 +76,7 @@ export function MoreScreen() {
           ] satisfies MoreAction[],
         }
       : {
+          title: 'More',
           membershipTitle: 'Membership',
           membershipBody: 'Unlock all lessons and our full content library.',
           actions: [
@@ -96,14 +96,7 @@ export function MoreScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell style={styles.pageShell}>
         <Stack gap="md" style={styles.pageContent}>
-          <View style={styles.headerBlock}>
-            <View style={styles.headerRow}>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)')} style={styles.logoButton}>
-                <Image source={fullLogo} style={styles.logo} resizeMode="contain" accessibilityLabel="Pailin Abroad" />
-              </Pressable>
-              <LanguageToggle pathway />
-            </View>
-          </View>
+          <PageHeader language={uiLanguage} variant="root" title={copy.title} />
 
           <View style={styles.actionsWrap}>
             <Stack gap="lg">
@@ -171,25 +164,6 @@ const styles = StyleSheet.create({
   },
   pageShell: {
     flex: 1,
-  },
-  headerBlock: {
-    marginHorizontal: -theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-    minHeight: 58,
-  },
-  logo: {
-    width: 180,
-    height: 28,
-  },
-  logoButton: {
-    alignSelf: 'center',
   },
   actionsWrap: {
     flex: 1,

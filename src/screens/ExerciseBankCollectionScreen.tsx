@@ -11,11 +11,10 @@ import {
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
-import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
-import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';
+import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { useAppSession } from '@/src/context/app-session-context';
 import { getExerciseBankCollection } from '@/src/lib/exercise-bank-collections';
@@ -172,28 +171,16 @@ export function ExerciseBankCollectionScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <Stack gap="md">
-          <StandardPageHeader
-            language={uiLanguage}
-            title=""
-            hideTitle
-            bottomSpacing={14}
-            onBackPress={() => router.back()}
-            backLabel={copy.back}
-            rightElement={<LanguageToggle compact />}
-          />
+          <View style={styles.pageHeader}>
+            <ResourcePageHeader
+              language={uiLanguage}
+              title={copy.pageTitle}
+              subtitle={collection?.label[uiLanguage]}
+              onBackPress={() => router.back()}
+            />
+          </View>
 
           <View style={styles.contentWrap}>
-            {collection ? (
-              <View style={styles.pageHeading}>
-                <AppText language={uiLanguage} variant="body" style={styles.collectionLabel}>
-                  {collection.label[uiLanguage]}
-                </AppText>
-                <AppText language={uiLanguage} variant="title" style={styles.pageTitle}>
-                  {copy.pageTitle}
-                </AppText>
-              </View>
-            ) : null}
-
             {collection?.category === 'verbs_and_tenses' ? (
               <View accessibilityRole="tablist" style={styles.tenseFilterRow}>
                 {TENSE_FILTERS.map((filter) => {
@@ -304,27 +291,14 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.xl * 2,
   },
+  pageHeader: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+  },
   contentWrap: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.xs,
     gap: theme.spacing.lg,
-  },
-  pageHeading: {
-    width: '100%',
-    gap: 10,
-  },
-  collectionLabel: {
-    color: theme.colors.text,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: theme.typography.weights.regular,
-  },
-  pageTitle: {
-    textAlign: 'left',
-    color: theme.colors.text,
-    fontSize: 27,
-    lineHeight: 31,
-    fontWeight: '800',
   },
   tenseFilterRow: {
     width: '100%',

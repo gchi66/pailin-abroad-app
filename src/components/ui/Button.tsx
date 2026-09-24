@@ -13,11 +13,13 @@ import { theme } from '../../theme/theme';
 import { AppText } from './AppText';
 
 type ButtonVariant = 'primary' | 'outline';
+type ButtonSize = 'default' | 'compact';
 
 type ButtonProps = Omit<PressableProps, 'style'> & {
   title: string;
   leadingIcon?: React.ReactNode;
   variant?: ButtonVariant;
+  size?: ButtonSize;
   language?: 'en' | 'th';
   style?: StyleProp<ViewStyle>;
   disabledStyle?: StyleProp<ViewStyle>;
@@ -44,12 +46,30 @@ const textVariantStyles: Record<ButtonVariant, TextStyle> = {
   },
 };
 
+const sizeStyles: Record<ButtonSize, ViewStyle> = {
+  default: {},
+  compact: {
+    minHeight: 44,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 6,
+  },
+};
+
+const textSizeStyles: Record<ButtonSize, TextStyle> = {
+  default: {},
+  compact: {
+    fontSize: theme.typography.sizes.sm,
+    lineHeight: 20,
+  },
+};
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function Button({
   title,
   leadingIcon,
   variant = 'primary',
+  size = 'default',
   language = 'en',
   disabled,
   style,
@@ -68,7 +88,7 @@ export function Button({
       { scale: 1 - pressProgress.value * 0.015 },
     ],
   }));
-  const resolvedBaseStyle = StyleSheet.flatten([styles.base, variantStyles[variant], style]) as ViewStyle;
+  const resolvedBaseStyle = StyleSheet.flatten([styles.base, sizeStyles[size], variantStyles[variant], style]) as ViewStyle;
   const pressedShadow = typeof resolvedBaseStyle.boxShadow === 'string'
     ? resolvedBaseStyle.boxShadow.replace(/^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/, '1px 1px')
     : null;
@@ -96,7 +116,7 @@ export function Button({
       ]}
       {...rest}>
       {leadingIcon}
-      <AppText language={language} variant="caption" style={[styles.label, textVariantStyles[variant], textStyle]}>
+      <AppText language={language} variant="caption" style={[styles.label, textSizeStyles[size], textVariantStyles[variant], textStyle]}>
         {title}
       </AppText>
     </AnimatedPressable>

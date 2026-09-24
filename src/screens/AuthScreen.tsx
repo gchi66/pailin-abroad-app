@@ -331,18 +331,7 @@ export function AuthScreen() {
                   ]}
                   contentFit="contain"
                 />
-                <LanguageToggle
-                  textStyle={
-                    Platform.OS === 'android'
-                      ? {
-                          fontFamily:
-                            uiLanguage === 'th'
-                              ? theme.typography.fontFaces.en.medium
-                              : theme.typography.fontFaces.th.medium,
-                        }
-                      : undefined
-                  }
-                />
+                <LanguageToggle />
               </View>
             </Pressable>
 
