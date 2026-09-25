@@ -88,6 +88,7 @@ import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '@/src/theme/theme';
 import { resolveTranscriptCharacterBlueCircle, resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
+import comprehensionPerfectImage from '@/assets/images/speaking-coach/pailin-set-complete.webp';
 import comprehensionProgressImage from '@/assets/images/speaking-coach/pailin-good-job.webp';
 import comprehensionPracticeImage from '@/assets/images/pailin-common-mistakes.webp';
 import practicePerfectImage from '@/assets/images/pailin-phrases-verbs.webp';
@@ -230,6 +231,16 @@ const RICH_PAGER_DRAG_LIMIT = 28;
 const LESSON_INPUT_FOCUS_TOP_OFFSET = 120;
 const LESSON_INPUT_KEYBOARD_GAP = 16;
 const ANDROID_LESSON_INPUT_FOCUS_LIFT = 16;
+const COMPREHENSION_SCORE_OUTLINE_OFFSETS = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [-1, 0],
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+] as const;
 
 const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
 const PRACTICE_INPUT_RECHECK_DELAY = 120;
@@ -727,6 +738,57 @@ const shouldUseMultilinePracticeBlank = (minLen: number, compact: boolean) => {
   void compact;
   return minLen > 40;
 };
+
+function ComprehensionResultScore({
+  score,
+  total,
+  tone,
+}: {
+  score: number;
+  total: number;
+  tone: 'perfect' | 'partial' | 'low';
+}) {
+  const label = `${score} / ${total}`;
+  const toneStyle = tone === 'perfect'
+    ? styles.comprehensionResultScorePerfect
+    : tone === 'partial'
+      ? styles.comprehensionResultScorePartial
+      : styles.comprehensionResultScoreLow;
+
+  return (
+    <View accessible accessibilityLabel={label} style={styles.comprehensionResultScoreWrap}>
+      <AppText
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        language="en"
+        style={[styles.comprehensionResultScore, toneStyle, styles.comprehensionResultScoreSizer]}>
+        {label}
+      </AppText>
+      {COMPREHENSION_SCORE_OUTLINE_OFFSETS.map(([translateX, translateY]) => (
+        <AppText
+          key={`${translateX}:${translateY}`}
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          language="en"
+          style={[
+            styles.comprehensionResultScore,
+            styles.comprehensionResultScoreLayer,
+            styles.comprehensionResultScoreOutline,
+            { transform: [{ translateX }, { translateY }] },
+          ]}>
+          {label}
+        </AppText>
+      ))}
+      <AppText
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        language="en"
+        style={[styles.comprehensionResultScore, styles.comprehensionResultScoreLayer, toneStyle]}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
 
 const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
 
@@ -13842,7 +13904,7 @@ const mergeAdjacentPracticeRowTokens = (
                           const isPartial =
                             !isPerfect && comprehensionFirstAttemptScore >= Math.ceil(comprehensionQuestionCount * 0.6);
                           const resultImage = isPerfect
-                            ? pailinBlueThumbsUpImage
+                            ? comprehensionPerfectImage
                             : isPartial
                               ? comprehensionProgressImage
                               : comprehensionPracticeImage;
@@ -13861,7 +13923,20 @@ const mergeAdjacentPracticeRowTokens = (
                               : 'Listen to the conversation a few more times to fully understand it!');
                           return (
                             <View style={styles.comprehensionResult}>
-                              <Image source={resultImage} contentFit="contain" style={styles.comprehensionResultImage} />
+                              <View style={styles.comprehensionResultImageFrame}>
+                                <Image
+                                  source={resultImage}
+                                  contentFit="contain"
+                                  style={[
+                                    styles.comprehensionResultImage,
+                                    isPerfect
+                                      ? styles.comprehensionResultImagePerfect
+                                      : isPartial
+                                        ? styles.comprehensionResultImagePartial
+                                        : null,
+                                  ]}
+                                />
+                              </View>
                               <AppText
                                 language={pageLanguage}
                                 style={[
@@ -13870,18 +13945,11 @@ const mergeAdjacentPracticeRowTokens = (
                                 ]}>
                                 {resultTitle}
                               </AppText>
-                              <AppText
-                                language="en"
-                                style={[
-                                  styles.comprehensionResultScore,
-                                  isPerfect
-                                    ? styles.comprehensionResultScorePerfect
-                                    : isPartial
-                                      ? styles.comprehensionResultScorePartial
-                                      : styles.comprehensionResultScoreLow,
-                                ]}>
-                                {`${comprehensionFirstAttemptScore} / ${comprehensionQuestionCount}`}
-                              </AppText>
+                              <ComprehensionResultScore
+                                score={comprehensionFirstAttemptScore}
+                                total={comprehensionQuestionCount}
+                                tone={isPerfect ? 'perfect' : isPartial ? 'partial' : 'low'}
+                              />
                               <AppText
                                 language={pageLanguage}
                                 style={[
@@ -14336,12 +14404,13 @@ const mergeAdjacentPracticeRowTokens = (
                                         : (isPracticeSetPerfect ? 'You got every question right!' : 'Review your answers and try the set again when you’re ready!');
                                       return (
                                         <View style={styles.comprehensionResult}>
-                                          <Image source={resultImage} contentFit="contain" style={styles.comprehensionResultImage} />
+                                          <Image source={resultImage} contentFit="contain" style={styles.practiceResultImage} />
                                           <AppText language={pageLanguage} style={[styles.comprehensionResultTitle, pageLanguage === 'th' ? styles.comprehensionResultTitleThai : null]}>{resultTitle}</AppText>
-                                          <AppText language="en" style={[
-                                            styles.comprehensionResultScore,
-                                            isPracticeSetPerfect ? styles.comprehensionResultScorePerfect : isProgress ? styles.comprehensionResultScorePartial : styles.comprehensionResultScoreLow,
-                                          ]}>{`${practiceSetCorrectCount} / ${activePracticeQuestions.length}`}</AppText>
+                                          <ComprehensionResultScore
+                                            score={practiceSetCorrectCount}
+                                            total={activePracticeQuestions.length}
+                                            tone={isPracticeSetPerfect ? 'perfect' : isProgress ? 'partial' : 'low'}
+                                          />
                                           <AppText language={pageLanguage} style={[
                                             styles.comprehensionResultKicker,
                                             pageLanguage === 'th' ? styles.comprehensionResultKickerThai : null,
@@ -14597,8 +14666,7 @@ const mergeAdjacentPracticeRowTokens = (
                         Platform.OS === 'android' ? styles.ctaRowAndroid : null,
                         usesDetachedAudioFooter ? styles.detachedAudioCtaRow : null,
                         isPracticeTab ? styles.practiceDetachedAudioCtaRow : null,
-                        (isComprehensionTab && showComprehensionResults &&
-                        comprehensionFirstAttemptScore < comprehensionQuestionCount) ||
+                        (isComprehensionTab && showComprehensionResults) ||
                         (isPracticeTab && showPracticeSetResults && !isPracticeSetPerfect)
                           ? styles.comprehensionResultActionsRow
                           : null,
@@ -14609,8 +14677,7 @@ const mergeAdjacentPracticeRowTokens = (
                         </AppText>
                       ) : null}
 
-                      {isComprehensionTab && showComprehensionResults &&
-                      comprehensionFirstAttemptScore < comprehensionQuestionCount ? (
+                      {isComprehensionTab && showComprehensionResults ? (
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="Try comprehension again"
@@ -14712,8 +14779,7 @@ const mergeAdjacentPracticeRowTokens = (
                           styles.ctaNextButton,
                           styles.ctaNextButtonFull,
                           isPhrasesTab && !isLastPhraseCard ? styles.phraseSkipButton : null,
-                          isComprehensionTab && showComprehensionResults &&
-                          comprehensionFirstAttemptScore < comprehensionQuestionCount
+                          isComprehensionTab && showComprehensionResults
                             ? styles.comprehensionResultActionButton
                             : null,
                           isPracticeTab && showPracticeSetResults && !isPracticeSetPerfect
@@ -17449,7 +17515,28 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 18,
   },
+  comprehensionResultImageFrame: {
+    width: 190,
+    height: 170,
+    marginBottom: 9,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   comprehensionResultImage: {
+    width: 170,
+    height: 170,
+  },
+  comprehensionResultImagePerfect: {
+    width: 175,
+    height: 175,
+    transform: [{ translateX: 8 }],
+  },
+  comprehensionResultImagePartial: {
+    width: 164,
+    height: 164,
+    transform: [{ translateX: -1 }],
+  },
+  practiceResultImage: {
     width: 190,
     height: 170,
     marginBottom: 9,
@@ -17469,9 +17556,20 @@ const styles = StyleSheet.create({
     fontSize: 55,
     lineHeight: 65,
     letterSpacing: -1,
-    textShadowColor: '#1E1E1E',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 0,
+    textAlign: 'center',
+  },
+  comprehensionResultScoreWrap: {
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  comprehensionResultScoreSizer: {
+    opacity: 0,
+  },
+  comprehensionResultScoreLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  comprehensionResultScoreOutline: {
+    color: '#1E1E1E',
   },
   comprehensionResultScorePerfect: { color: '#BDEDFC' },
   comprehensionResultScorePartial: { color: '#F4CF51' },
