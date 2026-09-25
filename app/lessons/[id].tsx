@@ -2608,14 +2608,16 @@ const renderRichTextScriptSegments = (
     </Text>
   ));
 
-const applyNodeHasAccent = (node: LessonRichNode) =>
-  Boolean(node.is_response) ||
+const applyNodeHasHighlightedInline = (node: LessonRichNode) =>
   Boolean(
     Array.isArray(node.inlines) &&
       node.inlines.some(
         (inline) => typeof inline?.highlight === 'string' && inline.highlight.trim().toLowerCase() === CYAN_HIGHLIGHT
       )
   );
+
+const applyNodeHasAccent = (node: LessonRichNode) =>
+  Boolean(node.is_response) || applyNodeHasHighlightedInline(node);
 
 const getRichNodesForLanguage = (
   section: ResolvedLessonSection | null,
@@ -7737,7 +7739,7 @@ export default function LessonDetailShellScreen() {
 
   const renderApplyInlines = (
     inlines: LessonRichInline[] | null | undefined,
-    options?: { treatAsDialogue?: boolean; suppressUnderlineAndItalic?: boolean }
+    options?: { treatAsDialogue?: boolean; suppressUnderlineAndItalic?: boolean; forceSemibold?: boolean }
   ) => {
     if (!Array.isArray(inlines) || !inlines.length) {
       return null;
@@ -7749,15 +7751,19 @@ export default function LessonDetailShellScreen() {
         return null;
       }
 
+      const shouldAccentInline =
+        typeof inline.highlight === 'string' && inline.highlight.trim().toLowerCase() === CYAN_HIGHLIGHT;
+
       const baseApplyTextStyle = [
         styles.applyInlineText,
         {
           fontFamily: getInlineFontFamily(contentLang, {
-            bold: inline.bold === true,
+            bold: options?.forceSemibold === true || inline.bold === true,
             italic: options?.suppressUnderlineAndItalic ? false : inline.italic === true,
           }),
         },
         !options?.suppressUnderlineAndItalic && inline.underline ? styles.applyInlineUnderline : null,
+        shouldAccentInline ? styles.applyInlineAccent : null,
       ];
 
       const renderApplyLinePieces = (text: string, lineKey: string, isThaiLine: boolean) => {
@@ -7767,10 +7773,11 @@ export default function LessonDetailShellScreen() {
             style={[
               baseApplyTextStyle,
               { fontFamily: getInlineFontFamily(segment.language, {
-                bold: inline.bold === true,
+                bold: options?.forceSemibold === true || inline.bold === true,
                 italic: options?.suppressUnderlineAndItalic ? false : inline.italic === true,
               }) },
               isThaiLine ? styles.richInlineThaiMuted : null,
+              shouldAccentInline ? styles.applyInlineAccent : null,
             ]}>
             {segment.text}
           </Text>
@@ -7864,14 +7871,20 @@ export default function LessonDetailShellScreen() {
             styles.applyParagraphRow,
             compact ? styles.applyParagraphRowCompact : null,
             emphasized ? styles.applyInstructionRow : null,
+            node.is_response === true ? styles.applyResponseParagraph : null,
           ]}>
           <AppText
             language={textLanguage}
             variant="body"
-            style={[styles.applyParagraphText, emphasized ? styles.applyInstructionText : null]}>
+            style={[
+              styles.applyParagraphText,
+              emphasized ? styles.applyInstructionText : null,
+              node.is_response === true ? styles.applyResponseText : null,
+            ]}>
             {renderApplyInlines(node.inlines, {
               treatAsDialogue: compact,
               suppressUnderlineAndItalic,
+              forceSemibold: node.is_response === true,
             })}
           </AppText>
         </View>
@@ -14091,15 +14104,12 @@ const mergeAdjacentPracticeRowTokens = (
                             <Animated.View
                               entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
                               style={styles.applyExampleAnswer}>
-                              <AppText language={pageLanguage} style={styles.applyExampleAnswerLabel}>
-                                {pageLanguage === 'th' ? 'ตัวอย่างคำตอบ' : 'EXAMPLE ANSWER'}
-                              </AppText>
                               {normalizedApply.responseNodes.length ? (
                                 <View style={styles.applyResponseWrap}>{renderApplyNodes(normalizedApply.responseNodes)}</View>
                               ) : (
                                 <AppText
                                   language={contentLang === 'th' ? 'th' : 'en'}
-                                  style={styles.applyParagraphText}>
+                                  style={[styles.applyParagraphText, styles.applyResponseText]}>
                                   {normalizedApply.responseText}
                                 </AppText>
                               )}
@@ -14128,14 +14138,21 @@ const mergeAdjacentPracticeRowTokens = (
                               styles.applyExampleToggle,
                               pressed ? styles.applyExampleTogglePressed : null,
                             ]}>
-                            <MaterialCommunityIcons
-                              name="lightbulb-on-outline"
-                              size={17}
-                              color="#2563EB"
-                            />
-                            <AppText language={pageLanguage} style={styles.applyExampleToggleText}>
+                            {!showApplyResponse ? (
+                              <MaterialCommunityIcons
+                                name="lightbulb-on-outline"
+                                size={15}
+                                color="#2563EB"
+                              />
+                            ) : null}
+                            <AppText
+                              language={pageLanguage}
+                              style={[
+                                styles.applyExampleToggleText,
+                                showApplyResponse ? styles.applyExampleToggleTextHide : null,
+                              ]}>
                               {showApplyResponse
-                                ? (pageLanguage === 'th' ? 'ซ่อนตัวอย่างคำตอบ' : 'HIDE EXAMPLE ANSWER')
+                                ? (pageLanguage === 'th' ? 'ซ่อน' : 'HIDE')
                                 : pageCopy.applySubmit}
                             </AppText>
                           </Pressable>
@@ -17025,17 +17042,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   applyExampleAnswer: {
-    gap: 6,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(30, 30, 30, 0.22)',
-    paddingTop: 10,
-  },
-  applyExampleAnswerLabel: {
-    color: theme.colors.text,
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: theme.typography.weights.semibold,
-    letterSpacing: 0.6,
+    width: '100%',
+    alignItems: 'center',
+    gap: 4,
   },
   applyExampleToggle: {
     minHeight: 28,
@@ -17052,6 +17061,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     fontWeight: theme.typography.weights.semibold,
+    textTransform: 'uppercase',
+  },
+  applyExampleToggleTextHide: {
+    color: '#666666',
+    textDecorationLine: 'underline',
   },
   applyExampleTogglePressed: {
     opacity: 0.58,
@@ -17105,11 +17119,11 @@ const styles = StyleSheet.create({
   applyInlineUnderline: {
     textDecorationLine: 'underline',
   },
+  applyInlineAccent: {
+    color: '#2563EB',
+  },
   applyAccentBlock: {
-    marginLeft: -6,
-    borderLeftWidth: 4,
-    borderLeftColor: APPLY_ACCENT_COLOR,
-    paddingLeft: 10,
+    alignItems: 'center',
   },
   applyNoteText: {
     color: theme.colors.mutedText,
@@ -17156,8 +17170,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   applyResponseWrap: {
+    width: '100%',
     gap: theme.spacing.sm,
     paddingTop: 0,
+    alignItems: 'center',
+  },
+  applyResponseParagraph: {
+    width: '100%',
+  },
+  applyResponseText: {
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
   },
   applyResponseNote: {
     color: '#767676',

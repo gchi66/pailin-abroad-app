@@ -1,11 +1,9 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
-import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
-import { AppText } from '@/src/components/ui/AppText';
+import { NavigationCard } from '@/src/components/ui/NavigationCard';
 import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
@@ -168,33 +166,17 @@ export function ResourcesScreen() {
 
           <View style={styles.cards}>
             {copy.cards.map((card) => (
-              <Pressable
+              <NavigationCard
                 key={card.id}
-                accessibilityRole="button"
+                language={uiLanguage}
+                title={card.title}
+                description={card.description}
                 accessibilityLabel={`${card.title}${card.enabled ? '' : `, ${copy.comingSoon}`}`}
-                accessibilityState={{ disabled: !card.enabled }}
                 disabled={!card.enabled}
+                eyebrow={!card.enabled ? copy.comingSoon : undefined}
+                imageSource={resourceCardImages[card.id]}
                 onPress={() => handleCardPress(card)}
-                style={styles.cardPressable}>
-                <AndroidNeoShadowLayer borderRadius={12} color={theme.colors.border} offset={3} />
-                <View style={styles.card}>
-                  <Image source={resourceCardImages[card.id]} style={styles.cardImage} resizeMode="contain" />
-                  <View style={styles.cardCopy}>
-                    {!card.enabled ? (
-                      <AppText language={uiLanguage} variant="caption" style={styles.comingSoon}>
-                        {copy.comingSoon}
-                      </AppText>
-                    ) : null}
-                    <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
-                      {card.title.toLocaleUpperCase(uiLanguage === 'th' ? 'th' : 'en')}
-                    </AppText>
-                    <AppText language={uiLanguage} variant="caption" style={styles.cardDescription}>
-                      {card.description}
-                    </AppText>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={24} color={theme.colors.text} style={styles.chevron} />
-                </View>
-              </Pressable>
+              />
             ))}
           </View>
         </View>
@@ -218,49 +200,5 @@ const styles = StyleSheet.create({
   cards: {
     marginTop: 18,
     gap: 15,
-  },
-  cardPressable: {
-    position: 'relative',
-  },
-  card: {
-    minHeight: 100,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  cardImage: {
-    width: 80,
-    height: 80,
-    marginRight: 16,
-  },
-  cardCopy: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  comingSoon: {
-    color: '#60A6DC',
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 3,
-  },
-  cardTitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.2,
-  },
-  cardDescription: {
-    marginTop: 4,
-    color: '#33383D',
-    fontSize: 11,
-    lineHeight: 17,
-  },
-  chevron: {
-    marginLeft: 4,
   },
 });

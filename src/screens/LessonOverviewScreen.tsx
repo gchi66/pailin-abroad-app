@@ -94,7 +94,7 @@ export function LessonOverviewScreen(p: Props) {
         if (!items.length) return null;
         return <View key={group.en} style={s.group}>
           <View style={s.groupLabel}><AppText language={p.language} style={s.eyebrow}>{group[p.language]}</AppText></View>
-          {items.map(row => {
+          {items.map((row, itemIndex) => {
             const speaking = row.type === 'speaking';
             const discussion = row.type === 'discussion';
             const locked = speaking && !p.hasMembership;
@@ -102,6 +102,29 @@ export function LessonOverviewScreen(p: Props) {
             const active = !speaking && !discussion && (p.activeType
               ? p.activeType === row.type
               : p.activeIndex !== null && row.index === p.activeIndex);
+            const previousRow = items[itemIndex - 1] ?? null;
+            const nextRow = items[itemIndex + 1] ?? null;
+            const isDone = (candidate: OverviewRow | null) => Boolean(
+              candidate && (
+                candidate.complete ||
+                (p.complete && candidate.type !== 'speaking' && candidate.type !== 'discussion')
+              )
+            );
+            const isActive = (candidate: OverviewRow | null) => Boolean(
+              candidate &&
+              candidate.type !== 'speaking' &&
+              candidate.type !== 'discussion' &&
+              (p.activeType
+                ? p.activeType === candidate.type
+                : p.activeIndex !== null && candidate.index === p.activeIndex)
+            );
+            const previousDone = isDone(previousRow);
+            const nextDone = isDone(nextRow);
+            const nextActive = isActive(nextRow);
+            const topConnectorDone = previousDone && done;
+            const topConnectorActive = previousDone && active && !done;
+            const bottomConnectorDone = done && nextDone;
+            const bottomConnectorActive = done && nextActive && !nextDone;
             const label = row.type === 'listen'
               ? (th ? 'ฟัง' : 'Listen')
               : speaking
@@ -119,7 +142,26 @@ export function LessonOverviewScreen(p: Props) {
                     ? p.onListen
                     : () => p.onSection(row.index);
             return <View key={row.id} style={s.rowWrap}>
-              <View style={[s.line, done && s.doneLine, active && !done && s.activeLine]} />
+              {previousRow ? (
+                <View
+                  style={[
+                    s.connector,
+                    s.topConnector,
+                    topConnectorDone ? s.doneConnector : null,
+                    topConnectorActive ? s.activeConnector : null,
+                  ]}
+                />
+              ) : null}
+              {nextRow ? (
+                <View
+                  style={[
+                    s.connector,
+                    s.bottomConnector,
+                    bottomConnectorDone ? s.doneConnector : null,
+                    bottomConnectorActive ? s.activeConnector : null,
+                  ]}
+                />
+              ) : null}
               <View style={[s.dot, active && !done && s.activeDot, done && s.doneDot]}>{done && <MaterialIcons name="check" size={12} color="#1E1E1E" />}</View>
               <Pressable ref={active ? activeRowRef : undefined} onLayout={active ? scrollToActiveRow : undefined}
                 accessibilityRole="button" accessibilityLabel={locked ? `${label}: ${th ? 'อัปเกรดเพื่อปลดล็อก' : 'upgrade to unlock'}` : label} onPress={onPress}
@@ -165,8 +207,11 @@ const s = StyleSheet.create({
   group: { marginTop: 26, paddingLeft: 30 }, groupLabel: { alignSelf: 'flex-start', backgroundColor: '#FFFCE5', padding: 8, borderRadius: 4, borderWidth: 1, marginBottom: 15 },
   rowWrap: { paddingBottom: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, padding: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 4 },
   rowText: { flex: 1, fontSize: 14, lineHeight: 21 }, dot: { position: 'absolute', left: -29, top: 14, width: 17, height: 17, borderWidth: 1, borderColor: '#CCC', borderRadius: 9, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
-  line: { position: 'absolute', top: 0, bottom: 0, left: -21, borderLeftWidth: 1, borderColor: '#DDD', borderStyle: 'dashed' },
-  activeLine: { borderColor: '#245BFF', borderStyle: 'solid' }, doneLine: { borderColor: '#8BBD3F', borderStyle: 'solid' },
+  connector: { position: 'absolute', left: -21, borderLeftWidth: 1, borderColor: '#DDD', borderStyle: 'dashed' },
+  topConnector: { top: 0, height: 23 },
+  bottomConnector: { top: 22, bottom: 0 },
+  activeConnector: { borderColor: '#245BFF', borderStyle: 'solid' },
+  doneConnector: { borderColor: '#8BBD3F', borderStyle: 'solid' },
   activeDot: { backgroundColor: '#2860E8', borderColor: '#222' }, doneDot: { backgroundColor: '#B9E679', borderColor: '#222' },
   activeRow: { backgroundColor: '#BDEDFC', borderColor: '#222' }, doneRow: { backgroundColor: '#F3FFDA', borderColor: '#8BBD3F' },
   shadow: { boxShadow: '2px 3px 0px #222' },

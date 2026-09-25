@@ -111,6 +111,7 @@ export function ConversationLibraryScreen() {
               {visibleLessons.map((lesson) => {
                 const title = (uiLanguage === 'th' ? lesson.title_th ?? lesson.title : lesson.title) ?? '';
                 const number = lesson.lesson_external_id ?? `${lesson.level}.${lesson.lesson_order}`;
+                const isCheckpoint = number.toLowerCase().endsWith('.chp');
                 const iconSource = getLessonIconSource(lessonNumber(lesson));
                 return (
                   <Pressable
@@ -119,9 +120,14 @@ export function ConversationLibraryScreen() {
                     accessibilityLabel={`${number} ${title}`}
                     onPress={() => router.push({ pathname: '/conversations/[id]', params: { id: lesson.id } })}
                     style={styles.lessonRow}>
-                    <AppText variant="caption" style={styles.lessonNumber}>{number}</AppText>
+                    <AppText
+                      variant="caption"
+                      numberOfLines={1}
+                      style={[styles.lessonNumber, isCheckpoint ? styles.checkpointLessonNumber : null]}>
+                      {number}
+                    </AppText>
                     {iconSource ? <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} /> : null}
-                    <AppText language={uiLanguage} variant="body" numberOfLines={1} style={styles.lessonTitle}>{title}</AppText>
+                    <AppText language={uiLanguage} variant="body" numberOfLines={2} style={styles.lessonTitle}>{title}</AppText>
                     <MaterialIcons name="chevron-right" size={21} color={theme.colors.text} />
                   </Pressable>
                 );
@@ -143,8 +149,9 @@ const styles = StyleSheet.create({
   error: { marginTop: 28, color: theme.colors.error },
   empty: { marginTop: 28 },
   lessonList: { marginTop: 6, marginHorizontal: 14 },
-  lessonRow: { minHeight: 39, borderBottomWidth: 1, borderBottomColor: '#E1E6EC', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6 },
-  lessonNumber: { width: 36, fontSize: 12, fontWeight: '700' },
+  lessonRow: { minHeight: 39, borderBottomWidth: 1, borderBottomColor: '#E1E6EC', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingVertical: 3 },
+  lessonNumber: { width: 32, fontSize: 12, fontWeight: '700' },
+  checkpointLessonNumber: { fontSize: 10, lineHeight: 15 },
   lessonIcon: { width: 34, height: 34, flexShrink: 0 },
-  lessonTitle: { flex: 1, fontSize: 13 },
+  lessonTitle: { flex: 1, fontSize: 13, lineHeight: 19 },
 });

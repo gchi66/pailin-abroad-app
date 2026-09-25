@@ -131,6 +131,7 @@ export function SpeakingPracticeHomeScreen() {
             <View style={styles.lessonList}>
               {visibleLessons.map((lesson) => {
                 const libraryLesson = libraryLessonsById.get(lesson.id);
+                const isCheckpoint = lesson.lesson_external_id.toLowerCase().endsWith('.chp');
                 const iconSource = getLessonIconSource(libraryLesson ? lessonNumber(libraryLesson) : lesson.lesson_external_id);
                 return (
                   <Pressable
@@ -139,7 +140,12 @@ export function SpeakingPracticeHomeScreen() {
                     accessibilityLabel={`${lesson.lesson_external_id} ${lessonLabel(lesson)}`}
                     onPress={() => router.push({ pathname: '/speaking-coach', params: { lesson: lesson.lesson_external_id, entry: 'resources' } })}
                     style={styles.lessonRow}>
-                    <AppText variant="caption" style={styles.lessonNumber}>{lesson.lesson_external_id}</AppText>
+                    <AppText
+                      variant="caption"
+                      numberOfLines={1}
+                      style={[styles.lessonNumber, isCheckpoint ? styles.checkpointLessonNumber : null]}>
+                      {lesson.lesson_external_id}
+                    </AppText>
                     {iconSource ? <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} /> : null}
                     <AppText variant="body" numberOfLines={1} style={styles.lessonTitle}>{lessonLabel(lesson)}</AppText>
                     {lesson.is_completed ? (
@@ -167,7 +173,8 @@ const styles = StyleSheet.create({
   empty: { marginTop: 28 },
   lessonList: { marginTop: 6, marginHorizontal: 14 },
   lessonRow: { minHeight: 39, borderBottomWidth: 1, borderBottomColor: '#E1E6EC', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6 },
-  lessonNumber: { width: 36, fontSize: 12, fontWeight: '700' },
+  lessonNumber: { width: 32, fontSize: 12, fontWeight: '700' },
+  checkpointLessonNumber: { fontSize: 10, lineHeight: 15 },
   lessonIcon: { width: 34, height: 34, flexShrink: 0 },
   lessonTitle: { flex: 1, fontSize: 13 },
   completedBadge: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#ADE66E', borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },

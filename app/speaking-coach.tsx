@@ -50,8 +50,8 @@ import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { posthog } from '@/src/config/posthog';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
-import correctFeedbackSound from '@/assets/audio/speaking-correct.wav';
-import incorrectFeedbackSound from '@/assets/audio/speaking-incorrect.wav';
+import correctFeedbackSound from '@/assets/audio/correct-sound-effect.mp3';
+import incorrectFeedbackSound from '@/assets/audio/wrong-sound-effect.mp3';
 import audioRedoImage from '@/assets/images/speaking-coach/audio-redo.png';
 import celebrateWhiteImage from '@/assets/images/speaking-coach/celebrate-white.png';
 import lightBulbImage from '@/assets/images/speaking-coach/light-bulb.png';
@@ -285,11 +285,11 @@ const lessonOptionLabel = (lessonExternalId: string) => {
 const isReleasedAudioObjectError = (error: unknown) =>
   error instanceof Error && error.message.includes('NativeSharedObjectNotFoundException');
 
-const switchAudioSession = async (allowsRecording: boolean) => {
+const switchAudioSession = async (allowsRecording: boolean, playsInSilentMode = true) => {
   // Simulator and iOS hardware can retain the previous input/output route when
   // changing categories on an active session. Deactivate before changing modes.
   await setIsAudioActiveAsync(false);
-  await setAudioModeAsync({ allowsRecording, playsInSilentMode: true });
+  await setAudioModeAsync({ allowsRecording, playsInSilentMode });
   await setIsAudioActiveAsync(true);
 };
 
@@ -635,8 +635,14 @@ function SpeakingCoachTestScreen() {
     keepAudioSessionActive: true,
   });
   const recordingPlayerStatus = useAudioPlayerStatus(recordingPlayer);
-  const correctFeedbackPlayer = useAudioPlayer(correctFeedbackSound, { keepAudioSessionActive: true });
-  const incorrectFeedbackPlayer = useAudioPlayer(incorrectFeedbackSound, { keepAudioSessionActive: true });
+  const correctFeedbackPlayer = useAudioPlayer(correctFeedbackSound, {
+    downloadFirst: true,
+    keepAudioSessionActive: true,
+  });
+  const incorrectFeedbackPlayer = useAudioPlayer(incorrectFeedbackSound, {
+    downloadFirst: true,
+    keepAudioSessionActive: true,
+  });
   const recorderRef = useRef(recorder);
 
   recorderRef.current = recorder;
@@ -1018,12 +1024,13 @@ function SpeakingCoachTestScreen() {
     }
   };
 
-  const togglePromptAudio = () => {
+  const togglePromptAudio = async () => {
     recordingPlayer.pause();
     if (promptPlayerStatus.playing) {
       promptPlayer.pause();
       return;
     }
+    await switchAudioSession(false);
     if (promptPlayerStatus.didJustFinish) void promptPlayer.seekTo(0);
     promptPlayedForQuestionRef.current = true;
     promptPlayer.play();
@@ -1049,6 +1056,15 @@ function SpeakingCoachTestScreen() {
     if (status === 'unclear_audio') return;
     const player = status === 'pass' ? correctFeedbackPlayer : incorrectFeedbackPlayer;
     try {
+      const loadStartedAt = Date.now();
+      while (!player.isLoaded && Date.now() - loadStartedAt < 1500) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      if (!player.isLoaded) {
+        console.warn('[Speaking Coach] Feedback sound did not finish loading', { status });
+        return;
+      }
+      player.volume = 1;
       await player.seekTo(0);
       player.play();
     } catch (error) {
@@ -1204,6 +1220,10 @@ function SpeakingCoachTestScreen() {
     const submissionId = clientSubmissionId ?? Crypto.randomUUID();
     if (!clientSubmissionId) setClientSubmissionId(submissionId);
     try {
+      // Configure the session before the network request so the transition has
+      // settled by the time feedback playback starts. Feedback effects should
+      // follow the device's silent switch rather than playing while muted.
+      await switchAudioSession(false, false);
       const response = await evaluateSpeakingRecording({
         uri: recordedUri,
         fileName: recordedFile.name,

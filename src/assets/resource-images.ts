@@ -1,12 +1,12 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import commonMistakesImage from '@/assets/images/resources-common-mistakes.png';
-import conversationsImage from '@/assets/images/resources-conversations.png';
-import cultureNotesImage from '@/assets/images/resources-culture-notes.png';
-import exerciseBankImage from '@/assets/images/resources-exercise-bank.png';
-import phrasesVerbsImage from '@/assets/images/resources-phrases-verbs.png';
-import pronunciationImage from '@/assets/images/resources-pronunciation.png';
-import topicLibraryImage from '@/assets/images/resources-topic-library.png';
+import commonMistakesImage from '@/assets/images/resources-more/resources-common-mistakes.webp';
+import conversationsImage from '@/assets/images/resources-more/resources-conversation-library.webp';
+import cultureNotesImage from '@/assets/images/resources-more/resources-culture-note-library.webp';
+import exerciseBankImage from '@/assets/images/resources-more/resources-exercise-bank.webp';
+import phrasesVerbsImage from '@/assets/images/resources-more/resources-phrases-verbs.webp';
+import pronunciationImage from '@/assets/images/resources-more/resources-speaking-practice.webp';
+import topicLibraryImage from '@/assets/images/resources-more/resources-topic-library.webp';
 
 export const resourceCardImages = {
   'exercise-bank': exerciseBankImage,
