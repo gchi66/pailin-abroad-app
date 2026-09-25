@@ -1,4 +1,5 @@
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -21,7 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import googleLogoImage from '../../assets/images/google_logo.png';
-import fullLogoImage from '../../assets/images/full-logo.webp';
+import fullLogoImage from '../../assets/images/pailin-abroad-full-logo.png';
 import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -58,22 +59,19 @@ export function AuthScreen() {
     () =>
       uiLanguage === 'th'
         ? {
-            signUpTitleLineOne: 'สร้าง',
-            signUpTitleAccent: 'บัญชี',
-            signUpTitleTail: 'ของคุณ',
+            signUpTitle: 'สมัคร Pailin Abroad',
             signUpSubtitle: 'Real English, made for Thai speakers.',
-            signInTitleLineOne: 'ยินดี',
-            signInTitleAccent: 'ต้อนรับ',
-            signInTitleTail: 'กลับมา',
+            signInTitle: 'เข้าสู่ระบบ Pailin Abroad',
             signInSubtitle: 'ดีใจที่ได้เจอคุณอีกครั้ง',
+            apple: 'ดำเนินการต่อด้วย Apple',
             appleLoading: 'กำลังเชื่อมต่อ Apple...',
             google: 'สมัครด้วย Google',
             googleLoading: 'กำลังเชื่อมต่อ Google...',
             divider: 'or email',
             email: 'อีเมล',
             password: 'รหัสผ่าน',
-            submitSignUp: 'ดำเนินการต่อด้วยอีเมล ->',
-            submitSignIn: 'เข้าสู่ระบบ ->',
+            submitSignUp: 'ดำเนินการต่อด้วยอีเมล',
+            submitSignIn: 'เข้าสู่ระบบ',
             footerSignupPrefix: 'เป็นสมาชิกอยู่แล้ว? ',
             footerSignupAction: 'เข้าสู่ระบบ',
             footerSigninPrefix: 'ยังไม่ได้เป็นสมาชิก? ',
@@ -90,22 +88,19 @@ export function AuthScreen() {
             termsPrivacy: 'นโยบายความเป็นส่วนตัว',
           }
         : {
-            signUpTitleLineOne: 'Create your',
-            signUpTitleAccent: 'account.',
-            signUpTitleTail: '',
+            signUpTitle: 'Sign Up',
             signUpSubtitle: 'Real English, made for Thai speakers.',
-            signInTitleLineOne: 'Welcome',
-            signInTitleAccent: 'back.',
-            signInTitleTail: '',
+            signInTitle: 'Log In',
             signInSubtitle: 'Good to see you again.',
+            apple: 'Continue with Apple',
             appleLoading: 'Connecting Apple...',
             google: 'Continue with Google',
             googleLoading: 'Connecting Google...',
             divider: 'or email',
             email: 'Email',
             password: 'Password',
-            submitSignUp: 'Continue with email ->',
-            submitSignIn: 'Log in ->',
+            submitSignUp: 'Continue with email',
+            submitSignIn: 'Log in',
             footerSignupPrefix: 'Already a member? ',
             footerSignupAction: 'Log in',
             footerSigninPrefix: 'Not a member yet? ',
@@ -311,6 +306,27 @@ export function AuthScreen() {
         }}
         scrollEventThrottle={16}
         bounces={false}>
+        <Pressable onPress={collapseSignUpFields}>
+          <View
+            style={[
+              styles.topRow,
+              isTabletScreen ? styles.topRowTablet : null,
+              isLargeTabletScreen ? styles.topRowLargeTablet : null,
+            ]}>
+            <Image
+              source={fullLogoImage}
+              style={[
+                styles.wordmarkLogo,
+                isCompactScreen ? styles.wordmarkLogoCompact : null,
+                isTabletScreen ? styles.wordmarkLogoTablet : null,
+                isLargeTabletScreen ? styles.wordmarkLogoLargeTablet : null,
+              ]}
+              contentFit="contain"
+            />
+            <LanguageToggle />
+          </View>
+        </Pressable>
+
         <View style={[styles.centerShell, isCompactScreen ? styles.centerShellCompact : null]}>
           <View
             style={[
@@ -319,22 +335,6 @@ export function AuthScreen() {
               isTabletScreen ? styles.panelTablet : null,
               isLargeTabletScreen ? styles.panelLargeTablet : null,
             ]}>
-            <Pressable onPress={collapseSignUpFields}>
-              <View style={[styles.topRow, isCompactScreen ? styles.topRowCompact : null]}>
-                <Image
-                  source={fullLogoImage}
-                  style={[
-                    styles.wordmarkLogo,
-                    isCompactScreen ? styles.wordmarkLogoCompact : null,
-                    isTabletScreen ? styles.wordmarkLogoTablet : null,
-                    isLargeTabletScreen ? styles.wordmarkLogoLargeTablet : null,
-                  ]}
-                  contentFit="contain"
-                />
-                <LanguageToggle />
-              </View>
-            </Pressable>
-
             <Pressable onPress={collapseSignUpFields}>
               <Animated.View
                 style={[
@@ -355,28 +355,7 @@ export function AuthScreen() {
                         isTabletScreen ? styles.headlineLineTablet : null,
                         isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                       ]}>
-                      {copy.signUpTitleLineOne}
-                    </AuthText>
-                    <AuthText
-                      language={uiLanguage}
-                      variant="title"
-                      style={[
-                        styles.headlineLine,
-                        isCompactScreen ? styles.headlineLineCompact : null,
-                        isTabletScreen ? styles.headlineLineTablet : null,
-                      ]}>
-                      <AuthText
-                        language={uiLanguage}
-                        variant="title"
-                        style={[
-                          styles.headlineAccent,
-                          isCompactScreen ? styles.headlineLineCompact : null,
-                          isTabletScreen ? styles.headlineLineTablet : null,
-                          isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
-                        ]}>
-                        {copy.signUpTitleAccent}
-                      </AuthText>
-                      {copy.signUpTitleTail ? ` ${copy.signUpTitleTail}` : ''}
+                      {copy.signUpTitle}
                     </AuthText>
                     <AuthText
                       language={uiLanguage}
@@ -401,28 +380,7 @@ export function AuthScreen() {
                         isTabletScreen ? styles.headlineLineTablet : null,
                         isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
                       ]}>
-                      {copy.signInTitleLineOne}
-                    </AuthText>
-                    <AuthText
-                      language={uiLanguage}
-                      variant="title"
-                      style={[
-                        styles.headlineLine,
-                        isCompactScreen ? styles.headlineLineCompact : null,
-                        isTabletScreen ? styles.headlineLineTablet : null,
-                      ]}>
-                      <AuthText
-                        language={uiLanguage}
-                        variant="title"
-                        style={[
-                          styles.headlineAccent,
-                          isCompactScreen ? styles.headlineLineCompact : null,
-                          isTabletScreen ? styles.headlineLineTablet : null,
-                          isLargeTabletScreen ? styles.headlineLineLargeTablet : null,
-                        ]}>
-                        {copy.signInTitleAccent}
-                      </AuthText>
-                      {copy.signInTitleTail ? ` ${copy.signInTitleTail}` : ''}
+                      {copy.signInTitle}
                     </AuthText>
                     <AuthText
                       language={uiLanguage}
@@ -450,38 +408,36 @@ export function AuthScreen() {
               <Pressable onPress={collapseSignUpFields}>
                 <View style={styles.socialButtons}>
                   {showAppleButton ? (
-                    <View
-                      style={[
-                        styles.appleButtonShell,
-                        isCompactScreen ? styles.appleButtonShellCompact : null,
-                        isTabletScreen ? styles.appleButtonShellTablet : null,
-                        isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
-                        isAppleSubmitting ? styles.buttonDisabled : null,
-                      ]}>
-                      <View
-                        style={[
-                          styles.appleButtonInner,
-                          isCompactScreen ? styles.appleButtonShellCompact : null,
-                          isTabletScreen ? styles.appleButtonShellTablet : null,
-                          isLargeTabletScreen ? styles.appleButtonShellLargeTablet : null,
-                        ]}>
+                    <View style={styles.authButtonWrap}>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.socialButton,
+                          isCompactScreen ? styles.socialButtonCompact : null,
+                          isTabletScreen ? styles.socialButtonTablet : null,
+                          isLargeTabletScreen ? styles.socialButtonLargeTablet : null,
+                          pressed && !isAppleSubmitting ? styles.buttonPressed : null,
+                          isAppleSubmitting ? styles.buttonDisabled : null,
+                        ]}
+                        onPress={handleApple}
+                        disabled={isAppleSubmitting}>
                         {isAppleSubmitting ? (
-                          <View style={styles.appleButtonLoadingState}>
-                            <ActivityIndicator color="#FFFFFF" />
-                            <AuthText language={uiLanguage} variant="caption" style={styles.appleButtonLoadingText}>
-                              {copy.appleLoading}
-                            </AuthText>
-                          </View>
+                          <ActivityIndicator color="#1A2332" />
                         ) : (
-                          <AppleAuthentication.AppleAuthenticationButton
-                            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                            cornerRadius={isLargeTabletScreen ? 20 : isTabletScreen ? 18 : isCompactScreen ? 12 : 14}
-                            onPress={handleApple}
-                            style={styles.appleButton}
-                          />
+                          <FontAwesome name="apple" size={23} color="#1A2332" style={styles.appleIcon} />
                         )}
-                      </View>
+                        <AuthText
+                          language={uiLanguage}
+                          variant="caption"
+                          style={[
+                            styles.socialButtonText,
+                            isCompactScreen ? styles.socialButtonTextCompact : null,
+                            isTabletScreen ? styles.socialButtonTextTablet : null,
+                            isLargeTabletScreen ? styles.socialButtonTextLargeTablet : null,
+                          ]}>
+                          {isAppleSubmitting ? copy.appleLoading : copy.apple}
+                        </AuthText>
+                      </Pressable>
                     </View>
                   ) : null}
 
@@ -489,10 +445,10 @@ export function AuthScreen() {
                     <Pressable
                       accessibilityRole="button"
                       style={({ pressed }) => [
-                        styles.googleButton,
-                        isCompactScreen ? styles.googleButtonCompact : null,
-                        isTabletScreen ? styles.googleButtonTablet : null,
-                        isLargeTabletScreen ? styles.googleButtonLargeTablet : null,
+                        styles.socialButton,
+                        isCompactScreen ? styles.socialButtonCompact : null,
+                        isTabletScreen ? styles.socialButtonTablet : null,
+                        isLargeTabletScreen ? styles.socialButtonLargeTablet : null,
                         pressed && !isGoogleSubmitting ? styles.buttonPressed : null,
                         isGoogleSubmitting ? styles.buttonDisabled : null,
                       ]}
@@ -503,10 +459,10 @@ export function AuthScreen() {
                         language={uiLanguage}
                         variant="caption"
                         style={[
-                          styles.googleButtonText,
-                          isCompactScreen ? styles.googleButtonTextCompact : null,
-                          isTabletScreen ? styles.googleButtonTextTablet : null,
-                          isLargeTabletScreen ? styles.googleButtonTextLargeTablet : null,
+                          styles.socialButtonText,
+                          isCompactScreen ? styles.socialButtonTextCompact : null,
+                          isTabletScreen ? styles.socialButtonTextTablet : null,
+                          isLargeTabletScreen ? styles.socialButtonTextLargeTablet : null,
                         ]}>
                         {isGoogleSubmitting ? copy.googleLoading : copy.google}
                       </AuthText>
@@ -821,12 +777,17 @@ const styles = StyleSheet.create({
   },
   panelCompact: {},
   topRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  topRowCompact: {
-    marginBottom: 2,
+  topRowTablet: {
+    alignSelf: 'center',
+    maxWidth: 520,
+  },
+  topRowLargeTablet: {
+    maxWidth: 680,
   },
   wordmarkLogo: {
     width: 142,
@@ -862,27 +823,21 @@ const styles = StyleSheet.create({
   },
   headlineLine: {
     fontSize: 28,
-    lineHeight: 31,
+    lineHeight: 36,
     fontWeight: '900',
     color: '#1A2332',
   },
   headlineLineCompact: {
     fontSize: 24,
-    lineHeight: 27,
+    lineHeight: 31,
   },
   headlineLineTablet: {
     fontSize: 40,
-    lineHeight: 44,
+    lineHeight: 50,
   },
   headlineLineLargeTablet: {
     fontSize: 52,
-    lineHeight: 56,
-  },
-  headlineAccent: {
-    fontSize: 28,
-    lineHeight: 31,
-    fontWeight: '900',
-    color: '#1A2332',
+    lineHeight: 64,
   },
   subtitle: {
     marginTop: 8,
@@ -925,46 +880,7 @@ const styles = StyleSheet.create({
   authButtonWrap: {
     position: 'relative',
   },
-  appleButtonShell: {
-    height: 50,
-    borderRadius: 14,
-    boxShadow: '1.75px 1.75px 0px #1A2332',
-  },
-  appleButtonInner: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  appleButtonShellCompact: {
-    height: 46,
-    borderRadius: 12,
-  },
-  appleButtonShellTablet: {
-    height: 62,
-    borderRadius: 18,
-  },
-  appleButtonShellLargeTablet: {
-    height: 72,
-    borderRadius: 20,
-  },
-  appleButton: {
-    width: '100%',
-    height: '100%',
-  },
-  appleButtonLoadingState: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#111111',
-    paddingHorizontal: 14,
-  },
-  appleButtonLoadingText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  googleButton: {
+  socialButton: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
@@ -973,41 +889,45 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 2,
     borderColor: '#1A2332',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#BCECFF',
     paddingHorizontal: 14,
     boxShadow: '1.75px 1.75px 0px #1A2332',
   },
-  googleButtonCompact: {
+  socialButtonCompact: {
     minHeight: 50,
     borderRadius: 12,
   },
-  googleButtonTablet: {
+  socialButtonTablet: {
     minHeight: 68,
     borderRadius: 18,
     paddingHorizontal: 18,
   },
-  googleButtonLargeTablet: {
+  socialButtonLargeTablet: {
     minHeight: 78,
     borderRadius: 20,
     paddingHorizontal: 22,
   },
-  googleButtonText: {
+  socialButtonText: {
     color: '#1A2332',
     fontWeight: '800',
     fontSize: 17,
     lineHeight: 21,
   },
-  googleButtonTextTablet: {
+  socialButtonTextTablet: {
     fontSize: 19,
     lineHeight: 24,
   },
-  googleButtonTextLargeTablet: {
+  socialButtonTextLargeTablet: {
     fontSize: 22,
     lineHeight: 28,
   },
-  googleButtonTextCompact: {
+  socialButtonTextCompact: {
     fontSize: 13,
     lineHeight: 16,
+  },
+  appleIcon: {
+    width: 20,
+    textAlign: 'center',
   },
   googleBadgeImage: {
     width: 20,
@@ -1110,7 +1030,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   errorText: {
-    color: '#FF4545',
+    color: '#1A2332',
     fontWeight: '800',
     textAlign: 'center',
   },
@@ -1148,7 +1068,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 18,
     fontWeight: '900',
+    includeFontPadding: false,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateX: -2 }, { translateY: 2 }],
   },
   ctaSpinner: {
     position: 'absolute',
@@ -1186,10 +1109,10 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   footerAction: {
-    color: '#FF4545',
+    color: '#1A2332',
     fontWeight: '800',
     borderBottomWidth: 1,
-    borderBottomColor: '#FF4545',
+    borderBottomColor: '#1A2332',
   },
   guestLinkText: {
     textAlign: 'center',
