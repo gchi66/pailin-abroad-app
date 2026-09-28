@@ -5448,6 +5448,7 @@ export default function LessonDetailShellScreen() {
   const isLastPhraseCard =
     isPhrasesTab && !showPhraseList && activePhraseIndex >= normalizedLessonPhrases.length - 1;
   const hasMoreRichPagerCards = isRichPagerTab && !isLastPagerCard;
+  const shouldShowFooterCta = !hasMoreRichPagerCards;
   const isFinalPracticeQuestion =
     activePracticeCardIndex >= normalizedPracticeExercises.length - 1 &&
     activePracticeQuestionIndex >= activePracticeQuestions.length - 1;
@@ -14658,7 +14659,7 @@ const mergeAdjacentPracticeRowTokens = (
                       </View>
                     ) : null}
 
-                    <View
+                    {shouldShowFooterCta ? <View
                       pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
                       style={[
                         styles.ctaRow,
@@ -14876,7 +14877,7 @@ const mergeAdjacentPracticeRowTokens = (
                           </AppText>
                         </Pressable>
                       ) : null}
-                    </View>
+                    </View> : null}
                     </View>
 
                     {shouldShowAudioTray && usesDetachedAudioFooter ? (
@@ -16412,7 +16413,7 @@ const styles = StyleSheet.create({
   },
   richAudioCardBody: {
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 10,
     gap: 12,
   },
   richAudioNoteFooter: {

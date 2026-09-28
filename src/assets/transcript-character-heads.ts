@@ -6,6 +6,7 @@ import daraHead from '@/assets/images/characters/dara_head.webp';
 import emilyHead from '@/assets/images/characters/emily_head.webp';
 import enzoHead from '@/assets/images/characters/enzo_head.webp';
 import jeraldHead from '@/assets/images/characters/jerald_head.webp';
+import lekHead from '@/assets/images/characters/lek_head.webp';
 import littleGirlHead from '@/assets/images/characters/little_girl_head.webp';
 import lukeHead from '@/assets/images/characters/luke_head.webp';
 import man1Head from '@/assets/images/characters/man1_head.webp';
@@ -29,6 +30,7 @@ import daraBlueCircle from '@/assets/images/characters/dara_blue_circle.webp';
 import emilyBlueCircle from '@/assets/images/characters/emily_blue_circle.webp';
 import enzoBlueCircle from '@/assets/images/characters/enzo_blue_circle.webp';
 import jeraldBlueCircle from '@/assets/images/characters/jerald_blue_circle.webp';
+import lekBlueCircle from '@/assets/images/characters/lek_blue_circle.webp';
 import littleGirlBlueCircle from '@/assets/images/characters/little_girl_blue_circle.webp';
 import lukeBlueCircle from '@/assets/images/characters/luke_blue_circle.webp';
 import man1BlueCircle from '@/assets/images/characters/man1_blue_circle.webp';
@@ -54,6 +56,7 @@ const transcriptCharacterHeads = {
   emily: emilyHead,
   enzo: enzoHead,
   jerald: jeraldHead,
+  lek: lekHead,
   luke: lukeHead,
   marcus: marcusHead,
   mark: markHead,
@@ -66,72 +69,68 @@ const transcriptCharacterHeads = {
 } satisfies Record<string, ImageSourcePropType>;
 
 const transcriptCharacterHeadAliases = {
-  adult: woman1Head,
-  alex: pailinHead,
+  adult: man2Head,
+  alex: man1Head,
   alicia: sophiaHead,
-  anthony: peteHead,
-  banker: man3Head,
+  anthony: man2Head,
+  banker: man2Head,
   barista: woman1Head,
-  bill: man4Head,
+  bill: man1Head,
   carlos: man4Head,
-  charlotte: chloeHead,
+  charlotte: woman1Head,
   cook: woman1Head,
-  customer: woman2Head,
-  dad: markHead,
-  daniel: peteHead,
-  diego: marcusHead,
+  customer: man4Head,
+  dad: chaiHead,
+  daniel: man2Head,
+  diego: man3Head,
   doug: man3Head,
-  emma: emilyHead,
-  ethan: markHead,
+  emma: woman2Head,
+  ethan: man3Head,
   frank: man1Head,
-  franklin: man1Head,
+  franklin: man3Head,
   'frat boy': man4Head,
-  george: man3Head,
+  george: sebastianHead,
   joey: man3Head,
   kevin: man2Head,
   kid: littleGirlHead,
-  lily: woman2Head,
+  lily: woman1Head,
   lola: woman1Head,
-  marco: sebastianHead,
+  marco: man2Head,
   marcy: woman1Head,
-  michael: man3Head,
-  ploy: chloeHead,
+  michael: marcusHead,
+  mom: lekHead,
+  ploy: woman2Head,
   professor: oldManHead,
   shelby: woman2Head,
-  staff: woman1Head,
-  steven: man3Head,
+  staff: man1Head,
+  steven: man4Head,
   'stranger #1': man1Head,
   'stranger #2': woman2Head,
   'surfer guy': man2Head,
-  valet: man2Head,
+  valet: man1Head,
 } satisfies Record<string, ImageSourcePropType>;
 
 const transcriptCharacterHeadByLesson = {
-  '1.chp|dad': chaiHead,
-  '1.13|mom': woman2Head,
-  '2.7|cashier': man3Head,
-  '2.9|man': man2Head,
-  '3.5|worker': man1Head,
-  '3.8|worker': woman2Head,
-  '4.2|man': man4Head,
-  '4.3|man': man2Head,
+  '2.7|cashier': man4Head,
+  '2.9|man': man1Head,
+  '3.5|worker': man3Head,
+  '3.8|worker': woman1Head,
+  '4.2|man': man1Head,
+  '4.3|man': man4Head,
   '4.7|host': man3Head,
-  '4.11|cashier': woman1Head,
-  '4.13|cashier': woman2Head,
-  '4.14|worker': man3Head,
+  '4.11|cashier': man2Head,
+  '4.13|cashier': man4Head,
+  '4.14|worker': man1Head,
   '4.7|server': woman2Head,
-  '5.5|worker': woman1Head,
+  '5.5|worker': man2Head,
   '5.10|server': man1Head,
-  '6.1|man': man2Head,
-  '7.3|man': man1Head,
+  '6.1|man': man4Head,
+  '7.3|man': man2Head,
   '7.6|server': man3Head,
-  '9.4|worker': man2Head,
-  '9.8|mom': woman2Head,
+  '9.4|worker': man4Head,
   '10.7|everyone': null,
   '10.chp|3 kids': null,
-  '12.11|man': man2Head,
-  '14.8|dara': pailinHead,
-  '16.12|mom': chloeHead,
+  '12.11|man': oldManHead,
 } satisfies Record<string, ImageSourcePropType | null>;
 
 export type TranscriptCharacterHeadResolution = ImageSourcePropType | null | undefined;
@@ -172,6 +171,7 @@ const blueCircleByHead = new Map<ImageSourcePropType, ImageSourcePropType>([
   [emilyHead, emilyBlueCircle],
   [enzoHead, enzoBlueCircle],
   [jeraldHead, jeraldBlueCircle],
+  [lekHead, lekBlueCircle],
   [littleGirlHead, littleGirlBlueCircle],
   [lukeHead, lukeBlueCircle],
   [man1Head, man1BlueCircle],

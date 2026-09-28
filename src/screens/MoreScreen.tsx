@@ -5,7 +5,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { moreCardImages } from '@/src/assets/more-card-images';
 import { prefetchPricing } from '@/src/api/pricing';
-import { NavigationCard } from '@/src/components/ui/NavigationCard';
+import { NAVIGATION_CARD_GAP, NavigationCard } from '@/src/components/ui/NavigationCard';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   cards: {
     marginTop: 18,
-    gap: 15,
+    gap: NAVIGATION_CARD_GAP,
   },
   iconBadge: {
     width: 58,

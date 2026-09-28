@@ -16,6 +16,9 @@ import { theme } from '@/src/theme/theme';
 import { AndroidNeoShadowLayer } from './AndroidNeoShadowLayer';
 import { AppText } from './AppText';
 
+export const NAVIGATION_CARD_HEIGHT = 104;
+export const NAVIGATION_CARD_GAP = 15;
+
 type NavigationCardProps = {
   language: 'en' | 'th';
   title: string;
@@ -82,7 +85,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   card: {
-    minHeight: 100,
+    height: NAVIGATION_CARD_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,

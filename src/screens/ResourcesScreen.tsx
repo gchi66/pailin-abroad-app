@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
-import { NavigationCard } from '@/src/components/ui/NavigationCard';
+import { NAVIGATION_CARD_GAP, NavigationCard } from '@/src/components/ui/NavigationCard';
 import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
@@ -199,6 +199,6 @@ const styles = StyleSheet.create({
   },
   cards: {
     marginTop: 18,
-    gap: 15,
+    gap: NAVIGATION_CARD_GAP,
   },
 });

@@ -19,6 +19,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { getLevelBackstory } from '@/src/content/level-backstories';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { clearLessonLibraryAnchor, getLessonLibrarySelection, hydrateLessonLibrarySelection, setLessonLibrarySelection, takeLessonLibraryPreview } from '@/src/lib/lesson-library-selection';
@@ -147,9 +148,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
     ?? lessons.find((lesson) => progress[lesson.id]?.has_started && !progress[lesson.id]?.is_completed && (hasMembership || freeIds.has(lesson.id)))?.id
     ?? lessons.find((lesson) => !progress[lesson.id]?.is_completed && (hasMembership || freeIds.has(lesson.id)))?.id;
   const selectedIndex = lessons.findIndex((lesson) => lesson.id === activeId);
-  // Until level-story content is provided, preview the opening lesson's existing backstory.
-  const firstLesson = items.filter((lesson) => lesson.stage === stage && lesson.level === level).sort((a, b) => (a.lesson_order ?? 0) - (b.lesson_order ?? 0))[0];
-  const story = firstLesson ? localized(firstLesson.backstory, firstLesson.backstory_th) : '';
+  const story = getLevelBackstory(level, language);
 
   const restoreAnchor = useCallback(() => {
     if (!anchor || offsets.current[anchor] == null) return;

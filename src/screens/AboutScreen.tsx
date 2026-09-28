@@ -140,8 +140,8 @@ const getAboutPageCopy = (uiLanguage: UiLanguage) => {
     back: 'Back',
     subtitle: 'Learn all you need to know about us - our method, our team, and our story!',
     sections: {
-      method: 'The method',
-      team: 'Our team',
+      method: 'The Method',
+      team: 'Our Team',
     },
     imagePlaceholder: 'Image placeholder',
     methodCards: [
