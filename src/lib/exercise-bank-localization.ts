@@ -60,7 +60,9 @@ export const localizeExerciseBankQuestion = (
       prompt: localizedText(exercise.prompt_en ?? exercise.prompt, exercise.prompt_th, language),
       examples: exercise.examples.map((example) => ({
         ...example,
-        content: localizedContent(example.content_en ?? example.content, example.content_th, language),
+        // Exercise examples intentionally stay in English even when the surrounding
+        // prompt and interface are localized to Thai.
+        content: localizedContent(example.content_en ?? example.content, example.content_th, 'en'),
       })),
     },
   };

@@ -62,6 +62,8 @@ export type ExerciseBankV2Option = {
 export type ExerciseBankV2QuestionContent = {
   text?: string;
   stem?: string;
+  image_url?: string | null;
+  alt_text?: string | null;
   options?: ExerciseBankV2Option[];
   blanks?: { id?: string; min_len?: number }[];
   example_answer?: string;
@@ -130,6 +132,7 @@ export type ExerciseBankAnswer = string | {
 };
 
 export type ExerciseBankAnswerResult = {
+  advisory?: boolean;
   question_id: number;
   topic_id: number;
   correct: boolean;
@@ -138,6 +141,7 @@ export type ExerciseBankAnswerResult = {
   feedback_th: string;
   review_answer?: string;
   grading_method: 'deterministic' | 'ai';
+  requires_rewrite?: boolean;
   progress: Record<string, unknown> & {
     has_answered_correctly?: boolean;
     topic_complete?: boolean;

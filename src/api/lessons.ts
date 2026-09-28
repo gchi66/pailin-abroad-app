@@ -405,6 +405,7 @@ export type EvaluateLessonAnswerInput = {
 };
 
 export type EvaluateLessonAnswerResult = {
+  advisory?: boolean;
   correct?: boolean | null;
   score?: number | null;
   feedback_en?: string | null;

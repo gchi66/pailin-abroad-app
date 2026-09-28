@@ -62,6 +62,17 @@ import { LessonListenPage } from '@/src/components/lesson/LessonListenPage';
 import { LessonRichSectionIntro } from '@/src/components/lesson/LessonRichSectionIntro';
 import { LessonSnippetAudioButton } from '@/src/components/lesson/LessonSnippetAudioButton';
 import { PhraseTextLane } from '@/src/components/lesson/PhraseTextLane';
+import { ExerciseSetResultCard } from '@/src/components/practice/ExerciseSetResultCard';
+import {
+  FillBlankExampleDisclosure,
+  FillBlankExampleSentence,
+  practiceColors,
+  practiceNeoShadowStyle,
+  PracticeSectionLabel,
+  PracticeSurface,
+  PracticeAnswerFooter,
+  SentenceTransformExampleDisclosure,
+} from '@/src/components/practice/PracticeExerciseUI';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -89,10 +100,8 @@ import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib
 import { theme } from '@/src/theme/theme';
 import { resolveTranscriptCharacterBlueCircle, resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import comprehensionPerfectImage from '@/assets/images/speaking-coach/pailin-set-complete.webp';
-import comprehensionProgressImage from '@/assets/images/speaking-coach/pailin-good-job.webp';
+import comprehensionProgressImage from '@/assets/images/pailin-extra-tips.webp';
 import comprehensionPracticeImage from '@/assets/images/pailin-common-mistakes.webp';
-import practicePerfectImage from '@/assets/images/pailin-phrases-verbs.webp';
-import practiceProgressImage from '@/assets/images/pailin-understand.webp';
 import lockWhiteImage from '@/assets/images/lock-white.png';
 import tryAgainImage from '@/assets/images/try-again.png';
 import transcriptLeftAvatar from '@/assets/images/characters/pailin-blue-right.png';
@@ -231,17 +240,6 @@ const RICH_PAGER_DRAG_LIMIT = 28;
 const LESSON_INPUT_FOCUS_TOP_OFFSET = 120;
 const LESSON_INPUT_KEYBOARD_GAP = 16;
 const ANDROID_LESSON_INPUT_FOCUS_LIFT = 16;
-const COMPREHENSION_SCORE_OUTLINE_OFFSETS = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [-1, 0],
-  [1, 0],
-  [-1, 1],
-  [0, 1],
-  [1, 1],
-] as const;
-
 const PRACTICE_INPUT_INITIAL_FOCUS_DELAY = 350;
 const PRACTICE_INPUT_RECHECK_DELAY = 120;
 const PRACTICE_INPUT_MAX_VISIBILITY_CHECKS = 4;
@@ -400,6 +398,7 @@ type NormalizedPracticeExercise = {
 };
 
 type PracticeEvaluationState = {
+  advisory?: boolean;
   loading: boolean;
   correct: boolean | null;
   score: number | null;
@@ -489,7 +488,7 @@ const getPracticeInlineTextStyle = (
   focused && scriptLanguage === 'en' ? styles.practiceFocusedFillBlankText : null,
   {
     fontFamily: getInlineFontFamily(scriptLanguage, {
-      bold: inline?.bold === true,
+      bold: focused || inline?.bold === true,
       italic: inline?.italic === true,
     }),
   },
@@ -738,57 +737,6 @@ const shouldUseMultilinePracticeBlank = (minLen: number, compact: boolean) => {
   void compact;
   return minLen > 40;
 };
-
-function ComprehensionResultScore({
-  score,
-  total,
-  tone,
-}: {
-  score: number;
-  total: number;
-  tone: 'perfect' | 'partial' | 'low';
-}) {
-  const label = `${score} / ${total}`;
-  const toneStyle = tone === 'perfect'
-    ? styles.comprehensionResultScorePerfect
-    : tone === 'partial'
-      ? styles.comprehensionResultScorePartial
-      : styles.comprehensionResultScoreLow;
-
-  return (
-    <View accessible accessibilityLabel={label} style={styles.comprehensionResultScoreWrap}>
-      <AppText
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        language="en"
-        style={[styles.comprehensionResultScore, toneStyle, styles.comprehensionResultScoreSizer]}>
-        {label}
-      </AppText>
-      {COMPREHENSION_SCORE_OUTLINE_OFFSETS.map(([translateX, translateY]) => (
-        <AppText
-          key={`${translateX}:${translateY}`}
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-          language="en"
-          style={[
-            styles.comprehensionResultScore,
-            styles.comprehensionResultScoreLayer,
-            styles.comprehensionResultScoreOutline,
-            { transform: [{ translateX }, { translateY }] },
-          ]}>
-          {label}
-        </AppText>
-      ))}
-      <AppText
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        language="en"
-        style={[styles.comprehensionResultScore, styles.comprehensionResultScoreLayer, toneStyle]}>
-        {label}
-      </AppText>
-    </View>
-  );
-}
 
 const getPracticeBlankKey = (exerciseId: string, itemKey: string, blankId: string) => `${exerciseId}:${itemKey}:${blankId}`;
 
@@ -3677,6 +3625,7 @@ export default function LessonDetailShellScreen() {
   const [practiceEvaluations, setPracticeEvaluations] = useState<Record<string, PracticeEvaluationState>>({});
   const [practiceErrorByExercise, setPracticeErrorByExercise] = useState<Record<string, string>>({});
   const [practiceMarkedCorrect, setPracticeMarkedCorrect] = useState<Record<string, boolean | null>>({});
+  const [practiceSentenceRewriteStages, setPracticeSentenceRewriteStages] = useState<Record<string, boolean>>({});
   const [practiceExampleAnswerLineCounts, setPracticeExampleAnswerLineCounts] = useState<Record<string, number>>({});
   const [isLessonCompleted, setIsLessonCompleted] = useState(false);
   const [isSavingLessonCompletion, setIsSavingLessonCompletion] = useState(false);
@@ -4603,10 +4552,12 @@ export default function LessonDetailShellScreen() {
   const isCommonMistakeTab = activeTab?.type === 'common_mistake';
   const isCultureNoteTab = activeTab?.type === 'culture_note';
   const isPracticeTab = activeTab?.type === 'practice';
+  const isConversationGroupTab = Boolean(
+    activeTab?.type && ['prepare', 'comprehension', 'transcript', 'apply'].includes(activeTab.type)
+  );
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
   const usesDetachedAudioFooter =
-    isComprehensionTab || isTranscriptTab || isApplyTab || isPracticeTab ||
-    ((isPhrasesTab || isRichPagerTab) && !isListenPage);
+    isComprehensionTab || isTranscriptTab || isApplyTab;
   const iosLessonBodyManualFontScale =
     Platform.OS === 'ios' &&
     fontScale >= IOS_BROKEN_LESSON_FONT_SCALE_MIN &&
@@ -5402,6 +5353,7 @@ export default function LessonDetailShellScreen() {
     !isLoading &&
     !errorMessage &&
     Boolean(lesson) &&
+    isConversationGroupTab &&
     !isPrepareTab &&
     !shouldShowConversationIntroOverlay;
   const audioTrayStatusLabel = isAudioLoading
@@ -5542,6 +5494,21 @@ export default function LessonDetailShellScreen() {
 
     voiceSound.pause();
   };
+
+  useEffect(() => {
+    if (isConversationGroupTab || isListenPage) {
+      return;
+    }
+
+    const voiceSound = voiceSoundRef.current;
+    if (voiceSound?.isLoaded) {
+      voiceSound.pause();
+      if (isConversationLockScreenActiveRef.current) {
+        voiceSound.clearLockScreenControls();
+        isConversationLockScreenActiveRef.current = false;
+      }
+    }
+  }, [isConversationGroupTab, isListenPage]);
 
   const seekConversationAudioToMillis = async (nextPositionMillis: number) => {
     const voiceSound = voiceSoundRef.current;
@@ -6587,6 +6554,7 @@ export default function LessonDetailShellScreen() {
     const nextPracticeBlankAnswers: Record<string, string> = {};
     const nextPracticeEvaluations: Record<string, PracticeEvaluationState> = {};
     const nextPracticeMarkedCorrect: Record<string, boolean | null> = {};
+    const nextPracticeSentenceRewriteStages: Record<string, boolean> = {};
 
     allAnswerStatePracticeExercises.forEach((exercise) => {
       const savedState = savedAnswerStateByUnit[buildExerciseAnswerStateUnitKey(exercise.id)];
@@ -6658,6 +6626,9 @@ export default function LessonDetailShellScreen() {
             typeof savedQuestion.answer === 'string' ? savedQuestion.answer : '';
           nextPracticeMarkedCorrect[itemStateKey] =
             typeof savedQuestion.markedAsCorrect === 'boolean' ? savedQuestion.markedAsCorrect : null;
+          if (savedQuestion.markedAsCorrect === false && item.correctTag === 'no') {
+            nextPracticeSentenceRewriteStages[itemStateKey] = true;
+          }
           return;
         }
 
@@ -6699,6 +6670,9 @@ export default function LessonDetailShellScreen() {
     }
     if (Object.keys(nextPracticeMarkedCorrect).length) {
       setPracticeMarkedCorrect(nextPracticeMarkedCorrect);
+    }
+    if (Object.keys(nextPracticeSentenceRewriteStages).length) {
+      setPracticeSentenceRewriteStages(nextPracticeSentenceRewriteStages);
     }
 
     hasHydratedLessonAnswerStateRef.current = true;
@@ -7004,6 +6978,7 @@ export default function LessonDetailShellScreen() {
           const itemStateKey = getPracticeItemStateKey(exercise.id, item.key);
           const markedAsCorrect = practiceMarkedCorrect[itemStateKey];
           const sentenceTransformExpectedAnswer =
+            item.reviewAnswer ||
             item.answer ||
             (exercise.kind === 'sentence_transform' && markedAsCorrect === true
               ? item.text || item.prompt || ''
@@ -7036,6 +7011,7 @@ export default function LessonDetailShellScreen() {
             });
 
             nextEvaluationByItemKey[answerKey] = {
+              advisory: result.advisory === true,
               loading: false,
               correct: typeof result.correct === 'boolean' ? result.correct : null,
               score: typeof result.score === 'number' ? result.score : null,
@@ -10878,7 +10854,7 @@ const mergeAdjacentPracticeRowTokens = (
     [openPracticeImagePreview, pageLanguage]
   );
 
-  const renderPracticePromptBlocks = (exercise: NormalizedPracticeExercise) => {
+  const renderPracticePromptBlocks = (exercise: NormalizedPracticeExercise, useFillBlankBaseline = false) => {
     if (!exercise.promptBlocks.length) {
       return null;
     }
@@ -10890,12 +10866,18 @@ const mergeAdjacentPracticeRowTokens = (
             return (
               <View key={`practice-prompt-text-${index}`} style={styles.practicePromptBlock}>
                 {block.text ? (
-                  <AppText language="en" variant="body" style={styles.practicePromptBlockText}>
+                  <AppText
+                    language="en"
+                    variant="body"
+                    style={[styles.practicePromptBlockText, useFillBlankBaseline ? styles.practiceSharedFillBlankInstructions : null]}>
                     {block.text}
                   </AppText>
                 ) : null}
                 {contentLang === 'th' && block.textTh ? (
-                  <AppText language="th" variant="muted" style={styles.practicePromptBlockThaiText}>
+                  <AppText
+                    language="th"
+                    variant="muted"
+                    style={[styles.practicePromptBlockThaiText, useFillBlankBaseline ? styles.practiceSharedFillBlankInstructions : null]}>
                     {block.textTh}
                   </AppText>
                 ) : null}
@@ -10909,7 +10891,10 @@ const mergeAdjacentPracticeRowTokens = (
                 {block.items.map((item, itemIndex) => (
                   <View key={`practice-prompt-list-${index}-${itemIndex}`} style={styles.practicePromptListRow}>
                     <View style={styles.practicePromptListBullet} />
-                    <AppText language={contentLang} variant="body" style={styles.practicePromptListText}>
+                    <AppText
+                      language={contentLang}
+                      variant="body"
+                      style={[styles.practicePromptListText, useFillBlankBaseline ? styles.practiceSharedFillBlankInstructions : null]}>
                       {item}
                     </AppText>
                   </View>
@@ -11028,6 +11013,7 @@ const mergeAdjacentPracticeRowTokens = (
     setPracticeBlankAnswers(keepOtherExercises);
     setPracticeEvaluations(keepOtherExercises);
     setPracticeMarkedCorrect(keepOtherExercises);
+    setPracticeSentenceRewriteStages(keepOtherExercises);
     setCheckedPracticeExercises((previous) => ({ ...previous, [exerciseId]: false }));
     setPracticeErrorByExercise((previous) => ({ ...previous, [exerciseId]: '' }));
     setActivePracticeQuestionIndex(0);
@@ -11067,10 +11053,51 @@ const mergeAdjacentPracticeRowTokens = (
       practiceEvaluations[activePracticeItemStateKey]?.loading
     )
   );
+  const currentPracticeEvaluation = activePracticeItemStateKey
+    ? practiceEvaluations[activePracticeItemStateKey]
+    : null;
+  const currentPracticeFeedback = currentPracticeEvaluation
+    ? (contentLang === 'th'
+        ? currentPracticeEvaluation.feedbackTh || currentPracticeEvaluation.feedbackEn
+        : currentPracticeEvaluation.feedbackEn || currentPracticeEvaluation.feedbackTh)
+    : '';
+  const currentPracticeMultipleChoiceReviewAnswer = activePracticeExercise?.kind === 'multiple_choice' && activePracticeQuestion
+    ? activePracticeQuestion.options
+        .filter((option) => activePracticeQuestion.answerLetters.includes(normalizeOptionLetter(option.label)))
+        .map((option) => contentLang === 'th'
+          ? option.textTh || option.text || textJsonbToString(option.textJsonbTh) || textJsonbToString(option.textJsonb)
+          : option.text || textJsonbToString(option.textJsonb))
+        .filter(Boolean)
+        .join('\n')
+    : '';
+  const isCurrentSentenceRewriteStage = Boolean(
+    activePracticeExercise?.kind === 'sentence_transform' &&
+    activePracticeItemStateKey &&
+    practiceSentenceRewriteStages[activePracticeItemStateKey]
+  );
+  const isCurrentSentenceJudgmentQuestion = Boolean(
+    activePracticeExercise?.kind === 'sentence_transform' &&
+    activePracticeQuestion &&
+    (activePracticeQuestion.correctTag === 'yes' || activePracticeQuestion.correctTag === 'no')
+  );
+  const usesSharedPracticeAnswerFooter = Boolean(
+    isPracticeTab &&
+    !showPracticeSetResults &&
+    (
+      activePracticeExercise?.kind === 'fill_blank' ||
+      activePracticeExercise?.kind === 'open' ||
+      activePracticeExercise?.kind === 'multiple_choice' ||
+      activePracticeExercise?.kind === 'sentence_transform'
+    )
+  );
   const hasCurrentPracticeAnswer = Boolean(
     activePracticeExercise && activePracticeQuestion && (
       activePracticeExercise.kind === 'multiple_choice'
         ? (practiceSelections[`${activePracticeExercise.id}:${activePracticeQuestion.key}`] ?? []).length > 0
+        : activePracticeExercise.kind === 'sentence_transform'
+          ? !isCurrentSentenceJudgmentQuestion || isCurrentSentenceRewriteStage
+            ? Boolean(normalizePracticeAnswerText(practiceOpenAnswers[activePracticeItemStateKey ?? ''] ?? ''))
+            : typeof practiceMarkedCorrect[activePracticeItemStateKey ?? ''] === 'boolean'
         : !isPracticeItemUnanswered(activePracticeExercise, activePracticeQuestion)
     )
   );
@@ -11079,6 +11106,48 @@ const mergeAdjacentPracticeRowTokens = (
     !activePracticeQuestion ||
     isCurrentPracticeChecking ||
     (!isCurrentPracticeChecked && !hasCurrentPracticeAnswer);
+
+  const finalizeSentenceJudgment = (isCorrect: boolean) => {
+    if (!activePracticeExercise || !activePracticeQuestion || !activePracticeItemStateKey) return;
+    const exercise = activePracticeExercise;
+    const item = activePracticeQuestion;
+    const itemStateKey = activePracticeItemStateKey;
+    const evaluation: PracticeEvaluationState = {
+      loading: false,
+      correct: isCorrect,
+      score: isCorrect ? 1 : 0,
+      feedbackEn: '',
+      feedbackTh: '',
+      error: '',
+    };
+
+    setPracticeEvaluations((previous) => ({ ...previous, [itemStateKey]: evaluation }));
+    setCheckedPracticeItems((previous) => ({ ...previous, [itemStateKey]: true }));
+    const completesExercise = activePracticeQuestions.every((question) =>
+      question.key === item.key || checkedPracticeItems[getPracticeItemStateKey(exercise.id, question.key)]
+    );
+    if (completesExercise) {
+      setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
+      if (isCorrect) {
+        void writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
+      }
+    }
+    void saveAnswerStateForUnit(buildExerciseAnswerStateUnitKey(exercise.id), {
+      questions: exercise.items.map((question) => {
+        const key = getPracticeItemStateKey(exercise.id, question.key);
+        const markedAsCorrect = practiceMarkedCorrect[key];
+        const savedEvaluation = key === itemStateKey ? evaluation : practiceEvaluations[key];
+        return {
+          answer: markedAsCorrect === true
+            ? question.text || question.prompt || ''
+            : practiceOpenAnswers[key] ?? '',
+          markedAsCorrect: typeof markedAsCorrect === 'boolean' ? markedAsCorrect : null,
+          correct: savedEvaluation?.correct ?? null,
+          score: savedEvaluation?.score ?? null,
+        };
+      }),
+    });
+  };
 
   const handlePrimaryPracticeAction = () => {
     if (!activePracticeExercise || !activePracticeQuestion || isPracticePrimaryActionDisabled) return;
@@ -11089,6 +11158,21 @@ const mergeAdjacentPracticeRowTokens = (
         handleAdvancePracticeQuestion();
       } else if (activePracticeExercise.kind === 'multiple_choice') {
         handleResetMultipleChoiceExercise(activePracticeExercise, targetItems);
+      } else if (activePracticeExercise.kind === 'sentence_transform' && isCurrentSentenceRewriteStage) {
+        const itemStateKey = getPracticeItemStateKey(activePracticeExercise.id, activePracticeQuestion.key);
+        setPracticeOpenAnswers((previous) => ({ ...previous, [itemStateKey]: '' }));
+        setPracticeEvaluations((previous) => {
+          const next = { ...previous };
+          delete next[itemStateKey];
+          return next;
+        });
+        setCheckedPracticeItems((previous) => {
+          const next = { ...previous };
+          delete next[itemStateKey];
+          return next;
+        });
+        setRevealedPracticeAnswerIds((previous) => ({ ...previous, [itemStateKey]: false }));
+        setPracticeErrorByExercise((previous) => ({ ...previous, [activePracticeExercise.id]: '' }));
       } else {
         handleResetOpenExercise(activePracticeExercise, targetItems);
       }
@@ -11097,6 +11181,37 @@ const mergeAdjacentPracticeRowTokens = (
 
     if (activePracticeExercise.kind === 'multiple_choice') {
       void handleCheckMultipleChoiceExercise(activePracticeExercise, targetItems);
+    } else if (
+      activePracticeExercise.kind === 'sentence_transform' &&
+      isCurrentSentenceJudgmentQuestion &&
+      !isCurrentSentenceRewriteStage
+    ) {
+      const selectedJudgment = practiceMarkedCorrect[activePracticeItemStateKey ?? ''];
+      const expectedJudgment = activePracticeQuestion.correctTag === 'yes';
+      if (selectedJudgment === false && expectedJudgment === false && activePracticeItemStateKey) {
+        setPracticeSentenceRewriteStages((previous) => ({
+          ...previous,
+          [activePracticeItemStateKey]: true,
+        }));
+        setPracticeOpenAnswers((previous) => ({ ...previous, [activePracticeItemStateKey]: '' }));
+        void saveAnswerStateForUnit(buildExerciseAnswerStateUnitKey(activePracticeExercise.id), {
+          questions: activePracticeExercise.items.map((item) => {
+            const key = getPracticeItemStateKey(activePracticeExercise.id, item.key);
+            const markedAsCorrect = key === activePracticeItemStateKey
+              ? false
+              : practiceMarkedCorrect[key];
+            const evaluation = practiceEvaluations[key];
+            return {
+              answer: practiceOpenAnswers[key] ?? '',
+              markedAsCorrect: typeof markedAsCorrect === 'boolean' ? markedAsCorrect : null,
+              correct: evaluation?.correct ?? null,
+              score: evaluation?.score ?? null,
+            };
+          }),
+        });
+        return;
+      }
+      finalizeSentenceJudgment(selectedJudgment === expectedJudgment);
     } else {
       void handleCheckOpenExercise(activePracticeExercise, targetItems);
     }
@@ -11121,8 +11236,22 @@ const mergeAdjacentPracticeRowTokens = (
     const isOpenExercise = exercise.kind === 'open';
     const isFillBlankExercise = exercise.kind === 'fill_blank';
     const isSentenceTransformExercise = exercise.kind === 'sentence_transform';
+    const isSentenceJudgmentExercise = isSentenceTransformExercise && exercise.items.some(
+      (item) => !item.isExample && (item.correctTag === 'yes' || item.correctTag === 'no')
+    );
     const isInlineQuickPractice = displayMode === 'inline';
     const hasPracticeExample = exercise.items.some((item) => item.isExample);
+    const fillBlankExampleItem = isFillBlankExercise
+      ? exercise.items.find((item) => item.isExample) ?? null
+      : null;
+    const fillBlankExampleText = fillBlankExampleItem
+      ? (fillBlankExampleItem.text || fillBlankExampleItem.prompt || fillBlankExampleItem.textTh || fillBlankExampleItem.promptTh)
+      : '';
+    const fillBlankExampleAnswers = fillBlankExampleItem
+      ? fillBlankExampleItem.blanks.map((_, blankIndex) =>
+          fillBlankExampleItem.answersV2[blankIndex]?.[0] || fillBlankExampleItem.answer
+        )
+      : [];
     const isPracticeExampleExpanded = Boolean(expandedPracticeExampleIds[exercise.id]);
     const shouldMergePracticeExample =
       hasPracticeExample &&
@@ -11130,14 +11259,24 @@ const mergeAdjacentPracticeRowTokens = (
       !isInlineQuickPractice &&
       !isSentenceTransformExercise &&
       !exercise.paragraph;
-    const displayItems = visibleItemKey
+    const sentenceTransformRewriteStageActive = isSentenceTransformExercise && (
+      visibleItemKey
+        ? Boolean(practiceSentenceRewriteStages[getPracticeItemStateKey(exercise.id, visibleItemKey)])
+        : exercise.items.some((item) => practiceSentenceRewriteStages[getPracticeItemStateKey(exercise.id, item.key)])
+    );
+    const selectedDisplayItems = visibleItemKey
       ? exercise.items.filter(
           (item) =>
-            (item.isExample && (isPracticeExampleExpanded || isSentenceTransformExercise)) ||
+            (item.isExample && (isSentenceTransformExercise
+              ? !isSentenceJudgmentExercise || sentenceTransformRewriteStageActive
+              : isPracticeExampleExpanded)) ||
             item.key === visibleItemKey ||
             isPracticePromptOnlyImageItem(exercise, item)
         )
       : exercise.items;
+    const displayItems = (isSentenceTransformExercise && !isSentenceJudgmentExercise) || sentenceTransformRewriteStageActive
+      ? [...selectedDisplayItems].sort((left, right) => Number(left.isExample) - Number(right.isExample))
+      : selectedDisplayItems;
     const checkableDisplayItems = displayItems.filter(
       (item) => !item.isExample && !isPracticePromptOnlyImageItem(exercise, item)
     );
@@ -11275,37 +11414,48 @@ const mergeAdjacentPracticeRowTokens = (
     ) : null;
 
     return (
-      <Stack gap="md">
+      <Stack
+        gap="md"
+        style={(isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession ? styles.practiceSharedFillBlankBody : null}>
         {!hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
           <AppText
             language={contentLang === 'th' ? 'th' : 'en'}
             variant="muted"
-            style={[styles.practiceExercisePrompt, isInlineQuickPractice ? styles.practiceExercisePromptCompact : null]}>
+            style={[
+              styles.practiceExercisePrompt,
+              isInlineQuickPractice ? styles.practiceExercisePromptCompact : null,
+              (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
+                ? styles.practiceSharedFillBlankInstructions
+                : null,
+            ]}>
             {exercise.prompt}
           </AppText>
         ) : null}
 
-        {renderPracticePromptBlocks(exercise)}
+        {renderPracticePromptBlocks(
+          exercise,
+          (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
+        )}
 
-        {!isInlineQuickPractice && hasPracticeExample && !isSentenceTransformExercise ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: isPracticeExampleExpanded }}
-            onPress={() => setExpandedPracticeExampleIds((previous) => ({
-              ...previous,
-              [exercise.id]: !previous[exercise.id],
-            }))}
-            style={[
-              styles.practiceExampleToggle,
-              shouldMergePracticeExample ? styles.practiceExampleToggleExpanded : null,
-            ]}>
-            <AppText language={pageLanguage} variant="caption" style={styles.practiceExampleToggleLabel}>
-              {pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
-            </AppText>
-            <AppText language="en" variant="body" style={styles.practiceExampleToggleArrow}>
-              {isPracticeExampleExpanded ? '↑' : '↓'}
-            </AppText>
-          </Pressable>
+        {!isInlineQuickPractice && hasPracticeExample && !isSentenceTransformExercise && !isFillBlankExercise && !isOpenExercise ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isPracticeExampleExpanded }}
+              onPress={() => setExpandedPracticeExampleIds((previous) => ({
+                ...previous,
+                [exercise.id]: !previous[exercise.id],
+              }))}
+              style={[
+                styles.practiceExampleToggle,
+                shouldMergePracticeExample ? styles.practiceExampleToggleExpanded : null,
+              ]}>
+              <AppText language={pageLanguage} variant="caption" style={styles.practiceExampleToggleLabel}>
+                {pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
+              </AppText>
+              <AppText language="en" variant="body" style={styles.practiceExampleToggleArrow}>
+                {isPracticeExampleExpanded ? '↑' : '↓'}
+              </AppText>
+            </Pressable>
         ) : null}
 
         {isMultipleChoiceExercise ? (
@@ -11336,11 +11486,19 @@ const mergeAdjacentPracticeRowTokens = (
                     styles.comprehensionQuestionCard,
                     isFocusedPracticeSession ? styles.practiceFocusedQuestionLayout : null,
                   ]}>
+                  {isFocusedPracticeSession ? (
+                    <PracticeSectionLabel
+                      icon="◎"
+                      label={pageLanguage === 'th' ? 'เลือกคำตอบ' : 'CHOOSE THE ANSWER'}
+                      language={pageLanguage}
+                    />
+                  ) : null}
                   <View
                     style={[
                       styles.practiceMultipleChoiceQuestionHeader,
                       styles.practiceMultipleChoiceQuestionHeaderDeindented,
-                      !isInlineQuickPractice ? styles.practiceFocusedPromptCard : null,
+                      !isInlineQuickPractice && !isFocusedPracticeSession ? styles.practiceFocusedPromptCard : null,
+                      isFocusedPracticeSession ? styles.practiceSharedMultipleChoicePromptCard : null,
                       itemImageUrl ? styles.practiceMultipleChoiceQuestionHeaderWithImage : null,
                     ]}>
                     {!isFocusedPracticeSession ? (
@@ -11349,7 +11507,7 @@ const mergeAdjacentPracticeRowTokens = (
                       </AppText>
                     ) : null}
                     <View style={[styles.practiceQuestionTextWrap, styles.practiceMultipleChoiceQuestionTextWrap]}>
-                      {renderFocusedPromptLabel('CHOOSE THE CORRECT ANSWER', '🎯')}
+                      {isFocusedPracticeSession ? null : renderFocusedPromptLabel('CHOOSE THE CORRECT ANSWER', '🎯')}
                       {itemImageUrl ? (
                         <View style={styles.practiceMultipleChoicePromptImageShell}>
                           <Image
@@ -11495,12 +11653,13 @@ const mergeAdjacentPracticeRowTokens = (
                         <Pressable
                           key={`${selectionKey}:${option.label}`}
                           accessibilityRole="button"
-                          accessibilityLabel={`${option.label} ${optionAltText}`}
+                          accessibilityLabel={optionAltText}
                           accessibilityState={{ selected: isSelected, disabled: isItemChecked }}
                           disabled={isItemChecked}
                           onPress={() => handlePracticeChoice(exercise.id, item.key, option.label, isMulti)}
                           style={[
                             styles.comprehensionOptionButton,
+                            styles.practiceSharedMultipleChoiceOption,
                             isWrongSelectionOutcome
                               ? styles.comprehensionOptionButtonSelectedWrong
                               : isCorrectSelectionOutcome
@@ -11509,25 +11668,6 @@ const mergeAdjacentPracticeRowTokens = (
                                   ? styles.comprehensionOptionButtonSelected
                                   : null,
                           ]}>
-                          <View
-                            style={[
-                              styles.comprehensionOptionLetter,
-                              isWrongSelectionOutcome
-                                ? styles.comprehensionOptionLetterWrong
-                                : isCorrectSelectionOutcome
-                                  ? styles.comprehensionOptionLetterCorrect
-                                  : isSelected
-                                    ? styles.comprehensionOptionLetterSelected
-                                    : null,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.practiceOptionLetterText,
-                                isSelected ? styles.practiceOptionLetterTextInverse : null,
-                              ]}>
-                              {isWrongSelectionOutcome ? 'X' : isCorrectSelectionOutcome ? '✓' : option.label}
-                            </Text>
-                          </View>
                           <View style={styles.practiceOptionTextWrap}>
                             {optionImageUrl ? (
                               <View style={styles.practiceOptionImageShell}>
@@ -11598,7 +11738,7 @@ const mergeAdjacentPracticeRowTokens = (
                       );
                     })}
                   </Stack>
-                  {isItemChecked ? (
+                  {isItemChecked && !isFocusedPracticeSession ? (
                     <View style={styles.practiceQuestionFeedbackRow}>
                       <View
                         style={[
@@ -11625,7 +11765,7 @@ const mergeAdjacentPracticeRowTokens = (
                       </AppText>
                     </View>
                   ) : null}
-                  {!item.isExample && isItemChecked && !isItemCorrect ? renderPracticeAnswerReveal(
+                  {!item.isExample && isItemChecked && !isItemCorrect && !isFocusedPracticeSession ? renderPracticeAnswerReveal(
                     selectionKey,
                     item.options
                       .filter((option) => answerSet.has(normalizeOptionLetter(option.label)))
@@ -11643,7 +11783,7 @@ const mergeAdjacentPracticeRowTokens = (
               );
             })}
 
-            {exerciseError ? (
+            {exerciseError && !isFocusedPracticeSession ? (
               <AppText language={pageLanguage} variant="muted" style={styles.practiceInlineError}>
                 {exerciseError}
               </AppText>
@@ -11677,7 +11817,7 @@ const mergeAdjacentPracticeRowTokens = (
 
         {(isOpenExercise || isSentenceTransformExercise) ? (
           <Stack gap="md" style={shouldMergePracticeExample ? styles.practiceExpandedExampleList : null}>
-            {displayItems.map((item, itemIndex) => {
+            {displayItems.filter((item) => !(isOpenExercise && item.isExample)).map((item, itemIndex) => {
               const answerKey = getPracticeItemStateKey(exercise.id, item.key);
               const evaluation = practiceEvaluations[answerKey];
               const showUnansweredPracticeHint =
@@ -11688,6 +11828,7 @@ const mergeAdjacentPracticeRowTokens = (
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
               const markState = practiceMarkedCorrect[answerKey];
+              const isSentenceRewriteStage = Boolean(practiceSentenceRewriteStages[answerKey]);
               const answerValue = item.isExample
                 ? item.answer || item.keywords || item.text
                 : isSentenceTransformExercise && markState === true
@@ -11695,7 +11836,8 @@ const mergeAdjacentPracticeRowTokens = (
                   : isOpenExercise
                     ? getPracticeOpenAnswer(exercise, item)
                     : practiceOpenAnswers[answerKey] ?? '';
-              const showMarkButtons = isSentenceTransformExercise && (item.correctTag === 'yes' || item.correctTag === 'no');
+              const isSentenceJudgmentItem = isSentenceTransformExercise && (item.correctTag === 'yes' || item.correctTag === 'no');
+              const showMarkButtons = isSentenceJudgmentItem && !isSentenceRewriteStage;
               const resolvedPromptMarkState = item.correctTag === 'yes'
                 ? true
                 : item.correctTag === 'no'
@@ -11707,6 +11849,7 @@ const mergeAdjacentPracticeRowTokens = (
                   ? evaluation.correct
                   : null;
               const isExerciseChecked = checkedPracticeItems[answerKey] === true;
+              const usesSharedOpenPresentation = (isOpenExercise || isSentenceTransformExercise) && isFocusedPracticeSession;
               const shouldUseSentenceExampleShell = item.isExample && isSentenceTransformExercise;
               const isCollapsibleSentenceExample = shouldUseSentenceExampleShell && !isInlineQuickPractice;
               const inputCount = isOpenExercise ? getPracticeOpenInputCount(exercise, item) : 1;
@@ -11791,6 +11934,27 @@ const mergeAdjacentPracticeRowTokens = (
                     })}
                   </View>
                 ) : null;
+              }
+
+              if (item.isExample && isSentenceTransformExercise && isFocusedPracticeSession) {
+                const sentenceExampleText =
+                  item.prompt || item.text || stripInlineMediaTags(textJsonbToString(item.textJsonb)) || item.promptTh || item.textTh;
+                const sentenceExampleCorrection = item.answer || item.keywords || '';
+
+                return (
+                  <SentenceTransformExampleDisclosure
+                    key={answerKey}
+                    correctedSentence={sentenceExampleCorrection}
+                    expanded={isPracticeExampleExpanded}
+                    label={pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
+                    language={pageLanguage}
+                    sentence={sentenceExampleText}
+                    onToggle={() => setExpandedPracticeExampleIds((previous) => ({
+                      ...previous,
+                      [exercise.id]: !previous[exercise.id],
+                    }))}
+                  />
+                );
               }
 
               return item.isExample ? (
@@ -12002,10 +12166,37 @@ const mergeAdjacentPracticeRowTokens = (
                     styles.practiceQuestionCard,
                     isFocusedPracticeSession ? styles.practiceFocusedQuestionLayout : null,
                   ]}>
+                  {(isOpenExercise || isSentenceTransformExercise) && isFocusedPracticeSession ? (
+                    <>
+                      {isSentenceTransformExercise && isSentenceRewriteStage && !isExerciseChecked ? (
+                        <AppText language={pageLanguage} variant="body" style={styles.practiceSentenceStageSuccess}>
+                          <AppText language={pageLanguage} style={styles.practiceSentenceStageSuccessAccent}>
+                            {pageLanguage === 'th' ? 'ทำได้ดี!' : 'Good work!'}
+                          </AppText>
+                          {pageLanguage === 'th' ? ' ประโยคนี้ไม่ถูกต้อง' : ' It is incorrect.'}
+                        </AppText>
+                      ) : null}
+                      <PracticeSectionLabel
+                        icon={isSentenceJudgmentItem ? '⌘' : '✎'}
+                        label={isSentenceTransformExercise
+                          ? isSentenceJudgmentItem
+                            ? isSentenceRewriteStage
+                              ? (pageLanguage === 'th' ? 'แก้ไขประโยค' : 'FIX IT!')
+                              : (pageLanguage === 'th' ? 'ประโยคนี้ถูกต้องไหม' : 'IS THIS CORRECT?')
+                            : (pageLanguage === 'th' ? 'เขียนประโยคใหม่' : 'REWRITE THIS')
+                          : (pageLanguage === 'th' ? 'ตอบคำถาม' : 'RESPOND TO THE PROMPT')}
+                        language={pageLanguage}
+                      />
+                    </>
+                  ) : null}
                   <View
                     style={[
                       styles.practiceQuestionHeader,
-                      !isInlineQuickPractice ? styles.practiceFocusedPromptCard : null,
+                      !isInlineQuickPractice && !((isOpenExercise || isSentenceTransformExercise) && isFocusedPracticeSession)
+                        ? styles.practiceFocusedPromptCard
+                        : null,
+                      isOpenExercise && isFocusedPracticeSession ? styles.practiceSharedOpenPromptCard : null,
+                      isSentenceTransformExercise && isFocusedPracticeSession ? styles.practiceSharedSentencePromptCard : null,
                       isImageOnlyOpenPrompt ? styles.practiceFocusedPromptCardCompact : null,
                     ]}>
                     {!isFocusedPracticeSession ? (
@@ -12019,13 +12210,13 @@ const mergeAdjacentPracticeRowTokens = (
                         styles.practiceQuestionTextWrap,
                         isImageOnlyOpenPrompt ? styles.practiceQuestionTextWrapCompactCentered : null,
                       ]}>
-                      {renderFocusedPromptLabel(
-                        isSentenceTransformExercise
-                          ? showMarkButtons ? 'CORRECT OR INCORRECT?' : 'REWRITE THIS'
-                          : 'RESPOND TO THE PROMPT',
-                        isSentenceTransformExercise && showMarkButtons ? '✅❌' : '✏️',
-                        isImageOnlyOpenPrompt
-                      )}
+                      {(isOpenExercise || isSentenceTransformExercise) && isFocusedPracticeSession ? null : renderFocusedPromptLabel(
+                          isSentenceTransformExercise
+                            ? showMarkButtons ? 'CORRECT OR INCORRECT?' : 'REWRITE THIS'
+                            : 'RESPOND TO THE PROMPT',
+                          isSentenceTransformExercise && showMarkButtons ? '✅❌' : '✏️',
+                          isImageOnlyOpenPrompt
+                        )}
                       {renderPracticeItemAudioButton(item.audioKey, answerKey)}
                       {item.orderedContent ? (
                         <AppText
@@ -12093,7 +12284,10 @@ const mergeAdjacentPracticeRowTokens = (
                   </View>
 
                   {showMarkButtons ? (
-                    <View style={styles.practiceSentenceToggleRow}>
+                    <View style={[
+                      styles.practiceSentenceToggleRow,
+                      isFocusedPracticeSession ? styles.practiceSentenceToggleFocusedRow : null,
+                    ]}>
                       <Pressable
                         accessibilityRole="button"
                         onPress={() => handlePracticeSentenceCorrectToggle(exercise.id, item.key, true, item.text)}
@@ -12104,7 +12298,7 @@ const mergeAdjacentPracticeRowTokens = (
                           isFocusedPracticeSession && displayMarkState === true ? styles.practiceSentenceToggleFocusedActive : null,
                         ]}>
                         <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                          {isFocusedPracticeSession ? 'CORRECT ✓' : '✓'}
+                          {isFocusedPracticeSession ? 'IT’S CORRECT  ✓' : '✓'}
                         </AppText>
                       </Pressable>
                       <Pressable
@@ -12117,12 +12311,13 @@ const mergeAdjacentPracticeRowTokens = (
                           isFocusedPracticeSession && displayMarkState === false ? styles.practiceSentenceToggleFocusedActive : null,
                         ]}>
                         <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                          {isFocusedPracticeSession ? 'INCORRECT X' : 'X'}
+                          {isFocusedPracticeSession ? 'IT’S INCORRECT  X' : 'X'}
                         </AppText>
                       </Pressable>
                     </View>
                   ) : null}
 
+                  {!isSentenceJudgmentItem || isSentenceRewriteStage ? (
                   <View style={shouldStackPracticeMedia ? styles.practiceOpenColumn : styles.practiceOpenRow}>
                     {itemImageUrl ? (
                       renderPracticeImage(itemImageUrl, itemAltText, {
@@ -12149,7 +12344,9 @@ const mergeAdjacentPracticeRowTokens = (
                           <View
                             style={[
                               styles.practiceOpenInlineInputShell,
-                              evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputShellChecked : null,
+                              evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation
+                                ? styles.practiceOpenInputShellChecked
+                                : null,
                             ]}>
                             <ScriptAwareTextInput
                               key={`${answerKey}-input-inline`}
@@ -12162,7 +12359,9 @@ const mergeAdjacentPracticeRowTokens = (
                               style={[
                                 styles.practiceOpenInlineInputField,
                                 practiceOpenInputStyle,
-                                evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputFieldWithBadge : null,
+                                evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation
+                                  ? styles.practiceOpenInputFieldWithBadge
+                                  : null,
                               ]}
                               value={practiceOpenAnswers[openAnswerKeys[0]] ?? ''}
                               onChangeText={(nextValue) => handlePracticeOpenAnswerChange(exercise.id, item.key, nextValue, 0)}
@@ -12172,7 +12371,7 @@ const mergeAdjacentPracticeRowTokens = (
                               editable={!evaluation?.loading && !isExerciseChecked}
                               blurOnSubmit
                             />
-                            {evaluationCorrect !== null && isExerciseChecked ? (
+                            {evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation ? (
                               <View style={styles.practiceOpenInputStatusSlot}>
                                 <View
                                   style={[
@@ -12196,19 +12395,22 @@ const mergeAdjacentPracticeRowTokens = (
                         const measuredOpenLineCount = practiceOpenInputLineCounts[openAnswerKey] ?? 1;
                         const visibleOpenLineCount = Math.min(5, Math.max(1, measuredOpenLineCount));
                         const openInputHeight = 36 + ((visibleOpenLineCount - 1) * 21);
+                        const sharedOpenInputHeight = 56 + ((visibleOpenLineCount - 1) * 21);
                         const rewriteIsWrapped = practiceRewriteIsWrapped[openAnswerKey] === true;
                         const placeholder =
                           isSentenceTransformExercise
-                            ? markState === true
+                            ? !isSentenceJudgmentItem
+                              ? item.placeholder || pageCopy.practiceOpenPlaceholder
+                              : markState === true
                               ? contentLang === 'th'
                                 ? 'ประโยคนี้ถูกต้องแล้ว'
                                 : 'Already correct'
                               : contentLang === 'th'
                                 ? 'เขียนประโยคใหม่'
-                                : 'Rewrite this sentence'
+                                : 'Write the correct sentence'
                             : item.placeholder || pageCopy.practiceOpenPlaceholder;
                         const statusMark =
-                          evaluationCorrect !== null && isExerciseChecked
+                          evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation
                             ? evaluationCorrect
                             : null;
 
@@ -12224,7 +12426,13 @@ const mergeAdjacentPracticeRowTokens = (
                                 : null,
                               inputIndex > 0 ? styles.practiceOpenInputStacked : null,
                               markState === true ? styles.practiceOpenInputDisabled : null,
-                              evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputShellChecked : null,
+                              evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation
+                                ? styles.practiceOpenInputShellChecked
+                                : null,
+                              usesSharedOpenPresentation ? styles.practiceSharedOpenInputShell : null,
+                              usesSharedOpenPresentation
+                                ? { height: sharedOpenInputHeight, minHeight: sharedOpenInputHeight }
+                                : null,
                             ]}>
                             {isOpenExercise ? (
                               <Text
@@ -12243,7 +12451,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 style={[
                                   styles.practiceOpenInputMeasurementText,
                                   practiceOpenInputStyle,
-                                  evaluationCorrect !== null && isExerciseChecked
+                                  evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation
                                     ? styles.practiceOpenInputMeasurementTextWithBadge
                                     : null,
                                 ]}>
@@ -12266,11 +12474,16 @@ const mergeAdjacentPracticeRowTokens = (
                                 isOpenExercise
                                   ? { minHeight: 22 + ((visibleOpenLineCount - 1) * 21) }
                                   : null,
+                                usesSharedOpenPresentation && visibleOpenLineCount === 1
+                                  ? styles.practiceSharedOpenInputFieldSingleLine
+                                  : null,
                                 isSentenceTransformExercise ? styles.practiceSentenceTransformInputField : null,
                                 isSentenceTransformExercise && rewriteIsWrapped
                                   ? styles.practiceSentenceTransformInputFieldTwoLine
                                   : null,
-                                evaluationCorrect !== null && isExerciseChecked ? styles.practiceOpenInputFieldWithBadge : null,
+                                evaluationCorrect !== null && isExerciseChecked && !usesSharedOpenPresentation
+                                  ? styles.practiceOpenInputFieldWithBadge
+                                  : null,
                               ]}
                               value={value}
                               onContentSizeChange={(event) => {
@@ -12300,7 +12513,7 @@ const mergeAdjacentPracticeRowTokens = (
                               editable={!evaluation?.loading && !isExerciseChecked && markState !== true}
                               scrollEnabled={isOpenExercise ? measuredOpenLineCount > 5 : false}
                               blurOnSubmit
-                              textAlignVertical="top"
+                              textAlignVertical={usesSharedOpenPresentation && visibleOpenLineCount === 1 ? 'center' : 'top'}
                             />
                           {statusMark !== null ? (
                             <View style={styles.practiceOpenInputStatusSlot}>
@@ -12322,6 +12535,7 @@ const mergeAdjacentPracticeRowTokens = (
                       })}
                     </View>
                   </View>
+                  ) : null}
 
                   {showUnansweredPracticeHint ? (
                     <AppText language={pageLanguage} variant="muted" style={styles.practiceItemInlineError}>
@@ -12329,7 +12543,7 @@ const mergeAdjacentPracticeRowTokens = (
                     </AppText>
                   ) : null}
 
-                  {evaluationCorrect !== null ? (
+                  {evaluationCorrect !== null && !usesSharedOpenPresentation ? (
                     <Animated.View
                       entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
                       style={styles.practiceFeedbackBox}>
@@ -12361,7 +12575,7 @@ const mergeAdjacentPracticeRowTokens = (
                     </Animated.View>
                   ) : null}
 
-                  {!item.isExample && isSentenceTransformExercise && evaluationCorrect === false ? renderPracticeAnswerReveal(
+                  {!item.isExample && isSentenceTransformExercise && evaluationCorrect === false && !usesSharedOpenPresentation ? renderPracticeAnswerReveal(
                     answerKey,
                     item.reviewAnswer,
                     'en',
@@ -12371,7 +12585,7 @@ const mergeAdjacentPracticeRowTokens = (
               );
             })}
 
-            {exerciseError ? (
+            {exerciseError && !(isOpenExercise && isFocusedPracticeSession) ? (
               <AppText language={pageLanguage} variant="muted" style={styles.practiceInlineError}>
                 {exerciseError}
               </AppText>
@@ -12402,7 +12616,7 @@ const mergeAdjacentPracticeRowTokens = (
         ) : null}
 
         {isFillBlankExercise ? (
-          <Stack gap="md" style={shouldMergePracticeExample ? styles.practiceExpandedExampleList : null}>
+          <Stack gap="md">
             {!isInlineQuickPractice && exercise.paragraph ? (
               <AppText
                 language={contentLang}
@@ -12412,7 +12626,7 @@ const mergeAdjacentPracticeRowTokens = (
               </AppText>
             ) : null}
 
-            {displayItems.map((item, itemIndex) => {
+            {displayItems.filter((item) => !item.isExample).map((item, itemIndex) => {
               const answerKey = getPracticeItemStateKey(exercise.id, item.key);
               const evaluation = practiceEvaluations[answerKey];
               const evaluationCorrect =
@@ -12645,10 +12859,16 @@ const mergeAdjacentPracticeRowTokens = (
                 <View
                   key={answerKey}
                   style={[
-                    item.isExample ? styles.practiceExampleCard : styles.practiceQuestionCard,
+                    item.isExample ? styles.practiceSharedFillBlankExampleContainer : styles.practiceQuestionCard,
                     item.isExample && shouldMergePracticeExample ? styles.practiceExpandedExampleCard : null,
                     !item.isExample && isFocusedPracticeSession ? styles.practiceFocusedQuestionLayout : null,
                   ]}>
+                  {!item.isExample && isFocusedPracticeSession ? (
+                    <PracticeSectionLabel
+                      label={pageLanguage === 'th' ? 'เติมคำในช่องว่าง' : 'FILL IN THE BLANK'}
+                      language={pageLanguage}
+                    />
+                  ) : null}
                   {item.isExample && !shouldMergePracticeExample ? (
                     <View style={styles.practiceExampleHeader}>
                       <AppText language="en" variant="caption" style={styles.practiceExampleLabel}>
@@ -12657,10 +12877,11 @@ const mergeAdjacentPracticeRowTokens = (
                     </View>
                   ) : null}
 
-                  <View
+                  <PracticeSurface
+                    tone={item.isExample ? 'example' : 'question'}
                     style={[
                       item.isExample ? styles.practiceFillBlankExampleBody : styles.practiceFillBlankQuestionHeader,
-                      !item.isExample && !isInlineQuickPractice ? styles.practiceFocusedPromptCard : null,
+                      !item.isExample && !isInlineQuickPractice ? styles.practiceSharedFillBlankQuestionCard : null,
                       !item.isExample && shouldBaselineAlignFillBlankHeader ? styles.practiceFillBlankQuestionHeaderBaseline : null,
                     ]}>
                     {!item.isExample && !isFocusedPracticeSession ? (
@@ -12677,15 +12898,15 @@ const mergeAdjacentPracticeRowTokens = (
                     ) : null}
 
                     <View style={[styles.practiceQuestionTextWrap, styles.practiceFillBlankContentWrap, item.isExample ? styles.practiceFillBlankExampleContentWrap : null]}>
-                      {itemImageUrl && !item.isExample ? renderFocusedPromptLabel('FILL IN THE BLANK', '🧩') : null}
-                      {itemImageUrl ? (
+                      {itemImageUrl && !item.isExample && !isFocusedPracticeSession ? renderFocusedPromptLabel('FILL IN THE BLANK', '🧩') : null}
+                      {itemImageUrl && !isFocusedPracticeSession ? (
                         renderPracticeImage(itemImageUrl, itemAltText, {
                           shellStyle: styles.practicePromptImageShell,
                         })
                       ) : null}
 
                       <Stack gap="xs">
-                        {!itemImageUrl && !item.isExample ? renderFocusedPromptLabel('FILL IN THE BLANK', '🧩') : null}
+                        {!itemImageUrl && !item.isExample && !isFocusedPracticeSession ? renderFocusedPromptLabel('FILL IN THE BLANK', '🧩') : null}
                         {renderPracticeItemAudioButton(item.audioKey, answerKey)}
                         {abPromptLayout && abBlank ? (
                           <View style={styles.practiceAbPromptStack}>
@@ -12810,7 +13031,13 @@ const mergeAdjacentPracticeRowTokens = (
 
                       </Stack>
                     </View>
-                  </View>
+                  </PracticeSurface>
+
+                  {!item.isExample && isFocusedPracticeSession && itemImageUrl ? (
+                    renderPracticeImage(itemImageUrl, itemAltText, {
+                      shellStyle: styles.practiceSharedFillBlankImage,
+                    })
+                  ) : null}
 
                   {showUnansweredPracticeHint ? (
                     <AppText language={pageLanguage} variant="muted" style={styles.practiceItemInlineError}>
@@ -12818,7 +13045,7 @@ const mergeAdjacentPracticeRowTokens = (
                     </AppText>
                   ) : null}
 
-                  {!item.isExample && evaluationCorrect !== null && isExerciseChecked ? (
+                  {!item.isExample && !isFocusedPracticeSession && evaluationCorrect !== null && isExerciseChecked ? (
                     <Animated.View
                       entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
                       style={styles.practiceFeedbackBox}>
@@ -12850,17 +13077,35 @@ const mergeAdjacentPracticeRowTokens = (
                     </Animated.View>
                   ) : null}
 
-                  {!item.isExample && isExerciseChecked && evaluationCorrect === false ? renderPracticeAnswerReveal(
+                  {!item.isExample && !isFocusedPracticeSession && isExerciseChecked && evaluationCorrect === false ? renderPracticeAnswerReveal(
                     answerKey,
                     item.reviewAnswer,
                     'en',
                     { exerciseId: exercise.id, itemKey: item.key }
                   ) : null}
+
+                  {!item.isExample && isFocusedPracticeSession && hasPracticeExample ? (
+                    <FillBlankExampleDisclosure
+                      expanded={isPracticeExampleExpanded}
+                      label={pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
+                      language={pageLanguage}
+                      onToggle={() => setExpandedPracticeExampleIds((previous) => ({
+                        ...previous,
+                        [exercise.id]: !previous[exercise.id],
+                      }))}
+                    >
+                      <FillBlankExampleSentence
+                        answers={fillBlankExampleAnswers}
+                        language="en"
+                        text={fillBlankExampleText}
+                      />
+                    </FillBlankExampleDisclosure>
+                  ) : null}
                 </View>
               );
             })}
 
-            {exerciseError ? (
+            {exerciseError && !isFocusedPracticeSession ? (
               <AppText language={pageLanguage} variant="muted" style={styles.practiceInlineError}>
                 {exerciseError}
               </AppText>
@@ -13911,62 +14156,29 @@ const mergeAdjacentPracticeRowTokens = (
                               : comprehensionPracticeImage;
                           const resultTitle = pageLanguage === 'th'
                             ? (isPerfect ? 'ยอดเยี่ยม!' : isPartial ? 'ทำได้ดี!' : 'พยายามได้ดี!')
-                            : (isPerfect ? 'Amazing!' : isPartial ? 'Good job!' : 'Good effort!');
-                          const resultKicker = pageLanguage === 'th'
-                            ? (isPerfect ? 'คะแนนเต็ม!' : isPartial ? 'ใกล้แล้ว!' : 'ฝึกฝนต่อไป!')
-                            : (isPerfect ? 'PERFECT SCORE!' : isPartial ? 'YOU’RE GETTING THERE!' : 'KEEP PRACTICING!');
+                            : (isPerfect ? 'Amazing!' : isPartial ? 'Good job!' : 'Nice effort!');
                           const resultBody = pageLanguage === 'th'
                             ? (isPerfect
                               ? 'คุณเข้าใจทั้งหมดแล้ว!'
-                              : 'ลองฟังบทสนทนาอีกสักสองสามครั้งเพื่อให้เข้าใจมากขึ้น!')
+                              : isPartial
+                                ? 'คุณเข้าใจเกือบทั้งหมดแล้ว!'
+                                : 'ลองฟังบทสนทนาอีกสักสองสามครั้งเพื่อให้เข้าใจมากขึ้น!')
                             : (isPerfect
                               ? 'You understood everything!'
-                              : 'Listen to the conversation a few more times to fully understand it!');
+                              : isPartial
+                                ? 'You understood most of it!'
+                                : 'Listen to the conversation to build your understanding!');
                           return (
                             <View style={styles.comprehensionResult}>
-                              <View style={styles.comprehensionResultImageFrame}>
-                                <Image
-                                  source={resultImage}
-                                  contentFit="contain"
-                                  style={[
-                                    styles.comprehensionResultImage,
-                                    isPerfect
-                                      ? styles.comprehensionResultImagePerfect
-                                      : isPartial
-                                        ? styles.comprehensionResultImagePartial
-                                        : null,
-                                  ]}
-                                />
-                              </View>
-                              <AppText
+                              <ExerciseSetResultCard
+                                body={resultBody}
+                                imageSource={resultImage}
                                 language={pageLanguage}
-                                style={[
-                                  styles.comprehensionResultTitle,
-                                  pageLanguage === 'th' ? styles.comprehensionResultTitleThai : null,
-                                ]}>
-                                {resultTitle}
-                              </AppText>
-                              <ComprehensionResultScore
                                 score={comprehensionFirstAttemptScore}
+                                title={resultTitle}
                                 total={comprehensionQuestionCount}
                                 tone={isPerfect ? 'perfect' : isPartial ? 'partial' : 'low'}
                               />
-                              <AppText
-                                language={pageLanguage}
-                                style={[
-                                  styles.comprehensionResultKicker,
-                                  pageLanguage === 'th' ? styles.comprehensionResultKickerThai : null,
-                                  isPerfect
-                                    ? styles.comprehensionResultKickerPerfect
-                                    : isPartial
-                                      ? styles.comprehensionResultKickerPartial
-                                      : styles.comprehensionResultKickerLow,
-                                ]}>
-                                {resultKicker}
-                              </AppText>
-                              <AppText language={pageLanguage} style={styles.comprehensionResultBody}>
-                                {resultBody}
-                              </AppText>
                             </View>
                           );
                         })() : null}
@@ -14392,32 +14604,33 @@ const mergeAdjacentPracticeRowTokens = (
                                       const isProgress = !isPracticeSetPerfect &&
                                         practiceSetCorrectCount >= Math.ceil(activePracticeQuestions.length * 0.6);
                                       const resultImage = isPracticeSetPerfect
-                                        ? practicePerfectImage
-                                        : isProgress ? practiceProgressImage : comprehensionPracticeImage;
+                                        ? comprehensionPerfectImage
+                                        : isProgress ? comprehensionProgressImage : comprehensionPracticeImage;
                                       const resultTitle = pageLanguage === 'th'
                                         ? (isPracticeSetPerfect ? 'ยอดเยี่ยม!' : isProgress ? 'ทำได้ดี!' : 'พยายามได้ดี!')
-                                        : (isPracticeSetPerfect ? 'Amazing!' : isProgress ? 'Good job!' : 'Good effort!');
-                                      const resultKicker = pageLanguage === 'th'
-                                        ? (isPracticeSetPerfect ? 'คะแนนเต็ม!' : isProgress ? 'ใกล้แล้ว!' : 'ฝึกฝนต่อไป!')
-                                        : (isPracticeSetPerfect ? 'PERFECT SCORE!' : isProgress ? 'YOU’RE GETTING THERE!' : 'KEEP PRACTICING!');
+                                        : (isPracticeSetPerfect ? 'Amazing!' : isProgress ? 'Good job!' : 'Nice effort!');
                                       const resultBody = pageLanguage === 'th'
-                                        ? (isPracticeSetPerfect ? 'คุณตอบถูกทุกข้อ!' : 'ทบทวนคำตอบแล้วลองอีกครั้งเมื่อพร้อมนะ!')
-                                        : (isPracticeSetPerfect ? 'You got every question right!' : 'Review your answers and try the set again when you’re ready!');
+                                        ? (isPracticeSetPerfect
+                                          ? 'คุณตอบถูกทุกข้อ!'
+                                          : isProgress
+                                            ? 'คุณตอบถูกเกือบทุกข้อแล้ว!'
+                                            : 'ทบทวนคำตอบแล้วลองอีกครั้งเมื่อพร้อมนะ!')
+                                        : (isPracticeSetPerfect
+                                          ? 'You got every question right!'
+                                          : isProgress
+                                            ? 'You got most of them right!'
+                                            : 'Review your answers and try the set again when you’re ready!');
                                       return (
                                         <View style={styles.comprehensionResult}>
-                                          <Image source={resultImage} contentFit="contain" style={styles.practiceResultImage} />
-                                          <AppText language={pageLanguage} style={[styles.comprehensionResultTitle, pageLanguage === 'th' ? styles.comprehensionResultTitleThai : null]}>{resultTitle}</AppText>
-                                          <ComprehensionResultScore
+                                          <ExerciseSetResultCard
+                                            body={resultBody}
+                                            imageSource={resultImage}
+                                            language={pageLanguage}
                                             score={practiceSetCorrectCount}
+                                            title={resultTitle}
                                             total={activePracticeQuestions.length}
                                             tone={isPracticeSetPerfect ? 'perfect' : isProgress ? 'partial' : 'low'}
                                           />
-                                          <AppText language={pageLanguage} style={[
-                                            styles.comprehensionResultKicker,
-                                            pageLanguage === 'th' ? styles.comprehensionResultKickerThai : null,
-                                            isPracticeSetPerfect ? styles.comprehensionResultKickerPerfect : isProgress ? styles.comprehensionResultKickerPartial : styles.comprehensionResultKickerLow,
-                                          ]}>{resultKicker}</AppText>
-                                          <AppText language={pageLanguage} style={styles.comprehensionResultBody}>{resultBody}</AppText>
                                         </View>
                                       );
                                     })()
@@ -14549,7 +14762,7 @@ const mergeAdjacentPracticeRowTokens = (
                   ) : null}
 
                   {shouldShowPhrasePagerDock ? (
-                    <View style={[styles.phrasePagerDock, { marginBottom: detachedAudioFooterHeight }]}>
+                    <View style={styles.phrasePagerDock}>
                       {renderPhrasePagerControls()}
                     </View>
                   ) : null}
@@ -14581,10 +14794,22 @@ const mergeAdjacentPracticeRowTokens = (
                         isPrepareTab || isListenPage ? styles.prepareStickyFooterShell : null,
                         usesDetachedAudioFooter ? styles.detachedAudioActionShell : null,
                         isPracticeTab ? styles.practiceStickyFooterShell : null,
+                        usesSharedPracticeAnswerFooter
+                          ? styles.practiceFillBlankStickyFooterShell
+                          : null,
+                        usesSharedPracticeAnswerFooter && isCurrentPracticeChecked && !isCurrentPracticeChecking
+                          ? {
+                              backgroundColor: isCurrentPracticeCorrect
+                                ? practiceColors.correctPanel
+                                : practiceColors.incorrectPanel,
+                            }
+                          : null,
                         {
                           paddingBottom: usesDetachedAudioFooter
                             ? 0
-                            : Math.max(insets.bottom, 10),
+                            : isConversationGroupTab || isListenPage
+                              ? Math.max(insets.bottom, 10)
+                              : Math.max(insets.bottom, 28),
                         },
                       ]}>
                     {shouldShowAudioTray && !usesDetachedAudioFooter ? (
@@ -14666,7 +14891,8 @@ const mergeAdjacentPracticeRowTokens = (
                         isPrepareTab || isListenPage ? styles.prepareCtaRow : null,
                         Platform.OS === 'android' ? styles.ctaRowAndroid : null,
                         usesDetachedAudioFooter ? styles.detachedAudioCtaRow : null,
-                        isPracticeTab ? styles.practiceDetachedAudioCtaRow : null,
+                        isPracticeTab ? styles.practiceCtaRow : null,
+                        isPracticeTab && showPracticeSetResults ? styles.practiceResultsCtaRow : null,
                         (isComprehensionTab && showComprehensionResults) ||
                         (isPracticeTab && showPracticeSetResults && !isPracticeSetPerfect)
                           ? styles.comprehensionResultActionsRow
@@ -14716,6 +14942,60 @@ const mergeAdjacentPracticeRowTokens = (
                         </Pressable>
                       ) : null}
 
+                      {usesSharedPracticeAnswerFooter && activePracticeExercise ? (
+                        <PracticeAnswerFooter
+                          disabled={isPracticePrimaryActionDisabled}
+                          error={practiceErrorByExercise[activePracticeExercise.id] ?? ''}
+                          feedback={
+                            activePracticeExercise.kind !== 'multiple_choice' &&
+                            isCurrentPracticeChecked &&
+                            (!isCurrentPracticeCorrect || currentPracticeEvaluation?.advisory === true)
+                              ? currentPracticeFeedback
+                              : ''
+                          }
+                          language={pageLanguage}
+                          labels={{
+                            check: pageLanguage === 'th' ? 'ตรวจคำตอบ' : 'CHECK ANSWER',
+                            checking: pageCopy.practiceChecking,
+                            continue: pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE',
+                            correct: pageLanguage === 'th' ? 'ถูกต้อง!' : 'Correct!',
+                            incorrect: pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'Try again',
+                            clear: pageLanguage === 'th' ? 'ล้างคำตอบ' : 'CLEAR ANSWER',
+                            skip: pageLanguage === 'th' ? 'ข้าม' : 'SKIP',
+                          }}
+                          loading={isCurrentPracticeChecking}
+                          status={isCurrentPracticeChecking || !isCurrentPracticeChecked ? 'idle' : isCurrentPracticeCorrect ? 'correct' : 'incorrect'}
+                          onPrimary={handlePrimaryPracticeAction}
+                          onSkip={handleAdvancePracticeQuestion}
+                          review={
+                            (activePracticeExercise.kind === 'multiple_choice' ||
+                              (activePracticeExercise.kind === 'sentence_transform' &&
+                                (!isCurrentSentenceJudgmentQuestion || isCurrentSentenceRewriteStage))) &&
+                            isCurrentPracticeChecked &&
+                            !isCurrentPracticeCorrect &&
+                            activePracticeItemStateKey
+                              ? {
+                                  answer: activePracticeExercise.kind === 'multiple_choice'
+                                    ? currentPracticeMultipleChoiceReviewAnswer
+                                    : activePracticeQuestion?.reviewAnswer || '',
+                                  expanded: Boolean(revealedPracticeAnswerIds[activePracticeItemStateKey]),
+                                  hideLabel: pageLanguage === 'th' ? 'ซ่อนคำตอบ' : 'Hide Answer',
+                                  showLabel: pageLanguage === 'th' ? 'ดูคำตอบ' : 'Show Answer',
+                                  onToggle: () => setRevealedPracticeAnswerIds((previous) => ({
+                                    ...previous,
+                                    [activePracticeItemStateKey]: !previous[activePracticeItemStateKey],
+                                  })),
+                                }
+                              : undefined
+                          }
+                          style={[
+                            styles.practiceSharedAnswerFooter,
+                            styles.practiceSharedAnswerFooterFullBleed,
+                          ]}
+                        />
+                      ) : null}
+
+                      {!usesSharedPracticeAnswerFooter ? (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityState={{ disabled: isFooterPrimaryVisuallyDisabled }}
@@ -14848,7 +15128,9 @@ const mergeAdjacentPracticeRowTokens = (
                               : nextSectionButtonLabel}
                         </AppText>
                       </Pressable>
+                      ) : null}
                       {isPracticeTab && !showPracticeSetResults && activePracticeExercise && activePracticeQuestion &&
+                      !usesSharedPracticeAnswerFooter &&
                       !(isCurrentPracticeChecked && isCurrentPracticeCorrect) ? (
                         <Pressable
                           accessibilityRole="button"
@@ -17290,6 +17572,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  practiceSharedFillBlankInstructions: {
+    color: '#1E1E1E',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.bold,
+  },
+  practiceSharedFillBlankBody: {
+    marginTop: -6,
+  },
   quickPracticeInlineWrap: {
     width: '100%',
     paddingVertical: theme.spacing.xs,
@@ -17365,6 +17656,63 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
   },
+  practiceSharedFillBlankExampleContainer: {
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  practiceSharedFillBlankQuestionCard: {
+    width: '100%',
+    borderRadius: 11,
+    backgroundColor: '#BCECFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  practiceSharedOpenPromptCard: {
+    width: '100%',
+    ...practiceNeoShadowStyle,
+    borderRadius: 11,
+    backgroundColor: '#BCECFF',
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+  },
+  practiceSharedSentencePromptCard: {
+    width: '100%',
+    ...practiceNeoShadowStyle,
+    borderRadius: 11,
+    backgroundColor: '#BCECFF',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+  },
+  practiceSentenceStageSuccess: {
+    color: '#1E1E1E',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  practiceSentenceStageSuccessAccent: {
+    color: '#99C64F',
+    fontWeight: theme.typography.weights.bold,
+  },
+  practiceSharedMultipleChoicePromptCard: {
+    width: '100%',
+    marginLeft: 0,
+    marginBottom: 0,
+    ...practiceNeoShadowStyle,
+    borderRadius: 11,
+    backgroundColor: '#BCECFF',
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+  },
+  practiceSharedFillBlankImage: {
+    width: 184,
+    height: 184,
+    minHeight: 184,
+    alignSelf: 'center',
+    ...practiceNeoShadowStyle,
+    borderRadius: 11,
+    backgroundColor: '#FFFCE5',
+    padding: 6,
+  },
   practiceFocusedPromptCard: {
     borderWidth: 1,
     borderColor: '#91CAFF',
@@ -17421,6 +17769,7 @@ const styles = StyleSheet.create({
   practiceFocusedFillBlankText: {
     fontSize: 20,
     lineHeight: 30,
+    fontWeight: theme.typography.weights.bold,
   },
   practiceFocusedFillBlankInput: {
     fontSize: 18,
@@ -17512,88 +17861,10 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   comprehensionResult: {
+    width: '100%',
     alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 18,
-  },
-  comprehensionResultImageFrame: {
-    width: 190,
-    height: 170,
-    marginBottom: 9,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  comprehensionResultImage: {
-    width: 170,
-    height: 170,
-  },
-  comprehensionResultImagePerfect: {
-    width: 175,
-    height: 175,
-    transform: [{ translateX: 8 }],
-  },
-  comprehensionResultImagePartial: {
-    width: 164,
-    height: 164,
-    transform: [{ translateX: -1 }],
-  },
-  practiceResultImage: {
-    width: 190,
-    height: 170,
-    marginBottom: 9,
-  },
-  comprehensionResultTitle: {
-    color: theme.colors.text,
-    fontFamily: theme.typography.fontFaces.en.bold,
-    fontSize: 24,
-    lineHeight: 32,
-    marginBottom: 4,
-  },
-  comprehensionResultTitleThai: {
-    fontFamily: theme.typography.fontFaces.th.bold,
-  },
-  comprehensionResultScore: {
-    fontFamily: theme.typography.fontFaces.en.bold,
-    fontSize: 55,
-    lineHeight: 65,
-    letterSpacing: -1,
-    textAlign: 'center',
-  },
-  comprehensionResultScoreWrap: {
-    position: 'relative',
-    alignSelf: 'center',
-  },
-  comprehensionResultScoreSizer: {
-    opacity: 0,
-  },
-  comprehensionResultScoreLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  comprehensionResultScoreOutline: {
-    color: '#1E1E1E',
-  },
-  comprehensionResultScorePerfect: { color: '#BDEDFC' },
-  comprehensionResultScorePartial: { color: '#F4CF51' },
-  comprehensionResultScoreLow: { color: '#FF8E91' },
-  comprehensionResultKicker: {
-    fontFamily: theme.typography.fontFaces.en.semibold,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 4,
-  },
-  comprehensionResultKickerThai: {
-    fontFamily: theme.typography.fontFaces.th.semibold,
-  },
-  comprehensionResultKickerPerfect: { color: '#3CBFF2' },
-  comprehensionResultKickerPartial: { color: '#F0BD2B' },
-  comprehensionResultKickerLow: { color: '#FF6A70' },
-  comprehensionResultBody: {
-    maxWidth: 315,
-    color: theme.colors.text,
-    fontSize: 15,
-    lineHeight: 23,
-    textAlign: 'center',
-    marginTop: 10,
+    paddingTop: 8,
+    paddingHorizontal: 12,
   },
   comprehensionQuestionDivider: {
     height: 1,
@@ -17873,6 +18144,13 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     marginTop: theme.spacing.xs,
   },
+  practiceSentenceToggleFocusedRow: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
+    marginTop: 0,
+  },
   practiceSentenceToggle: {
     width: 28,
     height: 28,
@@ -17884,13 +18162,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   practiceSentenceToggleFocused: {
-    width: 'auto',
-    height: 40,
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#8C8C8C',
-    paddingHorizontal: 12,
+    width: '100%',
+    height: 52,
+    flex: 0,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: '#C1C1C1',
+    paddingHorizontal: 20,
   },
   practiceSentenceToggleActive: {
     backgroundColor: '#91CAFF',
@@ -18215,6 +18493,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 9,
+  },
+  practiceSharedMultipleChoiceOption: {
+    width: '100%',
+    minHeight: 52,
+    borderWidth: 1.5,
+    borderColor: '#C1C1C1',
+    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    boxShadow: 'none',
   },
   comprehensionOptionButtonSelected: {
     borderColor: '#F3C63F',
@@ -18541,6 +18830,21 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     position: 'relative',
   },
+  practiceSharedOpenInputShell: {
+    minHeight: 56,
+    ...practiceNeoShadowStyle,
+    borderRadius: 11,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  practiceSharedOpenInputFieldSingleLine: {
+    flex: 0,
+    height: 24,
+    minHeight: 24,
+    paddingVertical: 0,
+    transform: [{ translateY: 2 }],
+  },
   practiceOpenInputField: {
     width: '100%',
     flex: 1,
@@ -18830,6 +19134,9 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     backgroundColor: theme.colors.surface,
   },
+  practiceFillBlankStickyFooterShell: {
+    backgroundColor: theme.colors.background,
+  },
   completionModalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(18, 22, 28, 0.28)',
@@ -19112,8 +19419,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: DETACHED_CTA_AUDIO_TRAY_GAP,
   },
-  practiceDetachedAudioCtaRow: {
+  practiceCtaRow: {
     paddingBottom: 14,
+  },
+  practiceResultsCtaRow: {
+    paddingBottom: 34,
+  },
+  practiceSharedAnswerFooter: {
+    marginHorizontal: -10,
+    marginTop: -3,
+    marginBottom: -16,
+    width: 'auto',
+  },
+  practiceSharedAnswerFooterFullBleed: {
+    marginHorizontal: -18,
   },
   ctaRowAndroid: {
     paddingBottom: 16 + ANDROID_LESSON_CTA_BOTTOM_BUFFER,
