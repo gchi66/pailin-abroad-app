@@ -130,6 +130,7 @@ const LESSON_ICON_IMAGES: Record<string, ImageSourcePropType> = {
   '3.10': require('@/assets/images/lesson-icons/3.10-lesson-icon.webp'),
   '3.11': require('@/assets/images/lesson-icons/3.11-lesson-icon.webp'),
   '3.12': require('@/assets/images/lesson-icons/3.12-lesson-icon.webp'),
+  '3.13': require('@/assets/images/lesson-icons/3.13-lesson-icon.webp'),
   '3.2': require('@/assets/images/lesson-icons/3.2-lesson-icon.webp'),
   '3.3': require('@/assets/images/lesson-icons/3.3-lesson-icon.webp'),
   '3.4': require('@/assets/images/lesson-icons/3.4-lesson-icon.webp'),
@@ -234,4 +235,3 @@ export function getLessonIconSource(lessonId: string | null | undefined) {
   if (!lessonId) return undefined;
   return LESSON_ICON_IMAGES[lessonId.trim().toLowerCase()];
 }
-

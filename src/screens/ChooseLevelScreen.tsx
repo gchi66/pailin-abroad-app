@@ -11,6 +11,7 @@ import placementTest3Bars from '@/assets/images/placement-test-3-bars.webp';
 import placementTest4Bars from '@/assets/images/placement-test-4-bars.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -29,13 +30,13 @@ const COPY = {
   en: {
     title: 'What is your English level?',
     body: 'You can change your level later at any time!',
-    start: 'Start your first lesson!',
+    start: 'BEGIN YOUR FIRST LESSON',
     test: 'Not sure yet? Take a short placement test instead!',
   },
   th: {
     title: 'ระดับอังกฤษคุณคือระดับไหน?',
     body: 'คุณสามารถเปลี่ยนระดับในภายหลังได้ตลอดเวลา!',
-    start: 'เริ่มบทเรียนแรกของคุณ!',
+    start: 'เริ่มบทเรียนแรกของคุณ',
     test: 'ยังไม่แน่ใจใช่ไหม? มาทำแบบทดสอบวัดระดับสั้นๆ แทนได้นะ!',
   },
 } as const;
@@ -66,6 +67,12 @@ export function ChooseLevelScreen() {
               <View style={styles.bubbleWrap}>
                 <View pointerEvents="none" style={styles.bubbleShadow} />
                 <View style={styles.bubble}>
+                  <InsetBorderSurface
+                    backgroundColor={theme.colors.surface}
+                    borderRadius={theme.radii.lg}
+                    borderWidth={1}
+                    style={styles.bubbleSurface}
+                  />
                   <AppText language={uiLanguage} variant="body" style={styles.bubbleTitle}>
                     {copy.title}
                   </AppText>
@@ -88,13 +95,14 @@ export function ChooseLevelScreen() {
                       onPress={() => setSelectedOption(index)}
                       style={({ pressed }) => [
                         styles.optionCard,
-                        isSelected ? styles.optionCardSelected : null,
                         pressed ? styles.optionCardPressed : null,
                       ]}>
-                      <Image source={option.bars} style={styles.barsImage} resizeMode="contain" />
-                      <AppText language={uiLanguage} variant="body" style={styles.optionLabel}>
-                        {option.label[uiLanguage]}
-                      </AppText>
+                      <View style={[styles.optionCardSurface, isSelected ? styles.optionCardSelected : null]}>
+                        <Image source={option.bars} style={styles.barsImage} resizeMode="contain" />
+                        <AppText language={uiLanguage} variant="body" style={styles.optionLabel}>
+                          {option.label[uiLanguage]}
+                        </AppText>
+                      </View>
                     </Pressable>
                   </View>
                 );
@@ -107,6 +115,7 @@ export function ChooseLevelScreen() {
               <View style={styles.startButtonWrap}>
                 <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
                 <Button
+                  insetBorder
                   language={uiLanguage}
                   size="compact"
                   title={copy.start}
@@ -192,16 +201,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     borderBottomLeftRadius: 0,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
   },
   bubbleTitle: {
     fontSize: 17,
     lineHeight: 23,
     fontWeight: theme.typography.weights.bold,
+  },
+  bubbleSurface: {
+    borderBottomLeftRadius: 0,
   },
   bubbleBody: {
     marginTop: 2,
@@ -229,14 +239,19 @@ const styles = StyleSheet.create({
   },
   optionCard: {
     minHeight: 74,
+    padding: 1.25,
+    borderRadius: 17,
+    backgroundColor: theme.colors.border,
+  },
+  optionCardSurface: {
+    flexGrow: 1,
+    minHeight: 71.5,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 17,
     paddingVertical: 13,
-    borderWidth: 1.25,
-    borderColor: theme.colors.border,
-    borderRadius: 17,
+    borderRadius: 15.75,
     backgroundColor: theme.colors.surface,
   },
   optionCardSelected: {

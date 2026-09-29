@@ -9,6 +9,7 @@ import { resourceCardImages } from '@/src/assets/resource-images';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
+import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -218,7 +219,12 @@ export function ExerciseBankScreen() {
                       style={styles.collectionCardWrap}
                       onPress={() => handleCollectionPress(collection)}>
                       <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
-                      <View style={[styles.collectionCard, collection.slug === 'verbs-and-tenses' ? styles.featuredCollectionCard : null]}>
+                      <View style={styles.collectionCard}>
+                        <InsetBorderSurface
+                          backgroundColor={collection.slug === 'verbs-and-tenses' ? '#C8F0FF' : theme.colors.surface}
+                          borderRadius={theme.radii.lg}
+                          borderWidth={1.5}
+                        />
                         <AppText language="en" variant="body" style={styles.collectionEmoji}>
                           {collection.emoji}
                         </AppText>
@@ -315,13 +321,10 @@ const styles = StyleSheet.create({
   collectionCard: {
     flex: 1,
     borderRadius: theme.radii.lg,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
     padding: 15,
     justifyContent: 'flex-start',
   },
-  featuredCollectionCard: { backgroundColor: '#C8F0FF' },
   collectionEmoji: {
     alignSelf: 'flex-start',
     minHeight: 32,

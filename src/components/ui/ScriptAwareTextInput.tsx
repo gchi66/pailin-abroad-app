@@ -1,11 +1,22 @@
 import React, { forwardRef, useEffect, useState } from 'react';
-import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
+import { Platform, StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
 import { containsThaiGlyphs } from '@/src/lib/script-aware-text';
 import { resolveScriptFontFamily } from '@/src/theme/typography';
+import { DEFAULT_KEYBOARD_DISMISS_ACCESSORY_ID } from './KeyboardDismissAccessory';
 
 export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(function ScriptAwareTextInput(
-  { style, value, defaultValue, placeholder, onChangeText, ...props },
+  {
+    style,
+    value,
+    defaultValue,
+    placeholder,
+    onChangeText,
+    inputAccessoryViewID,
+    returnKeyType,
+    submitBehavior,
+    ...props
+  },
   ref
 ) {
   const [lastInputHasThai, setLastInputHasThai] = useState(containsThaiGlyphs(defaultValue));
@@ -24,6 +35,11 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
       value={value}
       defaultValue={defaultValue}
       placeholder={placeholder}
+      inputAccessoryViewID={
+        inputAccessoryViewID ?? (Platform.OS === 'ios' ? DEFAULT_KEYBOARD_DISMISS_ACCESSORY_ID : undefined)
+      }
+      returnKeyType={returnKeyType ?? 'done'}
+      submitBehavior={submitBehavior ?? 'blurAndSubmit'}
       onChangeText={(text) => {
         setLastInputHasThai(containsThaiGlyphs(text));
         onChangeText?.(text);

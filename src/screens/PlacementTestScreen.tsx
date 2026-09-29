@@ -32,6 +32,7 @@ import {
 } from '@/src/api/placement-test';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { Card } from '@/src/components/ui/Card';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { PlacementLevelTitle } from '@/src/components/placement/PlacementLevelTitle';
@@ -386,6 +387,7 @@ export function PlacementTestScreen() {
                 <View style={styles.outcomeCardWrap}>
                   <View pointerEvents="none" style={styles.outcomeCardShadow} />
                   <View style={[styles.outcomeCard, styles.resultCard]}>
+                    <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
                     <Animated.View
                         style={[
                           styles.resultContent,
@@ -433,9 +435,10 @@ export function PlacementTestScreen() {
                             ]}
                           />
                           <Button
+                            insetBorder
                             language={uiLanguage}
                             size="compact"
-                            title={isResultLessonLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON!' : 'เริ่มบทเรียนแรกของคุณ!')}
+                            title={isResultLessonLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON' : 'เริ่มบทเรียนแรกของคุณ')}
                             disabled={isResultLessonLoading || !resultLessonId}
                             disabledStyle={styles.resultButtonDisabledOpacity}
                             onPress={openResultLesson}
@@ -464,6 +467,7 @@ export function PlacementTestScreen() {
               <View style={styles.audioCardWrap}>
                 <View pointerEvents="none" style={styles.audioCardShadow} />
                 <View style={styles.audioCard}>
+                  <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
                   <View style={styles.audioCardHeader}>
                     <AppText language={uiLanguage} variant="title" style={styles.audioCardTitle}>
                       {uiLanguage === 'en' ? 'Placement Test' : 'แบบทดสอบวัดระดับ'}
@@ -533,6 +537,7 @@ export function PlacementTestScreen() {
               <View style={styles.questionCardWrap}>
                 <View pointerEvents="none" style={styles.questionCardShadow} />
                 <View style={styles.questionCard}>
+                  <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
                   <View style={styles.questionHeader}>
                     <AppText language="th" variant="title" style={styles.questionHeaderTitle}>
                       แบบทดสอบวัดระดับ
@@ -606,6 +611,7 @@ export function PlacementTestScreen() {
                       ]}
                     />
                     <Button
+                      insetBorder
                       title="ถัดไป"
                       language="th"
                       size="compact"
@@ -693,10 +699,8 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
   },
   calculatingContent: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
   calculatingImage: { width: 180, height: 180, borderRadius: 999 },
@@ -756,10 +760,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 10,
     paddingBottom: 20,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
   },
   audioCardHeader: { width: '100%', minHeight: 40, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#D5D5D5' },
   audioCardTitle: { fontSize: 18, lineHeight: 24, textAlign: 'center', fontWeight: theme.typography.weights.bold },
@@ -842,10 +844,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 18,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
   },
   questionHeader: {
     flexDirection: 'row',

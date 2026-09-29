@@ -9,6 +9,7 @@ import {
   prefetchExerciseBankV2Session,
 } from '@/src/api/exercise-bank';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
+import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -241,7 +242,12 @@ export function ExerciseBankCollectionScreen() {
                         color={theme.colors.shadow}
                         offset={2}
                       />
-                      <View style={[styles.topicCard, isLocked ? styles.topicCardLocked : null]}>
+                      <View style={styles.topicCard}>
+                        <InsetBorderSurface
+                          backgroundColor={isLocked ? '#EAEAEA' : theme.colors.surface}
+                          borderRadius={TOPIC_CARD_RADIUS}
+                          borderWidth={1.5}
+                        />
                         <View style={styles.topicCopy}>
                           <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
                             {topic.display_title}
@@ -345,16 +351,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: TOPIC_CARD_RADIUS,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     justifyContent: 'center',
     gap: theme.spacing.sm,
-  },
-  topicCardLocked: {
-    backgroundColor: '#EAEAEA',
   },
   topicCopy: { flex: 1, minWidth: 0, gap: 2 },
   topicDisplayTitle: {

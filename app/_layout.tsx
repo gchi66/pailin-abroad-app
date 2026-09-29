@@ -14,6 +14,7 @@ import { posthog } from '@/src/config/posthog';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DailyReminderManager } from '@/src/components/DailyReminderManager';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
+import { KeyboardDismissAccessory } from '@/src/components/ui/KeyboardDismissAccessory';
 import { AppSessionProvider, useAppSession } from '@/src/context/app-session-context';
 import { OnboardingProvider } from '@/src/context/onboarding-context';
 import { UiLanguageProvider } from '@/src/context/ui-language-context';
@@ -233,6 +234,7 @@ export default function RootLayout() {
                   }}
                 />
               </Stack>
+              <KeyboardDismissAccessory />
               <StatusBar style="dark" />
             </ThemeProvider>
           </UiLanguageProvider>

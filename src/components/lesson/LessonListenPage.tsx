@@ -123,28 +123,30 @@ export function LessonListenPage({
             <MaterialIcons name="replay-10" size={48} color={theme.colors.text} />
           </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isPlaying ? 'Pause conversation' : 'Play conversation'}
-            disabled={isDisabled}
-            onPress={() => {
-              setShowRates(false);
-              onTogglePlay();
-            }}
-            style={[styles.playButton, isDisabled ? styles.disabled : null]}>
-            {isLoading ? (
-              <ActivityIndicator color={theme.colors.text} />
-            ) : isPlaying ? (
-              <View style={styles.pauseGlyph}>
-                <View style={styles.pauseBar} />
-                <View style={styles.pauseBar} />
-              </View>
-            ) : (
-              <Svg width={28} height={34} viewBox="0 0 28 34" style={styles.playGlyph}>
-                <Polygon points="3,2 26,17 3,32" fill="#FFFFFF" stroke={theme.colors.text} strokeWidth={1.8} strokeLinejoin="round" />
-              </Svg>
-            )}
-          </Pressable>
+          <View style={[styles.playButtonShadow, isDisabled ? styles.disabled : null]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isPlaying ? 'Pause conversation' : 'Play conversation'}
+              disabled={isDisabled}
+              onPress={() => {
+                setShowRates(false);
+                onTogglePlay();
+              }}
+              style={({ pressed }) => [styles.playButton, pressed ? styles.playButtonPressed : null]}>
+              {isLoading ? (
+                <ActivityIndicator color={theme.colors.text} />
+              ) : isPlaying ? (
+                <View style={styles.pauseGlyph}>
+                  <View style={styles.pauseBar} />
+                  <View style={styles.pauseBar} />
+                </View>
+              ) : (
+                <Svg width={28} height={34} viewBox="0 0 28 34" style={styles.playGlyph}>
+                  <Polygon points="3,2 26,17 3,32" fill="#FFFFFF" stroke={theme.colors.text} strokeWidth={1.8} strokeLinejoin="round" />
+                </Svg>
+              )}
+            </Pressable>
+          </View>
 
           <Pressable
             accessibilityRole="button"
@@ -258,17 +260,25 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   skipButton: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  playButtonShadow: {
+    width: 97,
+    height: 97,
+    transform: [{ translateX: 2 }, { translateY: 3 }],
+    borderRadius: 999,
+    backgroundColor: theme.colors.shadow,
+  },
   playButton: {
     width: 97,
     height: 97,
-    borderRadius: 49,
+    transform: [{ translateX: -2 }, { translateY: -3 }],
+    borderRadius: 999,
     borderWidth: 2,
     borderColor: '#1E1E1E',
     backgroundColor: '#B9E671',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '3px 4px 0px #1E1E1E',
   },
+  playButtonPressed: { transform: [{ translateX: 0 }, { translateY: 0 }], opacity: 0.94 },
   playGlyph: { transform: [{ translateX: 3 }] },
   pauseGlyph: { flexDirection: 'row', gap: 7 },
   pauseBar: { width: 9, height: 29, borderRadius: 2, borderWidth: 1.5, borderColor: theme.colors.text, backgroundColor: theme.colors.surface },
@@ -294,7 +304,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '2px 2px 0px #1E1E1E',
   },
   rateText: { color: theme.colors.text, fontSize: 12, lineHeight: 16 },
   rateMenu: {

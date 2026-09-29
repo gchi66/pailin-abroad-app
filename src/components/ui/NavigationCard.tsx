@@ -15,6 +15,7 @@ import { theme } from '@/src/theme/theme';
 
 import { AndroidNeoShadowLayer } from './AndroidNeoShadowLayer';
 import { AppText } from './AppText';
+import { InsetBorderSurface } from './InsetBorderSurface';
 
 export const NAVIGATION_CARD_HEIGHT = 104;
 export const NAVIGATION_CARD_GAP = 15;
@@ -56,6 +57,7 @@ export function NavigationCard({
       style={styles.pressable}>
       <AndroidNeoShadowLayer borderRadius={12} color={theme.colors.border} offset={3} />
       <View style={styles.card}>
+        <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={12} borderWidth={1} />
         {imageSource ? (
           <Image source={imageSource} style={[styles.image, imageStyle]} resizeMode={imageResizeMode} />
         ) : leadingElement ? (
@@ -88,10 +90,8 @@ const styles = StyleSheet.create({
     height: NAVIGATION_CARD_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     borderRadius: 12,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },

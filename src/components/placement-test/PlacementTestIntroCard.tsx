@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
 
@@ -42,6 +43,7 @@ export function PlacementTestIntroCard({ language, onChooseManually, onStart }: 
     <View style={styles.cardWrap}>
       <View pointerEvents="none" style={styles.cardShadow} />
       <View style={styles.card}>
+        <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
         <AppText language={language} variant="title" style={styles.title}>
           {text.title}
         </AppText>
@@ -73,6 +75,7 @@ export function PlacementTestIntroCard({ language, onChooseManually, onStart }: 
         <View style={styles.buttonWrap}>
           <View pointerEvents="none" style={[styles.buttonShadow, isStartPressed ? styles.shadowPressed : null]} />
           <Button
+            insetBorder
             language={language}
             size="compact"
             title={text.start}
@@ -110,10 +113,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingTop: 32,
     paddingBottom: 20,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
   },
   title: {
     fontSize: 23,

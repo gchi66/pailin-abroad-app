@@ -200,7 +200,7 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F7F9FC' }, content: { paddingHorizontal: 24 },
   back: { marginBottom: 4 },
   avatarCircle: { position: 'absolute', right: -8, bottom: -8, width: 48, height: 48, overflow: 'hidden', borderWidth: 1, borderColor: '#222', borderRadius: 24, backgroundColor: '#BDEDFC', alignItems: 'center', justifyContent: 'center' },
-  avatar: { width: 38, height: 38 },
+  avatar: { width: 38, height: 38, transform: [{ scaleX: -1 }] },
   header: { padding: 16, paddingRight: 40, borderWidth: 1, borderColor: '#D5D5D5', borderRadius: 10, backgroundColor: '#FFF', gap: 4 },
   eyebrow: { fontSize: 10, lineHeight: 15, fontWeight: '700', letterSpacing: .8 }, title: { fontSize: 20, lineHeight: 27, fontWeight: '700' },
   focus: { fontSize: 13, lineHeight: 19, color: '#777' }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }, statusText: { fontSize: 10, lineHeight: 16, color: '#777' }, statusTextSaved: { fontStyle: 'italic' },

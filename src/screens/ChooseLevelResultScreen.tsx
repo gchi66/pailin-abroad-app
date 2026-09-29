@@ -8,6 +8,7 @@ import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { PlacementLevelTitle } from '@/src/components/placement/PlacementLevelTitle';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { queueLessonLibraryPreview, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
@@ -92,6 +93,7 @@ export function ChooseLevelResultScreen() {
           <View style={styles.cardWrap}>
             <View pointerEvents="none" style={styles.cardShadow} />
             <View style={styles.card}>
+              <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={2} />
               <Image source={pailinThumbsUpHead} style={styles.pailinImage} resizeMode="contain" />
 
               <AppText language={uiLanguage} variant="muted" style={styles.eyebrow}>
@@ -115,9 +117,10 @@ export function ChooseLevelResultScreen() {
               <View style={styles.buttonWrap}>
                 <View pointerEvents="none" style={[styles.buttonShadow, isPressed ? styles.shadowPressed : null]} />
                 <Button
+                  insetBorder
                   language={uiLanguage}
                   size="compact"
-                  title={isLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON!' : 'เริ่มบทเรียนแรกของคุณ!')}
+                  title={isLoading ? (uiLanguage === 'en' ? 'Loading...' : 'กำลังโหลด...') : (uiLanguage === 'en' ? 'BEGIN YOUR FIRST LESSON' : 'เริ่มบทเรียนแรกของคุณ')}
                   disabled={isLoading || !lessonId}
                   disabledStyle={styles.buttonDisabledOpacity}
                   onPress={openLesson}
@@ -174,10 +177,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingTop: 28,
     paddingBottom: 30,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.border,
   },
   pailinImage: {
     width: 112,

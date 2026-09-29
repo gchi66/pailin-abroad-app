@@ -333,6 +333,7 @@ export function ProfileScreen() {
                     <View style={styles.guestButtonWrap}>
                       <View pointerEvents="none" style={styles.guestButtonShadow} />
                       <Button
+                        insetBorder
                         language={uiLanguage}
                         title={copy.guestCta}
                         onPress={() => router.push('/account/auth')}

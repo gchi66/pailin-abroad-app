@@ -2,8 +2,6 @@ import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  InputAccessoryView,
-  Keyboard,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -31,6 +29,7 @@ import pailinPlanImage from '@/assets/images/speaking-coach/pailin-lesson-finish
 import passwordLockImage from '@/assets/images/password-lock.webp';
 import showPasswordImage from '@/assets/images/show-password.webp';
 import { AppText } from '@/src/components/ui/AppText';
+import { KeyboardDismissAccessory } from '@/src/components/ui/KeyboardDismissAccessory';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -450,7 +449,7 @@ function ProfileStep({
         ) : null}
 
         <Stack gap={compact ? 'sm' : 'md'}>
-          <AppText language={uiLanguage} variant="title" style={[styles.sectionTitle, compact ? styles.sectionTitleCompact : null]}>
+          <AppText language={uiLanguage} variant="title" style={[styles.stepTitle, compact ? styles.stepTitleCompact : null]}>
             {copy.chooseAvatar}
           </AppText>
           <View style={[styles.avatarGrid, compact ? styles.avatarGridCompact : null]}>
@@ -1187,16 +1186,7 @@ export function OnboardingScreen() {
         </Stack>
       </View>
       {Platform.OS === 'ios' ? (
-        <InputAccessoryView nativeID={keyboardAccessoryId}>
-          <View style={styles.keyboardAccessoryBar}>
-            <View style={styles.keyboardAccessorySpacer} />
-            <Pressable accessibilityRole="button" hitSlop={8} onPress={Keyboard.dismiss} style={styles.keyboardAccessoryButton}>
-              <AppText language="en" variant="body" style={styles.keyboardAccessoryCheck}>
-                ✓
-              </AppText>
-            </Pressable>
-          </View>
-        </InputAccessoryView>
+        <KeyboardDismissAccessory nativeID={keyboardAccessoryId} />
       ) : null}
     </View>
   );
@@ -1707,31 +1697,6 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     color: theme.colors.surface,
     fontWeight: '800',
-  },
-  keyboardAccessoryBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#D7E0E8',
-    backgroundColor: '#F7FAFD',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  keyboardAccessorySpacer: {
-    flex: 1,
-  },
-  keyboardAccessoryButton: {
-    minWidth: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  keyboardAccessoryCheck: {
-    color: '#1A2332',
-    fontSize: 22,
-    lineHeight: 22,
-    fontWeight: '900',
   },
   profileTitle: {
     marginTop: -10,

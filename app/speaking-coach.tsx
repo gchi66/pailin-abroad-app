@@ -47,6 +47,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
+import { practiceColors, practiceNeoShadowStyle } from '@/src/components/practice/PracticeExerciseUI';
 import { posthog } from '@/src/config/posthog';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
@@ -450,9 +451,13 @@ function PronunciationPlaybackButton({
 function PailinCoachBubble({
   tone,
   instruction,
+  plain = false,
+  overlapCard = false,
 }: {
   tone: 'instruction' | 'success' | 'error' | 'unclear';
   instruction: string;
+  plain?: boolean;
+  overlapCard?: boolean;
 }) {
   const image = tone === 'success'
     ? pailinGoodJobImage
@@ -470,21 +475,44 @@ function PailinCoachBubble({
         : instruction;
 
   return (
-    <View style={styles.pronunciationCoachRow}>
-      <Image source={image} contentFit="contain" style={styles.pronunciationCoachImage} />
+    <View style={[styles.pronunciationCoachRow, overlapCard ? styles.pronunciationCoachRowOverlap : null]}>
+      <Image
+        source={image}
+        contentFit="contain"
+        style={[
+          styles.pronunciationCoachImage,
+          overlapCard && tone === 'success' ? styles.pronunciationCoachImageOverlapSuccess : null,
+          overlapCard && tone === 'error' ? styles.pronunciationCoachImageOverlapError : null,
+          overlapCard && tone === 'unclear' ? styles.pronunciationCoachImageOverlapUnclear : null,
+        ]}
+      />
       <View
         style={[
           styles.pronunciationCoachBubble,
+          plain ? styles.pronunciationCoachMessagePlain : null,
+          overlapCard ? styles.pronunciationCoachMessageOverlap : null,
           tone === 'success'
-            ? styles.pronunciationCoachBubbleSuccess
+            ? (plain ? styles.pronunciationCoachMessagePlainSuccess : styles.pronunciationCoachBubbleSuccess)
             : tone === 'unclear'
-              ? styles.pronunciationCoachBubbleUnclear
+              ? (plain ? styles.pronunciationCoachMessagePlainUnclear : styles.pronunciationCoachBubbleUnclear)
               : tone === 'error'
-                ? styles.pronunciationCoachBubbleError
-                : styles.pronunciationCoachBubbleInstruction,
+                ? (plain ? styles.pronunciationCoachMessagePlainError : styles.pronunciationCoachBubbleError)
+                : (plain ? styles.pronunciationCoachMessagePlainInstruction : styles.pronunciationCoachBubbleInstruction),
+          overlapCard && tone === 'instruction' ? styles.pronunciationCoachMessageOverlapInstruction : null,
         ]}
       >
-        <AppText variant="caption" style={styles.pronunciationCoachMessage}>{message}</AppText>
+        <AppText
+          variant="caption"
+          style={[
+            styles.pronunciationCoachMessage,
+            plain ? styles.pronunciationCoachMessagePlainText : null,
+            plain && tone === 'success' ? styles.pronunciationCoachMessageSuccess : null,
+            plain && tone === 'unclear' ? styles.pronunciationCoachMessageUnclear : null,
+            plain && tone === 'error' ? styles.pronunciationCoachMessageError : null,
+          ]}
+        >
+          {message}
+        </AppText>
         {tone === 'success' ? (
           <MaterialIcons name="check-circle" size={18} color="#9DD94A" />
         ) : tone === 'error' ? (
@@ -569,7 +597,6 @@ function SpeakingCoachTestScreen() {
   const [clientSubmissionId, setClientSubmissionId] = useState<string | null>(null);
   const [skipPending, setSkipPending] = useState(false);
   const [showExample, setShowExample] = useState(false);
-  const [showConversationDetails, setShowConversationDetails] = useState(true);
   const [completedPracticeSetId, setCompletedPracticeSetId] = useState<number | null>(null);
   const [locallyCorrectQuestionIds, setLocallyCorrectQuestionIds] = useState<number[]>([]);
   const [advancePending, setAdvancePending] = useState(false);
@@ -778,7 +805,6 @@ function SpeakingCoachTestScreen() {
     setPreviousAttemptId(null);
     setSubmitError(null);
     setClientSubmissionId(null);
-    setShowConversationDetails(true);
     setCompletedPracticeSetId(null);
     setLocallyCorrectQuestionIds([]);
     fullLessonPromiseRef.current = null;
@@ -846,7 +872,6 @@ function SpeakingCoachTestScreen() {
     setRecordedDurationMillis(0);
     setRecordedFile(SPEAKING_RECORDING_FILE);
     setShowExample(false);
-    setShowConversationDetails(true);
     setEvaluation(null);
     setInstructionalAttemptNumber(1);
     setPreviousAttemptId(null);
@@ -1263,9 +1288,6 @@ function SpeakingCoachTestScreen() {
             ? questionIds
             : [...questionIds, activeQuestion.question.id]
         );
-      }
-      if (activeQuestion.practiceSet.practice_type === 'open') {
-        setShowConversationDetails(false);
       }
       if (nextEvaluation.status === 'retry') {
         setInstructionalAttemptNumber(2);
@@ -1764,13 +1786,18 @@ function SpeakingCoachTestScreen() {
           ? evaluation.displayed_issues.map((issue) => issue.description_en)
           : [evaluation.feedback_en]
       : [];
-    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady || unclearAudioLimitReached;
+    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review';
+    const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
 
     const renderAttemptPanel = () => {
       if (phase === 'recording') {
         return (
-          <View style={styles.pronunciationActionCard}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>RECORDING…</AppText>
+          <View style={[
+            styles.pronunciationActionCard,
+            styles.pronunciationNeoActionCard,
+            styles.pronunciationRecordingActionCard,
+          ]}>
+            <AppText variant="caption" style={styles.pronunciationActionTitle}>Recording…</AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
@@ -1785,8 +1812,8 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'review') {
         return (
-          <View style={styles.pronunciationActionCard}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>REVIEW YOUR RECORDING</AppText>
+          <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard]}>
+            <AppText variant="caption" style={styles.pronunciationActionTitle}>Review your recording</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
@@ -1794,14 +1821,17 @@ function SpeakingCoachTestScreen() {
               onPress={() => void toggleRecordingAudio()}
               style={[
                 styles.pronunciationReviewPlayback,
+                styles.pronunciationReviewPlaybackDeepBlue,
                 !recordedUri ? styles.playbackButtonDisabled : null,
               ]}
             >
-              <Image
-                source={recordingPlayerStatus.playing ? pauseBlueImage : playBlueImage}
-                contentFit="contain"
-                style={styles.pronunciationReviewPlayIcon}
-              />
+              <View style={styles.pronunciationReviewPlayButton}>
+                <MaterialIcons
+                  name={recordingPlayerStatus.playing ? 'pause' : 'play-arrow'}
+                  size={17}
+                  color={theme.colors.surface}
+                />
+              </View>
               <AppText variant="caption" style={styles.pronunciationReviewLabel}>Your recording</AppText>
               <AppText variant="caption" style={styles.pronunciationReviewDuration}>
                 {formatDuration(recordedDurationMillis)}
@@ -1819,12 +1849,12 @@ function SpeakingCoachTestScreen() {
         );
       }
 
-      if (phase === 'prompt' || retryReady) {
-        const isRetryAttempt = evaluation?.status === 'retry' || instructionalAttemptNumber === 2;
+      if (phase === 'prompt') {
+        const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
-          <View style={styles.pronunciationActionCard}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>
-              {isRetryAttempt ? 'TRY AGAIN!' : 'YOUR TURN!'}
+          <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard]}>
+            <AppText variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
+              {isRetryAttempt ? 'Try again!' : 'Your turn!'}
             </AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
             <Pressable accessibilityRole="button" accessibilityLabel="Start recording" onPress={() => void startRecording()} style={styles.pronunciationMicButton}>
@@ -1845,14 +1875,16 @@ function SpeakingCoachTestScreen() {
         style={styles.pronunciationScroll}
         contentContainerStyle={[
           styles.pronunciationScrollContent,
-          { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
+          showResultFooter
+            ? styles.pronunciationScrollContentWithFooter
+            : { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <PracticeProgress {...activeQuestion} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>PRONUNCIATION PRACTICE</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction="Listen, then repeat!" />
+        <PailinCoachBubble tone={coachTone} instruction="Listen, then repeat!" plain overlapCard />
 
         <View style={styles.pronunciationSentenceCard}>
           <AppText variant="title" style={styles.pronunciationSentenceEnglish}>{question.prompt_en}</AppText>
@@ -1877,30 +1909,6 @@ function SpeakingCoachTestScreen() {
           </View>
         </View>
 
-        {showEvaluation && evaluation ? (
-          <View style={[
-            styles.pronunciationFeedbackCard,
-            correctResult
-              ? styles.pronunciationFeedbackSuccess
-              : isUnclear
-                ? styles.pronunciationFeedbackUnclear
-                : styles.pronunciationFeedbackError,
-          ]}>
-            <Image
-              source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
-              contentFit="contain"
-              style={styles.pronunciationFeedbackStars}
-            />
-            <View style={styles.pronunciationFeedbackCopy}>
-              {feedbackBulletDescriptions.map((description, index) => (
-                <AppText key={`${index}-${description}`} variant="caption" style={styles.pronunciationFeedbackText}>
-                  {isUnclear ? description : `• ${description}`}
-                </AppText>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
         {renderAttemptPanel()}
 
         {showSkip ? (
@@ -1909,16 +1917,76 @@ function SpeakingCoachTestScreen() {
           </Pressable>
         ) : null}
 
-        {unclearAudioLimitReached ? (
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.pronunciationContinueButton}>
-            <AppText variant="caption" style={styles.pronunciationContinueLabel}>EXIT PRACTICE</AppText>
-          </Pressable>
-        ) : null}
-
-        {correctResult || finalResult ? (
-          <Pressable accessibilityRole="button" onPress={goNext} style={styles.pronunciationContinueButton}>
-            <AppText variant="caption" style={styles.pronunciationContinueLabel}>CONTINUE</AppText>
-          </Pressable>
+        {showResultFooter ? (
+          <View
+            style={[
+              styles.conversationResultFooter,
+              correctResult
+                ? styles.conversationResultFooterSuccess
+                : isUnclear
+                  ? styles.conversationResultFooterUnclear
+                  : styles.conversationResultFooterError,
+              { paddingBottom: Math.max(10, insets.bottom + 6) },
+            ]}
+          >
+            <View style={styles.conversationFeedbackDetail}>
+              <Image
+                source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
+                contentFit="contain"
+                style={styles.conversationFeedbackStars}
+              />
+              <View style={styles.conversationFeedbackCopy}>
+                {feedbackBulletDescriptions.map((description, index) => (
+                  <AppText key={`${index}-${description}`} variant="caption" style={styles.conversationFeedbackText}>
+                    {description}
+                  </AppText>
+                ))}
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (unclearAudioLimitReached) {
+                  router.back();
+                } else if (retryReady) {
+                  void startRecording();
+                } else {
+                  goNext();
+                }
+              }}
+              style={({ pressed }) => [
+                styles.conversationResultButton,
+                correctResult
+                  ? styles.conversationResultButtonSuccess
+                  : isUnclear
+                    ? styles.conversationResultButtonUnclear
+                    : styles.conversationResultButtonError,
+                pressed ? styles.conversationResultButtonPressed : null,
+              ]}
+            >
+              <AppText variant="caption" style={styles.conversationResultButtonLabel}>
+                {unclearAudioLimitReached
+                  ? 'EXIT PRACTICE'
+                  : isUnclear
+                    ? 'RECORD AGAIN'
+                    : retryReady
+                      ? 'TRY AGAIN'
+                      : 'CONTINUE'}
+              </AppText>
+            </Pressable>
+            {!correctResult && !finalResult && !unclearAudioLimitReached ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={skipPending}
+                onPress={() => void skipCurrentQuestion()}
+                style={styles.conversationResultSkipButton}
+              >
+                <AppText variant="caption" style={styles.conversationResultSkipLabel}>
+                  {skipPending ? 'SKIPPING…' : 'SKIP'}
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
     );
@@ -1935,8 +2003,6 @@ function SpeakingCoachTestScreen() {
       && (phase === 'recording' || phase === 'review');
     const correctResult = phase === 'correct';
     const isUnclear = evaluation?.status === 'unclear_audio';
-    const incorrectResult = evaluation?.status === 'retry'
-      || evaluation?.status === 'continue_with_correction';
     const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
     const showEvaluation = Boolean(evaluation) && (
       correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached
@@ -1958,9 +2024,8 @@ function SpeakingCoachTestScreen() {
     const learnerTranscript = evaluation?.transcript?.trim() || null;
     const showSkip = phase === 'prompt'
       || phase === 'recording'
-      || phase === 'review'
-      || retryReady
-      || unclearAudioLimitReached;
+      || phase === 'review';
+    const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
     const example = question.examples[0];
 
     const renderExample = () => {
@@ -2000,7 +2065,7 @@ function SpeakingCoachTestScreen() {
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
             <View style={styles.completedQuestionLabel}>
               <MaterialIcons name="check-circle" size={25} color={theme.colors.success} />
-              <AppText variant="caption" style={styles.conversationActionTitle}>COMPLETED IN THIS SESSION</AppText>
+              <AppText variant="caption" style={styles.conversationActionTitle}>Completed in this session</AppText>
             </View>
             <Button
               title="Retest in a fresh session"
@@ -2015,7 +2080,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'recording') {
         return (
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.conversationActionTitle}>RECORDING…</AppText>
+            <AppText variant="caption" style={styles.conversationActionTitle}>Recording…</AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
@@ -2031,7 +2096,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'review') {
         return (
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.conversationActionTitle}>REVIEW YOUR RECORDING</AppText>
+            <AppText variant="caption" style={styles.conversationActionTitle}>Review your recording</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your answer"
@@ -2066,12 +2131,12 @@ function SpeakingCoachTestScreen() {
         );
       }
 
-      if (phase === 'prompt' || retryReady) {
-        const isRetryAttempt = evaluation?.status === 'retry' || instructionalAttemptNumber === 2;
+      if (phase === 'prompt') {
+        const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.conversationActionTitle}>
-              {isRetryAttempt ? 'TRY AGAIN!' : 'RESPOND TO THE QUESTION'}
+            <AppText variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>
+              {isRetryAttempt ? 'Try again!' : 'Respond to the question'}
             </AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
             <Pressable
@@ -2098,24 +2163,18 @@ function SpeakingCoachTestScreen() {
         style={styles.pronunciationScroll}
         contentContainerStyle={[
           styles.pronunciationScrollContent,
-          { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
+          showResultFooter
+            ? styles.conversationScrollContentWithFooter
+            : { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <PracticeProgress {...activeQuestion} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>CONVERSATION PRACTICE</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction="Let’s chat!" />
+        <PailinCoachBubble tone={coachTone} instruction="Let’s chat!" plain overlapCard />
 
-        <View
-          style={[
-            styles.conversationPromptCard,
-            showEvaluation && !showConversationDetails ? styles.conversationPromptCardCollapsed : null,
-            !showConversationDetails && incorrectResult
-              ? styles.conversationPromptCardCollapsedIncorrect
-              : null,
-          ]}
-        >
+        <View style={styles.conversationPromptCard}>
           <View style={styles.conversationPromptEnglishRow}>
             {hasPromptAudio ? (
               <Pressable
@@ -2134,45 +2193,27 @@ function SpeakingCoachTestScreen() {
             <AppText variant="title" style={styles.conversationPromptEnglish}>{question.prompt_en}</AppText>
             {hasPromptAudio ? <View style={styles.conversationPromptAudioSpacer} /> : null}
           </View>
-          {showConversationDetails ? (
-            <>
-              {question.prompt_th ? (
-                <AppText language="th" variant="caption" style={styles.conversationPromptThai}>
-                  {question.prompt_th}
-                </AppText>
-              ) : null}
-              {practiceSet.tip_en ? (
-                <View style={styles.conversationTipBox}>
-                  <MaterialIcons name="lightbulb-outline" size={15} color="#8C8C8C" />
-                  <AppText variant="caption" style={styles.conversationTipText}>{practiceSet.tip_en}</AppText>
-                </View>
-              ) : null}
-            </>
+          {question.prompt_th ? (
+            <AppText language="th" variant="caption" style={styles.conversationPromptThai}>
+              {question.prompt_th}
+            </AppText>
           ) : null}
-          {showEvaluation ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setShowConversationDetails((visible) => !visible)}
-              style={[
-                styles.conversationDetailsButton,
-                !showConversationDetails ? styles.conversationDetailsButtonCollapsed : null,
-              ]}
-            >
-              <AppText variant="caption" style={styles.conversationDetailsLabel}>
-                {showConversationDetails ? 'LESS ↑' : 'MORE ↓'}
-              </AppText>
-            </Pressable>
+          {practiceSet.tip_en ? (
+            <View style={styles.conversationTipBox}>
+              <MaterialIcons name="lightbulb-outline" size={15} color="#8C8C8C" />
+              <AppText variant="caption" style={styles.conversationTipText}>{practiceSet.tip_en}</AppText>
+            </View>
           ) : null}
         </View>
 
         {showEvaluation && evaluation ? (
           <View style={[
-            styles.conversationFeedbackCard,
+            styles.conversationLearnerAnswerCard,
             correctResult
-              ? styles.conversationFeedbackSuccess
+              ? styles.conversationLearnerAnswerSuccess
               : isUnclear
                 ? styles.pronunciationFeedbackUnclear
-                : styles.conversationFeedbackError,
+                : styles.conversationLearnerAnswerError,
           ]}>
             <View style={styles.conversationLearnerAnswerRow}>
               <Pressable
@@ -2191,7 +2232,7 @@ function SpeakingCoachTestScreen() {
                 />
               </Pressable>
               <View style={styles.conversationLearnerAnswerCopy}>
-                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your Audio</AppText>
+                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
                 <AppText
                   variant="caption"
                   style={[
@@ -2204,28 +2245,6 @@ function SpeakingCoachTestScreen() {
                       ? 'We couldn’t confidently transcribe this recording.'
                       : 'Transcript unavailable.')}
                 </AppText>
-              </View>
-            </View>
-            <View style={[
-              styles.conversationFeedbackDivider,
-              correctResult
-                ? styles.conversationFeedbackDividerSuccess
-                : isUnclear
-                  ? styles.conversationFeedbackDividerUnclear
-                  : styles.conversationFeedbackDividerError,
-            ]} />
-            <View style={styles.conversationFeedbackDetail}>
-              <Image
-                source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
-                contentFit="contain"
-                style={styles.conversationFeedbackStars}
-              />
-              <View style={styles.conversationFeedbackCopy}>
-                {feedbackDescriptions.map((description, index) => (
-                  <AppText key={`${index}-${description}`} variant="caption" style={styles.conversationFeedbackText}>
-                    {description}
-                  </AppText>
-                ))}
               </View>
             </View>
           </View>
@@ -2246,16 +2265,74 @@ function SpeakingCoachTestScreen() {
           </Pressable>
         ) : null}
 
-        {unclearAudioLimitReached ? (
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.pronunciationContinueButton}>
-            <AppText variant="caption" style={styles.pronunciationContinueLabel}>EXIT PRACTICE</AppText>
-          </Pressable>
-        ) : null}
-
-        {correctResult || finalResult ? (
-          <Pressable accessibilityRole="button" onPress={goNext} style={styles.pronunciationContinueButton}>
-            <AppText variant="caption" style={styles.pronunciationContinueLabel}>CONTINUE</AppText>
-          </Pressable>
+        {showResultFooter ? (
+          <View
+            style={[
+              styles.conversationResultFooter,
+              correctResult
+                ? styles.conversationResultFooterSuccess
+                : isUnclear
+                  ? styles.conversationResultFooterUnclear
+                  : styles.conversationResultFooterError,
+              { paddingBottom: Math.max(10, insets.bottom + 6) },
+            ]}
+          >
+            <View style={styles.conversationFeedbackDetail}>
+              <Image
+                source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
+                contentFit="contain"
+                style={styles.conversationFeedbackStars}
+              />
+              <View style={styles.conversationFeedbackCopy}>
+                {feedbackDescriptions.map((description, index) => (
+                  <AppText key={`${index}-${description}`} variant="caption" style={styles.conversationFeedbackText}>
+                    {description}
+                  </AppText>
+                ))}
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (unclearAudioLimitReached) {
+                  router.back();
+                } else if (retryReady) {
+                  void startRecording();
+                } else {
+                  goNext();
+                }
+              }}
+              style={({ pressed }) => [
+                styles.conversationResultButton,
+                correctResult
+                  ? styles.conversationResultButtonSuccess
+                  : isUnclear
+                    ? styles.conversationResultButtonUnclear
+                    : styles.conversationResultButtonError,
+                pressed ? styles.conversationResultButtonPressed : null,
+              ]}
+            >
+              <AppText variant="caption" style={styles.conversationResultButtonLabel}>
+                {unclearAudioLimitReached
+                  ? 'EXIT PRACTICE'
+                  : retryReady
+                    ? 'TRY AGAIN'
+                    : 'CONTINUE'}
+              </AppText>
+            </Pressable>
+            {!correctResult && !finalResult && !unclearAudioLimitReached ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={skipPending}
+                onPress={() => void skipCurrentQuestion()}
+                style={styles.conversationResultSkipButton}
+              >
+                <AppText variant="caption" style={styles.conversationResultSkipLabel}>
+                  {skipPending ? 'SKIPPING…' : 'SKIP'}
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
     );
@@ -2271,9 +2348,16 @@ function SpeakingCoachTestScreen() {
       && evaluation?.status === 'retry'
       && (phase === 'recording' || phase === 'review');
     const correctResult = phase === 'correct';
+    const isUnclear = evaluation?.status === 'unclear_audio';
     const finalResult = phase === 'feedback' && !retryReady && !unclearAudioLimitReached;
     const showEvaluation = Boolean(evaluation) && (correctResult || finalResult || retryReady || retryInProgress || unclearAudioLimitReached);
-    const coachTone = correctResult ? 'success' : showEvaluation ? 'error' : 'instruction';
+    const coachTone = correctResult
+      ? 'success'
+      : isUnclear
+        ? 'unclear'
+        : showEvaluation
+          ? 'error'
+          : 'instruction';
     const feedbackBulletDescriptions = evaluation
       ? evaluation.status === 'unclear_audio'
         ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
@@ -2281,43 +2365,68 @@ function SpeakingCoachTestScreen() {
           ? evaluation.displayed_issues.map((issue) => issue.description_en)
           : [evaluation.feedback_en]
       : [];
-    const referenceAnswer = evaluation?.corrected_answer
-      ?? question.examples.find((example) => example.en)?.en
-      ?? null;
+    const learnerTranscript = evaluation?.transcript?.trim() || null;
     const hasReferenceAudio = Boolean(question.prompt_audio_url);
-    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review' || retryReady || unclearAudioLimitReached;
+    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review';
+    const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
+    const example = question.examples[0];
 
-    const renderHearPailin = (compact = false) => (
-      <View style={[styles.translationReferenceBlock, compact ? styles.translationReferenceBlockCompact : null]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Hear Pailin say the answer"
-          disabled={!hasReferenceAudio}
-          onPress={togglePromptAudio}
-          style={[
-            styles.translationHearPailinButton,
-            compact ? styles.translationHearPailinButtonCompact : null,
-            !hasReferenceAudio ? styles.translationHearPailinButtonDisabled : null,
-          ]}
-        >
-          <Image
-            source={hasReferenceAudio ? speakerBlueImage : speakerGreyImage}
-            contentFit="contain"
-            style={styles.translationHearPailinIcon}
-          />
-          <AppText variant="caption" style={styles.translationHearPailinLabel}>HEAR PAILIN</AppText>
-        </Pressable>
-        {!compact && referenceAnswer ? (
-          <AppText variant="caption" style={styles.translationReferenceAnswer}>“{referenceAnswer}”</AppText>
-        ) : null}
-      </View>
+    const renderHearPailin = () => (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Hear Pailin say the answer"
+        disabled={!hasReferenceAudio}
+        onPress={togglePromptAudio}
+        style={[
+          styles.translationHearPailinButton,
+          !hasReferenceAudio ? styles.translationHearPailinButtonDisabled : null,
+        ]}
+      >
+        <Image
+          source={hasReferenceAudio ? speakerBlueImage : speakerGreyImage}
+          contentFit="contain"
+          style={styles.translationHearPailinIcon}
+        />
+        <AppText variant="caption" style={styles.translationHearPailinLabel}>HEAR PAILIN</AppText>
+      </Pressable>
     );
+
+    const renderExample = () => {
+      if (!example?.en) return null;
+      if (!showExample) {
+        return (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowExample(true)}
+            style={styles.conversationExampleButton}
+          >
+            <MaterialIcons name="visibility" size={14} color="#777777" />
+            <AppText variant="caption" style={styles.conversationExampleButtonLabel}>
+              SHOW EXAMPLE ANSWER
+            </AppText>
+          </Pressable>
+        );
+      }
+      return (
+        <View style={styles.conversationExampleAnswer}>
+          <AppText variant="caption" style={styles.conversationExampleEnglish}>{example.en}</AppText>
+          {example.th ? (
+            <AppText language="th" variant="caption" style={styles.conversationExampleThai}>
+              {example.th}
+            </AppText>
+          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => setShowExample(false)}>
+            <AppText variant="caption" style={styles.conversationExampleHide}>HIDE</AppText>
+          </Pressable>
+        </View>
+      );
+    };
 
     const renderAttemptPanel = () => {
       if (phase === 'recording') {
         return (
-          <View style={styles.pronunciationActionCard}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>RECORDING…</AppText>
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+            <AppText variant="caption" style={styles.pronunciationActionTitle}>Recording…</AppText>
             <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
@@ -2332,8 +2441,8 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'review') {
         return (
-          <View style={styles.pronunciationActionCard}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>REVIEW YOUR RECORDING</AppText>
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+            <AppText variant="caption" style={styles.pronunciationActionTitle}>Review your recording</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
@@ -2366,21 +2475,44 @@ function SpeakingCoachTestScreen() {
         );
       }
 
-      if (phase === 'prompt' || retryReady) {
-        const isRetryAttempt = retryReady || instructionalAttemptNumber === 2;
+      if (phase === 'prompt') {
+        const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
-          <View style={styles.pronunciationActionCard}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>
-              {isRetryAttempt ? 'TRY AGAIN!' : 'TRANSLATE THE SENTENCE'}
+          <View style={[
+            styles.pronunciationActionCard,
+            styles.conversationActionCard,
+            isRetryAttempt ? styles.translationRetryActionCard : null,
+          ]}>
+            <AppText variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
+              {isRetryAttempt ? 'Try again!' : 'Translate the sentence'}
             </AppText>
-            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Start recording" onPress={() => void startRecording()} style={styles.pronunciationMicButton}>
-              <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
-            </Pressable>
-            <AppText variant="caption" style={styles.pronunciationAttemptLabel}>
-              Try {instructionalAttemptNumber} of 2
-            </AppText>
-            {isRetryAttempt ? renderHearPailin(true) : null}
+            <View style={[
+              styles.translationRecordingCore,
+              isRetryAttempt ? styles.translationRecordingCoreWithHearPailin : null,
+            ]}>
+              <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start recording"
+                onPress={() => void startRecording()}
+                style={[
+                  styles.pronunciationMicButton,
+                  isRetryAttempt ? styles.translationRetryMicButton : null,
+                ]}
+              >
+                <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
+              </Pressable>
+              <AppText
+                variant="caption"
+                style={[
+                  styles.pronunciationAttemptLabel,
+                  isRetryAttempt ? styles.translationRetryAttemptLabel : null,
+                ]}
+              >
+                Try {instructionalAttemptNumber} of 2
+              </AppText>
+            </View>
+            {isRetryAttempt ? renderHearPailin() : renderExample()}
           </View>
         );
       }
@@ -2393,14 +2525,16 @@ function SpeakingCoachTestScreen() {
         style={styles.pronunciationScroll}
         contentContainerStyle={[
           styles.pronunciationScrollContent,
-          { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
+          showResultFooter
+            ? styles.conversationScrollContentWithFooter
+            : { paddingBottom: Math.max(theme.spacing.lg, insets.bottom + theme.spacing.md) },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <PracticeProgress {...activeQuestion} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>THAI TO ENGLISH</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction="Say it in English!" />
+        <PailinCoachBubble tone={coachTone} instruction="Say it in English!" plain overlapCard />
 
         <View style={styles.translationPromptCard}>
           <AppText language="th" variant="title" style={styles.translationPromptThai}>{question.prompt_th}</AppText>
@@ -2409,17 +2543,21 @@ function SpeakingCoachTestScreen() {
           ) : null}
           <View style={styles.translationDirectionPill}>
             <AppText variant="caption" style={styles.translationDirectionLabel}>Thai</AppText>
-            <MaterialIcons name="arrow-forward" size={20} color="#3CA0FE" />
+            <MaterialIcons name="arrow-forward" size={20} color="#C4A807" />
             <AppText variant="caption" style={styles.translationDirectionLabel}>English</AppText>
           </View>
         </View>
 
         {showEvaluation && evaluation ? (
           <View style={[
-            styles.translationFeedbackCard,
-            correctResult ? styles.translationFeedbackSuccess : styles.translationFeedbackError,
+            styles.conversationLearnerAnswerCard,
+            correctResult
+              ? styles.conversationLearnerAnswerSuccess
+              : isUnclear
+                ? styles.pronunciationFeedbackUnclear
+                : styles.conversationLearnerAnswerError,
           ]}>
-            <View style={styles.translationLearnerAnswerRow}>
+            <View style={styles.conversationLearnerAnswerRow}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Play your answer"
@@ -2429,36 +2567,31 @@ function SpeakingCoachTestScreen() {
               >
                 <Image
                   source={recordingPlayerStatus.playing
-                    ? (correctResult ? pauseBlueImage : pauseRedImage)
-                    : (correctResult ? playBlueImage : playRedImage)}
+                    ? (correctResult ? pauseGreenImage : isUnclear ? pauseBlueImage : pauseRedImage)
+                    : (correctResult ? playGreenImage : isUnclear ? playBlueImage : playRedImage)}
                   contentFit="contain"
-                  style={styles.translationLearnerPlayIcon}
+                  style={styles.conversationLearnerPlayIcon}
                 />
               </Pressable>
-              <AppText variant="caption" style={styles.translationLearnerAnswerTitle}>YOUR RECORDING</AppText>
-            </View>
-            <View style={[
-              styles.translationFeedbackDivider,
-              correctResult ? styles.translationFeedbackDividerSuccess : styles.translationFeedbackDividerError,
-            ]} />
-            <View style={styles.translationFeedbackDetail}>
-              <Image
-                source={correctResult ? starsGreenImage : starsRedImage}
-                contentFit="contain"
-              style={styles.translationFeedbackStars}
-              />
-              <View style={styles.translationFeedbackCopy}>
-                {feedbackBulletDescriptions.map((description, index) => (
-                  <AppText key={`${index}-${description}`} variant="caption" style={styles.translationFeedbackText}>
-                    • {description}
-                  </AppText>
-                ))}
+              <View style={styles.conversationLearnerAnswerCopy}>
+                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+                <AppText
+                  variant="caption"
+                  style={[
+                    styles.conversationLearnerTranscript,
+                    !learnerTranscript ? styles.conversationLearnerTranscriptUnavailable : null,
+                  ]}
+                >
+                  {learnerTranscript
+                    || (isUnclear
+                      ? 'We couldn’t confidently transcribe this recording.'
+                      : 'Transcript unavailable.')}
+                </AppText>
               </View>
             </View>
           </View>
         ) : null}
 
-        {showEvaluation && !retryReady && !retryInProgress ? renderHearPailin() : null}
         {renderAttemptPanel()}
 
         {showSkip ? (
@@ -2467,16 +2600,80 @@ function SpeakingCoachTestScreen() {
           </Pressable>
         ) : null}
 
-        {unclearAudioLimitReached ? (
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.pronunciationContinueButton}>
-            <AppText variant="caption" style={styles.pronunciationContinueLabel}>EXIT PRACTICE</AppText>
-          </Pressable>
-        ) : null}
-
-        {correctResult || finalResult ? (
-          <Pressable accessibilityRole="button" onPress={goNext} style={styles.pronunciationContinueButton}>
-            <AppText variant="caption" style={styles.pronunciationContinueLabel}>CONTINUE</AppText>
-          </Pressable>
+        {showResultFooter ? (
+          <View
+            style={[
+              styles.conversationResultFooter,
+              correctResult
+                ? styles.conversationResultFooterSuccess
+                : isUnclear
+                  ? styles.conversationResultFooterUnclear
+                  : styles.conversationResultFooterError,
+              { paddingBottom: Math.max(10, insets.bottom + 6) },
+            ]}
+          >
+            <View style={styles.conversationFeedbackDetail}>
+              <Image
+                source={correctResult ? starsGreenImage : isUnclear ? starsYellowImage : starsRedImage}
+                contentFit="contain"
+                style={styles.conversationFeedbackStars}
+              />
+              <View style={styles.conversationFeedbackCopy}>
+                {feedbackBulletDescriptions.map((description, index) => (
+                  <AppText key={`${index}-${description}`} variant="caption" style={styles.conversationFeedbackText}>
+                    {description}
+                  </AppText>
+                ))}
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (unclearAudioLimitReached) {
+                  router.back();
+                } else if (retryReady) {
+                  if (isUnclear) {
+                    void startRecording();
+                  } else {
+                    setPhase('prompt');
+                  }
+                } else {
+                  goNext();
+                }
+              }}
+              style={({ pressed }) => [
+                styles.conversationResultButton,
+                correctResult
+                  ? styles.conversationResultButtonSuccess
+                  : isUnclear
+                    ? styles.conversationResultButtonUnclear
+                    : styles.conversationResultButtonError,
+                pressed ? styles.conversationResultButtonPressed : null,
+              ]}
+            >
+              <AppText variant="caption" style={styles.conversationResultButtonLabel}>
+                {unclearAudioLimitReached
+                  ? 'EXIT PRACTICE'
+                  : isUnclear
+                    ? 'RECORD AGAIN'
+                    : retryReady
+                      ? 'TRY AGAIN'
+                      : 'CONTINUE'}
+              </AppText>
+            </Pressable>
+            {!correctResult && !finalResult && !unclearAudioLimitReached ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={skipPending}
+                onPress={() => void skipCurrentQuestion()}
+                style={styles.conversationResultSkipButton}
+              >
+                <AppText variant="caption" style={styles.conversationResultSkipLabel}>
+                  {skipPending ? 'SKIPPING…' : 'SKIP'}
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
     );
@@ -2845,7 +3042,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  pronunciationCoachRowOverlap: {
+    zIndex: 0,
+    justifyContent: 'flex-start',
+    marginTop: 12,
+    paddingLeft: 20,
+    transform: [{ translateY: 26 }],
+  },
   pronunciationCoachImage: { width: 150, height: 130 },
+  pronunciationCoachImageOverlapSuccess: { transform: [{ translateX: -12 }, { translateY: 7 }] },
+  pronunciationCoachImageOverlapError: { transform: [{ translateX: -9 }] },
+  pronunciationCoachImageOverlapUnclear: { transform: [{ translateX: -9 }] },
   pronunciationCoachBubble: {
     minWidth: 128,
     minHeight: 40,
@@ -2876,8 +3083,30 @@ const styles = StyleSheet.create({
     borderColor: '#FF6268',
     backgroundColor: '#FFF0F1',
   },
+  pronunciationCoachMessagePlain: {
+    minWidth: 0,
+    minHeight: 0,
+    marginLeft: -42,
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    justifyContent: 'flex-start',
+  },
+  pronunciationCoachMessagePlainInstruction: { backgroundColor: 'transparent' },
+  pronunciationCoachMessagePlainSuccess: { backgroundColor: 'transparent' },
+  pronunciationCoachMessagePlainUnclear: { backgroundColor: 'transparent' },
+  pronunciationCoachMessagePlainError: { backgroundColor: 'transparent' },
+  pronunciationCoachMessageOverlap: { marginLeft: -26 },
+  pronunciationCoachMessageOverlapInstruction: { marginLeft: -42 },
   pronunciationCoachMessage: { fontSize: 12, lineHeight: 17, fontWeight: theme.typography.weights.semibold },
+  pronunciationCoachMessagePlainText: { fontSize: 16, lineHeight: 22 },
+  pronunciationCoachMessageSuccess: { color: '#84B53C' },
+  pronunciationCoachMessageUnclear: { color: '#1E1E1E' },
+  pronunciationCoachMessageError: { color: '#F65555' },
   pronunciationSentenceCard: {
+    zIndex: 1,
     width: '100%',
     minHeight: 142,
     borderWidth: 1,
@@ -2899,7 +3128,11 @@ const styles = StyleSheet.create({
   pronunciationSentenceThai: { marginTop: 5, color: '#9A9A9A', fontSize: 12, lineHeight: 18, textAlign: 'center' },
   pronunciationPlaybackRow: {
     width: '100%',
-    marginTop: 12,
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#D9D9D9',
+    borderStyle: 'dashed',
+    paddingTop: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2907,10 +3140,6 @@ const styles = StyleSheet.create({
   },
   pronunciationPlaybackRowResult: {
     marginTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#D9D9D9',
-    borderStyle: 'dashed',
-    paddingTop: 13,
   },
   pronunciationPlaybackButton: {
     width: 140,
@@ -2939,8 +3168,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  pronunciationActionTitle: { fontSize: 11, lineHeight: 16, fontWeight: theme.typography.weights.semibold },
+  pronunciationNeoActionCard: {
+    ...practiceNeoShadowStyle,
+    borderRadius: 11,
+    backgroundColor: practiceColors.question,
+  },
+  pronunciationRecordingActionCard: {
+    backgroundColor: practiceColors.incorrectPanel,
+  },
+  pronunciationActionTitle: { fontSize: 18, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
+  microphoneActionTitle: { fontSize: 18, lineHeight: 24 },
   pronunciationActionHint: { marginTop: 1, color: '#969696', fontSize: 10, lineHeight: 15 },
   recordingPulseContainer: {
     width: 90,
@@ -2985,6 +3224,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  pronunciationReviewPlaybackDeepBlue: { borderColor: practiceColors.checkButton },
+  pronunciationReviewPlayButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: practiceColors.checkButton,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pronunciationReviewPlayIcon: { width: 23, height: 23 },
   pronunciationReviewLabel: { flex: 1, marginLeft: 6, fontSize: 11, lineHeight: 16, fontWeight: theme.typography.weights.semibold },
   pronunciationReviewDuration: { color: '#969696', fontSize: 10, lineHeight: 15 },
@@ -3002,6 +3250,7 @@ const styles = StyleSheet.create({
   pronunciationRedoIcon: { width: 14, height: 14 },
   pronunciationRedoLabel: { fontSize: 10, lineHeight: 15 },
   pronunciationSubmitError: { marginTop: 7, color: theme.colors.error, fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  pronunciationScrollContentWithFooter: { paddingBottom: 0 },
   pronunciationFeedbackCard: {
     width: '100%',
     minHeight: 80,
@@ -3050,8 +3299,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
-  conversationPromptCardCollapsed: { minHeight: 0, paddingTop: 14, paddingBottom: 7 },
-  conversationPromptCardCollapsedIncorrect: { paddingBottom: 13 },
   conversationPromptEnglishRow: {
     width: '100%',
     flexDirection: 'row',
@@ -3096,18 +3343,15 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  conversationDetailsButton: { marginTop: 10, paddingHorizontal: 18, paddingVertical: 3 },
-  conversationDetailsButtonCollapsed: { marginTop: 10, paddingVertical: 1 },
-  conversationDetailsLabel: {
-    color: '#2F6EEA',
-    fontSize: 9,
-    lineHeight: 14,
-    fontWeight: theme.typography.weights.semibold,
+  conversationActionCard: {
+    ...practiceNeoShadowStyle,
+    minHeight: 210,
+    borderRadius: 11,
+    backgroundColor: practiceColors.question,
   },
-  conversationActionCard: { minHeight: 210 },
   conversationActionTitle: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: theme.typography.weights.semibold,
     letterSpacing: 0.5,
   },
@@ -3141,15 +3385,22 @@ const styles = StyleSheet.create({
   conversationExampleEnglish: { fontSize: 10, lineHeight: 15, textAlign: 'center' },
   conversationExampleThai: { color: '#999999', fontSize: 9, lineHeight: 13, textAlign: 'center' },
   conversationExampleHide: { marginTop: 2, color: '#777777', fontSize: 7, lineHeight: 10 },
-  conversationFeedbackCard: {
+  conversationScrollContentWithFooter: { paddingBottom: 0 },
+  conversationLearnerAnswerCard: {
     width: '100%',
     marginTop: 18,
     borderWidth: 1,
     borderRadius: 9,
     overflow: 'hidden',
   },
-  conversationFeedbackSuccess: { borderColor: '#A9E64D', backgroundColor: '#F0FFD9' },
-  conversationFeedbackError: { borderColor: '#FF6268', backgroundColor: '#FFF0F1' },
+  conversationLearnerAnswerSuccess: {
+    borderColor: practiceColors.correctButton,
+    backgroundColor: practiceColors.correctPanel,
+  },
+  conversationLearnerAnswerError: {
+    borderColor: practiceColors.incorrectButton,
+    backgroundColor: practiceColors.incorrectPanel,
+  },
   conversationLearnerAnswerRow: {
     minHeight: 65,
     paddingHorizontal: 14,
@@ -3167,21 +3418,67 @@ const styles = StyleSheet.create({
   },
   conversationLearnerTranscript: { color: '#555555', fontSize: 12, lineHeight: 18 },
   conversationLearnerTranscriptUnavailable: { color: '#777777', fontStyle: 'italic' },
-  conversationFeedbackDivider: { height: 1 },
-  conversationFeedbackDividerSuccess: { backgroundColor: '#A9E64D' },
-  conversationFeedbackDividerError: { backgroundColor: '#FF6268' },
-  conversationFeedbackDividerUnclear: { backgroundColor: '#F0C419' },
   conversationFeedbackDetail: {
-    minHeight: 76,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  conversationFeedbackStars: { width: 38, height: 38 },
+  conversationFeedbackStars: { width: 42, height: 42 },
   conversationFeedbackCopy: { flex: 1, gap: 3 },
-  conversationFeedbackText: { fontSize: 12, lineHeight: 18 },
+  conversationFeedbackText: { color: practiceColors.text, fontSize: 12, lineHeight: 18 },
+  conversationResultFooter: {
+    width: 'auto',
+    marginTop: 'auto',
+    marginHorizontal: -22,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    gap: 12,
+  },
+  conversationResultFooterSuccess: {
+    borderColor: practiceColors.correctButton,
+    backgroundColor: practiceColors.correctPanel,
+  },
+  conversationResultFooterError: {
+    borderColor: practiceColors.incorrectButton,
+    backgroundColor: practiceColors.incorrectPanel,
+  },
+  conversationResultFooterUnclear: {
+    borderColor: '#F1DB35',
+    backgroundColor: '#FFFCE5',
+  },
+  conversationResultButton: {
+    width: '100%',
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderColor: practiceColors.text,
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conversationResultButtonSuccess: { backgroundColor: practiceColors.correctButton },
+  conversationResultButtonError: { backgroundColor: practiceColors.incorrectButton },
+  conversationResultButtonUnclear: { backgroundColor: '#F1DB35' },
+  conversationResultButtonPressed: { opacity: 0.86 },
+  conversationResultButtonLabel: {
+    color: practiceColors.text,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  conversationResultSkipButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 2 },
+  conversationResultSkipLabel: {
+    color: '#5E5E5E',
+    fontSize: 10,
+    lineHeight: 14,
+    textDecorationLine: 'underline',
+  },
   translationPromptCard: {
     width: '100%',
     minHeight: 122,
@@ -3211,68 +3508,50 @@ const styles = StyleSheet.create({
   },
   translationDirectionPill: {
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#C4A807',
     borderRadius: 18,
-    backgroundColor: '#FFF9DF',
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  translationDirectionLabel: { color: '#696969', fontSize: 10, lineHeight: 15 },
-  translationFeedbackCard: {
+  translationDirectionLabel: { color: '#C4A807', fontSize: 10, lineHeight: 15 },
+  translationRecordingCore: {
+    flex: 1,
     width: '100%',
-    marginTop: 18,
-    borderWidth: 1,
-    borderRadius: 9,
-    overflow: 'hidden',
-  },
-  translationFeedbackSuccess: { borderColor: '#A9E64D', backgroundColor: '#F0FFD9' },
-  translationFeedbackError: { borderColor: '#FF6268', backgroundColor: '#FFF0F1' },
-  translationLearnerAnswerRow: {
-    minHeight: 66,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
+    minHeight: 112,
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
   },
-  translationLearnerPlayIcon: { width: 38, height: 38 },
-  translationLearnerAnswerTitle: { fontSize: 12, lineHeight: 17, fontWeight: theme.typography.weights.bold },
-  translationFeedbackDivider: { height: 1 },
-  translationFeedbackDividerSuccess: { backgroundColor: '#A9E64D' },
-  translationFeedbackDividerError: { backgroundColor: '#FF6268' },
-  translationFeedbackDetail: {
-    minHeight: 78,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  translationFeedbackStars: { width: 36, height: 36 },
-  translationFeedbackCopy: { flex: 1, gap: 3 },
-  translationFeedbackText: { fontSize: 12, lineHeight: 18 },
-  translationReferenceBlock: { alignItems: 'center', marginTop: 16, gap: 7 },
-  translationReferenceBlockCompact: { marginTop: 10, gap: 0 },
+  translationRecordingCoreWithHearPailin: { transform: [{ translateY: -10 }] },
+  translationRetryActionCard: { minHeight: 230 },
+  translationRetryMicButton: { marginTop: 3 },
+  translationRetryAttemptLabel: { marginTop: 3 },
   translationHearPailinButton: {
-    minWidth: 138,
-    minHeight: 38,
+    minWidth: 112,
+    minHeight: 30,
+    marginTop: 4,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 20,
+    borderColor: practiceColors.text,
+    borderRadius: 16,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: 6,
   },
-  translationHearPailinButtonCompact: { minWidth: 96, minHeight: 26, borderRadius: 14, paddingHorizontal: 9 },
   translationHearPailinButtonDisabled: { opacity: 0.62 },
-  translationHearPailinIcon: { width: 20, height: 20 },
-  translationHearPailinLabel: { color: '#666666', fontSize: 10, lineHeight: 15, fontWeight: theme.typography.weights.medium },
-  translationReferenceAnswer: { color: '#6F6F6F', fontSize: 12, lineHeight: 18, fontStyle: 'italic', textAlign: 'center' },
+  translationHearPailinIcon: { width: 18, height: 18 },
+  translationHearPailinLabel: {
+    color: practiceColors.text,
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: theme.typography.weights.semibold,
+  },
   topBar: { minHeight: 64, paddingHorizontal: theme.spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   resourceHeader: { width: '100%', maxWidth: 480, alignSelf: 'center', minHeight: 49, paddingLeft: 18, paddingRight: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   resourceHeaderCopy: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },

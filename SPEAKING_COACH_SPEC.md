@@ -844,16 +844,20 @@ Pronunciation Practice uses the existing two-attempt recording and evaluation fl
 - Question-progress dots and the `PRONUNCIATION PRACTICE` label appear at the top of the practice content.
 - The temporary level and lesson selectors remain above the supplied design during standalone development.
 - Every question displays Pailin, the English target sentence, its Thai translation when available, and model audio.
+- Pailin and the unboxed instruction/result text overlap the top of the prompt card so Pailin appears to emerge from it.
+- Ready and review recording panels use the Exercise Bank blue and neobrutalist border/shadow treatment. The active-recording panel changes to the shared pale-red treatment.
+- Recording-panel headers use consistent 18px sentence case, and each recording or review control group is vertically centered within its panel.
 - Bookmark icons and the `Bookmark to practice later!` action are intentionally omitted for now.
 
 #### States
 
 1. **Ready:** show `pailin-do-the-task.webp`, `Listen, then repeat!`, the target sentence, Pailin playback, a `YOUR TURN!` recording panel, and `Try 1 of 2`.
-2. **Recording:** replace the microphone with the red stop control, pulse a soft ring behind it, and show a live recording timer.
-3. **Review:** allow playback of the learner's recording, submission for evaluation, or recording again. Recording again does not consume a submitted attempt.
-4. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, Pailin and learner playback, positive feedback, and `CONTINUE`.
-5. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, Pailin and learner playback, focused correction feedback, and a `TRY AGAIN!` panel marked `Try 2 of 2`. When the evaluator returns multiple `displayed_issues`, show every returned issue beneath its summary rather than truncating the list to the first issue.
-6. **Second submitted attempt needs work:** keep the final `Not quite!` correction state, remove further recording controls, and show `CONTINUE`.
+2. **Recording:** change the full recording panel to pale red, replace the microphone with the red stop control, pulse a soft ring behind it, and show a live recording timer.
+3. **Review:** vertically center learner-recording playback, `SUBMIT ANSWER`, and `Record again` in the panel, with the playback control's circular icon using the same deep blue as the submit action. `SKIP` remains at the bottom of the screen. Recording again does not consume a submitted attempt.
+4. **Correct:** show `pailin-good-job.webp`, the unboxed green `Correct!` state, Pailin and learner playback, and positive feedback plus `CONTINUE` in the shared green bottom result panel.
+5. **First submitted attempt needs work:** show `pailin-try-again.webp`, the unboxed red `Not quite!` state, Pailin and learner playback, and focused correction feedback plus `TRY AGAIN` in the shared red bottom result panel. Starting the retry restores the recording panel marked `Try 2 of 2`. When the evaluator returns multiple `displayed_issues`, show every returned issue rather than truncating the list to the first issue.
+6. **Second submitted attempt needs work:** keep the final red correction treatment and show `CONTINUE` without another recording attempt.
+7. **Unclear audio:** use the existing Pailin unclear-audio image and unboxed message. Show evaluator guidance in the same bottom-panel shape with `#FFFCE5` fill and a `RECORD AGAIN` button filled `#F1DB35`, subject to the shared unclear-audio safety limit.
 
 `SKIP →` remains available while the learner can record or retry. It persists the question as skipped before advancing; it does not create an evaluation attempt or count the question as correct. `CONTINUE` advances after a correct result or after final feedback on the second submitted attempt.
 
@@ -865,44 +869,46 @@ Conversation Practice reuses the shared progress, recording, review, two-attempt
 
 #### Shared elements
 
-- The practice label is `CONVERSATION PRACTICE` and Pailin's initial instruction is `Let’s chat!`.
+- The practice label is `CONVERSATION PRACTICE` and Pailin's initial instruction is the unboxed text `Let’s chat!`. Evaluation replaces that text in the same position with `Correct!` or `Not quite!` and its status icon.
 - The prompt card displays the English question, its Thai translation when available, model audio when supplied, and the authored English tip in a pale-yellow hint panel.
-- After evaluation, the prompt card may collapse the translation and tip to save vertical space. `MORE ↓` and `LESS ↑` let the learner reveal or hide those details.
-- The recording panel is labeled `RESPOND TO THE QUESTION` on the first attempt and `TRY AGAIN!` for a retry.
-- `SHOW EXAMPLE ANSWER` reveals the first authored English example and its Thai translation when available; `HIDE` collapses it again.
-- The learner feedback card labels the playback control `Your Audio` and displays Azure's best-effort recognized transcript beneath it when the answer was confidently scored. If an unclear result has no transcript, show `We couldn’t confidently transcribe this recording.` If another response has no transcript, show `Transcript unavailable.` The recorded-answer playback remains available in every case.
-- Feedback copy comes from the evaluator. When `displayed_issues` are present, show every returned issue rather than truncating the list.
+- The prompt card remains fully expanded after evaluation.
+- The blue recording panel uses the Exercise Bank question color and neobrutalist border/shadow treatment. It is labeled `RESPOND TO THE QUESTION` on the first attempt and `TRY AGAIN!` after the learner starts a retry.
+- `SHOW EXAMPLE ANSWER` reveals the first authored English example and its Thai translation in a white inset box; `HIDE` collapses it again.
+- After evaluation, a separate green, red, or yellow learner-answer card appears directly below the prompt. It labels playback `Your answer:` and displays Azure's best-effort recognized transcript. If an unclear result has no transcript, show `We couldn’t confidently transcribe this recording.` If another response has no transcript, show `Transcript unavailable.` The recorded-answer playback remains available in every case.
+- Evaluator feedback appears beside the matching stars image in an Exercise Bank-style bottom result panel. When `displayed_issues` are present, show every returned issue rather than truncating the list. The panel contains the result action and, when another attempt is available, `SKIP`.
 
 #### States
 
 1. **Ready:** show `pailin-do-the-task.webp`, `Let’s chat!`, the full prompt card, the first-attempt recording panel, and the optional example-answer control.
 2. **Recording and review:** reuse the stop, timer, learner playback, submit, and record-again behavior from Pronunciation Practice.
-3. **Correct:** show `pailin-good-job.webp`, the green `Correct!` state, learner-answer playback and transcript, positive feedback, and `CONTINUE`.
-4. **First submitted attempt needs work:** show `pailin-try-again.webp`, `Not quite!`, learner-answer playback and transcript, the evaluator's corrections, and a `TRY AGAIN!` panel marked `Try 2 of 2`.
-5. **Second submitted attempt needs work:** show final evaluator feedback and `CONTINUE` without another recording attempt.
+3. **Correct:** show `pailin-good-job.webp`, the unboxed green `Correct!` state, a green learner-answer card, and positive feedback plus `CONTINUE` in the green bottom result panel.
+4. **First submitted attempt needs work:** show `pailin-try-again.webp`, the unboxed red `Not quite!` state, a red learner-answer card, and the evaluator's corrections plus `TRY AGAIN` in the red bottom result panel. Starting the retry restores the recording panel marked `Try 2 of 2`.
+5. **Second submitted attempt needs work:** keep the red learner-answer and bottom-feedback treatments, but show `CONTINUE` without another recording attempt.
 6. **Unclear audio:** show `pailin-cant-hear.webp`, `Hmm...what was that?`, the yellow unclear-audio feedback treatment, and another recording opportunity without consuming an instructional attempt, subject to the shared unclear-audio safety limit.
 
 ### Thai-to-English flow
 
-Thai-to-English reuses the same progress dots, Pailin character states, speech-bubble geometry, two-attempt recording lifecycle, and evaluator-driven result states as Pronunciation Practice.
+Thai-to-English reuses the same progress dots, aligned Pailin character states, unboxed coach text, two-attempt recording lifecycle, and evaluator-driven result states as Pronunciation Practice.
 
 #### Shared elements
 
 - The practice label is `THAI TO ENGLISH` and Pailin's initial instruction is `Say it in English!`.
-- The prompt card displays the authored Thai sentence and a `Thai → English` direction pill.
+- The prompt card displays the authored Thai sentence and a gold `#C4A807` `Thai → English` direction pill.
+- The blue neobrutalist recording panel uses the same example-answer disclosure and white inset answer box as Conversation Practice.
+- The `Tap to speak`/microphone group is vertically centered in the recording panel. On the second-attempt prompt, it shifts upward to make room for the `HEAR PAILIN` reference-audio pill.
+- Translation imports currently leave `prompt_audio_key` empty, so `HEAR PAILIN` is visibly disabled until prerecorded English answer audio is added; the app does not synthesize a replacement voice.
 - For temporary checker testing, the admin preview requests a single `test_answer_en` and displays it directly beneath the Thai prompt. The API only supplies this field to authenticated admins who explicitly request it; normal learner lesson responses continue to omit answers.
 - Bookmark controls are omitted.
-- Learner feedback shows a playback control for the recorded answer, the evaluator summary, and every returned `displayed_issue`. It does not display Azure's recognized transcript.
+- Evaluated responses use the same separate learner-answer card and green/red/yellow bottom result panels as Conversation Practice. The learner-answer card includes playback and Azure's recognized transcript when available.
 
 #### States
 
 1. **Ready:** show the Thai prompt and a `TRANSLATE THE SENTENCE` recording panel marked `Try 1 of 2`.
 2. **Recording and review:** reuse the stop, timer, playback, submit, and record-again behavior from Pronunciation Practice.
-3. **Correct:** show the shared green `Correct!` Pailin state, learner-recording playback, positive feedback, the reference answer, and `CONTINUE`.
-4. **First submitted attempt needs work:** show the shared red `Not quite!` Pailin state, learner-recording playback, all returned corrections, and a `TRY AGAIN!` panel marked `Try 2 of 2`.
-5. **Second submitted attempt needs work:** show final correction feedback and `CONTINUE` without another recording attempt.
-
-The design includes a `HEAR PAILIN` control for the reference answer. Translation questions currently have no reference-answer audio URL in the application contract, so the control remains visibly disabled until prerecorded answer audio is supplied by the backend. Do not synthesize or substitute a different voice.
+3. **Correct:** show the shared green `Correct!` Pailin state, a green learner-answer card, and positive feedback plus `CONTINUE` in the green bottom result panel.
+4. **First submitted attempt needs work:** show the shared red `Not quite!` Pailin state, a red learner-answer card, and all returned corrections plus `TRY AGAIN` in the red bottom result panel. Starting the retry restores the recording panel marked `Try 2 of 2`.
+5. **Second submitted attempt needs work:** retain the red learner-answer and bottom-feedback treatments and show `CONTINUE` without another recording attempt.
+6. **Unclear audio:** reuse the yellow unclear-audio coach and bottom-panel treatment, including `RECORD AGAIN`, subject to the shared safety limit.
 
 ## Supabase Schema
 

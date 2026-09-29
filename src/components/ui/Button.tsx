@@ -11,6 +11,7 @@ import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring, w
 
 import { theme } from '../../theme/theme';
 import { AppText } from './AppText';
+import { InsetBorderSurface } from './InsetBorderSurface';
 
 type ButtonVariant = 'primary' | 'outline';
 type ButtonSize = 'default' | 'compact';
@@ -21,6 +22,7 @@ type ButtonProps = Omit<PressableProps, 'style'> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   language?: 'en' | 'th';
+  insetBorder?: boolean;
   style?: StyleProp<ViewStyle>;
   disabledStyle?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
@@ -71,6 +73,7 @@ export function Button({
   variant = 'primary',
   size = 'default',
   language = 'en',
+  insetBorder,
   disabled,
   style,
   disabledStyle,
@@ -89,6 +92,12 @@ export function Button({
     ],
   }));
   const resolvedBaseStyle = StyleSheet.flatten([styles.base, sizeStyles[size], variantStyles[variant], style]) as ViewStyle;
+  const borderWidth = typeof resolvedBaseStyle.borderWidth === 'number' ? resolvedBaseStyle.borderWidth : 0;
+  const borderRadius = typeof resolvedBaseStyle.borderRadius === 'number' ? resolvedBaseStyle.borderRadius : 0;
+  const borderColor = typeof resolvedBaseStyle.borderColor === 'string' ? resolvedBaseStyle.borderColor : theme.colors.border;
+  const backgroundColor = typeof resolvedBaseStyle.backgroundColor === 'string' ? resolvedBaseStyle.backgroundColor : 'transparent';
+  const hasNeoShadow = typeof resolvedBaseStyle.boxShadow === 'string' && resolvedBaseStyle.boxShadow !== 'none';
+  const shouldInsetBorder = borderWidth > 0 && (insetBorder ?? hasNeoShadow);
   const pressedShadow = typeof resolvedBaseStyle.boxShadow === 'string'
     ? resolvedBaseStyle.boxShadow.replace(/^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/, '1px 1px')
     : null;
@@ -109,12 +118,20 @@ export function Button({
       }}
       style={[
         resolvedBaseStyle,
+        shouldInsetBorder ? { borderWidth: 0, backgroundColor: borderColor } : null,
         pressed && !disabled && pressedShadow ? { boxShadow: pressedShadow } : null,
         pressed && !disabled ? styles.pressed : null,
         disabled ? [styles.disabled, disabledStyle] : null,
         pressStyle,
       ]}
       {...rest}>
+      {shouldInsetBorder ? (
+        <InsetBorderSurface
+          backgroundColor={backgroundColor}
+          borderRadius={borderRadius}
+          borderWidth={borderWidth}
+        />
+      ) : null}
       {leadingIcon}
       <AppText language={language} variant="caption" style={[styles.label, textSizeStyles[size], textVariantStyles[variant], textStyle]}>
         {title}

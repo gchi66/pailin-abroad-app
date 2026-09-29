@@ -587,7 +587,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                 {sectionLabel(copy.continueLearning, pathwayNextLessonImage)}
                 <View style={styles.cardWrap}>
                   <AndroidNeoShadowLayer borderRadius={5} color={theme.colors.shadow} offset={4} />
-                  <Card style={styles.resumeCard}>
+                  <Card insetBorder style={styles.resumeCard}>
                     {freeCourseComplete ? (
                       <Stack gap="md">
                         <View style={styles.lessonMain}>
@@ -614,7 +614,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                         </View>
                         <View style={styles.resumeLessonButtonWrap}>
                           <View pointerEvents="none" style={styles.resumeLessonButtonShadow} />
-                          <Button language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                          <Button insetBorder language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
                             leadingIcon={resumeRow.state === 'locked' ? <Image source={lockWhiteImage} style={styles.buttonLockIcon} resizeMode="contain" accessible={false} /> : undefined}
                             onPress={() => resumeRow.state === 'locked' ? handleUpgrade() : handleOpenLesson(resumeRow.lesson)}
                             style={[styles.resumeButton, styles.resumeLessonButton]} textStyle={styles.ctaText} />
@@ -727,6 +727,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
               <View style={styles.guestOverlayButtonWrap}>
                 <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
                 <Button
+                  insetBorder
                   language={uiLanguage}
                   title={copy.guestOverlayCta}
                   onPress={() => router.push('/account/auth')}

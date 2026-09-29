@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -24,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import googleLogoImage from '../../assets/images/google_logo.png';
 import fullLogoImage from '../../assets/images/pailin-abroad-full-logo.png';
 import { AppText } from '@/src/components/ui/AppText';
+import { KeyboardDismissAccessory } from '@/src/components/ui/KeyboardDismissAccessory';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -623,14 +623,7 @@ export function AuthScreen() {
         </View>
       </ScrollView>
       {Platform.OS === 'ios' ? (
-        <InputAccessoryView nativeID={keyboardAccessoryId}>
-          <View style={styles.keyboardAccessoryBar}>
-            <View style={styles.keyboardAccessorySpacer} />
-            <Pressable accessibilityRole="button" hitSlop={8} onPress={Keyboard.dismiss} style={styles.keyboardAccessoryButton}>
-              <MaterialIcons name="check" size={20} color="#1A2332" />
-            </Pressable>
-          </View>
-        </InputAccessoryView>
+        <KeyboardDismissAccessory nativeID={keyboardAccessoryId} />
       ) : null}
     </KeyboardAvoidingView>
   );
@@ -1158,24 +1151,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.72,
-  },
-  keyboardAccessoryBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#D7E0E8',
-    backgroundColor: '#F7FAFD',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  keyboardAccessorySpacer: {
-    flex: 1,
-  },
-  keyboardAccessoryButton: {
-    minWidth: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
   },
 });
