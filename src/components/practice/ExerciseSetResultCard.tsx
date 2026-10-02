@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 242,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 18,
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingTop: 25,
     paddingBottom: 25,
     boxShadow: `5px 6px 0px ${theme.colors.shadow}`,
   },
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   scoreWrap: {
     position: 'relative',
     alignSelf: 'center',
-    marginTop: 5,
+    marginTop: 10,
   },
   score: {
     fontFamily: theme.typography.fontFaces.en.bold,

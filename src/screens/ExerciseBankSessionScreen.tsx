@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -398,9 +397,11 @@ export function ExerciseBankSessionScreen() {
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const copy = getCopy(uiLanguage);
-  const params = useLocalSearchParams<{ topicId?: string | string[]; setNumber?: string | string[] }>();
+  const params = useLocalSearchParams<{ topicId?: string | string[]; setNumber?: string | string[]; returnTo?: string | string[] }>();
   const topicId = getParam(params.topicId);
   const setNumberParam = getParam(params.setNumber);
+  const returnToParam = getParam(params.returnTo);
+  const returnTo = returnToParam.startsWith('/(tabs)/resources') ? returnToParam : null;
   const setNumber = Number.parseInt(setNumberParam, 10);
   const hasSetNumber = Number.isInteger(setNumber) && setNumber > 0;
   const [topicDetail, setTopicDetail] = useState<ExerciseBankTopicDetail | null>(null);
@@ -535,6 +536,12 @@ export function ExerciseBankSessionScreen() {
   const currentQuestion = questionsById.get(queue[queueIndex]);
   const currentResult = currentQuestion ? results[currentQuestion.id] : undefined;
   const latestCorrectCount = queue.filter((questionId) => results[questionId]?.correct === true).length;
+
+  const handleExitToBank = () => {
+    router.replace(returnTo
+      ? `/(tabs)/exercises?returnTo=${encodeURIComponent(returnTo)}`
+      : '/(tabs)/exercises');
+  };
 
   const submit = async () => {
     if (!currentQuestion) return;
@@ -676,7 +683,7 @@ export function ExerciseBankSessionScreen() {
         router.setParams({ setNumber: String(nextSet.set_number) });
         return;
       }
-      router.replace('/(tabs)/exercises');
+      handleExitToBank();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : copy.loadError);
     } finally {
@@ -692,7 +699,7 @@ export function ExerciseBankSessionScreen() {
         <AppText language={uiLanguage} variant="body" style={styles.stateTitle}>{copy.loadError}</AppText>
         <AppText language={uiLanguage} variant="muted" style={styles.stateBody}>{errorMessage}</AppText>
         <Button title={copy.tryAgain} language={uiLanguage} onPress={() => void load()} />
-        <Button title={copy.backToTopics} language={uiLanguage} variant="outline" onPress={() => router.back()} />
+        <Button title={copy.backToTopics} language={uiLanguage} variant="outline" onPress={handleExitToBank} />
       </View>
     );
   }
@@ -706,7 +713,7 @@ export function ExerciseBankSessionScreen() {
               language={uiLanguage}
               title={localizedTopicDetail?.display_title ?? ''}
               subtitle={copy.chooseSet}
-              onBackPress={() => router.back()}
+              onBackPress={handleExitToBank}
             />
           </View>
           <View style={styles.pickerContent}>
@@ -745,7 +752,7 @@ export function ExerciseBankSessionScreen() {
               <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
             </View>
             <View style={styles.headerActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={() => router.back()}>
+              <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
               <LanguageToggle />
@@ -778,7 +785,7 @@ export function ExerciseBankSessionScreen() {
               <Pressable
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.completionButton, styles.completionNextButton, pressed ? styles.practiceCheckButtonPressed : null]}
-                onPress={isPerfect ? () => router.replace('/(tabs)/exercises') : goToNextSet}>
+                onPress={isPerfect ? handleExitToBank : goToNextSet}>
                 <AppText language={uiLanguage} variant="caption" style={styles.completionButtonText}>
                   {isPerfect ? copy.chooseNewTopic : hasNextSet ? copy.goNextSet : copy.backToBank}
                 </AppText>
@@ -823,7 +830,7 @@ export function ExerciseBankSessionScreen() {
               <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
             </View>
             <View style={styles.headerActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={() => router.back()}>
+              <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
               <LanguageToggle />

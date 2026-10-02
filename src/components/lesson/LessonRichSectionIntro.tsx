@@ -27,7 +27,8 @@ export type LessonSectionIntroType =
   | 'common_mistake'
   | 'culture_note'
   | 'phrases_verbs'
-  | 'practice';
+  | 'practice'
+  | 'speaking_practice';
 
 type LessonRichSectionIntroProps = {
   sectionType: LessonSectionIntroType;
@@ -36,6 +37,7 @@ type LessonRichSectionIntroProps = {
   bottomInset: number;
   position: number;
   total: number;
+  badgeLabel?: string;
   onContinue: () => void;
   onClose: () => void;
 };
@@ -174,6 +176,17 @@ const introCopy = {
     },
     artwork: placeholderArtwork,
   },
+  speaking_practice: {
+    en: {
+      title: 'Speak',
+      body: 'Put what you learned into practice by speaking out loud!',
+    },
+    th: {
+      title: 'ฝึกพูด',
+      body: 'นำสิ่งที่คุณเรียนรู้มาฝึกพูดออกเสียงจริง',
+    },
+    artwork: require('@/assets/images/speaking-coach/pailin-time-to-speak.webp'),
+  },
 } as const;
 
 export function LessonRichSectionIntro({
@@ -183,6 +196,7 @@ export function LessonRichSectionIntro({
   bottomInset,
   position,
   total,
+  badgeLabel,
   onContinue,
   onClose,
 }: LessonRichSectionIntroProps) {
@@ -190,8 +204,10 @@ export function LessonRichSectionIntro({
   const config = introCopy[sectionType];
   const copy = config[language];
   const cardWidth = Math.min(width - 80, 315);
-  const cardHeight = Math.min(435, Math.max(400, cardWidth * 1.35));
   const usesCompactTitle = copy.title.length > 13;
+  const usesSingleLineFeatureTitle =
+    language === 'en' && (sectionType === 'culture_note' || sectionType === 'phrases_verbs');
+  const titleLineCount = usesSingleLineFeatureTitle ? 1 : 2;
   const [isLeaving, setIsLeaving] = useState(false);
   const opacity = useSharedValue(1);
   const screenAnimation = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -222,12 +238,12 @@ export function LessonRichSectionIntro({
         <Animated.View
           entering={FadeInDown.duration(220).reduceMotion(ReduceMotion.System)}
           style={styles.cardEntry}>
-          <View style={[styles.card, { width: cardWidth, height: cardHeight }]}>
+          <View style={[styles.card, { width: cardWidth }]}>
             <View pointerEvents="none" style={styles.progressBadgeWrap}>
               <View style={styles.progressBadgeShadow} />
               <View style={styles.progressBadge}>
                 <AppText language="en" style={styles.progressBadgeText}>
-                  {`${position} / ${total}`}
+                  {badgeLabel ?? `${position} / ${total}`}
                 </AppText>
               </View>
             </View>
@@ -238,30 +254,14 @@ export function LessonRichSectionIntro({
               <View style={[styles.decorativeMark, styles.decorativeMarkThree]} />
             </View>
 
-            <View style={styles.artworkWrap}>
-              <Image source={config.artwork} contentFit="contain" style={styles.artwork} />
-            </View>
-            <View style={styles.titleWrap}>
-              <AppText
-                language={language}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-                style={[
-                  styles.title,
-                  styles.titleLayer,
-                  styles.titleOutline,
-                  usesCompactTitle ? styles.titleCompact : null,
-                  language === 'th' ? styles.titleThai : null,
-                  { transform: [{ translateX: 3 }, { translateY: 5 }] },
-                ]}>
-                {copy.title}
-              </AppText>
-              {TITLE_OUTLINE_OFFSETS.map((offset) => (
+            <View style={styles.content}>
+              <View style={styles.artworkWrap}>
+                <Image source={config.artwork} contentFit="contain" style={styles.artwork} />
+              </View>
+              <View style={styles.titleWrap}>
                 <AppText
-                  key={`${offset.x}:${offset.y}`}
                   language={language}
-                  numberOfLines={2}
+                  numberOfLines={titleLineCount}
                   adjustsFontSizeToFit
                   minimumFontScale={0.72}
                   style={[
@@ -269,28 +269,49 @@ export function LessonRichSectionIntro({
                     styles.titleLayer,
                     styles.titleOutline,
                     usesCompactTitle ? styles.titleCompact : null,
+                    usesSingleLineFeatureTitle ? styles.titleSingleLineFeature : null,
                     language === 'th' ? styles.titleThai : null,
-                    { transform: [{ translateX: offset.x }, { translateY: offset.y }] },
+                    { transform: [{ translateX: 3 }, { translateY: 5 }] },
                   ]}>
                   {copy.title}
                 </AppText>
-              ))}
-              <AppText
-                language={language}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-                style={[
-                  styles.title,
-                  usesCompactTitle ? styles.titleCompact : null,
-                  language === 'th' ? styles.titleThai : null,
-                ]}>
-                {copy.title}
+                {TITLE_OUTLINE_OFFSETS.map((offset) => (
+                  <AppText
+                    key={`${offset.x}:${offset.y}`}
+                    language={language}
+                    numberOfLines={titleLineCount}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                    style={[
+                      styles.title,
+                      styles.titleLayer,
+                      styles.titleOutline,
+                      usesCompactTitle ? styles.titleCompact : null,
+                      usesSingleLineFeatureTitle ? styles.titleSingleLineFeature : null,
+                      language === 'th' ? styles.titleThai : null,
+                      { transform: [{ translateX: offset.x }, { translateY: offset.y }] },
+                    ]}>
+                    {copy.title}
+                  </AppText>
+                ))}
+                <AppText
+                  language={language}
+                  numberOfLines={titleLineCount}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                  style={[
+                    styles.title,
+                    usesCompactTitle ? styles.titleCompact : null,
+                    usesSingleLineFeatureTitle ? styles.titleSingleLineFeature : null,
+                    language === 'th' ? styles.titleThai : null,
+                  ]}>
+                  {copy.title}
+                </AppText>
+              </View>
+              <AppText language={language} style={[styles.body, language === 'th' ? styles.bodyThai : null]}>
+                {copy.body}
               </AppText>
             </View>
-            <AppText language={language} style={[styles.body, language === 'th' ? styles.bodyThai : null]}>
-              {copy.body}
-            </AppText>
           </View>
         </Animated.View>
       </View>
@@ -339,6 +360,7 @@ const styles = StyleSheet.create({
   card: {
     position: 'relative',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 13,
@@ -410,6 +432,12 @@ const styles = StyleSheet.create({
     right: -1,
     transform: [{ rotate: '80deg' }],
   },
+  content: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: -30,
+    transform: [{ translateY: -30 }],
+  },
   artworkWrap: {
     width: '96%',
     height: 180,
@@ -447,6 +475,10 @@ const styles = StyleSheet.create({
   titleCompact: {
     fontSize: 39,
     lineHeight: 47,
+  },
+  titleSingleLineFeature: {
+    fontSize: 35,
+    lineHeight: 43,
   },
   titleThai: {
     fontSize: 37,

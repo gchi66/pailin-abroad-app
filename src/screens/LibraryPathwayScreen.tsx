@@ -17,6 +17,7 @@ import { LibraryStageLevelSelector } from '@/src/components/lesson/LibraryStageL
 import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { getLevelBackstory } from '@/src/content/level-backstories';
@@ -179,12 +180,15 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
               <AppText language={language} variant="title" style={[styles.headerTitle, { fontFamily: theme.typography.fontFaces[language].bold }]}>{title}</AppText>
               {!hasMembership ? <MaterialIcons name="arrow-drop-down" size={25} color={theme.colors.text} /> : null}
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? (th ? 'ปิดการค้นหา' : 'Close search') : (th ? 'ค้นหาบทเรียน' : 'Search lessons')}
-              style={styles.searchButton} onPress={() => {
-                setLibraryMenu(false);
-                if (searchOpen) closeSearch();
-                else { beforeSearchY.current = scrollY.current; setSearchOpen(true); }
-              }}><MaterialIcons name={searchOpen ? 'close' : 'search'} size={25} color={theme.colors.text} /></Pressable>
+            <View style={styles.headerActions}>
+              <LanguageToggle />
+              <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? (th ? 'ปิดการค้นหา' : 'Close search') : (th ? 'ค้นหาบทเรียน' : 'Search lessons')}
+                style={styles.searchButton} onPress={() => {
+                  setLibraryMenu(false);
+                  if (searchOpen) closeSearch();
+                  else { beforeSearchY.current = scrollY.current; setSearchOpen(true); }
+                }}><MaterialIcons name={searchOpen ? 'close' : 'search'} size={25} color={theme.colors.text} /></Pressable>
+            </View>
           </View>
           {libraryMenu ? <View style={styles.libraryMenuShadow}><View style={styles.libraryMenu}>{[false, true].map((free) => {
             const active = free === freeOnly;
@@ -302,7 +306,9 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   headerArea: { position: 'relative', zIndex: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
-  headerTitleTouch: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center' }, headerTitle: { fontSize: 20, lineHeight: 28 }, searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitleTouch: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center' }, headerTitle: { fontSize: 20, lineHeight: 28 },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   searchInput: { borderWidth: 1, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 14, color: '#222222' },
   libraryMenuShadow: { position: 'absolute', top: 46, left: 4, width: 294, maxWidth: '100%', borderRadius: 5, backgroundColor: '#222222', zIndex: 30, elevation: 12 },
   libraryMenu: { borderWidth: 1, borderColor: '#222222', borderRadius: 5, backgroundColor: '#FFFFFF', paddingVertical: 7, transform: [{ translateX: -2 }, { translateY: -2 }] },
@@ -315,7 +321,7 @@ const styles = StyleSheet.create({
   lessonList: { marginHorizontal: 20 }, lessonRow: { paddingBottom: 22, position: 'relative' },
   connector: { position: 'absolute', left: 22, top: 20, bottom: -1, borderLeftWidth: 2, borderStyle: 'dashed', borderColor: '#DDDDDD' }, connectorActive: { borderStyle: 'solid', borderColor: '#2860F0' },
   cardArea: { position: 'relative' }, cardShadow: { backgroundColor: '#222222', borderRadius: 10 },
-  card: { paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  card: { justifyContent: 'center', paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
   cardWithIcon: { paddingRight: 82, minHeight: 88 },
   strongCard: { borderColor: '#222222' }, selectedCard: { backgroundColor: '#BFEDFC' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 }, lessonNumber: { fontSize: 12, lineHeight: 18, fontFamily: theme.typography.fontFaces.en.bold }, topic: { flex: 1, fontSize: 12, lineHeight: 18, color: '#666666' },

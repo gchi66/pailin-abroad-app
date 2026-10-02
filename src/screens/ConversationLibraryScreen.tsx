@@ -32,6 +32,7 @@ export function ConversationLibraryScreen() {
   const [lessons, setLessons] = useState<ConversationLibraryLesson[]>([]);
   const [selection, setSelection] = useState<{ stage: LibraryStage; level: number | null }>({ stage: savedSelection.stage, level: savedSelection.level });
   const [stageOpen, setStageOpen] = useState(false);
+  const [wrappedLessonTitles, setWrappedLessonTitles] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastLibrarySelection = useRef<{ stage: LibraryStage; level: number | null } | null>(null);
@@ -89,21 +90,23 @@ export function ConversationLibraryScreen() {
           {!loading && !error && lessons.length === 0 ? <AppText variant="body" style={styles.empty}>No conversations are available yet.</AppText> : null}
 
           {!loading && !error && stages.length > 0 ? (
-            <LibraryStageLevelSelector
-              language={uiLanguage}
-              stage={selection.stage}
-              stages={stages}
-              level={selection.level}
-              levels={levels}
-              stageOpen={stageOpen}
-              bottomMargin={9}
-              onToggleStage={() => setStageOpen((value) => !value)}
-              onSelectStage={(stage) => {
-                const first = lessons.find((lesson) => stageOf(levelOf(lesson)) === stage);
-                setSelection({ stage, level: first ? levelOf(first) : null });
-              }}
-              onSelectLevel={(level) => setSelection({ stage: selection.stage, level })}
-            />
+            <View style={styles.selectorWrap}>
+              <LibraryStageLevelSelector
+                language={uiLanguage}
+                stage={selection.stage}
+                stages={stages}
+                level={selection.level}
+                levels={levels}
+                stageOpen={stageOpen}
+                bottomMargin={9}
+                onToggleStage={() => setStageOpen((value) => !value)}
+                onSelectStage={(stage) => {
+                  const first = lessons.find((lesson) => stageOf(levelOf(lesson)) === stage);
+                  setSelection({ stage, level: first ? levelOf(first) : null });
+                }}
+                onSelectLevel={(level) => setSelection({ stage: selection.stage, level })}
+              />
+            </View>
           ) : null}
 
           {!loading && !error ? (
@@ -113,13 +116,14 @@ export function ConversationLibraryScreen() {
                 const number = lesson.lesson_external_id ?? `${lesson.level}.${lesson.lesson_order}`;
                 const isCheckpoint = number.toLowerCase().endsWith('.chp');
                 const iconSource = getLessonIconSource(lessonNumber(lesson));
+                const titleLayoutKey = `${uiLanguage}:${lesson.id}`;
                 return (
                   <Pressable
                     key={lesson.id}
                     accessibilityRole="button"
                     accessibilityLabel={`${number} ${title}`}
                     onPress={() => router.push({ pathname: '/conversations/[id]', params: { id: lesson.id } })}
-                    style={styles.lessonRow}>
+                    style={[styles.lessonRow, wrappedLessonTitles[titleLayoutKey] ? styles.lessonRowWrapped : null]}>
                     <AppText
                       variant="caption"
                       numberOfLines={1}
@@ -127,7 +131,20 @@ export function ConversationLibraryScreen() {
                       {number}
                     </AppText>
                     {iconSource ? <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} /> : null}
-                    <AppText language={uiLanguage} variant="body" numberOfLines={2} style={styles.lessonTitle}>{title}</AppText>
+                    <AppText
+                      language={uiLanguage}
+                      variant="body"
+                      numberOfLines={2}
+                      onTextLayout={({ nativeEvent }) => {
+                        if (nativeEvent.lines.length > 1) {
+                          setWrappedLessonTitles((current) => current[titleLayoutKey]
+                            ? current
+                            : { ...current, [titleLayoutKey]: true });
+                        }
+                      }}
+                      style={styles.lessonTitle}>
+                      {title}
+                    </AppText>
                     <MaterialIcons name="chevron-right" size={21} color={theme.colors.text} />
                   </Pressable>
                 );
@@ -144,12 +161,14 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8FBFF' },
   content: { paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  illustration: { position: 'absolute', right: 4, bottom: -12, width: 112, height: 86 },
+  illustration: { position: 'absolute', right: 4, bottom: -20, width: 112, height: 86 },
+  selectorWrap: { marginTop: 8 },
   loading: { marginTop: 50 },
   error: { marginTop: 28, color: theme.colors.error },
   empty: { marginTop: 28 },
   lessonList: { marginTop: 6, marginHorizontal: 14 },
   lessonRow: { minHeight: 39, borderBottomWidth: 1, borderBottomColor: '#E1E6EC', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingVertical: 3 },
+  lessonRowWrapped: { minHeight: 54, paddingVertical: 8 },
   lessonNumber: { width: 32, fontSize: 12, fontWeight: '700' },
   checkpointLessonNumber: { fontSize: 10, lineHeight: 15 },
   lessonIcon: { width: 34, height: 34, flexShrink: 0 },

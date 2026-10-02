@@ -57,7 +57,11 @@ export function NavigationCard({
       style={styles.pressable}>
       <AndroidNeoShadowLayer borderRadius={12} color={theme.colors.border} offset={3} />
       <View style={styles.card}>
-        <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={12} borderWidth={1} />
+        <InsetBorderSurface
+          backgroundColor={theme.colors.surface}
+          borderRadius={12}
+          borderWidth={theme.borderWidths.primaryCard}
+        />
         {imageSource ? (
           <Image source={imageSource} style={[styles.image, imageStyle]} resizeMode={imageResizeMode} />
         ) : leadingElement ? (

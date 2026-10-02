@@ -64,8 +64,8 @@ export function LibraryStageLevelSelector({
             {stageOpen ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collapsibleStages}>
                 {LIBRARY_STAGES.filter((value) => stages.includes(value)).map((value) => (
-                  <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === stage }} onPress={() => onSelectStage(value)} style={styles.collapsibleStageTouch}>
-                    <View style={[styles.stagePill, value === stage ? styles.collapsibleActiveStage : null]}>
+                  <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === stage }} onPress={() => onSelectStage(value)} style={[styles.collapsibleStageTouch, th ? styles.collapsibleStageTouchThai : null]}>
+                    <View style={[styles.stagePill, th ? styles.stagePillThai : null, value === stage ? styles.collapsibleActiveStage : null]}>
                       <AppText language={language} variant="caption" style={[styles.collapsibleStageName, value === stage ? styles.collapsibleActiveStageText : null]}>{stageLabel(value)}</AppText>
                     </View>
                   </Pressable>
@@ -107,7 +107,9 @@ const styles = StyleSheet.create({
   collapsibleStageName: { fontSize: 12, lineHeight: 18, letterSpacing: 0.65, textTransform: 'uppercase' },
   collapsibleStages: { flexGrow: 1, justifyContent: 'space-between', gap: 4, paddingHorizontal: 4, paddingTop: 4, paddingBottom: 4 },
   collapsibleStageTouch: { padding: 4, justifyContent: 'center', minHeight: 32 },
+  collapsibleStageTouchThai: { flex: 1, minWidth: 0, alignItems: 'stretch' },
   stagePill: { borderRadius: 4, backgroundColor: '#EEEEEE', paddingHorizontal: 5, paddingVertical: 2 },
+  stagePillThai: { alignItems: 'center', paddingHorizontal: 8 },
   collapsibleActiveStage: { backgroundColor: '#2860F0' },
   collapsibleActiveStageText: { color: '#FFFFFF' },
   levelScroll: { borderBottomLeftRadius: 9, borderBottomRightRadius: 9, overflow: 'hidden' },

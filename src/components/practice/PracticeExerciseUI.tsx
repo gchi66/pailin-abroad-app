@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     color: fillBlankColors.text,
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: theme.typography.weights.medium,
+    fontWeight: theme.typography.weights.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },

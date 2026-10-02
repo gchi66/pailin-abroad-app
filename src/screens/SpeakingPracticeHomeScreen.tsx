@@ -110,21 +110,23 @@ export function SpeakingPracticeHomeScreen() {
           ) : null}
 
           {!loading && !error && stages.length > 0 ? (
-            <LibraryStageLevelSelector
-              language={uiLanguage}
-              stage={selection.stage}
-              stages={stages}
-              level={selection.level}
-              levels={levels}
-              stageOpen={stageOpen}
-              bottomMargin={9}
-              onToggleStage={() => setStageOpen((value) => !value)}
-              onSelectStage={(stage) => {
-                const firstLevel = lessons.find((lesson) => stageOf(levelOf(lesson.lesson_external_id)) === stage);
-                setSelection({ stage, level: firstLevel ? levelOf(firstLevel.lesson_external_id) : null });
-              }}
-              onSelectLevel={(level) => setSelection({ stage: selection.stage, level })}
-            />
+            <View style={styles.selectorWrap}>
+              <LibraryStageLevelSelector
+                language={uiLanguage}
+                stage={selection.stage}
+                stages={stages}
+                level={selection.level}
+                levels={levels}
+                stageOpen={stageOpen}
+                bottomMargin={9}
+                onToggleStage={() => setStageOpen((value) => !value)}
+                onSelectStage={(stage) => {
+                  const firstLevel = lessons.find((lesson) => stageOf(levelOf(lesson.lesson_external_id)) === stage);
+                  setSelection({ stage, level: firstLevel ? levelOf(firstLevel.lesson_external_id) : null });
+                }}
+                onSelectLevel={(level) => setSelection({ stage: selection.stage, level })}
+              />
+            </View>
           ) : null}
 
           {!loading && !error ? (
@@ -167,7 +169,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8FBFF' },
   content: { paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   page: { paddingHorizontal: 18, paddingTop: 12 },
-  pailin: { position: 'absolute', right: 0, bottom: -12, width: 118, height: 92, transform: [{ scaleX: -1 }] },
+  pailin: { position: 'absolute', right: 0, bottom: -20, width: 118, height: 92, transform: [{ scaleX: -1 }] },
+  selectorWrap: { marginTop: 8 },
   loading: { marginTop: 50 },
   error: { marginTop: 28, color: theme.colors.error },
   empty: { marginTop: 28 },

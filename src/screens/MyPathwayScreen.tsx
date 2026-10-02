@@ -5,14 +5,14 @@ import type { ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import exerciseBankImage from '@/assets/images/resources_exercise_bank.webp';
 import lockWhiteImage from '@/assets/images/lock-white.png';
 import pathwayExerciseBankImage from '@/assets/images/my-pathway-exercise-bank.png';
 import pathwayNextLessonImage from '@/assets/images/my-pathway-next-lesson.png';
 import pathwayProgressImage from '@/assets/images/my-pathway-progress.png';
 import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
-import { resolveLocalLessonHeaderImage } from '@/src/assets/lesson-header-images';
+import { getLessonIconSource } from '@/src/assets/lesson-icons';
+import { resourceCardImages } from '@/src/assets/resource-images';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
@@ -31,7 +31,6 @@ import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { getFreePathwaySummary } from '@/src/lib/free-pathway';
-import { env } from '@/src/config/env';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
@@ -177,24 +176,12 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   guestOverlayCta: 'Create free account',
 };
 
-function LessonArtwork({ path }: { path: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const localImage = resolveLocalLessonHeaderImage(path);
-  let normalized = path?.trim() || '';
-  if (normalized && !/^https?:\/\//i.test(normalized)) {
-    normalized = normalized.replace(/^\/+/, '').replace(/^lesson-images\//i, '').split(/[?#]/)[0];
-    if (!normalized.includes('/')) normalized = `headers/${normalized}`;
-    if (!/\.[a-z0-9]+$/i.test(normalized)) normalized += '.webp';
-    normalized = env.supabaseUrl ? `${env.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/lesson-images/${normalized}` : '';
-  }
-  const source = !failed && localImage
-    ? localImage
-    : normalized && !failed
-      ? { uri: normalized }
-      : pailinBlueCircleRight;
+function LessonArtwork({ lessonNumber }: { lessonNumber: string }) {
+  const source = getLessonIconSource(lessonNumber);
 
-  return <Image source={source}
-    onError={() => setFailed(true)} style={styles.lessonArtwork} resizeMode="contain" accessible={false} />;
+  return source
+    ? <Image source={source} style={styles.lessonArtwork} resizeMode="contain" accessible={false} />
+    : null;
 }
 
 const pickText = (preferred: string | null, fallback: string | null, emptyFallback: string) => {
@@ -610,7 +597,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                               focus={getLessonFocus(resumeRow.lesson, uiLanguage)}
                             />
                           </View>
-                          <LessonArtwork key={resumeRow.lesson.id} path={resumeRow.lesson.header_img} />
+                          <LessonArtwork key={resumeRow.lesson.id} lessonNumber={getLessonNumber(resumeRow.lesson)} />
                         </View>
                         <View style={styles.resumeLessonButtonWrap}>
                           <View pointerEvents="none" style={styles.resumeLessonButtonShadow} />
@@ -667,6 +654,21 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                 </Card>
               </Stack>
 
+              <Stack gap="sm">
+                {sectionLabel(copy.practice, pathwayExerciseBankImage)}
+                <Pressable accessibilityRole="button" accessibilityLabel={`${copy.exerciseBank}: ${copy.practice}`}
+                  onPress={() => router.push('/(tabs)/exercises')} style={styles.practiceCard}>
+                  <Image source={resourceCardImages['exercise-bank']} style={styles.practiceArtwork} resizeMode="contain" accessible={false} />
+                  <View style={styles.practiceCopy}>
+                    <AppText language={uiLanguage} variant="title" style={[styles.practiceTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.exerciseBank}</AppText>
+                    <AppText language={uiLanguage} variant="muted" style={styles.practiceBody}>{copy.practiceBody}</AppText>
+                  </View>
+                  <View style={styles.practiceButton}>
+                    <AppText language={uiLanguage} variant="caption" style={styles.smallCtaText}>{copy.practice}</AppText>
+                  </View>
+                </Pressable>
+              </Stack>
+
               {!hasMembership && !showGuestUi ? (
                 <Card style={styles.upgradeCard}>
                   {!freeCourseComplete ? (
@@ -685,21 +687,6 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                   </Pressable>
                 </Card>
               ) : null}
-
-              <Stack gap="sm">
-                {sectionLabel(copy.practice, pathwayExerciseBankImage)}
-                <Pressable accessibilityRole="button" accessibilityLabel={`${copy.exerciseBank}: ${copy.practice}`}
-                  onPress={() => router.push('/(tabs)/exercises')} style={styles.practiceCard}>
-                  <Image source={exerciseBankImage} style={styles.practiceArtwork} resizeMode="contain" accessible={false} />
-                  <View style={styles.practiceCopy}>
-                    <AppText language={uiLanguage} variant="title" style={[styles.practiceTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.exerciseBank}</AppText>
-                    <AppText language={uiLanguage} variant="muted" style={styles.practiceBody}>{copy.practiceBody}</AppText>
-                  </View>
-                  <View style={styles.practiceButton}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.smallCtaText}>{copy.practice}</AppText>
-                  </View>
-                </Pressable>
-              </Stack>
             </Stack>
           </View>
 
@@ -779,7 +766,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -theme.spacing.md,
     paddingHorizontal: theme.spacing.md,
     paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: theme.borderWidths.standard,
     borderColor: '#DDDDDD',
   },
   headerRow: {
@@ -865,7 +852,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     backgroundColor: '#FFF4E8',
-    borderWidth: 1.5,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
   },
@@ -888,7 +875,7 @@ const styles = StyleSheet.create({
   },
   guestOverlayButton: {
     minHeight: 56,
-    borderWidth: 2,
+    borderWidth: theme.borderWidths.emphasized,
     borderRadius: 28,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.primary,
@@ -927,6 +914,7 @@ const styles = StyleSheet.create({
   },
   resumeCard: {
     backgroundColor: '#EAF4FF',
+    borderWidth: theme.borderWidths.primaryCard,
     borderRadius: 5,
     padding: 18,
     paddingTop: 12,
@@ -1015,6 +1003,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   progressCard: {
+    borderWidth: theme.borderWidths.primaryCard,
     borderRadius: 7,
     borderColor: '#E0E0E0',
     padding: 16
@@ -1040,7 +1029,7 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 8,
     borderRadius: 5,
-    borderWidth: 0.75,
+    borderWidth: theme.borderWidths.progressTrack,
     borderColor: theme.colors.border,
     overflow: 'hidden',
     backgroundColor: '#EAF4FF'
@@ -1062,7 +1051,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 3,
     minHeight: 54,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.standard,
     borderColor: '#DEDEDE',
     borderRadius: 5,
     padding: 7
@@ -1093,6 +1082,7 @@ const styles = StyleSheet.create({
   },
   upgradeCard: {
     backgroundColor: '#FFFBE5',
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: '#EDC743',
     borderRadius: 10,
     padding: 14
@@ -1143,7 +1133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   libraryDivider: {
-    borderTopWidth: 1,
+    borderTopWidth: theme.borderWidths.standard,
     borderColor: '#CCC7AC',
     borderStyle: 'dashed',
     marginTop: 18,
@@ -1160,7 +1150,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     borderRadius: 5,
@@ -1186,7 +1176,7 @@ const styles = StyleSheet.create({
   },
   practiceButton: {
     minHeight: 32,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.standard,
     borderColor: theme.colors.border,
     borderRadius: 99,
     backgroundColor: '#BFEDFC',

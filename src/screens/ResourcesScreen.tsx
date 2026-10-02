@@ -138,9 +138,13 @@ export function ResourcesScreen() {
 
   const handleCardPress = (card: ResourceCardCopy) => {
     if (card.id === 'exercise-bank') {
-      router.push(returnTo
-        ? `/(tabs)/resources/exercise-bank?returnTo=${encodeURIComponent(returnTo)}`
-        : '/(tabs)/resources/exercise-bank');
+      const resourcesHref = returnTo
+        ? `/(tabs)/resources?returnTo=${encodeURIComponent(returnTo)}`
+        : '/(tabs)/resources';
+      router.push({
+        pathname: '/(tabs)/exercises',
+        params: { returnTo: resourcesHref },
+      });
     } else if (card.id === 'topic-library') {
       router.push(returnTo
         ? `/(tabs)/resources/topic-library?returnTo=${encodeURIComponent(returnTo)}`

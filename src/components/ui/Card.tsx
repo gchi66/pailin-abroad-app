@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   base: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.standard,
   },
 });

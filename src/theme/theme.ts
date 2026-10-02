@@ -30,6 +30,13 @@ export const theme = {
     xl: 999,
   },
 
+  borderWidths: {
+    progressTrack: 0.75,
+    standard: 1,
+    primaryCard: 1.5,
+    emphasized: 2,
+  },
+
   typography: {
     fonts: {
       en: 'Poppins',

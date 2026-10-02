@@ -6,7 +6,7 @@ type ResourcePageHeaderProps = {
   language: 'en' | 'th';
   title: string;
   subtitle?: string;
-  onBackPress: () => void;
+  onBackPress?: () => void;
   backLabel?: string;
   illustration?: React.ReactNode;
   rightElement?: React.ReactNode;

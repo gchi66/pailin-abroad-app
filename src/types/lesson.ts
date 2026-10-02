@@ -146,6 +146,7 @@ export type LessonQuestionOption = {
 
 export type ResolvedLessonExercise = {
   id?: string | null;
+  practice_priority?: 'core' | 'extra' | null;
   [key: string]: unknown;
 };
 

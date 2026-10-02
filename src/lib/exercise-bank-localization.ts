@@ -35,10 +35,12 @@ export const localizeExerciseBankTopic = <T extends LocalizableTopic>(
 ): T => ({
   ...topic,
   topic: localizedText(topic.topic_en ?? topic.topic, topic.topic_th, language),
+  // Topic display titles are course labels and intentionally stay consistent
+  // with the concise English titles in both interface languages.
   display_title: localizedText(
     topic.display_title_en ?? topic.display_title,
     topic.display_title_th,
-    language
+    'en'
   ),
 });
 

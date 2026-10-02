@@ -71,9 +71,12 @@ export function ExerciseBankCollectionScreen() {
   const params = useLocalSearchParams<{
     collectionSlug?: string | string[];
     search?: string | string[];
+    returnTo?: string | string[];
   }>();
   const collectionSlug = getParam(params.collectionSlug);
   const searchTerm = getParam(params.search).trim();
+  const returnToParam = getParam(params.returnTo);
+  const returnTo = returnToParam.startsWith('/(tabs)/resources') ? returnToParam : null;
   const collection = getExerciseBankCollection(collectionSlug);
   const [topics, setTopics] = useState<ExerciseBankTopic[]>([]);
   const [tenseFilter, setTenseFilter] = useState<TenseFilter>('present_tense');
@@ -145,8 +148,18 @@ export function ExerciseBankCollectionScreen() {
     prefetchExerciseBankV2Session(topic.id, activeSetNumber);
     router.push({
       pathname: '/(tabs)/exercises/topic/[topicId]',
-      params: { topicId: String(topic.id), setNumber: String(activeSetNumber) },
+      params: {
+        topicId: String(topic.id),
+        setNumber: String(activeSetNumber),
+        ...(returnTo ? { returnTo } : {}),
+      },
     });
+  };
+
+  const handleBackToBank = () => {
+    router.replace(returnTo
+      ? `/(tabs)/exercises?returnTo=${encodeURIComponent(returnTo)}`
+      : '/(tabs)/exercises');
   };
 
   const visibleTopics = useMemo(() => {
@@ -177,7 +190,7 @@ export function ExerciseBankCollectionScreen() {
               language={uiLanguage}
               title={copy.pageTitle}
               subtitle={collection?.label[uiLanguage]}
-              onBackPress={() => router.back()}
+              onBackPress={handleBackToBank}
             />
           </View>
 
@@ -246,7 +259,7 @@ export function ExerciseBankCollectionScreen() {
                         <InsetBorderSurface
                           backgroundColor={isLocked ? '#EAEAEA' : theme.colors.surface}
                           borderRadius={TOPIC_CARD_RADIUS}
-                          borderWidth={1.5}
+                          borderWidth={theme.borderWidths.primaryCard}
                         />
                         <View style={styles.topicCopy}>
                           <AppText language={uiLanguage} variant="body" style={styles.topicDisplayTitle}>
@@ -316,7 +329,7 @@ const styles = StyleSheet.create({
     minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.25,
+    borderWidth: theme.borderWidths.standard,
     borderColor: '#C8C8C8',
     borderRadius: 22,
     backgroundColor: theme.colors.surface,
@@ -401,7 +414,7 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 8,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.progressTrack,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
     backgroundColor: '#EEEEEE',

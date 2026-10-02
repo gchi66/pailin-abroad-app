@@ -42,12 +42,19 @@ import {
 } from '@/src/api/speaking-coach';
 import { upsertLessonCompletion } from '@/src/api/user';
 import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
+import {
+  getLessonContentLanguage,
+  hydrateLessonContentLanguage,
+  setLessonContentLanguage,
+  type LessonContentLanguage,
+} from '@/src/lib/lesson-content-language';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
-import { practiceColors, practiceNeoShadowStyle } from '@/src/components/practice/PracticeExerciseUI';
+import { LessonRichSectionIntro } from '@/src/components/lesson/LessonRichSectionIntro';
+import { PracticeAnswerFooter, practiceColors, practiceNeoShadowStyle } from '@/src/components/practice/PracticeExerciseUI';
 import { posthog } from '@/src/config/posthog';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
@@ -570,10 +577,22 @@ function SpeakingCoachTestScreen() {
     entry?: string;
     lessonId?: string;
     libraryRoute?: string;
+    requiredPracticeComplete?: string;
+    sectionPosition?: string;
+    sectionTotal?: string;
+    language?: string;
   }>();
+  const routeLessonLanguage: LessonContentLanguage | null =
+    params.language === 'en' || params.language === 'th' ? params.language : null;
+  const [lessonContentLanguage, setLocalLessonContentLanguage] = useState<LessonContentLanguage>(
+    routeLessonLanguage ?? getLessonContentLanguage
+  );
+  const [hasHydratedLessonLanguage, setHasHydratedLessonLanguage] = useState(Boolean(routeLessonLanguage));
   const resourceMode = params.entry === 'resources';
   const lessonMode = params.entry === 'lesson';
   const guidedMode = resourceMode || lessonMode;
+  const sectionPosition = Math.max(1, Number.parseInt(params.sectionPosition ?? '', 10) || 1);
+  const sectionTotal = Math.max(sectionPosition, Number.parseInt(params.sectionTotal ?? '', 10) || sectionPosition);
   const initialLessonId = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '1.1';
   const [lessonId, setLessonId] = useState(initialLessonId);
   const [selectedLevel, setSelectedLevel] = useState(lessonLevel(initialLessonId));
@@ -582,7 +601,8 @@ function SpeakingCoachTestScreen() {
   const [lessonOptionsError, setLessonOptionsError] = useState<string | null>(null);
   const [lesson, setLesson] = useState<SpeakingCoachLesson | null>(null);
   const [session, setSession] = useState<SpeakingCoachSession | null>(null);
-  const [showWelcome, setShowWelcome] = useState(!guidedMode);
+  const [showWelcome, setShowWelcome] = useState(!lessonMode);
+  const [showLessonIntro, setShowLessonIntro] = useState(lessonMode);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -606,6 +626,23 @@ function SpeakingCoachTestScreen() {
   const recordingOrdinalRef = useRef(0);
   const captureTraceRef = useRef<CaptureTrace | null>(null);
   const screenFocusedRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    if (routeLessonLanguage) {
+      setLessonContentLanguage(routeLessonLanguage);
+      setLocalLessonContentLanguage(routeLessonLanguage);
+      setHasHydratedLessonLanguage(true);
+      return () => { active = false; };
+    }
+
+    void hydrateLessonContentLanguage().then((language) => {
+      if (!active) return;
+      setLocalLessonContentLanguage(language);
+      setHasHydratedLessonLanguage(true);
+    });
+    return () => { active = false; };
+  }, [routeLessonLanguage]);
 
   const recorder = useAudioRecorder(SPEAKING_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 200);
@@ -795,7 +832,8 @@ function SpeakingCoachTestScreen() {
     setLoadError(null);
     setLesson(null);
     setSession(null);
-    setShowWelcome(!guidedMode);
+    setShowWelcome(!lessonMode);
+    setShowLessonIntro(lessonMode);
     setQuestionIndex(0);
     setPhase('prompt');
     setRecordedUri(null);
@@ -908,6 +946,20 @@ function SpeakingCoachTestScreen() {
       const lessonRecordId = suppliedLessonId;
       if (!lessonRecordId) {
         throw new Error('The lesson record could not be found.');
+      }
+
+      if (params.requiredPracticeComplete !== '1') {
+        bumpLessonLibraryProgressRefreshToken();
+        router.replace({
+          pathname: '/lessons/[id]',
+          params: {
+            id: lessonRecordId,
+            overview: '1',
+            speakingCompleted: '1',
+            ...(typeof params.libraryRoute === 'string' ? { libraryRoute: params.libraryRoute } : {}),
+          },
+        });
+        return;
       }
 
       await upsertLessonCompletion({ lessonId: lessonRecordId, completed: true });
@@ -1303,6 +1355,35 @@ function SpeakingCoachTestScreen() {
     }
   };
 
+  if (showLessonIntro && !hasHydratedLessonLanguage) {
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.fullState}>
+          <SpeakingCoachLoader title="" subtitle="" showCopy={false} />
+        </View>
+      </View>
+    );
+  }
+
+  if (showLessonIntro) {
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <LessonRichSectionIntro
+          sectionType="speaking_practice"
+          language={lessonContentLanguage}
+          topInset={insets.top}
+          bottomInset={insets.bottom}
+          position={sectionPosition}
+          total={sectionTotal}
+          onContinue={() => setShowLessonIntro(false)}
+          onClose={() => router.back()}
+        />
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.screen}>
@@ -1420,11 +1501,13 @@ function SpeakingCoachTestScreen() {
 
   const renderGuidedHeader = () => (
     <View style={styles.resourceHeader}>
-      <View style={styles.resourceHeaderCopy}>
-        <AppText variant="caption" style={styles.resourceLessonNumber}>{lessonId}</AppText>
-        <AppText variant="caption" numberOfLines={1} style={styles.resourceLessonTitle}>
-          {lesson?.title ?? ''}
-        </AppText>
+      <View style={styles.resourceHeaderSide} />
+      <View style={styles.resourceHeaderProgress}>
+        {!showWelcome ? (
+          completedPracticeSetId !== null
+            ? <CompletedSetProgress questionCount={lesson?.practice_sets.find(({ id }) => id === completedPracticeSetId)?.question_count ?? practiceSet.question_count} />
+            : <PracticeProgress {...activeQuestion} />
+        ) : null}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={lessonMode ? 'Back to lesson' : 'Back to Speaking Practice'} onPress={() => router.back()} style={styles.closeButton}>
         <MaterialIcons name="close" size={25} color={theme.colors.text} />
@@ -1436,7 +1519,7 @@ function SpeakingCoachTestScreen() {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        {renderLessonControls()}
+        {resourceMode ? renderGuidedHeader() : renderLessonControls()}
         <ScrollView
           style={styles.welcomeScroll}
           contentContainerStyle={[
@@ -1452,7 +1535,7 @@ function SpeakingCoachTestScreen() {
               style={styles.welcomeHeroImage}
               accessibilityLabel="Pailin inviting you to speak"
             />
-            <AppText variant="title" style={styles.welcomeTitle}>Time to speak!</AppText>
+            <AppText variant="title" style={styles.welcomeTitle}>Time to speak</AppText>
             <AppText variant="body" style={styles.welcomeSubtitle}>
               Put what you learned into practice{`\n`}by speaking out loud.
             </AppText>
@@ -1603,7 +1686,6 @@ function SpeakingCoachTestScreen() {
             playing={recordingPlayerStatus.playing}
           />
           {submitError ? <AppText variant="muted" style={styles.submitError}>{submitError}</AppText> : null}
-          <Button title="Submit recording" onPress={() => void submitRecording()} />
           <Button title="Record again" variant="outline" onPress={() => void startRecording()} />
         </UiStack>
       );
@@ -1620,9 +1702,6 @@ function SpeakingCoachTestScreen() {
             <AppText variant="muted" style={styles.sampleText}>Use sample audio (Simulator)</AppText>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()}>
-          <AppText variant="muted" style={styles.skipText}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
-        </Pressable>
       </UiStack>
     );
   };
@@ -1635,6 +1714,31 @@ function SpeakingCoachTestScreen() {
       />
     </View>
   );
+
+  const renderSubmissionFooter = () => {
+    const isVisible = phase === 'prompt' || phase === 'recording' || phase === 'review';
+    if (!isVisible) return null;
+
+    return (
+      <PracticeAnswerFooter
+        disabled={phase !== 'review' || !recordedUri}
+        language="en"
+        labels={{
+          check: 'SUBMIT ANSWER',
+          checking: 'SUBMITTING…',
+          continue: 'CONTINUE',
+          correct: 'Correct!',
+          incorrect: 'Try again',
+          clear: 'TRY AGAIN',
+          skip: skipPending ? 'SKIPPING…' : 'SKIP',
+        }}
+        onPrimary={() => void submitRecording()}
+        onSkip={() => void skipCurrentQuestion()}
+        status="idle"
+        style={[styles.speakingAnswerFooter, { paddingBottom: Math.max(10, insets.bottom + 6) }]}
+      />
+    );
+  };
 
   const renderCorrect = () => (
     <View style={styles.fullState}>
@@ -1786,9 +1890,7 @@ function SpeakingCoachTestScreen() {
           ? evaluation.displayed_issues.map((issue) => issue.description_en)
           : [evaluation.feedback_en]
       : [];
-    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review';
     const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
-
     const renderAttemptPanel = () => {
       if (phase === 'recording') {
         return (
@@ -1838,9 +1940,6 @@ function SpeakingCoachTestScreen() {
               </AppText>
             </Pressable>
             {submitError ? <AppText variant="caption" style={styles.pronunciationSubmitError}>{submitError}</AppText> : null}
-            <Pressable accessibilityRole="button" onPress={() => void submitRecording()} style={styles.pronunciationSubmitButton}>
-              <AppText variant="caption" style={styles.pronunciationSubmitLabel}>SUBMIT ANSWER</AppText>
-            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
               <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
               <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
@@ -1852,7 +1951,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'prompt') {
         const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
-          <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard]}>
+          <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard, styles.speakingPromptActionCard]}>
             <AppText variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
               {isRetryAttempt ? 'Try again!' : 'Your turn!'}
             </AppText>
@@ -1871,6 +1970,7 @@ function SpeakingCoachTestScreen() {
     };
 
     return (
+      <View style={styles.speakingExperience}>
       <ScrollView
         style={styles.pronunciationScroll}
         contentContainerStyle={[
@@ -1881,7 +1981,6 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <PracticeProgress {...activeQuestion} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>PRONUNCIATION PRACTICE</AppText>
 
         <PailinCoachBubble tone={coachTone} instruction="Listen, then repeat!" plain overlapCard />
@@ -1910,12 +2009,6 @@ function SpeakingCoachTestScreen() {
         </View>
 
         {renderAttemptPanel()}
-
-        {showSkip ? (
-          <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
-          </Pressable>
-        ) : null}
 
         {showResultFooter ? (
           <View
@@ -1989,6 +2082,8 @@ function SpeakingCoachTestScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {renderSubmissionFooter()}
+      </View>
     );
   };
 
@@ -2022,9 +2117,6 @@ function SpeakingCoachTestScreen() {
           : [evaluation.feedback_en]
       : [];
     const learnerTranscript = evaluation?.transcript?.trim() || null;
-    const showSkip = phase === 'prompt'
-      || phase === 'recording'
-      || phase === 'review';
     const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
     const example = question.examples[0];
 
@@ -2120,9 +2212,6 @@ function SpeakingCoachTestScreen() {
             {submitError ? (
               <AppText variant="caption" style={styles.pronunciationSubmitError}>{submitError}</AppText>
             ) : null}
-            <Pressable accessibilityRole="button" onPress={() => void submitRecording()} style={styles.pronunciationSubmitButton}>
-              <AppText variant="caption" style={styles.pronunciationSubmitLabel}>SUBMIT ANSWER</AppText>
-            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
               <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
               <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
@@ -2134,7 +2223,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'prompt') {
         const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.speakingPromptActionCard]}>
             <AppText variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>
               {isRetryAttempt ? 'Try again!' : 'Respond to the question'}
             </AppText>
@@ -2159,6 +2248,7 @@ function SpeakingCoachTestScreen() {
     };
 
     return (
+      <View style={styles.speakingExperience}>
       <ScrollView
         style={styles.pronunciationScroll}
         contentContainerStyle={[
@@ -2169,7 +2259,6 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <PracticeProgress {...activeQuestion} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>CONVERSATION PRACTICE</AppText>
 
         <PailinCoachBubble tone={coachTone} instruction="Let’s chat!" plain overlapCard />
@@ -2252,19 +2341,6 @@ function SpeakingCoachTestScreen() {
 
         {renderAttemptPanel()}
 
-        {showSkip ? (
-          <Pressable
-            accessibilityRole="button"
-            disabled={skipPending}
-            onPress={() => void skipCurrentQuestion()}
-            style={styles.pronunciationSkipButton}
-          >
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>
-              {skipPending ? 'SKIPPING…' : 'SKIP'}
-            </AppText>
-          </Pressable>
-        ) : null}
-
         {showResultFooter ? (
           <View
             style={[
@@ -2335,6 +2411,8 @@ function SpeakingCoachTestScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {renderSubmissionFooter()}
+      </View>
     );
   };
 
@@ -2367,7 +2445,6 @@ function SpeakingCoachTestScreen() {
       : [];
     const learnerTranscript = evaluation?.transcript?.trim() || null;
     const hasReferenceAudio = Boolean(question.prompt_audio_url);
-    const showSkip = phase === 'prompt' || phase === 'recording' || phase === 'review';
     const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
     const example = question.examples[0];
 
@@ -2464,9 +2541,6 @@ function SpeakingCoachTestScreen() {
               </AppText>
             </Pressable>
             {submitError ? <AppText variant="caption" style={styles.pronunciationSubmitError}>{submitError}</AppText> : null}
-            <Pressable accessibilityRole="button" onPress={() => void submitRecording()} style={styles.pronunciationSubmitButton}>
-              <AppText variant="caption" style={styles.pronunciationSubmitLabel}>SUBMIT ANSWER</AppText>
-            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
               <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
               <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
@@ -2481,6 +2555,7 @@ function SpeakingCoachTestScreen() {
           <View style={[
             styles.pronunciationActionCard,
             styles.conversationActionCard,
+            styles.speakingPromptActionCard,
             isRetryAttempt ? styles.translationRetryActionCard : null,
           ]}>
             <AppText variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
@@ -2521,6 +2596,7 @@ function SpeakingCoachTestScreen() {
     };
 
     return (
+      <View style={styles.speakingExperience}>
       <ScrollView
         style={styles.pronunciationScroll}
         contentContainerStyle={[
@@ -2531,7 +2607,6 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <PracticeProgress {...activeQuestion} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>THAI TO ENGLISH</AppText>
 
         <PailinCoachBubble tone={coachTone} instruction="Say it in English!" plain overlapCard />
@@ -2593,12 +2668,6 @@ function SpeakingCoachTestScreen() {
         ) : null}
 
         {renderAttemptPanel()}
-
-        {showSkip ? (
-          <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.pronunciationSkipButton}>
-            <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
-          </Pressable>
-        ) : null}
 
         {showResultFooter ? (
           <View
@@ -2676,6 +2745,8 @@ function SpeakingCoachTestScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {renderSubmissionFooter()}
+      </View>
     );
   };
 
@@ -2708,7 +2779,6 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <CompletedSetProgress questionCount={completedSet.question_count} />
         <AppText variant="caption" style={styles.pronunciationEyebrow}>
           {TYPE_COPY[completedSet.practice_type].eyebrow}
         </AppText>
@@ -2790,7 +2860,7 @@ function SpeakingCoachTestScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>{renderFeedback()}</ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <PracticeProgress {...activeQuestion} />
+          {!guidedMode ? <PracticeProgress {...activeQuestion} /> : null}
           <AppText variant="caption" style={styles.eyebrow}>{typeCopy.eyebrow}</AppText>
           <View style={styles.introBlock}>
             <AppText variant="title" style={styles.mainTitle}>{typeCopy.title}</AppText>
@@ -2798,6 +2868,7 @@ function SpeakingCoachTestScreen() {
           </View>
           {renderPromptCard()}
           {renderRecordingArea()}
+          {renderSubmissionFooter()}
         </ScrollView>
       )}
     </View>
@@ -3017,6 +3088,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   setCompletionButtonIcon: { width: 16, height: 16 },
+  speakingExperience: { flex: 1 },
   pronunciationScroll: { flex: 1 },
   pronunciationScrollContent: {
     flexGrow: 1,
@@ -3128,18 +3200,18 @@ const styles = StyleSheet.create({
   pronunciationSentenceThai: { marginTop: 5, color: '#9A9A9A', fontSize: 12, lineHeight: 18, textAlign: 'center' },
   pronunciationPlaybackRow: {
     width: '100%',
-    marginTop: 14,
+    marginTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#D9D9D9',
     borderStyle: 'dashed',
-    paddingTop: 13,
+    paddingTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
   },
   pronunciationPlaybackRowResult: {
-    marginTop: 14,
+    marginTop: 8,
   },
   pronunciationPlaybackButton: {
     width: 140,
@@ -3178,6 +3250,7 @@ const styles = StyleSheet.create({
   pronunciationRecordingActionCard: {
     backgroundColor: practiceColors.incorrectPanel,
   },
+  speakingPromptActionCard: { paddingVertical: 24 },
   pronunciationActionTitle: { fontSize: 18, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
   microphoneActionTitle: { fontSize: 18, lineHeight: 24 },
   pronunciationActionHint: { marginTop: 1, color: '#969696', fontSize: 10, lineHeight: 15 },
@@ -3202,7 +3275,7 @@ const styles = StyleSheet.create({
   pronunciationMicButton: {
     width: 78,
     height: 78,
-    marginTop: 8,
+    marginTop: 12,
     borderRadius: 39,
     borderWidth: 8,
     borderColor: '#DBECFF',
@@ -3211,7 +3284,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pronunciationMicIcon: { width: 43, height: 43 },
-  pronunciationAttemptLabel: { marginTop: 7, color: '#969696', fontSize: 11, lineHeight: 16 },
+  pronunciationAttemptLabel: { marginTop: 11, color: '#969696', fontSize: 11, lineHeight: 16 },
   pronunciationReviewPlayback: {
     width: '100%',
     minHeight: 38,
@@ -3236,17 +3309,7 @@ const styles = StyleSheet.create({
   pronunciationReviewPlayIcon: { width: 23, height: 23 },
   pronunciationReviewLabel: { flex: 1, marginLeft: 6, fontSize: 11, lineHeight: 16, fontWeight: theme.typography.weights.semibold },
   pronunciationReviewDuration: { color: '#969696', fontSize: 10, lineHeight: 15 },
-  pronunciationSubmitButton: {
-    width: '68%',
-    minHeight: 36,
-    marginTop: 12,
-    borderRadius: 19,
-    backgroundColor: '#2F6EEA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pronunciationSubmitLabel: { color: theme.colors.surface, fontSize: 10, lineHeight: 15, fontWeight: theme.typography.weights.semibold },
-  pronunciationRedoButton: { marginTop: 9, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pronunciationRedoButton: { marginTop: 15, flexDirection: 'row', alignItems: 'center', gap: 4 },
   pronunciationRedoIcon: { width: 14, height: 14 },
   pronunciationRedoLabel: { fontSize: 10, lineHeight: 15 },
   pronunciationSubmitError: { marginTop: 7, color: theme.colors.error, fontSize: 10, lineHeight: 15, textAlign: 'center' },
@@ -3270,8 +3333,8 @@ const styles = StyleSheet.create({
   pronunciationFeedbackCopy: { flex: 1, gap: 3 },
   pronunciationFeedbackTitle: { fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   pronunciationFeedbackText: { fontSize: 12, lineHeight: 18 },
-  pronunciationSkipButton: { alignSelf: 'center', marginTop: 'auto', paddingHorizontal: 20, paddingTop: 28, paddingBottom: 8 },
   pronunciationSkipLabel: { color: '#666666', fontSize: 11, lineHeight: 15, fontWeight: theme.typography.weights.medium, textDecorationLine: 'underline' },
+  speakingAnswerFooter: { marginTop: 'auto' },
   inlineSkipButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 3 },
   pronunciationContinueButton: {
     width: '100%',
@@ -3528,8 +3591,8 @@ const styles = StyleSheet.create({
   },
   translationRecordingCoreWithHearPailin: { transform: [{ translateY: -10 }] },
   translationRetryActionCard: { minHeight: 230 },
-  translationRetryMicButton: { marginTop: 3 },
-  translationRetryAttemptLabel: { marginTop: 3 },
+  translationRetryMicButton: { marginTop: 10 },
+  translationRetryAttemptLabel: { marginTop: 9 },
   translationHearPailinButton: {
     minWidth: 112,
     minHeight: 30,
@@ -3553,10 +3616,9 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
   },
   topBar: { minHeight: 64, paddingHorizontal: theme.spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  resourceHeader: { width: '100%', maxWidth: 480, alignSelf: 'center', minHeight: 49, paddingLeft: 18, paddingRight: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  resourceHeaderCopy: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  resourceLessonNumber: { fontSize: 11, fontWeight: theme.typography.weights.bold },
-  resourceLessonTitle: { flex: 1, fontSize: 11 },
+  resourceHeader: { width: '100%', maxWidth: 480, alignSelf: 'center', minHeight: 49, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center' },
+  resourceHeaderSide: { width: 44, height: 44 },
+  resourceHeaderProgress: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   screenTitleBlock: { gap: 1 },
   screenEyebrow: { color: theme.colors.accent, fontWeight: theme.typography.weights.bold, letterSpacing: 0.5 },
   selectedLessonTitle: { fontWeight: theme.typography.weights.semibold },
@@ -3579,7 +3641,7 @@ const styles = StyleSheet.create({
   questionNavigationButton: { flex: 1, minHeight: 42, paddingVertical: theme.spacing.xs },
   questionNavigationCount: { minWidth: 54, textAlign: 'center' },
   scrollContent: { width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: theme.spacing.lg, paddingBottom: 48, gap: theme.spacing.lg },
-  progressRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingTop: theme.spacing.sm },
+  progressRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   progressConnector: {
     width: 32,
     marginHorizontal: 2,
@@ -3612,7 +3674,6 @@ const styles = StyleSheet.create({
   recordButton: { width: 104, height: 104, borderRadius: 52, backgroundColor: theme.colors.accent, borderWidth: 9, borderColor: '#A9D8FF', alignItems: 'center', justifyContent: 'center' },
   stopButton: { backgroundColor: theme.colors.primary, borderColor: '#FFC0C0' },
   recordingStatus: { color: theme.colors.primary, fontWeight: theme.typography.weights.bold },
-  skipText: { color: '#666666', fontSize: 11, lineHeight: 15, fontWeight: theme.typography.weights.medium, textDecorationLine: 'underline', padding: theme.spacing.sm },
   sampleText: { color: theme.colors.accent, textDecorationLine: 'underline', padding: theme.spacing.sm },
   reviewBlock: { width: '100%', paddingTop: theme.spacing.md },
   stateTitle: { textAlign: 'center', fontSize: 24, lineHeight: 32, fontWeight: theme.typography.weights.bold },

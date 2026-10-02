@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
@@ -69,12 +69,17 @@ const getCopy = (language: UiLanguage) =>
 
 export function ExerciseBankScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const { uiLanguage } = useUiLanguage();
   const { hasMembership } = useAppSession();
   const copy = getCopy(uiLanguage);
   const [topics, setTopics] = useState<ExerciseBankTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const returnToParam = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnTo = typeof returnToParam === 'string' && returnToParam.startsWith('/(tabs)/resources')
+    ? returnToParam
+    : null;
 
   useEffect(() => {
     let isMounted = true;
@@ -129,6 +134,7 @@ export function ExerciseBankScreen() {
       params: {
         collectionSlug: collection.slug,
         title: collection.label[uiLanguage],
+        ...(returnTo ? { returnTo } : {}),
       },
     });
   };
@@ -145,7 +151,7 @@ export function ExerciseBankScreen() {
             language={uiLanguage}
             title={copy.title}
             subtitle={copy.intro}
-            onBackPress={() => router.push('/(tabs)/resources')}
+            onBackPress={returnTo ? () => router.replace(returnTo as never) : undefined}
             illustration={<Image source={resourceCardImages['exercise-bank']} contentFit="contain" style={styles.headerIllustration} />}
           />
           <View style={styles.contentWrap}>
@@ -223,7 +229,7 @@ export function ExerciseBankScreen() {
                         <InsetBorderSurface
                           backgroundColor={collection.slug === 'verbs-and-tenses' ? '#C8F0FF' : theme.colors.surface}
                           borderRadius={theme.radii.lg}
-                          borderWidth={1.5}
+                          borderWidth={theme.borderWidths.primaryCard}
                         />
                         <AppText language="en" variant="body" style={styles.collectionEmoji}>
                           {collection.emoji}
@@ -273,7 +279,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: theme.radii.xl,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.standard,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     paddingLeft: theme.spacing.md,
