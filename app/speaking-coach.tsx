@@ -56,6 +56,7 @@ import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { LessonRichSectionIntro } from '@/src/components/lesson/LessonRichSectionIntro';
 import { PracticeAnswerFooter, practiceColors, practiceNeoShadowStyle } from '@/src/components/practice/PracticeExerciseUI';
 import { posthog } from '@/src/config/posthog';
+import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 import conversationPracticeImage from '@/assets/images/speaking-coach/conversation-practice.png';
 import correctFeedbackSound from '@/assets/audio/correct-sound-effect.mp3';
@@ -242,6 +243,27 @@ const TYPE_COPY: Record<
   },
 };
 
+const THAI_TYPE_COPY: typeof TYPE_COPY = {
+  pronunciation: {
+    eyebrow: 'ฝึกการออกเสียง',
+    title: 'ฟังแล้วพูดตาม',
+    subtitle: '',
+    recordLabel: 'แตะเพื่อพูดตาม',
+  },
+  open: {
+    eyebrow: 'ฝึกบทสนทนา',
+    title: 'มาคุยกัน!',
+    subtitle: 'ตอบคำถามด้านล่าง',
+    recordLabel: 'แตะเพื่อตอบ',
+  },
+  translation: {
+    eyebrow: 'แปลไทยเป็นอังกฤษ',
+    title: 'พูดเป็นภาษาอังกฤษ!',
+    subtitle: 'แปลประโยคด้านล่าง',
+    recordLabel: 'แตะเพื่อพูด',
+  },
+};
+
 const WELCOME_PRACTICE_COPY = {
   pronunciation: {
     title: 'PRONUNCIATION PRACTICE',
@@ -274,6 +296,48 @@ const OUTCOME_LABELS: Record<SpeakingEvaluationStatus, string> = {
   retry: 'Needs retry',
   continue_with_correction: 'Final correction',
   unclear_audio: 'Unclear audio',
+};
+
+const SCORE_NUMBER_OUTLINE_OFFSETS = [
+  { x: -1.25, y: 0 },
+  { x: 1.25, y: 0 },
+  { x: 0, y: -1.25 },
+  { x: 0, y: 1.25 },
+  { x: -1, y: -1 },
+  { x: 1, y: -1 },
+  { x: -1, y: 1 },
+  { x: 1, y: 1 },
+] as const;
+
+function SetCompletionScoreNumber({ value, fill }: { value: number; fill: string }) {
+  const text = String(value);
+  return (
+    <View style={styles.setProgressNumberWrap}>
+      <AppText
+        language="en"
+        style={[styles.setProgressNumber, styles.setProgressNumberOutline, { transform: [{ translateX: 3 }, { translateY: 4 }] }]}
+      >
+        {text}
+      </AppText>
+      {SCORE_NUMBER_OUTLINE_OFFSETS.map(({ x, y }) => (
+        <AppText
+          key={`${x}:${y}`}
+          language="en"
+          style={[styles.setProgressNumber, styles.setProgressNumberOutline, { transform: [{ translateX: x }, { translateY: y }] }]}
+        >
+          {text}
+        </AppText>
+      ))}
+      <AppText language="en" style={[styles.setProgressNumber, { color: fill }]}>{text}</AppText>
+    </View>
+  );
+}
+
+const THAI_OUTCOME_LABELS: Record<SpeakingEvaluationStatus, string> = {
+  pass: 'ถูกต้อง',
+  retry: 'ต้องลองใหม่',
+  continue_with_correction: 'คำแนะนำสุดท้าย',
+  unclear_audio: 'เสียงไม่ชัด',
 };
 
 const formatDuration = (durationMillis: number) => {
@@ -368,6 +432,20 @@ function PulsingRecordingControl({ onPress }: { onPress: () => void }) {
   );
 }
 
+function RecordingButtonEmphasis({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.recordingButtonEmphasis}>
+      <View pointerEvents="none" style={[styles.recordingEmphasisRay, styles.recordingEmphasisLeftTop]} />
+      <View pointerEvents="none" style={[styles.recordingEmphasisRay, styles.recordingEmphasisLeftMiddle]} />
+      <View pointerEvents="none" style={[styles.recordingEmphasisRay, styles.recordingEmphasisLeftBottom]} />
+      <View pointerEvents="none" style={[styles.recordingEmphasisRay, styles.recordingEmphasisRightTop]} />
+      <View pointerEvents="none" style={[styles.recordingEmphasisRay, styles.recordingEmphasisRightMiddle]} />
+      <View pointerEvents="none" style={[styles.recordingEmphasisRay, styles.recordingEmphasisRightBottom]} />
+      {children}
+    </View>
+  );
+}
+
 function PracticeProgress({ practiceSet, question }: ActiveQuestion) {
   return (
     <View style={styles.progressRow} accessibilityLabel={`Question ${question.position} of ${practiceSet.question_count}`}>
@@ -458,11 +536,13 @@ function PronunciationPlaybackButton({
 function PailinCoachBubble({
   tone,
   instruction,
+  language = 'en',
   plain = false,
   overlapCard = false,
 }: {
   tone: 'instruction' | 'success' | 'error' | 'unclear';
   instruction: string;
+  language?: LessonContentLanguage;
   plain?: boolean;
   overlapCard?: boolean;
 }) {
@@ -474,11 +554,11 @@ function PailinCoachBubble({
         ? pailinTryAgainImage
         : pailinDoTheTaskImage;
   const message = tone === 'success'
-    ? 'Correct!'
+    ? (language === 'th' ? 'ถูกต้อง!' : 'Correct!')
     : tone === 'unclear'
-      ? 'Hmm...what was that?'
+      ? (language === 'th' ? 'อืม... พูดว่าอะไรนะ?' : 'Hmm...what was that?')
       : tone === 'error'
-        ? 'Not quite!'
+        ? (language === 'th' ? 'ยังไม่ถูกนะ!' : 'Not quite!')
         : instruction;
 
   return (
@@ -509,6 +589,7 @@ function PailinCoachBubble({
         ]}
       >
         <AppText
+          language={language}
           variant="caption"
           style={[
             styles.pronunciationCoachMessage,
@@ -572,6 +653,7 @@ export default function SpeakingCoachEntryScreen() {
 function SpeakingCoachTestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { uiLanguage } = useUiLanguage();
   const params = useLocalSearchParams<{
     lesson?: string;
     entry?: string;
@@ -591,6 +673,9 @@ function SpeakingCoachTestScreen() {
   const resourceMode = params.entry === 'resources';
   const lessonMode = params.entry === 'lesson';
   const guidedMode = resourceMode || lessonMode;
+  const screenLanguage = lessonMode ? lessonContentLanguage : uiLanguage;
+  const th = screenLanguage === 'th';
+  const tr = (english: string, thai: string) => th ? thai : english;
   const sectionPosition = Math.max(1, Number.parseInt(params.sectionPosition ?? '', 10) || 1);
   const sectionTotal = Math.max(sectionPosition, Number.parseInt(params.sectionTotal ?? '', 10) || sectionPosition);
   const initialLessonId = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '1.1';
@@ -1108,7 +1193,11 @@ function SpeakingCoachTestScreen() {
       return;
     }
     await switchAudioSession(false);
-    if (promptPlayerStatus.didJustFinish) void promptPlayer.seekTo(0);
+    const isAtEnd =
+      promptPlayerStatus.didJustFinish ||
+      (promptPlayerStatus.duration > 0 &&
+        promptPlayerStatus.currentTime >= promptPlayerStatus.duration - 0.05);
+    if (isAtEnd) await promptPlayer.seekTo(0);
     promptPlayedForQuestionRef.current = true;
     promptPlayer.play();
   };
@@ -1390,8 +1479,8 @@ function SpeakingCoachTestScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.fullState}>
           <SpeakingCoachLoader
-            title="Loading speaking coach…"
-            subtitle="Hang tight – Pailin is getting your practice ready!"
+            title={tr('Loading speaking coach…', 'กำลังโหลดการฝึกพูด…')}
+            subtitle={tr('Hang tight – Pailin is getting your practice ready!', 'รอสักครู่ ไพลินกำลังเตรียมแบบฝึกให้คุณ!')}
             showCopy={false}
           />
         </View>
@@ -1404,12 +1493,13 @@ function SpeakingCoachTestScreen() {
       <View style={[styles.screen, { paddingTop: insets.top + theme.spacing.lg }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <PageLoadingState
+          language={screenLanguage}
           showImage={false}
-          errorTitle="Speaking coach unavailable"
-          errorBody={loadError || 'This lesson has no speaking questions.'}
+          errorTitle={tr('Speaking coach unavailable', 'ไม่สามารถเปิดการฝึกพูดได้')}
+          errorBody={loadError || tr('This lesson has no speaking questions.', 'บทเรียนนี้ยังไม่มีคำถามฝึกพูด')}
         />
         <View style={styles.errorActions}>
-          <Button title={lessonMode ? 'Back to lesson' : resourceMode ? 'Back to Speaking Practice' : 'Back to profile'} variant="outline" onPress={() => router.back()} />
+          <Button language={screenLanguage} title={lessonMode ? tr('Back to lesson', 'กลับไปบทเรียน') : resourceMode ? tr('Back to Speaking Practice', 'กลับไปฝึกพูด') : tr('Back to profile', 'กลับไปโปรไฟล์')} variant="outline" onPress={() => router.back()} />
         </View>
       </View>
     );
@@ -1509,7 +1599,7 @@ function SpeakingCoachTestScreen() {
             : <PracticeProgress {...activeQuestion} />
         ) : null}
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={lessonMode ? 'Back to lesson' : 'Back to Speaking Practice'} onPress={() => router.back()} style={styles.closeButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel={lessonMode ? tr('Back to lesson', 'กลับไปบทเรียน') : tr('Back to Speaking Practice', 'กลับไปฝึกพูด')} onPress={() => router.back()} style={styles.closeButton}>
         <MaterialIcons name="close" size={25} color={theme.colors.text} />
       </Pressable>
     </View>
@@ -1569,10 +1659,10 @@ function SpeakingCoachTestScreen() {
   }
 
   const { practiceSet, question } = activeQuestion;
-  const typeCopy = TYPE_COPY[practiceSet.practice_type];
+  const typeCopy = (th ? THAI_TYPE_COPY : TYPE_COPY)[practiceSet.practice_type];
   const hasPromptAudio = Boolean(question.prompt_audio_url) && practiceSet.practice_type !== 'translation';
-  const pailinPlaybackLabel = practiceSet.practice_type === 'pronunciation' ? 'Pailin’s version' : 'Replay question';
-  const learnerPlaybackLabel = practiceSet.practice_type === 'translation' ? 'Your translation' : practiceSet.practice_type === 'open' ? 'Your answer' : 'Your recording';
+  const pailinPlaybackLabel = practiceSet.practice_type === 'pronunciation' ? tr('Pailin’s version', 'เสียงของไพลิน') : tr('Replay question', 'ฟังคำถามซ้ำ');
+  const learnerPlaybackLabel = practiceSet.practice_type === 'translation' ? tr('Your translation', 'คำแปลของคุณ') : practiceSet.practice_type === 'open' ? tr('Your answer', 'คำตอบของคุณ') : tr('Your recording', 'เสียงบันทึกของคุณ');
   const isCompletedQuestion = session.completed_question_ids.includes(question.id);
   const unclearAudioCount = session.consecutive_unclear_audio_count;
   const unclearAudioLimitReached = evaluation?.status === 'unclear_audio'
@@ -1580,10 +1670,10 @@ function SpeakingCoachTestScreen() {
   const unclearAudioNeedsGuidance = evaluation?.status === 'unclear_audio'
     && unclearAudioCount >= 3;
   const unclearAudioFeedback = unclearAudioLimitReached
-    ? 'We’re unable to check another recording for this question. You can skip it or exit practice.'
+    ? tr('We’re unable to check another recording for this question. You can skip it or exit practice.', 'เราไม่สามารถตรวจเสียงบันทึกอื่นสำหรับคำถามนี้ได้ คุณสามารถข้ามหรือออกจากการฝึกได้')
     : unclearAudioNeedsGuidance
-      ? 'We’re still unable to hear your audio. Try moving somewhere quieter and make sure your microphone isn’t covered.'
-      : 'I couldn’t confidently understand that. Please record it one more time.';
+      ? tr('We’re still unable to hear your audio. Try moving somewhere quieter and make sure your microphone isn’t covered.', 'เรายังได้ยินเสียงไม่ชัด ลองไปที่เงียบกว่านี้และตรวจว่าไมโครโฟนไม่ได้ถูกบัง')
+      : tr('I couldn’t confidently understand that. Please record it one more time.', 'ยังฟังไม่ชัดเจน กรุณาบันทึกเสียงอีกครั้ง');
   const renderPromptCard = () => (
     <Card style={styles.promptCard} padding="lg">
       {practiceSet.practice_type === 'translation' ? (
@@ -1627,7 +1717,7 @@ function SpeakingCoachTestScreen() {
             <View style={styles.exampleBlock}>
               <Pressable accessibilityRole="button" onPress={() => setShowExample((value) => !value)} style={styles.exampleToggle}>
                 <MaterialIcons name="visibility" size={17} color={theme.colors.mutedText} />
-                <AppText variant="caption">{showExample ? 'Hide example answer' : 'Show example answer'}</AppText>
+                <AppText language={screenLanguage} variant="caption">{showExample ? tr('Hide example answer', 'ซ่อนตัวอย่างคำตอบ') : tr('Show example answer', 'ดูตัวอย่างคำตอบ')}</AppText>
               </Pressable>
               {showExample ? (
                 <View style={styles.exampleAnswer}>
@@ -1648,10 +1738,10 @@ function SpeakingCoachTestScreen() {
         <UiStack gap="md" style={styles.completedQuestion}>
           <View style={styles.completedQuestionLabel}>
             <MaterialIcons name="check-circle" size={28} color={theme.colors.success} />
-            <AppText variant="body">Completed in this session</AppText>
+            <AppText language={screenLanguage} variant="body">{tr('Completed in this session', 'ทำเสร็จแล้วในรอบนี้')}</AppText>
           </View>
           <Button
-            title="Retest in a fresh session"
+            title={tr('Retest in a fresh session', 'ทดสอบใหม่ในรอบใหม่')}
             variant="outline"
             onPress={() => void retestInFreshSession()}
           />
@@ -1669,7 +1759,7 @@ function SpeakingCoachTestScreen() {
           <Pressable accessibilityRole="button" onPress={() => void stopRecording()} style={[styles.recordButton, styles.stopButton]}>
             <MaterialIcons name="stop" size={42} color={theme.colors.surface} />
           </Pressable>
-          <AppText variant="muted">Tap to stop</AppText>
+          <AppText language={screenLanguage} variant="muted">{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
         </UiStack>
       );
     }
@@ -1677,8 +1767,8 @@ function SpeakingCoachTestScreen() {
     if (phase === 'review') {
       return (
         <UiStack gap="md" style={styles.reviewBlock}>
-          <AppText variant="title" style={styles.stateTitle}>Review your recording</AppText>
-          <AppText variant="muted" style={styles.centerText}>{formatDuration(recordedDurationMillis)} recorded</AppText>
+          <AppText language={screenLanguage} variant="title" style={styles.stateTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
+          <AppText language={screenLanguage} variant="muted" style={styles.centerText}>{formatDuration(recordedDurationMillis)} {tr('recorded', 'ที่บันทึก')}</AppText>
           <PlaybackButton
             label={learnerPlaybackLabel}
             disabled={!recordedUri}
@@ -1686,7 +1776,7 @@ function SpeakingCoachTestScreen() {
             playing={recordingPlayerStatus.playing}
           />
           {submitError ? <AppText variant="muted" style={styles.submitError}>{submitError}</AppText> : null}
-          <Button title="Record again" variant="outline" onPress={() => void startRecording()} />
+          <Button language={screenLanguage} title={tr('Record again', 'บันทึกใหม่')} variant="outline" onPress={() => void startRecording()} />
         </UiStack>
       );
     }
@@ -1709,8 +1799,8 @@ function SpeakingCoachTestScreen() {
   const renderEvaluating = () => (
     <View style={styles.fullState}>
       <SpeakingCoachLoader
-        title="Checking your answer…"
-        subtitle="Hang tight – Pailin is reviewing your audio!"
+        title={tr('Checking your answer…', 'กำลังตรวจคำตอบ…')}
+        subtitle={tr('Hang tight – Pailin is reviewing your audio!', 'รอสักครู่ ไพลินกำลังตรวจเสียงของคุณ!')}
       />
     </View>
   );
@@ -1722,15 +1812,15 @@ function SpeakingCoachTestScreen() {
     return (
       <PracticeAnswerFooter
         disabled={phase !== 'review' || !recordedUri}
-        language="en"
+        language={screenLanguage}
         labels={{
-          check: 'SUBMIT ANSWER',
-          checking: 'SUBMITTING…',
-          continue: 'CONTINUE',
-          correct: 'Correct!',
-          incorrect: 'Try again',
-          clear: 'TRY AGAIN',
-          skip: skipPending ? 'SKIPPING…' : 'SKIP',
+          check: tr('SUBMIT ANSWER', 'ส่งคำตอบ'),
+          checking: tr('SUBMITTING…', 'กำลังส่ง…'),
+          continue: tr('CONTINUE', 'ไปต่อ'),
+          correct: tr('Correct!', 'ถูกต้อง!'),
+          incorrect: tr('Try again', 'ลองอีกครั้ง'),
+          clear: tr('TRY AGAIN', 'ลองอีกครั้ง'),
+          skip: skipPending ? tr('SKIPPING…', 'กำลังข้าม…') : tr('SKIP', 'ข้าม'),
         }}
         onPrimary={() => void submitRecording()}
         onSkip={() => void skipCurrentQuestion()}
@@ -1745,9 +1835,9 @@ function SpeakingCoachTestScreen() {
       <View style={styles.successIcon}>
         <MaterialIcons name="check" size={54} color={theme.colors.text} />
       </View>
-      <AppText variant="title" style={styles.stateTitle}>You got it!</AppText>
-      <AppText variant="body" style={styles.centerText}>{evaluation?.feedback_en || 'Nice work—your answer passed the checker.'}</AppText>
-      {evaluation?.feedback_th ? <AppText language="th" variant="muted" style={styles.centerText}>{evaluation.feedback_th}</AppText> : null}
+      <AppText language={screenLanguage} variant="title" style={styles.stateTitle}>{tr('You got it!', 'ทำได้แล้ว!')}</AppText>
+      <AppText language={screenLanguage} variant="body" style={styles.centerText}>{th ? evaluation?.feedback_th || evaluation?.feedback_en : evaluation?.feedback_en || 'Nice work—your answer passed the checker.'}</AppText>
+      {!th && evaluation?.feedback_th ? <AppText language="th" variant="muted" style={styles.centerText}>{evaluation.feedback_th}</AppText> : null}
       <View style={styles.playbackList}>
         <PlaybackButton
           label={learnerPlaybackLabel}
@@ -1757,7 +1847,7 @@ function SpeakingCoachTestScreen() {
         />
         {hasPromptAudio ? <PlaybackButton label={pailinPlaybackLabel} onPress={togglePromptAudio} playing={promptPlayerStatus.playing} /> : null}
       </View>
-      <Button title="Next question" onPress={goNext} style={styles.wideButton} />
+      <Button language={screenLanguage} title={tr('Next question', 'คำถามถัดไป')} onPress={goNext} style={styles.wideButton} />
     </View>
   );
 
@@ -1768,20 +1858,20 @@ function SpeakingCoachTestScreen() {
     return (
       <UiStack gap="lg" style={styles.feedbackState}>
         <View style={styles.feedbackHeading}>
-          <AppText variant="caption" style={styles.feedbackStatus}>{OUTCOME_LABELS[evaluation.status]}</AppText>
+          <AppText language={screenLanguage} variant="caption" style={styles.feedbackStatus}>{(th ? THAI_OUTCOME_LABELS : OUTCOME_LABELS)[evaluation.status]}</AppText>
           <AppText variant="title" style={styles.stateTitle}>
             {unclearAudioLimitReached
-              ? 'Recording unavailable'
+              ? tr('Recording unavailable', 'ไม่สามารถใช้เสียงบันทึกได้')
               : isUnclear
-                ? 'Let’s record that again'
+                ? tr('Let’s record that again', 'มาบันทึกใหม่กัน')
                 : isRetry
-                  ? 'Almost—try once more'
-                  : 'Here’s the correction'}
+                  ? tr('Almost—try once more', 'เกือบแล้ว ลองอีกครั้ง')
+                  : tr('Here’s the correction', 'นี่คือคำแนะนำ')}
           </AppText>
           <AppText variant="body" style={styles.centerText}>
-            {isUnclear ? unclearAudioFeedback : evaluation.feedback_en}
+            {isUnclear ? unclearAudioFeedback : th ? evaluation.feedback_th || evaluation.feedback_en : evaluation.feedback_en}
           </AppText>
-          {!isUnclear || !unclearAudioNeedsGuidance ? (
+          {!th && (!isUnclear || !unclearAudioNeedsGuidance) ? (
             <AppText language="th" variant="muted" style={styles.centerText}>{evaluation.feedback_th}</AppText>
           ) : null}
         </View>
@@ -1841,12 +1931,13 @@ function SpeakingCoachTestScreen() {
             <Pressable accessibilityRole="button" disabled={skipPending} onPress={() => void skipCurrentQuestion()} style={styles.inlineSkipButton}>
               <AppText variant="caption" style={styles.pronunciationSkipLabel}>{skipPending ? 'SKIPPING…' : 'SKIP'}</AppText>
             </Pressable>
-            <Button title="Exit practice" variant="outline" onPress={() => router.back()} />
+            <Button language={screenLanguage} title={tr('Exit practice', 'ออกจากการฝึก')} variant="outline" onPress={() => router.back()} />
           </UiStack>
         ) : isRetry || isUnclear ? (
           <UiStack gap="sm">
             <Button
-              title={isUnclear && !unclearAudioNeedsGuidance ? 'Record again' : 'Try again'}
+              language={screenLanguage}
+              title={isUnclear && !unclearAudioNeedsGuidance ? tr('Record again', 'บันทึกใหม่') : tr('Try again', 'ลองอีกครั้ง')}
               onPress={() => void startRecording()}
             />
             {isUnclear && unclearAudioNeedsGuidance ? (
@@ -1856,7 +1947,7 @@ function SpeakingCoachTestScreen() {
             ) : null}
           </UiStack>
         ) : (
-          <Button title="Next question" onPress={goNext} />
+          <Button language={screenLanguage} title={tr('Next question', 'คำถามถัดไป')} onPress={goNext} />
         )}
       </UiStack>
     );
@@ -1887,8 +1978,8 @@ function SpeakingCoachTestScreen() {
       ? evaluation.status === 'unclear_audio'
         ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
         : evaluation.displayed_issues.length > 0
-          ? evaluation.displayed_issues.map((issue) => issue.description_en)
-          : [evaluation.feedback_en]
+          ? evaluation.displayed_issues.map((issue) => th ? issue.description_th || issue.description_en : issue.description_en)
+          : [th ? evaluation.feedback_th || evaluation.feedback_en : evaluation.feedback_en]
       : [];
     const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
     const renderAttemptPanel = () => {
@@ -1899,8 +1990,8 @@ function SpeakingCoachTestScreen() {
             styles.pronunciationNeoActionCard,
             styles.pronunciationRecordingActionCard,
           ]}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>Recording…</AppText>
-            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
               <View style={styles.pronunciationTimerDot} />
@@ -1915,7 +2006,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'review') {
         return (
           <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard]}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>Review your recording</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
@@ -1934,7 +2025,7 @@ function SpeakingCoachTestScreen() {
                   color={theme.colors.surface}
                 />
               </View>
-              <AppText variant="caption" style={styles.pronunciationReviewLabel}>Your recording</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationReviewLabel}>{tr('Your recording', 'เสียงบันทึกของคุณ')}</AppText>
               <AppText variant="caption" style={styles.pronunciationReviewDuration}>
                 {formatDuration(recordedDurationMillis)}
               </AppText>
@@ -1942,7 +2033,7 @@ function SpeakingCoachTestScreen() {
             {submitError ? <AppText variant="caption" style={styles.pronunciationSubmitError}>{submitError}</AppText> : null}
             <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
               <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
-              <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationRedoLabel}>{tr('Record again', 'บันทึกใหม่')}</AppText>
             </Pressable>
           </View>
         );
@@ -1952,15 +2043,17 @@ function SpeakingCoachTestScreen() {
         const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
           <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard, styles.speakingPromptActionCard]}>
-            <AppText variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
-              {isRetryAttempt ? 'Try again!' : 'Your turn!'}
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
+              {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Your turn!', 'ตาคุณแล้ว!')}
             </AppText>
-            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Start recording" onPress={() => void startRecording()} style={styles.pronunciationMicButton}>
-              <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
-            </Pressable>
-            <AppText variant="caption" style={styles.pronunciationAttemptLabel}>
-              Try {instructionalAttemptNumber} of 2
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to speak', 'แตะเพื่อพูด')}</AppText>
+            <RecordingButtonEmphasis>
+              <Pressable accessibilityRole="button" accessibilityLabel="Start recording" onPress={() => void startRecording()} style={[styles.pronunciationMicButton, styles.pronunciationMicButtonEmphasized]}>
+                <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
+              </Pressable>
+            </RecordingButtonEmphasis>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationAttemptLabel}>
+              {tr(`Try ${instructionalAttemptNumber} of 2`, `ครั้งที่ ${instructionalAttemptNumber} จาก 2`)}
             </AppText>
           </View>
         );
@@ -1981,16 +2074,20 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <AppText variant="caption" style={styles.pronunciationEyebrow}>PRONUNCIATION PRACTICE</AppText>
+        <AppText language={screenLanguage} variant="caption" style={styles.pronunciationEyebrow}>{tr('PRONUNCIATION PRACTICE', 'ฝึกการออกเสียง')}</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction="Listen, then repeat!" plain overlapCard />
+        <PailinCoachBubble tone={coachTone} instruction={tr('Listen, then repeat!', 'ฟังแล้วพูดตาม!')} language={screenLanguage} plain overlapCard />
 
         <View style={styles.pronunciationSentenceCard}>
           <AppText variant="title" style={styles.pronunciationSentenceEnglish}>{question.prompt_en}</AppText>
           {question.prompt_th ? (
             <AppText language="th" variant="caption" style={styles.pronunciationSentenceThai}>{question.prompt_th}</AppText>
           ) : null}
-          <View style={[styles.pronunciationPlaybackRow, showEvaluation ? styles.pronunciationPlaybackRowResult : null]}>
+          <View style={[
+            styles.pronunciationPlaybackRow,
+            !question.prompt_th ? styles.pronunciationPlaybackRowWithoutTranslation : null,
+            showEvaluation ? styles.pronunciationPlaybackRowResult : null,
+          ]}>
             <PronunciationPlaybackButton
               label="Pailin"
               playing={promptPlayerStatus.playing}
@@ -2059,12 +2156,12 @@ function SpeakingCoachTestScreen() {
             >
               <AppText variant="caption" style={styles.conversationResultButtonLabel}>
                 {unclearAudioLimitReached
-                  ? 'EXIT PRACTICE'
+                  ? tr('EXIT PRACTICE', 'ออกจากการฝึก')
                   : isUnclear
-                    ? 'RECORD AGAIN'
+                    ? tr('RECORD AGAIN', 'บันทึกใหม่')
                     : retryReady
-                      ? 'TRY AGAIN'
-                      : 'CONTINUE'}
+                      ? tr('TRY AGAIN', 'ลองอีกครั้ง')
+                      : tr('CONTINUE', 'ไปต่อ')}
               </AppText>
             </Pressable>
             {!correctResult && !finalResult && !unclearAudioLimitReached ? (
@@ -2075,7 +2172,7 @@ function SpeakingCoachTestScreen() {
                 style={styles.conversationResultSkipButton}
               >
                 <AppText variant="caption" style={styles.conversationResultSkipLabel}>
-                  {skipPending ? 'SKIPPING…' : 'SKIP'}
+                  {skipPending ? tr('SKIPPING…', 'กำลังข้าม…') : tr('SKIP', 'ข้าม')}
                 </AppText>
               </Pressable>
             ) : null}
@@ -2113,8 +2210,8 @@ function SpeakingCoachTestScreen() {
       ? isUnclear
         ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
         : evaluation.displayed_issues.length > 0
-          ? evaluation.displayed_issues.map((issue) => issue.description_en)
-          : [evaluation.feedback_en]
+          ? evaluation.displayed_issues.map((issue) => th ? issue.description_th || issue.description_en : issue.description_en)
+          : [th ? evaluation.feedback_th || evaluation.feedback_en : evaluation.feedback_en]
       : [];
     const learnerTranscript = evaluation?.transcript?.trim() || null;
     const showResultFooter = Boolean(evaluation) && (phase === 'correct' || phase === 'feedback');
@@ -2131,7 +2228,7 @@ function SpeakingCoachTestScreen() {
           >
             <MaterialIcons name="visibility" size={14} color="#777777" />
             <AppText variant="caption" style={styles.conversationExampleButtonLabel}>
-              SHOW EXAMPLE ANSWER
+              {tr('SHOW EXAMPLE ANSWER', 'ดูตัวอย่างคำตอบ')}
             </AppText>
           </Pressable>
         );
@@ -2145,7 +2242,7 @@ function SpeakingCoachTestScreen() {
             </AppText>
           ) : null}
           <Pressable accessibilityRole="button" onPress={() => setShowExample(false)}>
-            <AppText variant="caption" style={styles.conversationExampleHide}>HIDE</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.conversationExampleHide}>{tr('HIDE', 'ซ่อน')}</AppText>
           </Pressable>
         </View>
       );
@@ -2157,10 +2254,11 @@ function SpeakingCoachTestScreen() {
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
             <View style={styles.completedQuestionLabel}>
               <MaterialIcons name="check-circle" size={25} color={theme.colors.success} />
-              <AppText variant="caption" style={styles.conversationActionTitle}>Completed in this session</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.conversationActionTitle}>{tr('Completed in this session', 'ทำเสร็จแล้วในรอบนี้')}</AppText>
             </View>
             <Button
-              title="Retest in a fresh session"
+              language={screenLanguage}
+              title={tr('Retest in a fresh session', 'ทดสอบใหม่ในรอบใหม่')}
               variant="outline"
               onPress={() => void retestInFreshSession()}
               style={styles.conversationRetestButton}
@@ -2171,9 +2269,9 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'recording') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.conversationActionTitle}>Recording…</AppText>
-            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.pronunciationRecordingActionCard]}>
+            <AppText language={screenLanguage} variant="caption" style={styles.conversationActionTitle}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
               <View style={styles.pronunciationTimerDot} />
@@ -2188,7 +2286,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'review') {
         return (
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.conversationActionTitle}>Review your recording</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.conversationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your answer"
@@ -2204,7 +2302,7 @@ function SpeakingCoachTestScreen() {
                 contentFit="contain"
                 style={styles.pronunciationReviewPlayIcon}
               />
-              <AppText variant="caption" style={styles.pronunciationReviewLabel}>Your answer</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationReviewLabel}>{tr('Your answer', 'คำตอบของคุณ')}</AppText>
               <AppText variant="caption" style={styles.pronunciationReviewDuration}>
                 {formatDuration(recordedDurationMillis)}
               </AppText>
@@ -2214,7 +2312,7 @@ function SpeakingCoachTestScreen() {
             ) : null}
             <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
               <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
-              <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationRedoLabel}>{tr('Record again', 'บันทึกใหม่')}</AppText>
             </Pressable>
           </View>
         );
@@ -2224,20 +2322,22 @@ function SpeakingCoachTestScreen() {
         const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.speakingPromptActionCard]}>
-            <AppText variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>
-              {isRetryAttempt ? 'Try again!' : 'Respond to the question'}
+            <AppText language={screenLanguage} variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>
+              {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Respond to the question', 'ตอบคำถาม')}
             </AppText>
-            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Start recording"
-              onPress={() => void startRecording()}
-              style={styles.pronunciationMicButton}
-            >
-              <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
-            </Pressable>
-            <AppText variant="caption" style={styles.pronunciationAttemptLabel}>
-              Try {instructionalAttemptNumber} of 2
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to speak', 'แตะเพื่อพูด')}</AppText>
+            <RecordingButtonEmphasis>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start recording"
+                onPress={() => void startRecording()}
+                style={[styles.pronunciationMicButton, styles.pronunciationMicButtonEmphasized]}
+              >
+                <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
+              </Pressable>
+            </RecordingButtonEmphasis>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationAttemptLabel}>
+              {tr(`Try ${instructionalAttemptNumber} of 2`, `ครั้งที่ ${instructionalAttemptNumber} จาก 2`)}
             </AppText>
             {renderExample()}
           </View>
@@ -2259,9 +2359,9 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <AppText variant="caption" style={styles.pronunciationEyebrow}>CONVERSATION PRACTICE</AppText>
+        <AppText language={screenLanguage} variant="caption" style={styles.pronunciationEyebrow}>{tr('CONVERSATION PRACTICE', 'ฝึกบทสนทนา')}</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction="Let’s chat!" plain overlapCard />
+        <PailinCoachBubble tone={coachTone} instruction={tr('Let’s chat!', 'มาคุยกัน!')} language={screenLanguage} plain overlapCard />
 
         <View style={styles.conversationPromptCard}>
           <View style={styles.conversationPromptEnglishRow}>
@@ -2287,10 +2387,12 @@ function SpeakingCoachTestScreen() {
               {question.prompt_th}
             </AppText>
           ) : null}
-          {practiceSet.tip_en ? (
+          {practiceSet.tip_en || practiceSet.tip_th ? (
             <View style={styles.conversationTipBox}>
-              <MaterialIcons name="lightbulb-outline" size={15} color="#8C8C8C" />
-              <AppText variant="caption" style={styles.conversationTipText}>{practiceSet.tip_en}</AppText>
+              <MaterialIcons name="lightbulb-outline" size={20} color="#C4A807" />
+              <AppText language={screenLanguage} variant="caption" style={styles.conversationTipText}>
+                {th ? practiceSet.tip_th || practiceSet.tip_en : practiceSet.tip_en || practiceSet.tip_th}
+              </AppText>
             </View>
           ) : null}
         </View>
@@ -2321,7 +2423,7 @@ function SpeakingCoachTestScreen() {
                 />
               </Pressable>
               <View style={styles.conversationLearnerAnswerCopy}>
-                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+                <AppText language={screenLanguage} variant="caption" style={styles.conversationLearnerAnswerTitle}>{tr('Your answer:', 'คำตอบของคุณ:')}</AppText>
                 <AppText
                   variant="caption"
                   style={[
@@ -2390,10 +2492,10 @@ function SpeakingCoachTestScreen() {
             >
               <AppText variant="caption" style={styles.conversationResultButtonLabel}>
                 {unclearAudioLimitReached
-                  ? 'EXIT PRACTICE'
+                  ? tr('EXIT PRACTICE', 'ออกจากการฝึก')
                   : retryReady
-                    ? 'TRY AGAIN'
-                    : 'CONTINUE'}
+                    ? tr('TRY AGAIN', 'ลองอีกครั้ง')
+                    : tr('CONTINUE', 'ไปต่อ')}
               </AppText>
             </Pressable>
             {!correctResult && !finalResult && !unclearAudioLimitReached ? (
@@ -2404,7 +2506,7 @@ function SpeakingCoachTestScreen() {
                 style={styles.conversationResultSkipButton}
               >
                 <AppText variant="caption" style={styles.conversationResultSkipLabel}>
-                  {skipPending ? 'SKIPPING…' : 'SKIP'}
+                  {skipPending ? tr('SKIPPING…', 'กำลังข้าม…') : tr('SKIP', 'ข้าม')}
                 </AppText>
               </Pressable>
             ) : null}
@@ -2440,8 +2542,8 @@ function SpeakingCoachTestScreen() {
       ? evaluation.status === 'unclear_audio'
         ? [unclearAudioFeedback].filter((description): description is string => Boolean(description))
         : evaluation.displayed_issues.length > 0
-          ? evaluation.displayed_issues.map((issue) => issue.description_en)
-          : [evaluation.feedback_en]
+          ? evaluation.displayed_issues.map((issue) => th ? issue.description_th || issue.description_en : issue.description_en)
+          : [th ? evaluation.feedback_th || evaluation.feedback_en : evaluation.feedback_en]
       : [];
     const learnerTranscript = evaluation?.transcript?.trim() || null;
     const hasReferenceAudio = Boolean(question.prompt_audio_url);
@@ -2453,10 +2555,12 @@ function SpeakingCoachTestScreen() {
         accessibilityRole="button"
         accessibilityLabel="Hear Pailin say the answer"
         disabled={!hasReferenceAudio}
-        onPress={togglePromptAudio}
-        style={[
+        hitSlop={8}
+        onPress={() => void togglePromptAudio()}
+        style={({ pressed }) => [
           styles.translationHearPailinButton,
           !hasReferenceAudio ? styles.translationHearPailinButtonDisabled : null,
+          pressed && hasReferenceAudio ? styles.translationHearPailinButtonPressed : null,
         ]}
       >
         <Image
@@ -2479,7 +2583,7 @@ function SpeakingCoachTestScreen() {
           >
             <MaterialIcons name="visibility" size={14} color="#777777" />
             <AppText variant="caption" style={styles.conversationExampleButtonLabel}>
-              SHOW EXAMPLE ANSWER
+              {tr('SHOW EXAMPLE ANSWER', 'ดูตัวอย่างคำตอบ')}
             </AppText>
           </Pressable>
         );
@@ -2493,7 +2597,7 @@ function SpeakingCoachTestScreen() {
             </AppText>
           ) : null}
           <Pressable accessibilityRole="button" onPress={() => setShowExample(false)}>
-            <AppText variant="caption" style={styles.conversationExampleHide}>HIDE</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.conversationExampleHide}>{tr('HIDE', 'ซ่อน')}</AppText>
           </Pressable>
         </View>
       );
@@ -2502,9 +2606,9 @@ function SpeakingCoachTestScreen() {
     const renderAttemptPanel = () => {
       if (phase === 'recording') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>Recording…</AppText>
-            <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to stop</AppText>
+          <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.pronunciationRecordingActionCard]}>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
               <View style={styles.pronunciationTimerDot} />
@@ -2519,7 +2623,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'review') {
         return (
           <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
-            <AppText variant="caption" style={styles.pronunciationActionTitle}>Review your recording</AppText>
+            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
@@ -2535,7 +2639,7 @@ function SpeakingCoachTestScreen() {
                 contentFit="contain"
                 style={styles.pronunciationReviewPlayIcon}
               />
-              <AppText variant="caption" style={styles.pronunciationReviewLabel}>Your recording</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationReviewLabel}>{tr('Your recording', 'เสียงบันทึกของคุณ')}</AppText>
               <AppText variant="caption" style={styles.pronunciationReviewDuration}>
                 {formatDuration(recordedDurationMillis)}
               </AppText>
@@ -2543,7 +2647,7 @@ function SpeakingCoachTestScreen() {
             {submitError ? <AppText variant="caption" style={styles.pronunciationSubmitError}>{submitError}</AppText> : null}
             <Pressable accessibilityRole="button" onPress={() => void startRecording()} style={styles.pronunciationRedoButton}>
               <Image source={audioRedoImage} contentFit="contain" style={styles.pronunciationRedoIcon} />
-              <AppText variant="caption" style={styles.pronunciationRedoLabel}>Record again</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationRedoLabel}>{tr('Record again', 'บันทึกใหม่')}</AppText>
             </Pressable>
           </View>
         );
@@ -2558,33 +2662,37 @@ function SpeakingCoachTestScreen() {
             styles.speakingPromptActionCard,
             isRetryAttempt ? styles.translationRetryActionCard : null,
           ]}>
-            <AppText variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
-              {isRetryAttempt ? 'Try again!' : 'Translate the sentence'}
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
+              {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Translate the sentence', 'แปลประโยค')}
             </AppText>
             <View style={[
               styles.translationRecordingCore,
               isRetryAttempt ? styles.translationRecordingCoreWithHearPailin : null,
-            ]}>
-              <AppText variant="caption" style={styles.pronunciationActionHint}>Tap to speak</AppText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Start recording"
-                onPress={() => void startRecording()}
-                style={[
-                  styles.pronunciationMicButton,
-                  isRetryAttempt ? styles.translationRetryMicButton : null,
-                ]}
-              >
-                <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
-              </Pressable>
+            ]} pointerEvents="box-none">
+              <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to speak', 'แตะเพื่อพูด')}</AppText>
+              <RecordingButtonEmphasis>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Start recording"
+                  onPress={() => void startRecording()}
+                  style={[
+                    styles.pronunciationMicButton,
+                    styles.pronunciationMicButtonEmphasized,
+                    isRetryAttempt ? styles.translationRetryMicButton : null,
+                  ]}
+                >
+                  <Image source={microphoneWhiteImage} contentFit="contain" style={styles.pronunciationMicIcon} />
+                </Pressable>
+              </RecordingButtonEmphasis>
               <AppText
+                language={screenLanguage}
                 variant="caption"
                 style={[
                   styles.pronunciationAttemptLabel,
                   isRetryAttempt ? styles.translationRetryAttemptLabel : null,
                 ]}
               >
-                Try {instructionalAttemptNumber} of 2
+                {tr(`Try ${instructionalAttemptNumber} of 2`, `ครั้งที่ ${instructionalAttemptNumber} จาก 2`)}
               </AppText>
             </View>
             {isRetryAttempt ? renderHearPailin() : renderExample()}
@@ -2607,9 +2715,9 @@ function SpeakingCoachTestScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <AppText variant="caption" style={styles.pronunciationEyebrow}>THAI TO ENGLISH</AppText>
+        <AppText language={screenLanguage} variant="caption" style={styles.pronunciationEyebrow}>{tr('THAI TO ENGLISH', 'แปลไทยเป็นอังกฤษ')}</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction="Say it in English!" plain overlapCard />
+        <PailinCoachBubble tone={coachTone} instruction={tr('Say it in English!', 'พูดเป็นภาษาอังกฤษ!')} language={screenLanguage} plain overlapCard />
 
         <View style={styles.translationPromptCard}>
           <AppText language="th" variant="title" style={styles.translationPromptThai}>{question.prompt_th}</AppText>
@@ -2649,7 +2757,7 @@ function SpeakingCoachTestScreen() {
                 />
               </Pressable>
               <View style={styles.conversationLearnerAnswerCopy}>
-                <AppText variant="caption" style={styles.conversationLearnerAnswerTitle}>Your answer:</AppText>
+                <AppText language={screenLanguage} variant="caption" style={styles.conversationLearnerAnswerTitle}>{tr('Your answer:', 'คำตอบของคุณ:')}</AppText>
                 <AppText
                   variant="caption"
                   style={[
@@ -2722,12 +2830,12 @@ function SpeakingCoachTestScreen() {
             >
               <AppText variant="caption" style={styles.conversationResultButtonLabel}>
                 {unclearAudioLimitReached
-                  ? 'EXIT PRACTICE'
+                  ? tr('EXIT PRACTICE', 'ออกจากการฝึก')
                   : isUnclear
-                    ? 'RECORD AGAIN'
+                    ? tr('RECORD AGAIN', 'บันทึกใหม่')
                     : retryReady
-                      ? 'TRY AGAIN'
-                      : 'CONTINUE'}
+                      ? tr('TRY AGAIN', 'ลองอีกครั้ง')
+                      : tr('CONTINUE', 'ไปต่อ')}
               </AppText>
             </Pressable>
             {!correctResult && !finalResult && !unclearAudioLimitReached ? (
@@ -2738,7 +2846,7 @@ function SpeakingCoachTestScreen() {
                 style={styles.conversationResultSkipButton}
               >
                 <AppText variant="caption" style={styles.conversationResultSkipLabel}>
-                  {skipPending ? 'SKIPPING…' : 'SKIP'}
+                  {skipPending ? tr('SKIPPING…', 'กำลังข้าม…') : tr('SKIP', 'ข้าม')}
                 </AppText>
               </Pressable>
             ) : null}
@@ -2769,6 +2877,11 @@ function SpeakingCoachTestScreen() {
       && (nextQuestionIndex < 0 || questions[nextQuestionIndex].practiceSet.id !== completedSet.id);
     const copy = SET_COMPLETION_COPY[completedSet.practice_type];
     const itemLabel = completedSet.question_count === 1 ? copy.singular : copy.plural;
+    const thaiPracticeSummary = completedSet.practice_type === 'pronunciation'
+      ? `คุณฝึกออกเสียงแล้ว\n${completedSet.question_count} ประโยค`
+      : completedSet.practice_type === 'open'
+        ? `คุณฝึกตอบแล้ว\n${completedSet.question_count} คำถาม`
+        : `คุณฝึกแปลแล้ว\n${completedSet.question_count} ประโยค`;
 
     return (
       <ScrollView
@@ -2780,40 +2893,37 @@ function SpeakingCoachTestScreen() {
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="caption" style={styles.pronunciationEyebrow}>
-          {TYPE_COPY[completedSet.practice_type].eyebrow}
+          {(th ? THAI_TYPE_COPY : TYPE_COPY)[completedSet.practice_type].eyebrow}
         </AppText>
 
         <View style={styles.setCompletionHero}>
           <Image source={pailinSetCompleteImage} contentFit="contain" style={styles.setCompletionImage} />
-          <AppText variant="title" style={styles.setCompletionTitle}>You finished this set!</AppText>
-          <AppText variant="body" style={styles.setCompletionSubtitle}>
-            {`You practiced ${copy.action}\n${completedSet.question_count} ${itemLabel}.`}
-          </AppText>
-        </View>
-
-        <View style={styles.setProgressCard}>
-          <View style={styles.setProgressHeadingRow}>
-            <View style={styles.setProgressHeadingLine} />
-            <AppText variant="caption" style={styles.setProgressHeading}>YOUR PROGRESS</AppText>
-            <View style={styles.setProgressHeadingLine} />
-          </View>
-          <View style={styles.setProgressStats}>
-            <View style={styles.setProgressStat}>
-              <View style={[styles.setProgressStatusIcon, styles.setProgressCorrectIcon]}>
-                <MaterialIcons name="check" size={27} color={theme.colors.surface} />
-              </View>
-              <AppText variant="title" style={styles.setProgressCorrectCount}>{correctCount}</AppText>
-              <AppText variant="caption" style={styles.setProgressStatLabel}>correct</AppText>
-            </View>
-            {needsReviewCount > 0 ? (
+          <View style={[styles.setProgressCard, needsReviewCount === 0 ? styles.setProgressCardPerfect : null]}>
+            <AppText language={screenLanguage} variant="title" style={styles.setCompletionTitle}>{tr('You finished this set!', 'คุณฝึกชุดนี้เสร็จแล้ว!')}</AppText>
+            <AppText language={screenLanguage} variant="body" style={styles.setCompletionSubtitle}>
+              {th ? thaiPracticeSummary : `You practiced ${copy.action}\n${completedSet.question_count} ${itemLabel}.`}
+            </AppText>
+            <View style={styles.setProgressStats}>
               <View style={styles.setProgressStat}>
-                <View style={[styles.setProgressStatusIcon, styles.setProgressReviewIcon]}>
-                  <MaterialIcons name="close" size={27} color={theme.colors.surface} />
+                <View style={[styles.setProgressStatusIcon, styles.setProgressCorrectIcon]}>
+                  <MaterialIcons name="check" size={25} color={theme.colors.text} />
                 </View>
-                <AppText variant="title" style={styles.setProgressReviewCount}>{needsReviewCount}</AppText>
-                <AppText variant="caption" style={styles.setProgressStatLabel}>needs review</AppText>
+                <SetCompletionScoreNumber value={correctCount} fill="#B9E671" />
+                <AppText language={screenLanguage} variant="caption" style={styles.setProgressStatLabel}>{tr('correct', 'ถูกต้อง')}</AppText>
               </View>
-            ) : null}
+              {needsReviewCount > 0 ? (
+                <>
+                  <View style={styles.setProgressDivider} />
+                  <View style={styles.setProgressStat}>
+                    <View style={[styles.setProgressStatusIcon, styles.setProgressReviewIcon]}>
+                      <MaterialIcons name="close" size={25} color={theme.colors.text} />
+                    </View>
+                    <SetCompletionScoreNumber value={needsReviewCount} fill="#FD6969" />
+                    <AppText language={screenLanguage} variant="caption" style={styles.setProgressStatLabel}>{tr('needs review', 'ควรทบทวน')}</AppText>
+                  </View>
+                </>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -2829,7 +2939,13 @@ function SpeakingCoachTestScreen() {
           ]}
         >
           <AppText variant="caption" style={styles.setCompletionButtonLabel}>
-            {hasNextSet ? (guidedMode ? 'GO TO NEXT SET' : 'NEXT SET') : lessonMode ? 'FINISH LESSON' : resourceMode ? 'BACK TO SPEAKING PRACTICE' : 'FINISH LESSON!'}
+            {hasNextSet
+              ? tr(guidedMode ? 'NEXT SECTION' : 'NEXT SET', guidedMode ? 'ส่วนถัดไป' : 'ชุดถัดไป')
+              : lessonMode
+                ? tr('FINISH LESSON', 'จบบทเรียน')
+                : resourceMode
+                  ? tr('BACK TO SPEAKING PRACTICE', 'กลับไปฝึกพูด')
+                  : tr('FINISH LESSON!', 'จบบทเรียน!')}
           </AppText>
           {!hasNextSet && (!guidedMode || lessonMode) ? (
             <Image source={celebrateWhiteImage} contentFit="contain" style={styles.setCompletionButtonIcon} />
@@ -3005,66 +3121,65 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingTop: 2,
   },
-  setCompletionHero: { alignItems: 'center', marginTop: 60 },
-  setCompletionImage: { width: 190, height: 170 },
+  setCompletionHero: { width: '100%', alignItems: 'center', marginTop: 54 },
+  setCompletionImage: { zIndex: 0, width: 220, height: 178, transform: [{ translateX: 10 }, { translateY: 30 }] },
   setCompletionTitle: {
-    marginTop: 5,
+    marginTop: 0,
     fontSize: 25,
     lineHeight: 34,
     fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
   },
-  setCompletionSubtitle: { marginTop: 13, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  setCompletionSubtitle: { marginTop: 8, fontSize: 15, lineHeight: 23, textAlign: 'center' },
   setProgressCard: {
-    width: '82%',
-    maxWidth: 340,
-    minHeight: 180,
+    zIndex: 2,
+    width: '100%',
+    maxWidth: 400,
+    minHeight: 310,
     alignSelf: 'center',
-    marginTop: 30,
+    marginTop: -18,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: 10,
+    borderRadius: 20,
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
-    paddingTop: 18,
-    paddingBottom: 17,
-    boxShadow: `4px 4px 0px ${theme.colors.border}`,
+    paddingHorizontal: 24,
+    paddingTop: 46,
+    paddingBottom: 28,
+    boxShadow: `5px 7px 0px ${theme.colors.border}`,
   },
-  setProgressHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  setProgressHeadingLine: { flex: 1, height: 2, backgroundColor: '#2563EB' },
-  setProgressHeading: { fontSize: 12, lineHeight: 17, letterSpacing: 0.8 },
+  setProgressCardPerfect: { paddingHorizontal: 42 },
   setProgressStats: {
-    flex: 1,
-    marginTop: 20,
+    marginTop: 26,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  setProgressStat: { minWidth: 92, alignItems: 'center' },
+  setProgressStat: { flex: 1, maxWidth: 150, alignItems: 'center' },
+  setProgressDivider: { width: 1, height: 142, marginHorizontal: 10, backgroundColor: '#D0D0D0' },
   setProgressStatusIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setProgressCorrectIcon: { backgroundColor: '#9ACD49' },
-  setProgressReviewIcon: { backgroundColor: '#FF6268' },
-  setProgressCorrectCount: {
-    marginTop: 6,
-    color: '#9ACD49',
-    fontSize: 28,
-    lineHeight: 32,
+  setProgressCorrectIcon: { backgroundColor: '#99C64F' },
+  setProgressReviewIcon: { backgroundColor: '#FF5858' },
+  setProgressNumberWrap: { width: 86, height: 76, marginTop: 8, position: 'relative' },
+  setProgressNumber: {
+    position: 'absolute',
+    width: '100%',
+    color: '#B9E671',
+    fontSize: 64,
+    lineHeight: 72,
     fontWeight: theme.typography.weights.bold,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
-  setProgressReviewCount: {
-    marginTop: 6,
-    color: '#FF6268',
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: theme.typography.weights.bold,
-  },
-  setProgressStatLabel: { fontSize: 12, lineHeight: 17 },
+  setProgressNumberOutline: { color: theme.colors.text },
+  setProgressStatLabel: { marginTop: 2, fontSize: 16, lineHeight: 23, textAlign: 'center' },
   setCompletionButton: {
     width: '100%',
     minHeight: 50,
@@ -3101,10 +3216,10 @@ const styles = StyleSheet.create({
   pronunciationEyebrow: {
     marginTop: 12,
     color: '#286BEA',
-    fontSize: 10,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 20,
     fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.8,
+    letterSpacing: 0.9,
     textAlign: 'center',
   },
   pronunciationCoachRow: {
@@ -3197,10 +3312,19 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
   },
-  pronunciationSentenceThai: { marginTop: 5, color: '#9A9A9A', fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  pronunciationSentenceThai: {
+    width: '100%',
+    marginVertical: 9,
+    color: '#777777',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
   pronunciationPlaybackRow: {
     width: '100%',
-    marginTop: 8,
+    marginTop: 0,
     borderTopWidth: 1,
     borderTopColor: '#D9D9D9',
     borderStyle: 'dashed',
@@ -3210,6 +3334,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
+  pronunciationPlaybackRowWithoutTranslation: { marginTop: 8 },
   pronunciationPlaybackRowResult: {
     marginTop: 8,
   },
@@ -3252,8 +3377,8 @@ const styles = StyleSheet.create({
   },
   speakingPromptActionCard: { paddingVertical: 24 },
   pronunciationActionTitle: { fontSize: 18, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
-  microphoneActionTitle: { fontSize: 18, lineHeight: 24 },
-  pronunciationActionHint: { marginTop: 1, color: '#969696', fontSize: 10, lineHeight: 15 },
+  microphoneActionTitle: { fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
+  pronunciationActionHint: { marginTop: 2, color: '#777777', fontSize: 12, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   recordingPulseContainer: {
     width: 90,
     height: 90,
@@ -3283,8 +3408,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pronunciationMicButtonEmphasized: { marginTop: 0 },
+  recordingButtonEmphasis: {
+    width: 172,
+    height: 90,
+    marginTop: 12,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingEmphasisRay: {
+    position: 'absolute',
+    width: 28,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#286BEA',
+  },
+  recordingEmphasisLeftTop: { left: 13, top: 18, transform: [{ rotate: '28deg' }] },
+  recordingEmphasisLeftMiddle: { left: 5, top: 42 },
+  recordingEmphasisLeftBottom: { left: 13, bottom: 18, transform: [{ rotate: '-28deg' }] },
+  recordingEmphasisRightTop: { right: 13, top: 18, transform: [{ rotate: '-28deg' }] },
+  recordingEmphasisRightMiddle: { right: 5, top: 42 },
+  recordingEmphasisRightBottom: { right: 13, bottom: 18, transform: [{ rotate: '28deg' }] },
   pronunciationMicIcon: { width: 43, height: 43 },
-  pronunciationAttemptLabel: { marginTop: 11, color: '#969696', fontSize: 11, lineHeight: 16 },
+  pronunciationAttemptLabel: { marginTop: 11, color: '#777777', fontSize: 12, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   pronunciationReviewPlayback: {
     width: '100%',
     minHeight: 38,
@@ -3389,22 +3536,25 @@ const styles = StyleSheet.create({
   conversationTipBox: {
     width: '100%',
     minHeight: 36,
-    marginTop: 12,
-    borderRadius: 7,
-    backgroundColor: '#FFFBE5',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    marginTop: 20,
+    borderWidth: 1.5,
+    borderColor: '#C4A807',
+    borderRadius: 10,
+    backgroundColor: '#FFFCE5',
+    paddingHorizontal: 18,
+    paddingVertical: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
+    justifyContent: 'flex-start',
+    gap: 10,
   },
   conversationTipText: {
-    color: '#707070',
-    fontSize: 11,
-    lineHeight: 16,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    flex: 1,
+    color: '#C4A807',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'left',
   },
   conversationActionCard: {
     ...practiceNeoShadowStyle,
@@ -3591,9 +3741,11 @@ const styles = StyleSheet.create({
   },
   translationRecordingCoreWithHearPailin: { transform: [{ translateY: -10 }] },
   translationRetryActionCard: { minHeight: 230 },
-  translationRetryMicButton: { marginTop: 10 },
+  translationRetryMicButton: { marginTop: 0 },
   translationRetryAttemptLabel: { marginTop: 9 },
   translationHearPailinButton: {
+    zIndex: 10,
+    elevation: 10,
     minWidth: 112,
     minHeight: 30,
     marginTop: 4,
@@ -3608,6 +3760,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   translationHearPailinButtonDisabled: { opacity: 0.62 },
+  translationHearPailinButtonPressed: { opacity: 0.72 },
   translationHearPailinIcon: { width: 18, height: 18 },
   translationHearPailinLabel: {
     color: practiceColors.text,
