@@ -2427,6 +2427,70 @@ const getPhraseNodesForLanguage = (phrase: ResolvedLessonPhrase, contentLang: Ui
   return contentLang === 'th' && thaiNodes.length ? thaiNodes : englishNodes.length ? englishNodes : thaiNodes;
 };
 
+const PHRASE_TARGET_BLUE = '#2563eb';
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeLegacyThaiPhraseTargetColors = (
+  nodes: LessonRichNode[],
+  phraseLabel: string,
+  phraseLabelTh: string
+): LessonRichNode[] => {
+  if (!phraseLabel || !phraseLabelTh) {
+    return nodes;
+  }
+
+  const englishTarget = new RegExp(`^(\\s*)(${escapeRegExp(phraseLabel)}[!?…]*)`, 'i');
+  const thaiTarget = new RegExp(`^(\\s*)(${escapeRegExp(phraseLabelTh)}[!?…]*)`);
+
+  return nodes.map((node) => {
+    if (!Array.isArray(node.inlines) || !node.inlines.length) {
+      return node;
+    }
+
+    const hasFlattenedEnglishBlue = node.inlines.some((inline) => {
+      const text = typeof inline.text === 'string' ? inline.text : '';
+      const match = text.match(englishTarget);
+      const color = typeof inline.color === 'string' ? inline.color.trim().toLowerCase() : '';
+      return color === PHRASE_TARGET_BLUE &&
+        Boolean(match) &&
+        text.trim().length > String(match?.[2] ?? '').length;
+    });
+
+    if (!hasFlattenedEnglishBlue) {
+      return node;
+    }
+
+    const repairedInlines = node.inlines.flatMap((inline) => {
+      const text = typeof inline.text === 'string' ? inline.text : '';
+      const color = typeof inline.color === 'string' ? inline.color.trim().toLowerCase() : '';
+      const englishMatch = color === PHRASE_TARGET_BLUE ? text.match(englishTarget) : null;
+      const thaiMatch = !color ? text.match(thaiTarget) : null;
+      const match = englishMatch ?? thaiMatch;
+
+      if (!match) {
+        return [inline];
+      }
+
+      const leading = match[1] ?? '';
+      const target = match[2] ?? '';
+      const remainder = text.slice(match[0].length);
+      const spans: LessonRichInline[] = [];
+
+      if (leading) {
+        spans.push({ ...inline, text: leading, color: null });
+      }
+      spans.push({ ...inline, text: target, color: '#2563EB' });
+      if (remainder) {
+        spans.push({ ...inline, text: remainder, color: null });
+      }
+      return spans;
+    });
+
+    return { ...node, inlines: repairedInlines };
+  });
+};
+
 const normalizeLessonPhrase = (
   phrase: ResolvedLessonPhrase,
   index: number,
@@ -2439,7 +2503,10 @@ const normalizeLessonPhrase = (
     rawPhraseLabelTh.startsWith('ว่าแต่ว่า… ใช้เมื่อต้องการเปลี่ยนหัวข้อบทสนทนา')
     ? 'ว่าแต่ว่า…'
     : rawPhraseLabelTh;
-  const nodes = getPhraseNodesForLanguage(phrase, contentLang);
+  const sourceNodes = getPhraseNodesForLanguage(phrase, contentLang);
+  const nodes = contentLang === 'th'
+    ? normalizeLegacyThaiPhraseTargetColors(sourceNodes, phraseLabel, phraseLabelTh)
+    : sourceNodes;
   const markdown = String(phrase.content_md ?? phrase.content ?? '').trim();
   const hasRenderableNodes = nodes.some((node) => hasVisibleRichNodeContent(node, contentLang));
 
@@ -2789,13 +2856,20 @@ const groupApplyExampleLines = (nodes: LessonRichNode[], contentLang: UiLanguage
     speakerTh: string;
     englishLine: string;
     thaiLine: string;
+    englishInlines: LessonRichInline[];
+    thaiInlines: LessonRichInline[];
   }[] = [];
 
   nodes.forEach((node) => {
-    const text = getApplyNodeText(node, contentLang);
+    const richInlines = mergeAdjacentRichInlines(node.inlines, contentLang);
+    const richText = richInlines.map((inline) => String(inline.text ?? '')).join('');
+    const text = richText || getApplyNodeText(node, contentLang);
     const speakerMatch = text.match(/^([^:\n]+):\s*/);
     const speaker = speakerMatch?.[1]?.trim() ?? '';
     const dialogue = speakerMatch ? text.slice(speakerMatch[0].length) : text;
+    const dialogueInlines = richText
+      ? slicePracticeRichInlines(richInlines, speakerMatch?.[0].length ?? 0, richText.length)
+      : [];
     if (!dialogue) return;
 
     if (THAI_TEXT_RE.test(dialogue)) {
@@ -2803,8 +2877,16 @@ const groupApplyExampleLines = (nodes: LessonRichNode[], contentLang: UiLanguage
       if (previous?.englishLine && !previous.thaiLine) {
         previous.thaiLine = dialogue;
         previous.speakerTh = speaker;
+        previous.thaiInlines = dialogueInlines;
       } else {
-        examples.push({ speaker: '', speakerTh: speaker, englishLine: '', thaiLine: dialogue });
+        examples.push({
+          speaker: '',
+          speakerTh: speaker,
+          englishLine: '',
+          thaiLine: dialogue,
+          englishInlines: [],
+          thaiInlines: dialogueInlines,
+        });
       }
       return;
     }
@@ -2813,8 +2895,16 @@ const groupApplyExampleLines = (nodes: LessonRichNode[], contentLang: UiLanguage
     if (previous?.thaiLine && !previous.englishLine) {
       previous.englishLine = dialogue;
       previous.speaker = speaker;
+      previous.englishInlines = dialogueInlines;
     } else {
-      examples.push({ speaker, speakerTh: '', englishLine: dialogue, thaiLine: '' });
+      examples.push({
+        speaker,
+        speakerTh: '',
+        englishLine: dialogue,
+        thaiLine: '',
+        englishInlines: dialogueInlines,
+        thaiInlines: [],
+      });
     }
   });
 
@@ -4672,13 +4762,16 @@ export default function LessonDetailShellScreen() {
   const isCommonMistakeTab = activeTab?.type === 'common_mistake';
   const isCultureNoteTab = activeTab?.type === 'culture_note';
   const isPracticeTab = activeTab?.type === 'practice';
+  const isPracticeFooterActive = isPracticeTab && !isListenPage;
+  const isPhrasesFooterActive = isPhrasesTab && !isListenPage;
   const isConversationGroupTab = Boolean(
     activeTab?.type && ['prepare', 'comprehension', 'transcript', 'apply'].includes(activeTab.type)
   );
   const isRichPagerTab = isUnderstandTab || isExtraTipTab || isCommonMistakeTab || isCultureNoteTab;
   const usesDetachedAudioFooter =
-    isComprehensionTab || isTranscriptTab || isApplyTab;
-  const usesPrepareFooterLayout = !usesDetachedAudioFooter && !isPracticeTab;
+    !isListenPage && (isComprehensionTab || isTranscriptTab || isApplyTab);
+  const usesPrepareFooterLayout =
+    !isListenPage && !usesDetachedAudioFooter && !isPracticeFooterActive;
   const iosLessonBodyManualFontScale =
     Platform.OS === 'ios' &&
     fontScale >= IOS_BROKEN_LESSON_FONT_SCALE_MIN &&
@@ -5474,8 +5567,8 @@ export default function LessonDetailShellScreen() {
       ? pageCopy.audioTrayPlaying
       : pageCopy.audioTrayStatus;
   const audioTrayAutoCollapseSignal =
-    (isInnerPagerTab || isPrepareTab || isTranscriptTab || isApplyTab) && activeTab?.id
-      ? `${activeTab.id}:${activeSectionIndex}:${isPrepareTab ? 'prepare' : isTranscriptTab ? 'transcript' : isApplyTab ? 'apply' : 'pager'}`
+    (isInnerPagerTab || isPrepareTab || isTranscriptTab || isApplyTab || (isComprehensionTab && showComprehensionResults)) && activeTab?.id
+      ? `${activeTab.id}:${activeSectionIndex}:${isPrepareTab ? 'prepare' : isTranscriptTab ? 'transcript' : isApplyTab ? 'apply' : isComprehensionTab ? 'comprehension-results' : 'pager'}`
       : null;
   const conversationAudioMetadata = useMemo<AudioMetadata>(
     () => ({
@@ -5499,19 +5592,21 @@ export default function LessonDetailShellScreen() {
     [checkedPracticeItems, corePracticeExercises, lesson?.lesson_external_id]
   );
   const nextSectionButtonLabel =
-    sectionCount === 0
+    isListenPage
+      ? (pageLanguage === 'th' ? 'ส่วนถัดไป' : 'NEXT SECTION')
+      : sectionCount === 0
       ? pageCopy.backToLessonCover
       : isLastSection
         ? isCheckpointCoverLesson
-          ? (pageLanguage === 'th' ? 'กลับไปที่บทเรียน' : 'BACK TO LESSON')
+          ? pageCopy.finishLesson
           : (pageLanguage === 'th' ? 'ฝึกพูด' : 'SPEAKING PRACTICE')
         : pageLanguage === 'th'
             ? 'ส่วนถัดไป'
             : 'NEXT SECTION';
   const continueButtonLabel = pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE';
   const isLastPhraseCard =
-    isPhrasesTab && !showPhraseList && activePhraseIndex >= normalizedLessonPhrases.length - 1;
-  const hasMoreRichPagerCards = isRichPagerTab && !isLastPagerCard;
+    isPhrasesFooterActive && !showPhraseList && activePhraseIndex >= normalizedLessonPhrases.length - 1;
+  const hasMoreRichPagerCards = !isListenPage && isRichPagerTab && !isLastPagerCard;
   const shouldShowFooterCta = !hasMoreRichPagerCards;
   const isFinalPracticeQuestion =
     activePracticeCardIndex >= normalizedPracticeExercises.length - 1 &&
@@ -5605,6 +5700,37 @@ export default function LessonDetailShellScreen() {
     }
 
     voiceSound.pause();
+  };
+
+  const handleLessonBackPress = () => {
+    pauseConversationAudio();
+    snippetSoundRef.current?.pause();
+    setPlayingSnippetKey(null);
+
+    if (isListenPage) {
+      if (prepareSectionIndex >= 0) {
+        finishConversationIntroTransition(prepareSectionIndex, false);
+      } else {
+        setIsConversationIntroVisible(false);
+        setIsConversationIntroAnimatingOut(false);
+        setConversationIntroPendingSectionIndex(null);
+        setShowOverview(true);
+      }
+      return;
+    }
+
+    const firstSectionAfterListen = Math.max(0, prepareSectionIndex + 1);
+    if (hasListenStep && activeSectionIndex === firstSectionAfterListen) {
+      openConversationIntro(activeSectionIndex);
+      return;
+    }
+
+    if (activeSectionIndex > 0) {
+      navigateToSectionWithConversationGate(activeSectionIndex - 1);
+      return;
+    }
+
+    setShowOverview(true);
   };
 
   useEffect(() => {
@@ -6050,10 +6176,11 @@ export default function LessonDetailShellScreen() {
       params: {
         lesson: activeLessonNumber,
         lessonId: lessonCover.id,
+        language: contentLang,
         ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
       },
     });
-  }, [activeLessonNumber, lessonCover?.id, libraryRouteParam, router]);
+  }, [activeLessonNumber, contentLang, lessonCover?.id, libraryRouteParam, router]);
 
   const navigateToAccountTab = useCallback(async () => {
     await flushPendingLessonPersistence();
@@ -6301,15 +6428,11 @@ export default function LessonDetailShellScreen() {
 
   const handleEndOfLessonContent = useCallback(() => {
     if (isCheckpointCoverLesson) {
-      setShowOverview(true);
-      return;
-    }
-    if (completedSpeakingLessonIds.has(activeLessonNumber)) {
       void handleFinishLessonPress();
       return;
     }
     openSpeakingPractice();
-  }, [activeLessonNumber, completedSpeakingLessonIds, handleFinishLessonPress, isCheckpointCoverLesson, openSpeakingPractice]);
+  }, [handleFinishLessonPress, isCheckpointCoverLesson, openSpeakingPractice]);
 
   const handleContentTogglePress = useCallback(() => {
     setContentLang((previous) => {
@@ -8030,6 +8153,39 @@ export default function LessonDetailShellScreen() {
     });
   };
 
+  const renderApplyExampleInlines = (
+    inlines: LessonRichInline[],
+    fallbackText: string,
+    lineLanguage: ScriptLanguage
+  ) => {
+    if (!inlines.length) {
+      return fallbackText;
+    }
+
+    return inlines.flatMap((inline, inlineIndex) => {
+      const textValue = resolveRichInlineText(inline, contentLang);
+      return splitTextByScript(textValue).map((segment, segmentIndex) => (
+        <Text
+          key={`apply-example-inline-${inlineIndex}-${segmentIndex}`}
+          style={[
+            lineLanguage === 'th' ? styles.applyExampleTextThai : styles.applyExampleText,
+            {
+              fontFamily: getInlineFontFamily(segment.language, {
+                bold: inline.bold === true,
+                italic: inline.italic === true,
+              }),
+            },
+            inline.underline ? styles.applyInlineUnderline : null,
+            typeof inline.color === 'string' && inline.color.trim()
+              ? { color: inline.color.trim() }
+              : null,
+          ]}>
+          {segment.text}
+        </Text>
+      ));
+    });
+  };
+
   const renderApplyNodes = (nodes: LessonRichNode[]) => {
     if (!nodes.length) {
       return null;
@@ -8746,6 +8902,10 @@ export default function LessonDetailShellScreen() {
               options?.isPhraseCard && isThaiLine && firstThaiCharIndex >= 0
                 ? globalPieceEnd > firstThaiCharIndex
                 : isThaiLine;
+            const hasExplicitPhraseColor =
+              options?.isPhraseCard &&
+              typeof inline.color === 'string' &&
+              inline.color.trim().length > 0;
             const pieceWithinSpeakerPrefix = speakerPrefixLength > 0 && globalPieceStart < speakerPrefixLength;
             const pieceCrossesSpeakerBoundary = speakerPrefixLength > 0 && globalPieceEnd > speakerPrefixLength;
 
@@ -8757,7 +8917,7 @@ export default function LessonDetailShellScreen() {
                 <React.Fragment
                   key={`${keyPrefix}-line-${lineIndex}-${spanIndex}-${partIndex}-${pieceIndex}-${renderedSpans.length}`}>
                   {renderRichTextScriptSegments(text, `${keyPrefix}-line-${lineIndex}-${spanIndex}-${partIndex}-${pieceIndex}-${renderedSpans.length}`, inline, {
-                    muted: shouldMutePiece,
+                    muted: shouldMutePiece && !hasExplicitPhraseColor,
                     isLink,
                     shouldShowHighlight,
                     highlightColor,
@@ -8821,12 +8981,6 @@ export default function LessonDetailShellScreen() {
           }
 
           if (options?.isPhraseCard && lineMeta?.isThaiLineForPhraseCard) {
-            const speakerPrefix = lineMeta.speakerPrefix;
-            const bodyText = speakerPrefix
-              ? lineMeta.lineText.slice(speakerPrefix.length)
-              : lineMeta.lineText;
-            const bodyParts = bodyText.split(INLINE_MARKER_RE).filter(Boolean);
-
             return (
               <Text
                 key={`${keyPrefix}-row-${lineIndex}`}
@@ -8839,28 +8993,7 @@ export default function LessonDetailShellScreen() {
                     lineHeight: 21 * phraseTextScale,
                   },
                 ]}>
-                {speakerPrefix ? (
-                  <Text style={styles.phraseDialogueThaiPlainSpeaker}>{speakerPrefix}</Text>
-                ) : null}
-                {bodyParts.map((part, partIndex) => {
-                  const markerColor = getInlineMarkerColor(part);
-                  if (!markerColor) {
-                    return part;
-                  }
-
-                  return (
-                    <Text
-                      key={`${keyPrefix}-row-${lineIndex}-marker-${partIndex}`}
-                      style={[
-                        styles.phraseDialogueThaiPlainMarker,
-                        markerColor === '#FD6969' ? styles.richInlineMarkerRed : null,
-                        markerColor === '#3CA0FE' ? styles.richInlineMarkerBlue : null,
-                        markerColor === '#28A265' ? styles.richInlineMarkerGreen : null,
-                      ]}>
-                      {getInlineMarkerDisplay(part) ?? part}
-                    </Text>
-                  );
-                })}
+                {renderLineContent(lineSpans, lineIndex)}
               </Text>
             );
           }
@@ -11273,7 +11406,7 @@ const mergeAdjacentPracticeRowTokens = (
     (activePracticeQuestion.correctTag === 'yes' || activePracticeQuestion.correctTag === 'no')
   );
   const usesSharedPracticeAnswerFooter = Boolean(
-    isPracticeTab &&
+    isPracticeFooterActive &&
     !showPracticeSetResults &&
     (
       activePracticeExercise?.kind === 'fill_blank' ||
@@ -11616,25 +11749,31 @@ const mergeAdjacentPracticeRowTokens = (
       <Stack
         gap="md"
         style={(isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession ? styles.practiceSharedFillBlankBody : null}>
-        {!hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
-          <AppText
-            language={contentLang === 'th' ? 'th' : 'en'}
-            variant="muted"
-            style={[
-              styles.practiceExercisePrompt,
-              isInlineQuickPractice ? styles.practiceExercisePromptCompact : null,
-              (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
-                ? styles.practiceSharedFillBlankInstructions
-                : null,
-            ]}>
-            {exercise.prompt}
-          </AppText>
-        ) : null}
+        {hasPromptBlocks || (exercise.prompt && exercise.title !== exercise.prompt) || isFocusedPracticeSession ? (
+          <View style={isFocusedPracticeSession ? styles.practiceInstructionSlot : null}>
+            <Stack gap="md">
+              {!hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
+                <AppText
+                  language={contentLang === 'th' ? 'th' : 'en'}
+                  variant="muted"
+                  style={[
+                    styles.practiceExercisePrompt,
+                    isInlineQuickPractice ? styles.practiceExercisePromptCompact : null,
+                    (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
+                      ? styles.practiceSharedFillBlankInstructions
+                      : null,
+                  ]}>
+                  {exercise.prompt}
+                </AppText>
+              ) : null}
 
-        {renderPracticePromptBlocks(
-          exercise,
-          (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
-        )}
+              {renderPracticePromptBlocks(
+                exercise,
+                (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
+              )}
+            </Stack>
+          </View>
+        ) : null}
 
         {!isInlineQuickPractice && hasPracticeExample && !isSentenceTransformExercise && !isFillBlankExercise && !isOpenExercise ? (
             <Pressable
@@ -14016,12 +14155,7 @@ const mergeAdjacentPracticeRowTokens = (
                     <View style={styles.lessonHeaderMetaRow}>
                       <BackAction
                         language={pageLanguage}
-                        onPress={() => {
-                          pauseConversationAudio();
-                          snippetSoundRef.current?.pause();
-                          setPlayingSnippetKey(null);
-                          setShowOverview(true);
-                        }}
+                        onPress={handleLessonBackPress}
                         style={styles.lessonHeaderBackButton}
                       />
 
@@ -14181,7 +14315,16 @@ const mergeAdjacentPracticeRowTokens = (
                     normalizedQuestions.length ? (
                       <Stack gap="md">
                         <View style={styles.comprehensionProgressRow}>
-                          <View style={styles.comprehensionProgressTrack}>
+                          <View
+                            accessibilityRole="progressbar"
+                            accessibilityValue={{
+                              min: 0,
+                              max: comprehensionQuestionCount,
+                              now: showComprehensionResults
+                                ? comprehensionQuestionCount
+                                : clampedComprehensionQuestionIndex + 1,
+                            }}
+                            style={styles.comprehensionProgressTrack}>
                             <View
                               style={[
                                 styles.comprehensionProgressFill,
@@ -14193,11 +14336,6 @@ const mergeAdjacentPracticeRowTokens = (
                               ]}
                             />
                           </View>
-                          <AppText language="en" style={styles.comprehensionProgressText}>
-                            {showComprehensionResults
-                              ? `${comprehensionQuestionCount} / ${comprehensionQuestionCount}`
-                              : `${clampedComprehensionQuestionIndex + 1} / ${comprehensionQuestionCount}`}
-                          </AppText>
                         </View>
 
                         {(showComprehensionResults || !currentComprehensionQuestion
@@ -14376,7 +14514,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 ? 'You understood most of it!'
                                 : 'Listen to the conversation to build your understanding!');
                           return (
-                            <View style={styles.comprehensionResult}>
+                            <View style={[styles.comprehensionResult, styles.comprehensionScoreResult]}>
                               <ExerciseSetResultCard
                                 body={resultBody}
                                 imageSource={resultImage}
@@ -14510,12 +14648,20 @@ const mergeAdjacentPracticeRowTokens = (
                                   <View style={styles.applyExampleBubble}>
                                     {example.englishLine ? (
                                       <AppText language="en" style={styles.applyExampleText}>
-                                        {example.englishLine}
+                                        {renderApplyExampleInlines(
+                                          example.englishInlines,
+                                          example.englishLine,
+                                          'en'
+                                        )}
                                       </AppText>
                                     ) : null}
                                     {(contentLang === 'th' || !example.englishLine) && example.thaiLine ? (
                                       <AppText language="th" style={styles.applyExampleTextThai}>
-                                        {example.thaiLine}
+                                        {renderApplyExampleInlines(
+                                          example.thaiInlines,
+                                          example.thaiLine,
+                                          'th'
+                                        )}
                                       </AppText>
                                     ) : null}
                                   </View>
@@ -14682,7 +14828,16 @@ const mergeAdjacentPracticeRowTokens = (
                               {isPracticeTab ? (
                                 <View style={styles.practiceSessionHeader}>
                                   <View style={styles.comprehensionProgressRow}>
-                                    <View style={styles.comprehensionProgressTrack}>
+                                    <View
+                                      accessibilityRole="progressbar"
+                                      accessibilityValue={{
+                                        min: 0,
+                                        max: normalizedPracticeExercises.length,
+                                        now: showPracticeSetResults
+                                          ? normalizedPracticeExercises.length
+                                          : Math.min(activePracticeCardIndex + 1, normalizedPracticeExercises.length),
+                                      }}
+                                      style={styles.comprehensionProgressTrack}>
                                       <View
                                         style={[
                                           styles.comprehensionProgressFill,
@@ -14697,11 +14852,6 @@ const mergeAdjacentPracticeRowTokens = (
                                         ]}
                                       />
                                     </View>
-                                    <AppText language="en" style={styles.comprehensionProgressText}>
-                                      {normalizedPracticeExercises.length
-                                        ? `${showPracticeSetResults ? normalizedPracticeExercises.length : Math.min(activePracticeCardIndex + 1, normalizedPracticeExercises.length)} / ${normalizedPracticeExercises.length}`
-                                        : '0 / 0'}
-                                    </AppText>
                                   </View>
                                 </View>
                               ) : (
@@ -14954,7 +15104,8 @@ const mergeAdjacentPracticeRowTokens = (
                       Platform.OS === 'android' ? styles.stickyFooterAndroid : null,
                       usesPrepareFooterLayout ? styles.prepareStickyFooter : null,
                       usesDetachedAudioFooter ? styles.detachedAudioStickyFooter : null,
-                      shouldShowBottomPagerDock || isPhrasesTab ? styles.stickyFooterWithPager : null,
+                      isListenPage ? styles.listenStickyFooter : null,
+                      shouldShowBottomPagerDock || isPhrasesFooterActive ? styles.stickyFooterWithPager : null,
                     ]}>
                     <View
                       pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
@@ -14963,8 +15114,9 @@ const mergeAdjacentPracticeRowTokens = (
                         Platform.OS === 'android' ? styles.stickyFooterShellAndroid : null,
                         usesPrepareFooterLayout ? styles.prepareStickyFooterShell : null,
                         usesDetachedAudioFooter ? styles.detachedAudioActionShell : null,
-                        isPracticeTab ? styles.practiceStickyFooterShell : null,
-                        isPhrasesTab ? styles.phraseStickyFooterShell : null,
+                        isListenPage ? styles.listenFooterShell : null,
+                        isPracticeFooterActive ? styles.practiceStickyFooterShell : null,
+                        isPhrasesFooterActive ? styles.phraseStickyFooterShell : null,
                         usesSharedPracticeAnswerFooter
                           ? styles.practiceFillBlankStickyFooterShell
                           : null,
@@ -14976,7 +15128,7 @@ const mergeAdjacentPracticeRowTokens = (
                             }
                           : null,
                         {
-                          paddingBottom: usesDetachedAudioFooter
+                          paddingBottom: usesDetachedAudioFooter || isListenPage
                             ? 0
                             : usesPrepareFooterLayout
                               ? Math.max(insets.bottom, 10)
@@ -15032,13 +15184,15 @@ const mergeAdjacentPracticeRowTokens = (
                         styles.ctaRow,
                         Platform.OS === 'android' ? styles.ctaRowAndroid : null,
                         usesDetachedAudioFooter ? styles.detachedAudioCtaRow : null,
-                        isPracticeTab ? styles.practiceCtaRow : null,
-                        isPracticeTab && showPracticeSetResults ? styles.practiceResultsCtaRow : null,
+                        isListenPage ? styles.listenCtaRow : null,
+                        isPracticeFooterActive ? styles.practiceCtaRow : null,
+                        isPracticeFooterActive && showPracticeSetResults ? styles.practiceResultsCtaRow : null,
                         (isComprehensionFooterActive && showComprehensionResults) ||
-                        (isPracticeTab && showPracticeSetResults && !isPracticeSetPerfect)
+                        (isPracticeFooterActive && showPracticeSetResults && !isPracticeSetPerfect)
                           ? styles.comprehensionResultActionsRow
                           : null,
                         usesPrepareFooterLayout ? styles.prepareCtaRow : null,
+                        isListenPage ? { paddingBottom: Math.max(insets.bottom, 10) + 16 } : null,
                       ]}>
                       {lessonCompletionError ? (
                         <AppText language={pageLanguage} variant="muted" style={styles.lessonCompletionErrorText}>
@@ -15066,7 +15220,7 @@ const mergeAdjacentPracticeRowTokens = (
                           </AppText>
                         </Pressable>
                       ) : null}
-                      {isPracticeTab && showPracticeSetResults && !isPracticeSetPerfect ? (
+                      {isPracticeFooterActive && showPracticeSetResults && !isPracticeSetPerfect ? (
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={pageLanguage === 'th' ? 'ลองชุดนี้อีกครั้ง' : 'Try this set again'}
@@ -15183,15 +15337,14 @@ const mergeAdjacentPracticeRowTokens = (
                         accessibilityState={{ disabled: isFooterPrimaryVisuallyDisabled }}
                         disabled={isFooterPrimaryActuallyDisabled}
                         onPress={() => {
-                          if (isPracticeTab) {
-                            if (showPracticeSetResults) handleContinueAfterPracticeSet();
-                            else handlePrimaryPracticeAction();
+                          if (isListenPage) {
+                            finishConversationIntroTransition(conversationIntroTargetSectionIndex, true);
                             return;
                           }
 
-                          if (isListenPage) {
-                            pauseConversationAudio();
-                            finishConversationIntroTransition(conversationIntroTargetSectionIndex, false);
+                          if (isPracticeFooterActive) {
+                            if (showPracticeSetResults) handleContinueAfterPracticeSet();
+                            else handlePrimaryPracticeAction();
                             return;
                           }
 
@@ -15241,25 +15394,25 @@ const mergeAdjacentPracticeRowTokens = (
                           styles.ctaButton,
                           styles.ctaNextButton,
                           styles.ctaNextButtonFull,
-                          isPhrasesTab && !isLastPhraseCard ? styles.phraseSkipButton : null,
+                          isPhrasesFooterActive && !isLastPhraseCard ? styles.phraseSkipButton : null,
                           isComprehensionFooterActive && showComprehensionResults
                             ? styles.comprehensionResultActionButton
                             : null,
-                          isPracticeTab && showPracticeSetResults && !isPracticeSetPerfect
+                          isPracticeFooterActive && showPracticeSetResults && !isPracticeSetPerfect
                             ? styles.comprehensionResultActionButton
                             : null,
                           isComprehensionFooterActive && !showComprehensionResults &&
                           isCurrentComprehensionChecked && !isCurrentComprehensionCorrect
                             ? styles.comprehensionTryAgainButton
                             : null,
-                          isPracticeTab && isCurrentPracticeChecked && !isCurrentPracticeCorrect
+                          isPracticeFooterActive && isCurrentPracticeChecked && !isCurrentPracticeCorrect
                             ? styles.comprehensionTryAgainButton
                             : null,
                           isFooterPrimaryVisuallyDisabled ? styles.ctaButtonDisabled : null,
                           isListenPage && isFooterPrimaryVisuallyDisabled
                             ? styles.listenNextButtonDisabled
                             : null,
-                          (isComprehensionFooterActive || isPracticeTab) && isFooterPrimaryVisuallyDisabled
+                          (isComprehensionFooterActive || isPracticeFooterActive) && isFooterPrimaryVisuallyDisabled
                             ? styles.comprehensionPrimaryButtonDisabled
                             : null,
                           pressed && !isFooterPrimaryVisuallyDisabled
@@ -15274,13 +15427,13 @@ const mergeAdjacentPracticeRowTokens = (
                           variant="caption"
                           style={[
                             styles.ctaNextButtonText,
-                            isPhrasesTab && !isLastPhraseCard ? styles.phraseSkipButtonText : null,
+                            isPhrasesFooterActive && !isLastPhraseCard ? styles.phraseSkipButtonText : null,
                           ]}>
                           {isSavingLessonCompletion
                             ? pageCopy.practiceChecking
                             : isPrepareTab || isListenPage || isTranscriptTab || isApplyTab
                               ? nextSectionButtonLabel
-                              : isPhrasesTab
+                              : isPhrasesFooterActive
                                 ? nextSectionButtonLabel
                               : isRichPagerTab
                                 ? hasMoreRichPagerCards ? continueButtonLabel : nextSectionButtonLabel
@@ -15292,7 +15445,7 @@ const mergeAdjacentPracticeRowTokens = (
                                   : isCurrentComprehensionChecked
                                     ? (pageLanguage === 'th' ? 'ลองอีกครั้ง' : 'TRY AGAIN')
                                     : (pageLanguage === 'th' ? 'ตรวจคำตอบ' : 'CHECK ANSWER')
-                              : isPracticeTab
+                              : isPracticeFooterActive
                                 ? showPracticeSetResults
                                   ? extraPracticeOrder !== null && extraPracticeBatchIndex < extraPracticeBatchCount - 1
                                     ? continueButtonLabel
@@ -15312,7 +15465,7 @@ const mergeAdjacentPracticeRowTokens = (
                         </AppText>
                       </Pressable>
                       ) : null}
-                      {isPracticeTab && !showPracticeSetResults && activePracticeExercise && activePracticeQuestion &&
+                      {isPracticeFooterActive && !showPracticeSetResults && activePracticeExercise && activePracticeQuestion &&
                       !usesSharedPracticeAnswerFooter &&
                       !(isCurrentPracticeChecked && isCurrentPracticeCorrect) ? (
                         <Pressable
@@ -15363,6 +15516,28 @@ const mergeAdjacentPracticeRowTokens = (
                   bottomInset={insets.bottom}
                   position={sectionIntroPosition}
                   total={sectionIntroTotal}
+                  audioTray={shouldShowAudioTray ? (
+                    <LessonAudioTray
+                      detached
+                      initiallyExpanded={isAudioPlaying}
+                      bottomInset={Math.max(insets.bottom, 10)}
+                      language={pageLanguage}
+                      title={audioTrayTitle}
+                      lessonLabel={studyLessonLabel}
+                      subtitle={audioTraySubtitle}
+                      statusLabel={audioTrayStatusLabel}
+                      audioUrl={audioUrls.main}
+                      isPlaying={isAudioPlaying}
+                      isLoading={isAudioLoading}
+                      currentMillis={audioPositionMillis}
+                      durationMillis={audioDurationMillis}
+                      rate={audioRate}
+                      onTogglePlay={handleToggleAudio}
+                      onSkip={handleSkipAudio}
+                      onSeek={handleSeekAudio}
+                      onSetRate={handleSetAudioRate}
+                    />
+                  ) : undefined}
                   onContinue={() => {
                     setDismissedSectionIntros((previous) => ({ ...previous, [activeSectionIntroKey]: true }));
                   }}
@@ -17411,7 +17586,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
     gap: 4,
-    borderWidth: 1.2,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: '#4A4A4A',
     borderRadius: 10,
     borderBottomLeftRadius: 0,
@@ -17684,6 +17859,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: theme.typography.weights.bold,
+  },
+  practiceInstructionSlot: {
+    width: '100%',
+    minHeight: 36,
+    justifyContent: 'flex-start',
   },
   practiceSharedFillBlankBody: {
     marginTop: -6,
@@ -17972,16 +18152,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#B9E671',
   },
-  comprehensionProgressText: {
-    color: '#4B4B4B',
-    fontSize: 9,
-    lineHeight: 12,
-  },
   comprehensionResult: {
     width: '100%',
     alignItems: 'center',
     paddingTop: 8,
     paddingHorizontal: 12,
+  },
+  comprehensionScoreResult: {
+    marginTop: -8,
   },
   morePracticeButton: {
     minHeight: 40,
@@ -19196,6 +19374,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
+  listenStickyFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    marginTop: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
   stickyFooterWithPager: {
     marginTop: 0,
   },
@@ -19226,6 +19413,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   detachedAudioActionShell: {
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+  },
+  listenFooterShell: {
     borderWidth: 0,
     borderRadius: 0,
     backgroundColor: 'transparent',
@@ -19512,6 +19704,10 @@ const styles = StyleSheet.create({
   },
   detachedAudioCtaRow: {
     paddingHorizontal: 18,
+    paddingBottom: DETACHED_CTA_AUDIO_TRAY_GAP,
+  },
+  listenCtaRow: {
+    paddingHorizontal: 10,
     paddingBottom: DETACHED_CTA_AUDIO_TRAY_GAP,
   },
   practiceCtaRow: {

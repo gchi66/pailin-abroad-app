@@ -4,9 +4,22 @@ import type { AppLessonProgressSummary } from '../api/app-lesson-progress';
 export const LIBRARY_STAGES = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
 export type LibraryStage = typeof LIBRARY_STAGES[number];
 
+export function isCheckpointLesson(lesson: LessonListItem) {
+  return [lesson.title, lesson.title_th].some((title) => title?.toLowerCase().includes('checkpoint'));
+}
+
 export function lessonNumber(lesson: LessonListItem) {
-  const checkpoint = [lesson.title, lesson.title_th].some((title) => title?.toLowerCase().includes('checkpoint'));
-  return `${lesson.level ?? '–'}.${checkpoint ? 'chp' : lesson.lesson_order ?? '–'}`;
+  return `${lesson.level ?? '–'}.${isCheckpointLesson(lesson) ? 'CHP' : lesson.lesson_order ?? '–'}`;
+}
+
+export function lessonTitle(lesson: LessonListItem, language: 'en' | 'th', emptyFallback = '') {
+  if (language === 'th' && isCheckpointLesson(lesson) && lesson.level != null) {
+    return `ด่านทบทวนระดับ ${lesson.level}`;
+  }
+
+  const preferred = language === 'th' ? lesson.title_th : lesson.title;
+  const fallback = language === 'th' ? lesson.title : lesson.title_th;
+  return preferred?.trim() || fallback?.trim() || emptyFallback;
 }
 
 export function freeLibraryIds(lessons: LessonListItem[]) {
@@ -21,28 +34,31 @@ export function freeLibraryIds(lessons: LessonListItem[]) {
 }
 
 // Temporary fallback for cards until their database short-focus fields are filled.
-const SHORT_FOCUS: Record<string, { en: string; th: string }> = {
-  '5.1': { en: 'there is · there are', th: 'การใช้ there is · there are' },
-  '5.2': { en: 'can · could', th: 'การใช้ can · could' },
-  '5.3': { en: 'object pronouns', th: 'สรรพนามที่เป็นกรรม' },
-  '5.4': { en: 'like', th: 'การใช้ like' },
-  '5.5': { en: 'this · that · these · those', th: 'การใช้ this · that · these · those' },
-  '8.1': { en: 'present perfect continuous', th: 'ปัจจุบันสมบูรณ์ต่อเนื่อง' },
-  '8.2': { en: 'need', th: 'การใช้ need' },
-  '8.3': { en: 'just', th: 'การใช้ just' },
-  '8.4': { en: 'hope', th: 'การใช้ hope' },
+const SHORT_FOCUS: Record<string, string> = {
+  '5.1': 'there is · there are',
+  '5.2': 'can · could',
+  '5.3': 'object pronouns',
+  '5.4': 'like',
+  '5.5': 'this · that · these · those',
+  '8.1': 'present perfect continuous',
+  '8.2': 'need',
+  '8.3': 'just',
+  '8.4': 'hope',
 };
 
-export function shortLessonFocus(lesson: LessonListItem, language: 'en' | 'th') {
-  return (language === 'th' ? lesson.focus_short_th?.trim() : lesson.focus_short?.trim())
-    || SHORT_FOCUS[lessonNumber(lesson)]?.[language]
-    || (language === 'th' ? lesson.focus_th?.trim() || lesson.focus?.trim() : lesson.focus?.trim() || lesson.focus_th?.trim())
+export function shortLessonFocus(lesson: LessonListItem, _language: 'en' | 'th') {
+  // SHORT_FOCUS is authored only in the English lesson document and should
+  // remain English on cards even when the surrounding UI is Thai.
+  return lesson.focus_short?.trim()
+    || SHORT_FOCUS[lessonNumber(lesson)]
+    || lesson.focus?.trim()
+    || lesson.focus_th?.trim()
     || '';
 }
 
 export function matchesLessonSearch(lesson: LessonListItem, query: string) {
   const normalize = (text: string) => text.normalize('NFC').toLocaleLowerCase().trim();
-  const text = normalize([lesson.title, lesson.title_th, lesson.focus, lesson.focus_th, lessonNumber(lesson),
+  const text = normalize([lesson.title, lesson.title_th, lessonTitle(lesson, 'th'), lesson.focus, lesson.focus_th, lessonNumber(lesson),
     lesson.stage, shortLessonFocus(lesson, 'en'), shortLessonFocus(lesson, 'th')].join(' '));
   return normalize(query).split(/\s+/).every((word) => text.includes(word));
 }

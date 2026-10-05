@@ -1411,7 +1411,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     return { error: message };
   };
 
-  const continueAsGuest = async () => {
+  const continueAsGuest = useCallback(async () => {
     setAuthError(null);
     guestConversionPendingRef.current = false;
     guestConversionShouldCarryMembershipRef.current = false;
@@ -1419,7 +1419,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     await ensureGuestRevenueCatUserId();
     setIsGuestMode(true);
     await persistGuestMode(true);
-  };
+  }, [ensureGuestRevenueCatUserId, persistGuestMode]);
 
   const exitGuestMode = async () => {
     guestConversionPendingRef.current = false;

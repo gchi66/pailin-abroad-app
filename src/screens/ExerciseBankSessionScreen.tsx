@@ -415,7 +415,6 @@ export function ExerciseBankSessionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
-  const [isQuestionNavigatorOpen, setIsQuestionNavigatorOpen] = useState(false);
   const [isSetNavigatorOpen, setIsSetNavigatorOpen] = useState(false);
   const [revealedAnswerIds, setRevealedAnswerIds] = useState<Record<number, boolean>>({});
   const [judgmentRewriteQuestionIds, setJudgmentRewriteQuestionIds] = useState<Record<number, boolean>>({});
@@ -433,7 +432,6 @@ export function ExerciseBankSessionScreen() {
     setIsLoading(true);
     setErrorMessage(null);
     setIsFinished(false);
-    setIsQuestionNavigatorOpen(false);
     setIsSetNavigatorOpen(false);
     setRevealedAnswerIds({});
     setJudgmentRewriteQuestionIds({});
@@ -586,7 +584,6 @@ export function ExerciseBankSessionScreen() {
   };
 
   const advance = () => {
-    setIsQuestionNavigatorOpen(false);
     setErrorMessage(null);
     if (queueIndex < queue.length - 1) {
       const nextIndex = queueIndex + 1;
@@ -621,7 +618,6 @@ export function ExerciseBankSessionScreen() {
     if (questionId === undefined) return;
     setQueueIndex(index);
     setIsFinished(false);
-    setIsQuestionNavigatorOpen(false);
     setErrorMessage(null);
     persistCursor(index + 1, 'question');
   };
@@ -747,15 +743,14 @@ export function ExerciseBankSessionScreen() {
         <ResponsivePageShell>
           <View style={styles.exerciseHeader}>
             <View style={styles.exerciseHeaderCopy}>
-              <AppText language={uiLanguage} variant="caption" style={styles.exerciseEyebrow}>{uiLanguage === 'th' ? 'คลังแบบฝึกหัด · ฝึกฝน' : 'EXERCISE BANK · PRACTICE'}</AppText>
               <AppText language={uiLanguage} variant="title" style={styles.topicDisplayTitle}>{localizedTopic?.display_title}</AppText>
               <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
             </View>
             <View style={styles.headerActions}>
+              <LanguageToggle />
               <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
-              <LanguageToggle />
             </View>
           </View>
           <View style={styles.sessionContent}>
@@ -825,15 +820,14 @@ export function ExerciseBankSessionScreen() {
         <ResponsivePageShell style={styles.exerciseShell}>
           <View style={styles.exerciseHeader}>
             <View style={styles.exerciseHeaderCopy}>
-              <AppText language={uiLanguage} variant="caption" style={styles.exerciseEyebrow}>{uiLanguage === 'th' ? 'คลังแบบฝึกหัด · ฝึกฝน' : 'EXERCISE BANK · PRACTICE'}</AppText>
               <AppText language={uiLanguage} variant="title" style={styles.topicDisplayTitle}>{localizedTopic?.display_title}</AppText>
               <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
             </View>
             <View style={styles.headerActions}>
+              <LanguageToggle />
               <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
-              <LanguageToggle />
             </View>
           </View>
           <View style={[styles.sessionContent, styles.questionSessionContent]}>
@@ -857,44 +851,11 @@ export function ExerciseBankSessionScreen() {
               ) : null}
             </View>
             <View style={styles.progressRow}>
-              <View style={[styles.progressTrack, styles.progressTrackInline]}><View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} /></View>
-              <View style={styles.questionMetaWrap}>
-                <View style={styles.questionMeta}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: isQuestionNavigatorOpen }}
-                    style={styles.questionNavigatorTrigger}
-                    onPress={() => setIsQuestionNavigatorOpen((current) => !current)}>
-                    <AppText language={uiLanguage} variant="caption" style={styles.questionMetaText}>
-                      {queueIndex + 1} {copy.of} {queue.length}
-                    </AppText>
-                    <AppText language="en" variant="caption" style={styles.questionNavigatorChevron}>
-                      {isQuestionNavigatorOpen ? '▲' : '▼'}
-                    </AppText>
-                  </Pressable>
-                </View>
-                {isQuestionNavigatorOpen ? (
-                  <View style={styles.questionNavigatorMenu}>
-                    {queue.map((questionId, index) => {
-                      const question = questionsById.get(questionId);
-                      const isCurrent = index === queueIndex;
-                      return (
-                        <Pressable
-                          key={questionId}
-                          accessibilityRole="button"
-                          style={[styles.questionNavigatorItem, isCurrent ? styles.questionNavigatorItemCurrent : null]}
-                          onPress={() => navigateToQuestion(index)}>
-                          <AppText language={uiLanguage} variant="caption" style={styles.questionNavigatorItemText}>
-                            {copy.question} {index + 1}
-                          </AppText>
-                          {question?.progress.has_answered_correctly ? (
-                            <AppText language="en" variant="caption" style={styles.questionNavigatorCompleted}>✓</AppText>
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
+              <View
+                accessibilityRole="progressbar"
+                accessibilityValue={{ min: 0, max: queue.length, now: queueIndex + 1 }}
+                style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${((queueIndex + 1) / queue.length) * 100}%` }]} />
               </View>
             </View>
             <View style={[
@@ -907,18 +868,20 @@ export function ExerciseBankSessionScreen() {
                 currentResult?.correct ? styles.questionInstructionsCorrect : null,
                 currentResult && !currentResult.correct ? styles.questionInstructionsIncorrect : null,
               ]}>
-                <AppText
-                  language={uiLanguage}
-                  variant="body"
-                  style={[
-                    styles.prompt,
-                    currentQuestion.exercise.exercise_type === 'fill_blank' ? styles.fillBlankPrompt : null,
-                    isOpenQuestion ? styles.openPrompt : null,
-                    isMultipleChoiceQuestion ? styles.multipleChoicePrompt : null,
-                    isJudgmentQuestion || isRewriteQuestion ? styles.judgmentPrompt : null,
-                  ]}>
-                  {currentQuestion.exercise.prompt}
-                </AppText>
+                <View style={usesSharedAnswerFooter ? styles.promptInstructionSlot : null}>
+                  <AppText
+                    language={uiLanguage}
+                    variant="body"
+                    style={[
+                      styles.prompt,
+                      currentQuestion.exercise.exercise_type === 'fill_blank' ? styles.fillBlankPrompt : null,
+                      isOpenQuestion ? styles.openPrompt : null,
+                      isMultipleChoiceQuestion ? styles.multipleChoicePrompt : null,
+                      isJudgmentQuestion || isRewriteQuestion ? styles.judgmentPrompt : null,
+                    ]}>
+                    {currentQuestion.exercise.prompt}
+                  </AppText>
+                </View>
                 {!usesSharedAnswerFooter && currentQuestion.exercise.examples?.[0] ? (
                   <ExamplePanel
                     key={currentQuestion.id}
@@ -1254,10 +1217,9 @@ const styles = StyleSheet.create({
   feedbackSafeAreaCorrect: { backgroundColor: practiceColors.correctPanel },
   feedbackSafeAreaIncorrect: { backgroundColor: practiceColors.incorrectPanel },
   exerciseShell: { flexGrow: 1 },
-  exerciseHeader: { minHeight: 94, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: '#9A9A9A', paddingHorizontal: theme.spacing.md, paddingTop: 12, paddingBottom: 10 },
+  exerciseHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: '#9A9A9A', paddingHorizontal: theme.spacing.md, paddingVertical: 10 },
   exerciseHeaderCopy: { flex: 1, gap: 3 },
-  exerciseEyebrow: { marginBottom: 6, color: theme.colors.text, fontSize: 11, lineHeight: 16, fontWeight: theme.typography.weights.medium, letterSpacing: 1.1, textTransform: 'uppercase' },
-  headerActions: { minWidth: 48, alignItems: 'flex-end', gap: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   sessionContent: { paddingHorizontal: theme.spacing.md, paddingTop: 18, gap: 15 },
   questionSessionContent: { flexGrow: 1, paddingBottom: theme.spacing.md },
@@ -1272,19 +1234,8 @@ const styles = StyleSheet.create({
   topicHeadingCopy: { flex: 1, gap: 2 },
   topicDisplayTitle: { color: theme.colors.text, fontSize: 22, lineHeight: 28, fontWeight: theme.typography.weights.bold },
   topicTechnicalName: { color: theme.colors.text, fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
-  questionMetaWrap: { position: 'relative', zIndex: 10, alignItems: 'flex-end' },
-  questionMeta: { alignItems: 'flex-end' },
-  questionMetaText: { color: theme.colors.mutedText, fontSize: 11, lineHeight: 18 },
-  questionNavigatorTrigger: { height: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5, paddingLeft: theme.spacing.sm },
-  questionNavigatorChevron: { color: theme.colors.mutedText, fontSize: 8, lineHeight: 18 },
-  questionNavigatorMenu: { position: 'absolute', top: 28, right: 0, zIndex: 20, minWidth: 150, overflow: 'hidden', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
-  questionNavigatorItem: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D5D9DE', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
-  questionNavigatorItemCurrent: { backgroundColor: '#EAF6FF' },
-  questionNavigatorItemText: { color: theme.colors.text, fontWeight: theme.typography.weights.semibold },
-  questionNavigatorCompleted: { color: '#4E8A14', fontSize: 16, fontWeight: theme.typography.weights.bold },
   progressRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, zIndex: 10 },
   progressTrack: { width: '100%', height: 6, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.xl, backgroundColor: '#E8E8E8' },
-  progressTrackInline: { flex: 1, width: 'auto' },
   progressFill: { height: '100%', backgroundColor: '#B9E671' },
   questionSectionDivider: { height: 1, marginVertical: theme.spacing.xs, backgroundColor: '#C9CDD2' },
   questionContent: { width: '100%', paddingHorizontal: 0, paddingVertical: 0, gap: theme.spacing.md },
@@ -1296,6 +1247,7 @@ const styles = StyleSheet.create({
   questionInstructionsIncorrect: { paddingBottom: 0 },
   questionWorkPanel: { width: '100%', borderWidth: 1, borderColor: '#A8D4FF', borderRadius: theme.radii.md, backgroundColor: '#EDF5FF', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.md, gap: theme.spacing.sm },
   displayType: { color: theme.colors.text, fontSize: 10, fontWeight: theme.typography.weights.bold, textTransform: 'uppercase' },
+  promptInstructionSlot: { width: '100%', minHeight: 36, justifyContent: 'flex-start' },
   prompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
   judgmentPrompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
   judgmentWorkArea: { width: '100%', gap: 14 },

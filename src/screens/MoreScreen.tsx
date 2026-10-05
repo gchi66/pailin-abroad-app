@@ -1,10 +1,13 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
+import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
 import { moreCardImages } from '@/src/assets/more-card-images';
 import { prefetchPricing } from '@/src/api/pricing';
+import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
+import { AppText } from '@/src/components/ui/AppText';
 import { NAVIGATION_CARD_GAP, NavigationCard } from '@/src/components/ui/NavigationCard';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { PageHeader } from '@/src/components/ui/PageHeader';
@@ -40,8 +43,8 @@ export function MoreScreen() {
       ? {
           title: 'เพิ่มเติม',
           subtitle: 'จัดการบัญชี การตั้งค่า และข้อมูลเพิ่มเติม',
-          membershipTitle: 'สมาชิก',
-          membershipBody: 'ปลดล็อกบทเรียนทั้งหมดและคลังเนื้อหาทั้งหมดของเรา',
+          membershipTitle: 'ดูแพ็กเกจสมาชิก',
+          membershipBody: 'ปลดล็อกทุกเนื้อหาของ Pailin Abroad!',
           actions: [
             { key: 'profile', label: 'โปรไฟล์ของฉัน', description: 'ดูบัญชี เปลี่ยนรหัสผ่าน และรูปโปรไฟล์', href: '/(tabs)/account/profile' },
             ...(hasAccount ? ([{ key: 'comments', label: 'ความคิดเห็นของฉัน', description: 'ดูความคิดเห็นที่คุณโพสต์', href: '/(tabs)/account/comments' }] as const) : []),
@@ -53,8 +56,8 @@ export function MoreScreen() {
       : {
           title: 'More',
           subtitle: 'Manage your account, preferences, and more',
-          membershipTitle: 'Membership',
-          membershipBody: 'Unlock all lessons and our full content library.',
+          membershipTitle: 'View Membership Plans',
+          membershipBody: 'Get full access to Pailin Abroad!',
           actions: [
             { key: 'profile', label: 'My Profile', description: 'View account, update password, change avatar', href: '/(tabs)/account/profile' },
             ...(hasAccount ? ([{ key: 'comments', label: 'My Comments', description: 'See your posted comments', href: '/(tabs)/account/comments' }] as const) : []),
@@ -76,15 +79,9 @@ export function MoreScreen() {
 
           <View style={styles.cards}>
             {!hasMembership ? (
-              <NavigationCard
-                language={uiLanguage}
-                title={copy.membershipTitle}
-                description={copy.membershipBody}
-                leadingElement={(
-                  <NeoShadowView style={[styles.iconBadge, styles.membershipIconBadge]}>
-                    <MaterialIcons name="workspace-premium" size={24} color="#1A2332" />
-                  </NeoShadowView>
-                )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={copy.membershipTitle}
                 onPress={() => {
                   prefetchPricing();
                   router.push({
@@ -92,10 +89,23 @@ export function MoreScreen() {
                     params: { source: membershipSource },
                   });
                 }}
-              />
+                style={({ pressed }) => [styles.membershipCard, pressed ? styles.cardPressed : null]}>
+                <UnlockArtwork style={styles.membershipArtwork} />
+                <View style={styles.membershipCopy}>
+                  <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
+                    {copy.membershipTitle.toLocaleUpperCase(uiLanguage === 'th' ? 'th' : 'en')}
+                  </AppText>
+                  <AppText language={uiLanguage} variant="caption" style={styles.membershipBody}>
+                    {copy.membershipBody}
+                  </AppText>
+                </View>
+                <MaterialIcons name="chevron-right" size={24} color={theme.colors.text} />
+              </Pressable>
             ) : null}
             {copy.actions.map((action) => {
-              const actionImage = action.key === 'profile' ? avatarSource : moreCardImages[action.key];
+              const actionImage = action.key === 'profile'
+                ? (hasAccount ? avatarSource : pailinBlueCircle)
+                : moreCardImages[action.key];
 
               return (
                 <NavigationCard
@@ -138,15 +148,48 @@ const styles = StyleSheet.create({
     marginTop: 18,
     gap: NAVIGATION_CARD_GAP,
   },
+  membershipCard: {
+    minHeight: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#EDC743',
+    borderRadius: 10,
+    backgroundColor: '#FFFCE5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  membershipArtwork: {
+    width: 72,
+    height: 72,
+    flexShrink: 0,
+  },
+  membershipCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  membershipTitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.2,
+  },
+  membershipBody: {
+    color: '#666666',
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  cardPressed: {
+    opacity: 0.65,
+  },
   iconBadge: {
     width: 58,
     height: 58,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  membershipIconBadge: {
-    backgroundColor: '#FFE6A8',
   },
   profileIconBadge: {
     backgroundColor: '#DCEEFF',

@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 10, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' },
   title: { fontSize: 24, lineHeight: 30 },
   focus: { fontSize: 14, lineHeight: 21, color: '#666666' },
-  backstory: { backgroundColor: '#FFFCE5', borderWidth: 1, borderColor: '#333333', borderRadius: 10, padding: 12, paddingTop: 7, gap: 4 },
+  backstory: { backgroundColor: '#FFFCE5', borderWidth: theme.borderWidths.primaryCard, borderColor: '#333333', borderRadius: 10, padding: 12, paddingTop: 7, gap: 4 },
   backstoryLabel: { fontSize: 11, lineHeight: 17 },
   lockedBackstory: { backgroundColor: '#F0F0F0' },
   backstoryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 28 },

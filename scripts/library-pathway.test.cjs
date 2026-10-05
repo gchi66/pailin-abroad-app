@@ -9,7 +9,7 @@ const context = { exports: {} };
 runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/lib/library-pathway.ts'), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText, context);
-const { lessonMarker, matchesLessonSearch, freeLibraryIds, shortLessonFocus } = context.exports;
+const { lessonMarker, lessonNumber, lessonTitle, matchesLessonSearch, freeLibraryIds, shortLessonFocus } = context.exports;
 const lesson = { id: 'lesson', level: 5, lesson_order: 3, stage: 'Intermediate', title: 'Mom and Dad miss you', title_th: 'พ่อกับแม่คิดถึงคุณ', focus: 'How to use object pronouns', focus_th: 'สรรพนามที่เป็นกรรม' };
 
 test('selected always has the blue marker, including previously started or completed lessons', () => {
@@ -30,13 +30,20 @@ test('search matches English, Thai, numbers, and topic labels independently of U
   for (const query of ['MOM dad', 'คิดถึง', '5.3', 'object pronouns', 'สรรพนาม']) assert.equal(matchesLessonSearch(lesson, query), true, query);
   assert.equal(matchesLessonSearch(lesson, 'bank account'), false);
 });
-test('unknown short labels fall back to the existing localized focus', () => {
-  assert.equal(shortLessonFocus({ ...lesson, level: 99 }, 'th'), lesson.focus_th);
+test('checkpoint cards use an uppercase CHP number and localized Thai review title', () => {
+  const checkpoint = { ...lesson, level: 3, title: 'Level 3 Checkpoint', title_th: 'Level 3 Checkpoint' };
+  assert.equal(lessonNumber(checkpoint), '3.CHP');
+  assert.equal(lessonTitle(checkpoint, 'th'), 'ด่านทบทวนระดับ 3');
+  assert.equal(lessonTitle(checkpoint, 'en'), 'Level 3 Checkpoint');
+  assert.equal(matchesLessonSearch(checkpoint, 'ด่านทบทวนระดับ 3'), true);
 });
-test('reviewed database short labels take priority over temporary and full focus copy', () => {
+test('unknown short labels keep the English lesson focus in the Thai UI', () => {
+  assert.equal(shortLessonFocus({ ...lesson, level: 99 }, 'th'), lesson.focus);
+});
+test('English database short labels take priority in both UI languages', () => {
   const withShortFocus = { ...lesson, focus_short: 'New English label', focus_short_th: 'ป้ายใหม่' };
   assert.equal(shortLessonFocus(withShortFocus, 'en'), 'New English label');
-  assert.equal(shortLessonFocus(withShortFocus, 'th'), 'ป้ายใหม่');
+  assert.equal(shortLessonFocus(withShortFocus, 'th'), 'New English label');
 });
 test('the free library uses the first lesson of each stage and level, independent of input order', () => {
   const rows = [{ ...lesson, id: 'second', lesson_order: 2 }, { ...lesson, id: 'first', lesson_order: 1 }, { ...lesson, id: 'other-stage', stage: 'Beginner', lesson_order: 1 }];

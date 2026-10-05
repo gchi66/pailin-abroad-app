@@ -3,14 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import lockWhiteImage from '@/assets/images/lock-white.png';
 import pathwayExerciseBankImage from '@/assets/images/my-pathway-exercise-bank.png';
 import pathwayNextLessonImage from '@/assets/images/my-pathway-next-lesson.png';
 import pathwayProgressImage from '@/assets/images/my-pathway-progress.png';
-import pailinBlueCircleRight from '@/assets/images/characters/pailin_blue_circle_right.webp';
 import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
+import pailinThumbsUpHead from '@/assets/images/characters/pailin_thumbs_up_head.webp';
 import { getLessonIconSource } from '@/src/assets/lesson-icons';
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { prefetchResolvedLesson } from '@/src/api/lessons';
@@ -25,6 +24,7 @@ import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
+import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
@@ -113,9 +113,12 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   welcome: 'ยินดีต้อนรับ!',
   welcomeTo: 'ยินดีต้อนรับสู่',
   guestWelcome: 'เส้นทางการเรียนของคุณ',
-  guestBannerTitle: 'ติดตามความคืบหน้า',
-  guestBannerBody: 'สร้างบัญชีฟรีเพื่อบันทึกความคืบหน้าของคุณ',
-  guestBannerCta: 'สมัครฟรี →',
+  guestHeroTitle: 'ภาษาอังกฤษที่ใช้ได้จริง\nเริ่มเรียนได้เลย!',
+  guestHeroBody: 'สำรวจบทเรียนฟรี 16 บท เพื่อทำความรู้จัก Pailin Abroad',
+  guestHeroCta: 'ดูบทเรียนฟรี',
+  guestProgressTitle: 'บันทึกความคืบหน้าของคุณ',
+  guestProgressBody: 'สร้างบัญชีฟรีเพื่อติดตามบทเรียน ดูสตรีค และอื่น ๆ อีกมากมาย!',
+  guestProgressCta: 'สมัครฟรี →',
   progressTitle: 'สถิติของคุณ',
   viewDetails: 'ดูความคืบหน้าในการเรียน →',
   lessonsDone: 'บทเรียนที่จบ',
@@ -138,17 +141,17 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   practice: 'ฝึกฝน',
   exerciseBank: 'คลังแบบฝึกหัด',
   practiceBody: 'ฝึกฝนสิ่งที่คุณได้เรียนรู้!',
-  guestOverlayTitle: 'หากต้องการดูเนื้อหาใน My Pathway โปรดสร้างบัญชีฟรี',
-  guestOverlayBody: 'บัญชีฟรีช่วยให้คุณบันทึกความคืบหน้า และปลดล็อกประสบการณ์การเรียนส่วนตัวของคุณ',
-  guestOverlayCta: 'สร้างบัญชีฟรี',
 } : {
   welcomeBack: 'Welcome back',
   welcome: 'Welcome!',
   welcomeTo: 'Welcome to',
   guestWelcome: 'Your learning pathway',
-  guestBannerTitle: 'Track your progress',
-  guestBannerBody: 'Create a free account to save your progress.',
-  guestBannerCta: 'Sign up free →',
+  guestHeroTitle: 'Real English.\nStart learning!',
+  guestHeroBody: 'Explore 16 free lessons to see what Pailin Abroad is all about.',
+  guestHeroCta: 'Browse free lessons',
+  guestProgressTitle: 'Save your progress',
+  guestProgressBody: 'Create a free account to track your lessons, view your streak, and much more!',
+  guestProgressCta: 'Sign up free →',
   progressTitle: 'Your stats',
   viewDetails: 'View learning progress →',
   lessonsDone: 'Lessons\ncomplete',
@@ -171,9 +174,6 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   practice: 'Practice',
   exerciseBank: 'Exercise Bank',
   practiceBody: 'Practice what you’ve learned!',
-  guestOverlayTitle: 'To view My Pathway content, make a free account.',
-  guestOverlayBody: 'A free account lets you save progress and unlock your personal pathway experience.',
-  guestOverlayCta: 'Create free account',
 };
 
 function LessonArtwork({ lessonNumber }: { lessonNumber: string }) {
@@ -342,7 +342,6 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   const firstName = showGuestUi ? copy.guestWelcome : getFirstName(displayName);
   const hasDisplayName = Boolean(firstName);
   const [hasSeenNoNameWelcome, setHasSeenNoNameWelcome] = React.useState(false);
-  const [isGuestOverlayDismissed, setIsGuestOverlayDismissed] = useState(false);
   const shouldShowFirstNoNameWelcome = !showGuestUi && !hasDisplayName && !hasSeenNoNameWelcome;
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
@@ -404,12 +403,6 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   }, [hasDisplayName, showGuestUi, user?.id]);
 
   useEffect(() => {
-    if (!showGuestUi) {
-      setIsGuestOverlayDismissed(false);
-    }
-  }, [showGuestUi]);
-
-  useEffect(() => {
     if (!shouldShowFirstNoNameWelcome || !user?.id) {
       return;
     }
@@ -432,8 +425,6 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
 
     return <PageLoadingState language={uiLanguage} />;
   }
-
-  const showGuestOverlay = showGuestUi && !isGuestOverlayDismissed;
 
   const handleOpenLesson = (lesson: LessonListItem | null) => {
     const lessonId = lesson?.id ?? null;
@@ -481,20 +472,19 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
         ]}>
         <ResponsivePageShell>
           <View style={styles.pageFrame}>
-          <View pointerEvents={showGuestOverlay ? 'none' : 'auto'}>
+          <View>
             <Stack
               gap="md"
               style={[
                 styles.pageShell,
                 isTabletScreen ? styles.pageShellTablet : null,
                 isLargeTabletScreen ? styles.pageShellLargeTablet : null,
-                showGuestOverlay ? styles.pageShellGuest : null,
               ]}>
               <View style={styles.headerBlock}>
                 <View style={styles.headerRow}>
                   <Pressable accessibilityRole="button" style={styles.avatarButton} onPress={() => router.push('/(tabs)/account/profile')}>
                     {showGuestUi ? (
-                      <Image source={pailinBlueCircleRight} style={styles.avatar} resizeMode="cover" />
+                      <Image source={pailinBlueCircle} style={styles.avatar} resizeMode="cover" />
                     ) : isPailinAccount ? (
                       <Image source={pailinBlueCircle} style={styles.avatar} resizeMode="cover" />
                     ) : avatarSource ? (
@@ -516,7 +506,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                             <AppText
                               language={uiLanguage}
                               variant="title"
-                              style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null]}>
+                              style={[styles.headerTitle, uiLanguage === 'th' ? styles.headerTitleThai : null, styles.headerGuestTitle]}>
                               {copy.welcomeTo}
                             </AppText>
                             <AppText language="en" variant="title" style={styles.headerName}>
@@ -562,20 +552,36 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                 </View>
               </View>
 
-              {showGuestUi && !showGuestOverlay ? (
-                <Pressable accessibilityRole="button" style={styles.guestBanner} onPress={() => router.push('/account/auth')}>
-                  <AppText language={uiLanguage} style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.guestBannerTitle}</AppText>
-                  <AppText language={uiLanguage} variant="caption">{copy.guestBannerBody}</AppText>
-                  <AppText language={uiLanguage} variant="caption" style={styles.libraryLink}>{copy.guestBannerCta}</AppText>
-                </Pressable>
-              ) : null}
-
               <Stack gap="sm">
                 {sectionLabel(copy.continueLearning, pathwayNextLessonImage)}
                 <View style={styles.cardWrap}>
                   <AndroidNeoShadowLayer borderRadius={5} color={theme.colors.shadow} offset={4} />
-                  <Card insetBorder style={styles.resumeCard}>
-                    {freeCourseComplete ? (
+                  <Card insetBorder style={[styles.resumeCard, showGuestUi ? styles.guestHeroCard : null, !showGuestUi && !freeCourseComplete && !resumeRow ? styles.emptyResumeCard : null]}>
+                    {showGuestUi ? (
+                      <Stack gap="md">
+                        <View style={styles.lessonMain}>
+                          <View style={styles.resumeTextGroup}>
+                            <LessonCopy
+                              language={uiLanguage}
+                              title={copy.guestHeroTitle}
+                              focus={copy.guestHeroBody}
+                            />
+                          </View>
+                          <Image source={pailinThumbsUpHead} style={[styles.lessonArtwork, styles.guestHeroArtwork]} resizeMode="contain" accessible={false} />
+                        </View>
+                        <View style={styles.resumeLessonButtonWrap}>
+                          <View pointerEvents="none" style={styles.resumeLessonButtonShadow} />
+                          <Button
+                            insetBorder
+                            language={uiLanguage}
+                            title={copy.guestHeroCta}
+                            onPress={() => router.push('/(tabs)/lessons/free-library')}
+                            style={[styles.resumeButton, styles.resumeLessonButton]}
+                            textStyle={styles.ctaText}
+                          />
+                        </View>
+                      </Stack>
+                    ) : freeCourseComplete ? (
                       <Stack gap="md">
                         <View style={styles.lessonMain}>
                           <View style={styles.resumeTextGroup}>
@@ -608,51 +614,71 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                         </View>
                       </Stack>
                     ) : (
-                      <AppText language={uiLanguage} variant="muted">{errorMessage || copy.noResumeLesson}</AppText>
+                      <AppText
+                        language={uiLanguage}
+                        variant="muted"
+                        style={[
+                          styles.noResumeLesson,
+                          { fontFamily: theme.typography.fontFaces[uiLanguage].medium },
+                        ]}>
+                        {errorMessage || copy.noResumeLesson}
+                      </AppText>
                     )}
                   </Card>
                 </View>
               </Stack>
 
-              <Stack gap="sm">
-                {sectionLabel(copy.progressTitle, pathwayProgressImage)}
-                <Card style={styles.progressCard}>
-                  <Stack gap="sm">
-                    <View style={styles.progressHeader}>
-                      <AppText language={uiLanguage} variant="caption" style={styles.stageText}>
-                        {showGuestUi ? `${copy.levelShort} –` : `${getStageLabel(progressContext.stage, uiLanguage)} · ${copy.levelShort} ${progressContext.level ?? '–'}`}
-                      </AppText>
-                      <AppText language={uiLanguage} variant="caption" style={styles.progressSummary}>
-                        {showGuestUi ? '–' : copy.progressSummary(progressDone, progressTotal, !hasMembership)}
-                      </AppText>
-                    </View>
-                    <View accessibilityRole="progressbar" accessibilityLabel={copy.progressTitle}
-                      accessibilityValue={{ min: 0, max: 100, now: progressPercent, text: copy.progressSummary(progressDone, progressTotal, !hasMembership) }}
-                      style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-                    </View>
-                    {hasMembership || showGuestUi ? (
-                      <>
-                        <View style={styles.statsGrid}>
-                          {[
-                            { value: stats?.lessons_completed ?? completedLessons.length, label: copy.lessonsDone },
-                            { value: stats?.levels_completed ?? 0, label: copy.levelsDone },
-                            { value: stats?.daily_streak ?? 0, label: copy.dailyStreak },
-                          ].map(({ value, label }) => (
-                            <View key={label} style={styles.statBox}>
-                              <AppText language={uiLanguage} variant="title" style={styles.statValue}>{showGuestUi ? '–' : value}</AppText>
-                              <View style={styles.statLabelGroup}>{renderStatLabel(label, uiLanguage)}</View>
-                            </View>
-                          ))}
-                        </View>
-                        <Pressable accessibilityRole="link" onPress={() => router.push('/(tabs)/pathway/progress')} style={styles.detailsLinkTouch}>
-                          <AppText language={uiLanguage} variant="caption" style={styles.detailsLink}>{copy.viewDetails}</AppText>
-                        </Pressable>
-                      </>
-                    ) : null}
-                  </Stack>
-                </Card>
-              </Stack>
+              {showGuestUi ? (
+                <View style={styles.guestProgressWrap}>
+                  <ResourceUnlockCard
+                    language={uiLanguage}
+                    title={copy.guestProgressTitle}
+                    body={copy.guestProgressBody}
+                    buttonLabel={copy.guestProgressCta}
+                    onPress={() => router.push('/account/auth')}
+                  />
+                </View>
+              ) : (
+                <Stack gap="sm">
+                  {sectionLabel(copy.progressTitle, pathwayProgressImage)}
+                  <Card style={styles.progressCard}>
+                    <Stack gap="sm">
+                      <View style={styles.progressHeader}>
+                        <AppText language={uiLanguage} variant="caption" style={styles.stageText}>
+                          {`${getStageLabel(progressContext.stage, uiLanguage)} · ${copy.levelShort} ${progressContext.level ?? '–'}`}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="caption" style={styles.progressSummary}>
+                          {copy.progressSummary(progressDone, progressTotal, !hasMembership)}
+                        </AppText>
+                      </View>
+                      <View accessibilityRole="progressbar" accessibilityLabel={copy.progressTitle}
+                        accessibilityValue={{ min: 0, max: 100, now: progressPercent, text: copy.progressSummary(progressDone, progressTotal, !hasMembership) }}
+                        style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                      </View>
+                      {hasMembership ? (
+                        <>
+                          <View style={styles.statsGrid}>
+                            {[
+                              { value: stats?.lessons_completed ?? completedLessons.length, label: copy.lessonsDone },
+                              { value: stats?.levels_completed ?? 0, label: copy.levelsDone },
+                              { value: stats?.daily_streak ?? 0, label: copy.dailyStreak },
+                            ].map(({ value, label }) => (
+                              <View key={label} style={styles.statBox}>
+                                <AppText language={uiLanguage} variant="title" style={styles.statValue}>{value}</AppText>
+                                <View style={styles.statLabelGroup}>{renderStatLabel(label, uiLanguage)}</View>
+                              </View>
+                            ))}
+                          </View>
+                          <Pressable accessibilityRole="link" onPress={() => router.push('/(tabs)/pathway/progress')} style={styles.detailsLinkTouch}>
+                            <AppText language={uiLanguage} variant="caption" style={styles.detailsLink}>{copy.viewDetails}</AppText>
+                          </Pressable>
+                        </>
+                      ) : null}
+                    </Stack>
+                  </Card>
+                </Stack>
+              )}
 
               <Stack gap="sm">
                 {sectionLabel(copy.practice, pathwayExerciseBankImage)}
@@ -694,37 +720,6 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
         </ResponsivePageShell>
       </ScrollView>
 
-      {showGuestOverlay ? (
-        <View style={styles.guestOverlay}>
-          <Card padding="lg" radius="lg" style={styles.guestOverlayCard}>
-            <Stack gap="md">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
-                onPress={() => setIsGuestOverlayDismissed(true)}
-                style={styles.guestOverlayCloseButton}>
-                <MaterialIcons name="close" size={22} color={theme.colors.mutedText} />
-              </Pressable>
-              <AppText language={uiLanguage} variant="body" style={styles.guestOverlayTitle}>
-                {copy.guestOverlayTitle}
-              </AppText>
-              <AppText language={uiLanguage} variant="muted" style={styles.guestOverlayBody}>
-                {copy.guestOverlayBody}
-              </AppText>
-              <View style={styles.guestOverlayButtonWrap}>
-                <View pointerEvents="none" style={styles.guestOverlayButtonShadow} />
-                <Button
-                  insetBorder
-                  language={uiLanguage}
-                  title={copy.guestOverlayCta}
-                  onPress={() => router.push('/account/auth')}
-                  style={styles.guestOverlayButton}
-                />
-              </View>
-            </Stack>
-          </Card>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -758,9 +753,6 @@ const styles = StyleSheet.create({
   },
   pageFrame: {
     position: 'relative',
-  },
-  pageShellGuest: {
-    opacity: 0.22,
   },
   headerBlock: {
     marginHorizontal: -theme.spacing.md,
@@ -813,6 +805,10 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 24,
   },
+  headerGuestTitle: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
   headerName: {
     marginTop: -2,
     fontSize: 22,
@@ -840,60 +836,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 4,
   },
-  guestOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
-    backgroundColor: 'rgba(255, 253, 249, 0.4)',
-  },
-  guestOverlayCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFF4E8',
-    borderWidth: theme.borderWidths.primaryCard,
-    borderColor: theme.colors.border,
-    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
-  },
-  guestOverlayCloseButton: {
-    alignSelf: 'flex-end',
-    marginBottom: -theme.spacing.xs,
-    padding: 2,
-  },
-  guestOverlayTitle: {
-    textAlign: 'left',
-    fontWeight: theme.typography.weights.bold,
-    fontSize: 24,
-    lineHeight: 30,
-    color: theme.colors.text,
-  },
-  guestOverlayBody: {
-    textAlign: 'left',
-    color: theme.colors.mutedText,
-    lineHeight: 22,
-  },
-  guestOverlayButton: {
-    minHeight: 56,
-    borderWidth: theme.borderWidths.emphasized,
-    borderRadius: 28,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.primary,
-    overflow: 'hidden',
-  },
-  guestOverlayButtonWrap: {
-    position: 'relative',
-    marginTop: theme.spacing.xs,
-  },
-  guestOverlayButtonShadow: {
-    position: 'absolute',
-    top: 3,
-    right: -3,
-    bottom: -3,
-    left: 3,
-    borderRadius: 28,
-    backgroundColor: theme.colors.shadow,
-  },
   cardWrap: { position: 'relative' },
   sectionLabel: {
     flexDirection: 'row',
@@ -918,6 +860,20 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 18,
     paddingTop: 12,
+  },
+  guestHeroCard: {
+    paddingTop: 20,
+    paddingBottom: 22,
+  },
+  emptyResumeCard: {
+    minHeight: 68,
+    justifyContent: 'center',
+    paddingTop: 18,
+    paddingBottom: 18,
+  },
+  noResumeLesson: {
+    color: theme.colors.mutedText,
+    fontWeight: theme.typography.weights.medium,
   },
   lessonMain: {
     flexDirection: 'row',
@@ -965,6 +921,15 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     maxWidth: 210,
     height: 124
+  },
+  guestHeroArtwork: {
+    width: '30%',
+    maxWidth: 150,
+    height: 92,
+    transform: [{ scaleX: -1 }],
+  },
+  guestProgressWrap: {
+    marginVertical: 8,
   },
   resumeButton: {
     backgroundColor: '#2860E8',
@@ -1184,11 +1149,5 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center'
-  },
-  guestBanner: {
-    backgroundColor: '#FFF8EA',
-    borderRadius: 7,
-    padding: 14,
-    gap: 6
   },
 });

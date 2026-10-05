@@ -6,7 +6,6 @@ import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } f
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import discoImage from '@/assets/images/speaking-coach/lesson-complete-disco.webp';
 import pailinImage from '@/assets/images/speaking-coach/pailin-lesson-finished.webp';
 import confettiImage from '@/assets/images/speaking-coach/lesson-complete-confetti.png';
 import { AppText } from '@/src/components/ui/AppText';
@@ -56,15 +55,18 @@ export function LessonCompletePreviewScreen() {
     lesson?: string;
     lessonId?: string;
     libraryRoute?: string;
+    language?: string;
   }>();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
   const lessonNumber = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '5.3';
   const lessonId = typeof params.lessonId === 'string' && params.lessonId.trim() ? params.lessonId : null;
   const libraryRoute = typeof params.libraryRoute === 'string' ? params.libraryRoute : null;
+  const lessonLanguage = params.language === 'en' || params.language === 'th' ? params.language : uiLanguage;
+  const isCheckpoint = /^(\d+)\.chp$/i.test(lessonNumber);
   const [isNavigating, setIsNavigating] = useState(false);
-  const copy = getCopy(uiLanguage === 'th', lessonNumber);
+  const copy = getCopy(lessonLanguage === 'th', lessonNumber);
   const showPreviewNotice = () => Alert.alert(copy.previewTitle, copy.previewBody);
   const closeCompletion = () => {
     router.back();
@@ -97,16 +99,16 @@ export function LessonCompletePreviewScreen() {
       const currentIndex = lessons.findIndex((lesson) => lesson.id === lessonId);
       const nextLesson = currentIndex >= 0 ? lessons[currentIndex + 1] : null;
       if (!nextLesson?.id) {
-        Alert.alert(copy.title, uiLanguage === 'th' ? 'ไม่มีบทเรียนถัดไป' : 'There is no next lesson yet.');
+        Alert.alert(copy.title, lessonLanguage === 'th' ? 'ไม่มีบทเรียนถัดไป' : 'There is no next lesson yet.');
         return;
       }
-      prefetchResolvedLesson(nextLesson.id, uiLanguage);
+      prefetchResolvedLesson(nextLesson.id, lessonLanguage);
       router.replace({
         pathname: '/lessons/[id]',
         params: { id: nextLesson.id, ...(libraryRoute ? { libraryRoute } : {}) },
       });
     } catch {
-      Alert.alert(copy.title, uiLanguage === 'th' ? 'ไม่สามารถเปิดบทเรียนถัดไปได้' : 'Could not open the next lesson.');
+      Alert.alert(copy.title, lessonLanguage === 'th' ? 'ไม่สามารถเปิดบทเรียนถัดไปได้' : 'Could not open the next lesson.');
     } finally {
       setIsNavigating(false);
     }
@@ -117,46 +119,51 @@ export function LessonCompletePreviewScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" backgroundColor="#FFFDEB" />
       <Image source={confettiImage} contentFit="fill" style={styles.confetti} pointerEvents="none" />
-      <View pointerEvents="none" style={[styles.rightConfettiArea, { width: width * 0.32 }]}>
-        <Image
-          source={confettiImage}
-          contentFit="fill"
-          style={[styles.rightConfettiImage, { width, height }]}
-        />
-      </View>
-      <View pointerEvents="none" style={[styles.hangingString, { height: insets.top + 8 }]} />
       <View style={[styles.statusStrip, { height: insets.top }]} />
       <ScrollView
         contentContainerStyle={[styles.canvas, { minHeight: Math.max(0, height - insets.top - insets.bottom) }]}
         showsVerticalScrollIndicator={false}>
-        <Image source={discoImage} contentFit="contain" style={styles.disco} pointerEvents="none" />
+        <View style={styles.completionPanel}>
+          <Image source={pailinImage} contentFit="contain" style={styles.pailin} pointerEvents="none" />
 
-        <View style={styles.card}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={copy.close}
-            hitSlop={12}
-            onPress={closeCompletion}
-            style={styles.closeButton}>
-            <MaterialIcons name="close" size={22} color="#232629" />
-          </Pressable>
+          <View style={styles.card}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={copy.close}
+              hitSlop={12}
+              onPress={closeCompletion}
+              style={styles.closeButton}>
+              <MaterialIcons name="close" size={22} color="#232629" />
+            </Pressable>
 
-          <Image source={pailinImage} contentFit="contain" style={styles.pailin} />
-          <AppText language={uiLanguage} style={styles.title}>{copy.title}</AppText>
-          <AppText language={uiLanguage} style={styles.subtitle}>{copy.subtitle}</AppText>
-
-          <Pressable accessibilityRole="button" onPress={openDiscussion} style={styles.discussionCard}>
-            <View style={styles.discussionHeading}>
-              <MaterialIcons name="question-answer" size={18} color="#232629" />
-              <AppText language={uiLanguage} style={styles.discussionTitle}>{copy.discussion}</AppText>
+            <View style={styles.completionHeading}>
+              <AppText language={lessonLanguage} style={styles.title}>{copy.subtitle}</AppText>
+              <View
+                pointerEvents="none"
+                style={[styles.successRays, isCheckpoint ? styles.checkpointSuccessRays : null]}>
+                <View style={[styles.successRay, styles.successRayTop]} />
+                <View style={styles.successRay} />
+                <View style={[styles.successRay, styles.successRayBottom]} />
+              </View>
             </View>
-            <AppText language={uiLanguage} style={styles.discussionBody}>{copy.discussionBody}</AppText>
-            <AppText language={uiLanguage} style={styles.discussionLink}>{copy.viewDiscussion}</AppText>
-          </Pressable>
 
-          <Pressable accessibilityRole="button" disabled={isNavigating} onPress={() => void openNextLesson()} style={[styles.nextButton, isNavigating ? styles.disabled : null]}>
-            <AppText language={uiLanguage} style={styles.nextButtonText}>{copy.nextLesson}</AppText>
-          </Pressable>
+            <View style={styles.divider} />
+
+            <Pressable accessibilityRole="button" onPress={openDiscussion} style={styles.discussionSection}>
+              <View style={styles.discussionHeading}>
+                <MaterialIcons name="question-answer" size={18} color="#232629" />
+                <AppText language={lessonLanguage} style={styles.discussionTitle}>{copy.discussion}</AppText>
+              </View>
+              <AppText language={lessonLanguage} style={styles.discussionBody}>{copy.discussionBody}</AppText>
+              <AppText language={lessonLanguage} style={styles.discussionLink}>{copy.viewDiscussion}</AppText>
+            </Pressable>
+
+            <View style={[styles.divider, styles.discussionDivider]} />
+
+            <Pressable accessibilityRole="button" disabled={isNavigating} onPress={() => void openNextLesson()} style={[styles.nextButton, isNavigating ? styles.disabled : null]}>
+              <AppText language={lessonLanguage} style={styles.nextButtonText}>{copy.nextLesson}</AppText>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -171,27 +178,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 205,
-    paddingBottom: 100,
+    paddingTop: 64,
+    paddingBottom: 64,
   },
   confetti: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  rightConfettiArea: { position: 'absolute', top: 0, right: 0, bottom: 0, overflow: 'hidden' },
-  rightConfettiImage: { position: 'absolute', top: 0, right: 0, transform: [{ scaleX: -1 }] },
-  hangingString: {
-    position: 'absolute', top: 0, alignSelf: 'center', width: 2,
-    backgroundColor: '#623A02', transform: [{ translateX: 2.25 }],
+  completionPanel: { width: '100%', maxWidth: 330, paddingTop: 222, alignItems: 'center' },
+  pailin: {
+    position: 'absolute',
+    top: 0,
+    width: 310,
+    height: 310,
+    alignSelf: 'center',
   },
-  disco: { position: 'absolute', top: -70, width: 215, height: 305, alignSelf: 'center' },
   card: {
     width: '100%',
-    maxWidth: 355,
     borderWidth: 1,
     borderColor: '#24272A',
-    borderRadius: 10,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
-    paddingTop: 16,
-    paddingBottom: 32,
-    paddingHorizontal: 35,
+    paddingTop: 34,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
     alignItems: 'center',
     shadowColor: '#1E1E1E',
     shadowOpacity: 1,
@@ -199,24 +206,52 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 6,
   },
-  closeButton: { position: 'absolute', top: 12, right: 12, zIndex: 1 },
-  pailin: { width: 200, height: 170, marginBottom: 3 },
-  title: { fontSize: 24, lineHeight: 31, fontWeight: '700', textAlign: 'center', color: '#24272A' },
-  subtitle: { fontSize: 13, lineHeight: 19, textAlign: 'center', color: '#699832', marginTop: 4, marginBottom: 20 },
-  discussionCard: {
-    width: '100%', minHeight: 105, borderWidth: 1, borderColor: '#9BD0FF', borderRadius: 11,
-    backgroundColor: '#F0F9FF', paddingHorizontal: 11, paddingTop: 11, paddingBottom: 9,
+  closeButton: { position: 'absolute', top: 13, right: 13, zIndex: 1 },
+  completionHeading: {
+    width: '100%',
+    minHeight: 72,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  discussionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  discussionTitle: { fontSize: 11, lineHeight: 17, fontWeight: '600', letterSpacing: 0.5, color: '#24272A' },
-  discussionBody: { fontSize: 11, lineHeight: 16, color: '#24272A', marginTop: 7 },
-  discussionLink: { fontSize: 10, lineHeight: 15, color: '#1964C4', textAlign: 'right', marginTop: 5 },
+  title: {
+    maxWidth: 235,
+    fontSize: 28,
+    lineHeight: 36,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#24272A',
+  },
+  successRays: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: 101,
+    width: 24,
+    height: 54,
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  checkpointSuccessRays: { marginLeft: 122 },
+  successRay: { width: 22, height: 4, borderRadius: 3, backgroundColor: '#A8DF67' },
+  successRayTop: { transform: [{ rotate: '-20deg' }] },
+  successRayBottom: { transform: [{ rotate: '39deg' }] },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#D2D2D2',
+    marginVertical: 23,
+  },
+  discussionDivider: { marginTop: 18 },
+  discussionSection: { width: '100%', alignItems: 'center', paddingHorizontal: 6 },
+  discussionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  discussionTitle: { fontSize: 14, lineHeight: 21, fontWeight: '600', letterSpacing: 0.5, color: '#24272A' },
+  discussionBody: { fontSize: 13, lineHeight: 21, color: '#24272A', textAlign: 'center', marginTop: 10 },
+  discussionLink: { fontSize: 13, lineHeight: 20, fontWeight: '600', color: '#2861DB', textAlign: 'center', marginTop: 14 },
   nextButton: {
-    width: '100%', minHeight: 49, borderRadius: 27, backgroundColor: '#2861DB',
-    borderWidth: 1, borderColor: '#20252A', alignItems: 'center', justifyContent: 'center',
-    marginTop: 16, shadowColor: '#1E1E1E', shadowOpacity: 1,
-    shadowOffset: { width: 3, height: 4 }, shadowRadius: 0, elevation: 4,
+    width: '100%', minHeight: 50, borderRadius: 25, backgroundColor: '#2861DB',
+    borderWidth: 1, borderColor: '#20252A',
+    alignItems: 'center', justifyContent: 'center',
   },
-  nextButtonText: { color: '#FFFFFF', fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  nextButtonText: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '600' },
   disabled: { opacity: 0.55 },
 });

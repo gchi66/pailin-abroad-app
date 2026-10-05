@@ -111,24 +111,26 @@ export function ChooseLevelScreen() {
           </View>
 
           <View style={styles.footer}>
-            {selectedOption !== null ? (
-              <View style={styles.startButtonWrap}>
-                <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
-                <Button
-                  insetBorder
-                  language={uiLanguage}
-                  size="compact"
-                  title={copy.start}
-                  onPress={() => router.push({
-                    pathname: '/choose-level-result',
-                    params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
-                  })}
-                  onPressIn={() => setIsStartPressed(true)}
-                  onPressOut={() => setIsStartPressed(false)}
-                  style={[styles.startButton, isStartPressed ? styles.startButtonPressed : null]}
-                />
-              </View>
-            ) : null}
+            <View style={styles.startButtonWrap}>
+              {selectedOption !== null ? (
+                <>
+                  <View pointerEvents="none" style={[styles.startButtonShadow, isStartPressed ? styles.shadowPressed : null]} />
+                  <Button
+                    insetBorder
+                    language={uiLanguage}
+                    size="compact"
+                    title={copy.start}
+                    onPress={() => router.push({
+                      pathname: '/choose-level-result',
+                      params: { level: String(LEVEL_OPTIONS[selectedOption].level) },
+                    })}
+                    onPressIn={() => setIsStartPressed(true)}
+                    onPressOut={() => setIsStartPressed(false)}
+                    style={[styles.startButton, isStartPressed ? styles.startButtonPressed : null]}
+                  />
+                </>
+              ) : null}
+            </View>
 
             <Pressable accessibilityRole="link" onPress={() => router.push('/placement-test')} style={styles.testLinkButton}>
               <AppText language={uiLanguage} variant="muted" style={styles.testLinkText}>
@@ -280,6 +282,7 @@ const styles = StyleSheet.create({
   },
   startButtonWrap: {
     width: '100%',
+    minHeight: 48,
     position: 'relative',
   },
   startButtonShadow: {

@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     boxShadow: '1.75px 1.75px 0px #132042',
   },
   filterButtonActive: {
-    backgroundColor: '#8EC5FF',
+    backgroundColor: '#BCECFF',
     borderColor: '#132042',
   },
   filterButtonText: {

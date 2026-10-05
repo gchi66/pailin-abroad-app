@@ -23,7 +23,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import googleLogoImage from '../../assets/images/google_logo.png';
 import fullLogoImage from '../../assets/images/pailin-abroad-full-logo.png';
 import { AppText } from '@/src/components/ui/AppText';
-import { KeyboardDismissAccessory } from '@/src/components/ui/KeyboardDismissAccessory';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -38,7 +37,7 @@ export function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
-  const { authError, continueAsGuest, isGuestMode, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
+  const { authError, continueAsGuest, isLoading, signIn, signInWithApple, signInWithGoogle, signUp } = useAppSession();
   const posthog = usePostHog();
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
@@ -53,7 +52,6 @@ export function AuthScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
   const hasAppliedSignUpFocusOffsetRef = useRef(false);
-  const keyboardAccessoryId = 'auth-keyboard-accessory';
 
   const copy = useMemo(
     () =>
@@ -168,13 +166,6 @@ export function AuthScreen() {
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (isGuestSubmitting && isGuestMode) {
-      setIsGuestSubmitting(false);
-      router.replace('/(tabs)');
-    }
-  }, [isGuestMode, isGuestSubmitting, router]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -493,7 +484,6 @@ export function AuthScreen() {
                   autoCorrect={false}
                   textContentType="emailAddress"
                   autoComplete="email"
-                  inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
                   isCompact={isCompactScreen}
                   isTablet={isTabletScreen}
                   isLargeTablet={isLargeTabletScreen}
@@ -510,7 +500,6 @@ export function AuthScreen() {
                       autoCorrect={false}
                       textContentType="password"
                       autoComplete="password"
-                      inputAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
                       style={styles.fieldSpacing}
                       isCompact={isCompactScreen}
                       isTablet={isTabletScreen}
@@ -622,9 +611,6 @@ export function AuthScreen() {
           </View>
         </View>
       </ScrollView>
-      {Platform.OS === 'ios' ? (
-        <KeyboardDismissAccessory nativeID={keyboardAccessoryId} />
-      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -658,7 +644,6 @@ function FormField({
   onFocus,
   placeholder,
   secureTextEntry,
-  inputAccessoryViewID,
   isCompact,
   isTablet,
   isLargeTablet,
@@ -676,7 +661,6 @@ function FormField({
   onFocus?: () => void;
   placeholder: string;
   secureTextEntry?: boolean;
-  inputAccessoryViewID?: string;
   style?: object;
   textContentType?: 'emailAddress' | 'password' | 'newPassword';
   trailingAccessory?: React.ReactNode;
@@ -703,7 +687,6 @@ function FormField({
         keyboardType={keyboardType}
         placeholder={placeholder}
         placeholderTextColor="#B0BFCC"
-        inputAccessoryViewID={inputAccessoryViewID}
         secureTextEntry={secureTextEntry}
         selectionColor={theme.colors.text}
         style={[
@@ -1110,7 +1093,7 @@ const styles = StyleSheet.create({
   guestLinkText: {
     textAlign: 'center',
     color: '#7A8998',
-    fontWeight: '700',
+    fontWeight: '500',
   },
   guestLinkUnderline: {
     color: '#7A8998',

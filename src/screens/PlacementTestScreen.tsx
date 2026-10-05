@@ -553,7 +553,10 @@ export function PlacementTestScreen() {
                   </View>
 
                   <View style={styles.questionProgressRow}>
-                    <View style={styles.questionProgressTrack}>
+                    <View
+                      accessibilityRole="progressbar"
+                      accessibilityValue={{ min: 0, max: conversation.questions.length, now: questionIndex + 1 }}
+                      style={styles.questionProgressTrack}>
                       <View
                         style={[
                           styles.questionProgressFill,
@@ -561,9 +564,6 @@ export function PlacementTestScreen() {
                         ]}
                       />
                     </View>
-                    <AppText language="en" variant="caption" style={styles.questionProgressText}>
-                      {questionIndex + 1} / {conversation.questions.length}
-                    </AppText>
                   </View>
 
                   <View style={styles.reassuranceBanner}>
@@ -890,11 +890,6 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
     backgroundColor: placementColors.lime,
-  },
-  questionProgressText: {
-    color: theme.colors.text,
-    fontSize: 11,
-    lineHeight: 14,
   },
   reassuranceBanner: {
     minHeight: 52,

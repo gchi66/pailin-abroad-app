@@ -12,7 +12,7 @@ type LessonProgressCircleProps = {
   showLabel?: boolean;
 };
 
-const FILL_COLOR = '#91CAFF';
+const FILL_COLOR = '#BCECFF';
 const STROKE_COLOR = '#1E1E1E';
 
 export function LessonProgressCircle({

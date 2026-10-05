@@ -126,15 +126,7 @@ type CaptureTrace = {
   statusAfterRecord?: RecorderDiagnostic;
 };
 
-function SpeakingCoachLoader({
-  title,
-  subtitle,
-  showCopy = true,
-}: {
-  title: string;
-  subtitle: string;
-  showCopy?: boolean;
-}) {
+function SpeakingCoachLoader() {
   const orbitRotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -158,16 +150,7 @@ function SpeakingCoachLoader({
   });
 
   return (
-    <View style={styles.evaluationLoader} accessibilityRole="progressbar" accessibilityLabel={title}>
-      {showCopy ? (
-        <View style={styles.evaluationCopy}>
-          <AppText variant="title" style={styles.evaluationTitle}>{title}</AppText>
-          <AppText variant="muted" style={styles.evaluationSubtitle}>
-            {subtitle}
-          </AppText>
-        </View>
-      ) : null}
-
+    <View style={styles.evaluationLoader} accessibilityRole="progressbar" accessibilityLabel="Loading speaking practice">
       <View style={styles.evaluationGraphic}>
         <Image source={pailinGoodJobImage} contentFit="contain" style={styles.evaluationPailin} />
         <Animated.View style={[styles.evaluationOrbit, { transform: [{ rotate }] }]}>
@@ -181,15 +164,6 @@ function SpeakingCoachLoader({
           </View>
         </Animated.View>
       </View>
-
-      {showCopy ? (
-        <View style={styles.evaluationReminder}>
-          <Text style={styles.evaluationReminderSparkle}>✦</Text>
-          <AppText variant="body" style={styles.evaluationReminderText}>
-            This will just take a few seconds!
-          </AppText>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -637,11 +611,7 @@ export default function SpeakingCoachEntryScreen() {
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.fullState}>
-          <SpeakingCoachLoader
-            title="Loading speaking coach…"
-            subtitle="Hang tight – Pailin is getting your practice ready!"
-            showCopy={false}
-          />
+          <SpeakingCoachLoader />
         </View>
       </View>
     );
@@ -1054,6 +1024,7 @@ function SpeakingCoachTestScreen() {
         params: {
           lesson: lessonId,
           lessonId: lessonRecordId,
+          language: screenLanguage,
           ...(typeof params.libraryRoute === 'string' ? { libraryRoute: params.libraryRoute } : {}),
         },
       });
@@ -1449,7 +1420,7 @@ function SpeakingCoachTestScreen() {
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.fullState}>
-          <SpeakingCoachLoader title="" subtitle="" showCopy={false} />
+          <SpeakingCoachLoader />
         </View>
       </View>
     );
@@ -1478,11 +1449,7 @@ function SpeakingCoachTestScreen() {
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.fullState}>
-          <SpeakingCoachLoader
-            title={tr('Loading speaking coach…', 'กำลังโหลดการฝึกพูด…')}
-            subtitle={tr('Hang tight – Pailin is getting your practice ready!', 'รอสักครู่ ไพลินกำลังเตรียมแบบฝึกให้คุณ!')}
-            showCopy={false}
-          />
+          <SpeakingCoachLoader />
         </View>
       </View>
     );
@@ -1798,10 +1765,7 @@ function SpeakingCoachTestScreen() {
 
   const renderEvaluating = () => (
     <View style={styles.fullState}>
-      <SpeakingCoachLoader
-        title={tr('Checking your answer…', 'กำลังตรวจคำตอบ…')}
-        subtitle={tr('Hang tight – Pailin is reviewing your audio!', 'รอสักครู่ ไพลินกำลังตรวจเสียงของคุณ!')}
-      />
+      <SpeakingCoachLoader />
     </View>
   );
 
@@ -2226,9 +2190,9 @@ function SpeakingCoachTestScreen() {
             onPress={() => setShowExample(true)}
             style={styles.conversationExampleButton}
           >
-            <MaterialIcons name="visibility" size={14} color="#777777" />
+            <MaterialIcons name="visibility" size={14} color="#9D9D9D" />
             <AppText variant="caption" style={styles.conversationExampleButtonLabel}>
-              {tr('SHOW EXAMPLE ANSWER', 'ดูตัวอย่างคำตอบ')}
+              {tr('Example Answer', 'ตัวอย่างคำตอบ')}
             </AppText>
           </Pressable>
         );
@@ -2581,9 +2545,9 @@ function SpeakingCoachTestScreen() {
             onPress={() => setShowExample(true)}
             style={styles.conversationExampleButton}
           >
-            <MaterialIcons name="visibility" size={14} color="#777777" />
+            <MaterialIcons name="visibility" size={14} color="#9D9D9D" />
             <AppText variant="caption" style={styles.conversationExampleButtonLabel}>
-              {tr('SHOW EXAMPLE ANSWER', 'ดูตัวอย่างคำตอบ')}
+              {tr('Example Answer', 'ตัวอย่างคำตอบ')}
             </AppText>
           </Pressable>
         );
@@ -3048,7 +3012,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 118,
     marginLeft: 17,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
@@ -3138,7 +3102,7 @@ const styles = StyleSheet.create({
     minHeight: 310,
     alignSelf: 'center',
     marginTop: -18,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     borderRadius: 20,
     backgroundColor: theme.colors.surface,
@@ -3296,7 +3260,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     width: '100%',
     minHeight: 142,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
@@ -3499,7 +3463,7 @@ const styles = StyleSheet.create({
   conversationPromptCard: {
     width: '100%',
     minHeight: 142,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
@@ -3537,7 +3501,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 36,
     marginTop: 20,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#C4A807',
     borderRadius: 10,
     backgroundColor: '#FFFCE5',
@@ -3551,8 +3515,8 @@ const styles = StyleSheet.create({
   conversationTipText: {
     flex: 1,
     color: '#C4A807',
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: theme.typography.weights.semibold,
     textAlign: 'left',
   },
@@ -3573,8 +3537,8 @@ const styles = StyleSheet.create({
     minHeight: 28,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#B8DFFD',
-    borderRadius: 5,
+    borderColor: '#9D9D9D',
+    borderRadius: 10,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 13,
     flexDirection: 'row',
@@ -3582,22 +3546,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  conversationExampleButtonLabel: { color: '#666666', fontSize: 8, lineHeight: 12 },
+  conversationExampleButtonLabel: {
+    color: '#9D9D9D',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.semibold,
+  },
   conversationExampleAnswer: {
     width: '72%',
     minHeight: 58,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#B8DFFD',
-    borderRadius: 5,
+    borderColor: '#9D9D9D',
+    borderRadius: 10,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: 'center',
   },
-  conversationExampleEnglish: { fontSize: 10, lineHeight: 15, textAlign: 'center' },
-  conversationExampleThai: { color: '#999999', fontSize: 9, lineHeight: 13, textAlign: 'center' },
-  conversationExampleHide: { marginTop: 2, color: '#777777', fontSize: 7, lineHeight: 10 },
+  conversationExampleEnglish: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.semibold,
+    textAlign: 'center',
+  },
+  conversationExampleThai: { color: '#9D9D9D', fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  conversationExampleHide: {
+    marginTop: 3,
+    color: '#9D9D9D',
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: theme.typography.weights.medium,
+    textDecorationLine: 'underline',
+  },
   conversationScrollContentWithFooter: { paddingBottom: 0 },
   conversationLearnerAnswerCard: {
     width: '100%',
@@ -3695,7 +3676,7 @@ const styles = StyleSheet.create({
   translationPromptCard: {
     width: '100%',
     minHeight: 122,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: theme.colors.border,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
@@ -3842,19 +3823,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 20,
   },
-  evaluationCopy: { alignItems: 'center', gap: 5 },
-  evaluationTitle: {
-    fontSize: 25,
-    lineHeight: 34,
-    fontWeight: theme.typography.weights.bold,
-    textAlign: 'center',
-  },
-  evaluationSubtitle: {
-    color: '#687078',
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
   evaluationGraphic: {
     width: 250,
     height: 250,
@@ -3887,29 +3855,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F5F8FC',
   },
-  orbitSparkleRight: { top: 25, right: -20 },
-  orbitSparkleBottom: { bottom: -22, left: 88 },
+  orbitSparkleRight: { top: 34, right: -8 },
+  orbitSparkleBottom: { bottom: -15, left: 91 },
   orbitSparkleText: { color: '#F5D21F', fontSize: 39, lineHeight: 42 },
-  evaluationReminder: {
-    minHeight: 54,
-    maxWidth: 360,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 27,
-    backgroundColor: '#FFFBE7',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  evaluationReminderSparkle: { color: '#F5D21F', fontSize: 32, lineHeight: 35 },
-  evaluationReminderText: {
-    flexShrink: 1,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: theme.typography.weights.semibold,
-    textAlign: 'center',
-  },
   successIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: theme.colors.success, alignItems: 'center', justifyContent: 'center' },
   playbackList: { width: '100%', gap: theme.spacing.sm },
   wideButton: { width: '100%' },

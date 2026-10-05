@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   commentBranch: { gap: 12 },
   commentBranchNested: { marginLeft: 24, position: 'relative' },
   replyGuide: { position: 'absolute', left: -13, top: -13, width: 12, height: 42, borderLeftWidth: 1, borderBottomWidth: 1, borderColor: '#D7D7D7' },
-  commentCard: { borderWidth: 1.1, borderColor: theme.colors.border, borderRadius: 12, backgroundColor: '#FFFFFF', padding: 12, gap: 7, boxShadow: `3px 3px 0px ${theme.colors.shadow}` },
+  commentCard: { borderWidth: theme.borderWidths.primaryCard, borderColor: theme.colors.border, borderRadius: 12, backgroundColor: '#FFFFFF', padding: 12, gap: 7, boxShadow: `3px 3px 0px ${theme.colors.shadow}` },
   commentHeader: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 },
   commentAuthorWrap: { flex: 1, minWidth: 48 },
   commentAuthor: { fontSize: 11, lineHeight: 16, fontWeight: '700', letterSpacing: 0.6 },

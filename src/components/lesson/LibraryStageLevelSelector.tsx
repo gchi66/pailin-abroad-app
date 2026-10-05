@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   navigationShadow: { alignSelf: 'stretch', backgroundColor: '#222222', borderRadius: 12, marginBottom: 24, marginRight: -2, marginLeft: 2 },
   navigation: { transform: [{ translateX: -2 }, { translateY: -2 }], borderWidth: 1.5, borderColor: '#222222', borderRadius: 12, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   compactNavigationShadow: { alignSelf: 'stretch', backgroundColor: '#222222', borderRadius: 10, marginBottom: 24, marginRight: -3, marginLeft: 3 },
-  compactNavigation: { transform: [{ translateX: -3 }, { translateY: -3 }], borderWidth: 1, borderColor: '#222222', borderRadius: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  compactNavigation: { transform: [{ translateX: -3 }, { translateY: -3 }], borderWidth: theme.borderWidths.primaryCard, borderColor: '#222222', borderRadius: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   stages: { minHeight: 40, flexDirection: 'row', alignItems: 'stretch' },
   stageTouch: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   stageDivider: { borderLeftWidth: 1.5, borderLeftColor: '#222222' },

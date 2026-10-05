@@ -38,6 +38,7 @@ type LessonRichSectionIntroProps = {
   position: number;
   total: number;
   badgeLabel?: string;
+  audioTray?: React.ReactNode;
   onContinue: () => void;
   onClose: () => void;
 };
@@ -197,6 +198,7 @@ export function LessonRichSectionIntro({
   position,
   total,
   badgeLabel,
+  audioTray,
   onContinue,
   onClose,
 }: LessonRichSectionIntroProps) {
@@ -316,15 +318,22 @@ export function LessonRichSectionIntro({
         </Animated.View>
       </View>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(bottomInset, 10) + 16 }]}>
-        <Button
-          language={language}
-          title={language === 'th' ? 'ไปกันเลย!' : 'LET’S GO!'}
-          disabled={isLeaving}
-          onPress={handleContinue}
-          style={styles.continueButton}
-          textStyle={styles.continueButtonText}
-        />
+      <View style={styles.footer}>
+        <View
+          style={[
+            styles.continueButtonWrap,
+            { paddingBottom: audioTray ? theme.spacing.lg : Math.max(bottomInset, 10) + 16 },
+          ]}>
+          <Button
+            language={language}
+            title={language === 'th' ? 'ไปกันเลย!' : 'LET’S GO!'}
+            disabled={isLeaving}
+            onPress={handleContinue}
+            style={styles.continueButton}
+            textStyle={styles.continueButtonText}
+          />
+        </View>
+        {audioTray}
       </View>
     </Animated.View>
   );
@@ -500,8 +509,10 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
   footer: {
-    paddingHorizontal: 10,
     paddingTop: 3,
+  },
+  continueButtonWrap: {
+    paddingHorizontal: 10,
   },
   continueButton: {
     minHeight: 44,

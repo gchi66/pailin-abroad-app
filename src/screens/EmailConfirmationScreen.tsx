@@ -1,11 +1,10 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import fullLogoImage from '../../assets/images/full-logo.webp';
+import fullLogoImage from '../../assets/images/pailin-abroad-full-logo.png';
 import { AppText } from '@/src/components/ui/AppText';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -84,10 +83,6 @@ export function EmailConfirmationScreen() {
       </View>
 
       <View style={styles.card}>
-        <View style={styles.iconCircle}>
-          <MaterialIcons name="mark-email-unread" size={42} color="#1A2332" />
-        </View>
-
         <AppText language={uiLanguage} variant="title" style={styles.heading}>
           {copy.heading}
         </AppText>
@@ -119,7 +114,7 @@ export function EmailConfirmationScreen() {
             pressed && styles.buttonPressed,
             (isResending || !email) && styles.buttonDisabled,
           ]}>
-          {isResending ? <ActivityIndicator color="#FFFFFF" /> : null}
+          {isResending ? <ActivityIndicator color="#1A2332" /> : null}
           <AppText language={uiLanguage} variant="caption" style={styles.resendText}>
             {isResending ? copy.sending : copy.resend}
           </AppText>
@@ -178,17 +173,6 @@ const styles = StyleSheet.create({
       offset: 2,
     }),
   },
-  iconCircle: {
-    width: 82,
-    height: 82,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 22,
-    borderWidth: 2,
-    borderColor: '#1A2332',
-    borderRadius: 41,
-    backgroundColor: '#DCEEFF',
-  },
   heading: {
     color: '#1A2332',
     fontSize: 28,
@@ -234,11 +218,13 @@ const styles = StyleSheet.create({
     marginTop: 22,
     paddingHorizontal: 18,
     borderRadius: 14,
-    backgroundColor: '#FF4545',
+    borderWidth: 2,
+    borderColor: '#1A2332',
+    backgroundColor: '#FFFFFF',
     boxShadow: '1.75px 1.75px 0px #1A2332',
   },
   resendText: {
-    color: '#FFFFFF',
+    color: '#1A2332',
     fontSize: 15,
     fontWeight: '800',
     textTransform: 'uppercase',

@@ -137,6 +137,7 @@ const styles = StyleSheet.create({
     minHeight: 242,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 18,
@@ -158,7 +159,9 @@ const styles = StyleSheet.create({
   scoreWrap: {
     position: 'relative',
     alignSelf: 'center',
-    marginTop: 10,
+    // Poppins' score line box has more invisible space below the glyphs than above.
+    // Pull the following copy up so the visible spacing is optically even.
+    marginBottom: -12,
   },
   score: {
     fontFamily: theme.typography.fontFaces.en.bold,
@@ -178,7 +181,6 @@ const styles = StyleSheet.create({
   },
   body: {
     maxWidth: 310,
-    marginTop: 9,
     color: theme.colors.text,
     fontSize: 14,
     lineHeight: 21,

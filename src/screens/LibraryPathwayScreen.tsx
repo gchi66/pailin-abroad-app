@@ -25,7 +25,7 @@ import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { clearLessonLibraryAnchor, getLessonLibrarySelection, hydrateLessonLibrarySelection, setLessonLibrarySelection, takeLessonLibraryPreview } from '@/src/lib/lesson-library-selection';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
-import { freeLibraryIds, LIBRARY_STAGES, LibraryStage, lessonMarker, lessonNumber, matchesLessonSearch, shortLessonFocus } from '@/src/lib/library-pathway';
+import { freeLibraryIds, LIBRARY_STAGES, LibraryStage, lessonMarker, lessonNumber, lessonTitle, matchesLessonSearch, shortLessonFocus } from '@/src/lib/library-pathway';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
@@ -62,7 +62,6 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
   const libraryRoute = freeOnly ? 'free-library' : 'library';
   const th = language === 'th';
   const stageLabel = (value: LibraryStage) => th ? ({ Beginner: 'เริ่มต้น', Intermediate: 'ระดับกลาง', Advanced: 'ขั้นสูง', Expert: 'เชี่ยวชาญ' }[value]) : value.toUpperCase();
-  const localized = (en: string | null, thai: string | null) => (th ? thai?.trim() || en?.trim() : en?.trim() || thai?.trim()) || '';
 
   useEffect(() => {
     let active = true;
@@ -251,14 +250,14 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             const marker = lessonMarker(selected, progress[lesson.id]);
             const done = !!progress[lesson.id]?.is_completed;
             const strong = selected || done || !!progress[lesson.id]?.has_started;
-            const lessonTitle = localized(lesson.title, lesson.title_th) || (th ? 'ไม่มีชื่อบทเรียน' : 'Untitled lesson');
+            const displayedLessonTitle = lessonTitle(lesson, language, th ? 'ไม่มีชื่อบทเรียน' : 'Untitled lesson');
             const iconSource = getLessonIconSource(lessonNumber(lesson));
             const status = selected ? (th ? 'เลือกอยู่' : 'Selected') : marker.kind === 'complete' ? (th ? 'เรียนจบแล้ว' : 'Completed') : marker.kind === 'progress' ? `${marker.percent}%` : (th ? 'ยังไม่เริ่ม' : 'Not started');
             return <View key={lesson.id} style={styles.lessonRow} onLayout={({ nativeEvent }) => { offsets.current[lesson.id] = nativeEvent.layout.y; if (anchor === lesson.id) restoreAnchor(); }}>
               {!searching && index < lessons.length - 1 ? <View pointerEvents="none" style={[styles.connector, index < selectedIndex ? styles.connectorActive : null]} /> : null}
               <View style={styles.cardArea}>
                 <View style={styles.cardShadow}>
-                  <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${lessonNumber(lesson)} ${lessonTitle}. ${status}${locked ? (th ? ' ล็อกอยู่' : '. Locked') : ''}`}
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${lessonNumber(lesson)} ${displayedLessonTitle}. ${status}${locked ? (th ? ' ล็อกอยู่' : '. Locked') : ''}`}
                     style={[styles.card, iconSource ? styles.cardWithIcon : null, strong ? styles.strongCard : null, selected ? styles.selectedCard : null]}
                     onPressIn={() => { if (!locked) prefetchResolvedLesson(lesson.id, 'en'); }}
                     onPress={() => {
@@ -274,7 +273,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
                       <AppText language={language} variant="muted" numberOfLines={1} ellipsizeMode="tail" style={styles.topic}>{shortLessonFocus(lesson, language)}</AppText>
                       {locked ? <MaterialIcons name="lock-outline" size={14} color="#777777" /> : null}
                     </View>
-                    <AppText language={language} style={[styles.lessonTitle, locked ? styles.lockedTitle : null]}>{lessonTitle}</AppText>
+                    <AppText language={language} style={[styles.lessonTitle, locked ? styles.lockedTitle : null]}>{displayedLessonTitle}</AppText>
                     {iconSource ? (
                       <View pointerEvents="none" style={styles.lessonIconSlot}>
                         <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} />
@@ -309,19 +308,19 @@ const styles = StyleSheet.create({
   headerTitleTouch: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center' }, headerTitle: { fontSize: 20, lineHeight: 28 },
   headerActions: { flexDirection: 'row', alignItems: 'center' },
   searchButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  searchInput: { borderWidth: 1, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 14, color: '#222222' },
+  searchInput: { borderWidth: theme.borderWidths.primaryCard, borderColor: '#BBBBBB', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 14, color: '#222222' },
   libraryMenuShadow: { position: 'absolute', top: 46, left: 4, width: 294, maxWidth: '100%', borderRadius: 5, backgroundColor: '#222222', zIndex: 30, elevation: 12 },
-  libraryMenu: { borderWidth: 1, borderColor: '#222222', borderRadius: 5, backgroundColor: '#FFFFFF', paddingVertical: 7, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  libraryMenu: { borderWidth: theme.borderWidths.primaryCard, borderColor: '#222222', borderRadius: 5, backgroundColor: '#FFFFFF', paddingVertical: 7, transform: [{ translateX: -2 }, { translateY: -2 }] },
   menuChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, gap: 9 },
   menuChoiceText: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.semibold },
   activeMenuChoiceText: { fontWeight: theme.typography.weights.bold },
   activeMenuDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#A7E464' },
-  storyShadow: { backgroundColor: '#222222', borderRadius: 10, marginHorizontal: 20, marginBottom: 22 }, story: { backgroundColor: '#FFFCE5', borderWidth: 1, borderColor: '#222222', borderRadius: 10, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  storyShadow: { backgroundColor: '#222222', borderRadius: 10, marginHorizontal: 20, marginBottom: 22 }, story: { backgroundColor: '#FFFCE5', borderWidth: theme.borderWidths.primaryCard, borderColor: '#222222', borderRadius: 10, transform: [{ translateX: -2 }, { translateY: -2 }] },
   storyHeader: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 }, storyLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 0.65 }, storyBody: { fontSize: 13, lineHeight: 20, paddingHorizontal: 12, paddingBottom: 12 },
   lessonList: { marginHorizontal: 20 }, lessonRow: { paddingBottom: 22, position: 'relative' },
   connector: { position: 'absolute', left: 22, top: 20, bottom: -1, borderLeftWidth: 2, borderStyle: 'dashed', borderColor: '#DDDDDD' }, connectorActive: { borderStyle: 'solid', borderColor: '#2860F0' },
   cardArea: { position: 'relative' }, cardShadow: { backgroundColor: '#222222', borderRadius: 10 },
-  card: { justifyContent: 'center', paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
+  card: { justifyContent: 'center', paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: theme.borderWidths.primaryCard, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
   cardWithIcon: { paddingRight: 82, minHeight: 88 },
   strongCard: { borderColor: '#222222' }, selectedCard: { backgroundColor: '#BFEDFC' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 }, lessonNumber: { fontSize: 12, lineHeight: 18, fontFamily: theme.typography.fontFaces.en.bold }, topic: { flex: 1, fontSize: 12, lineHeight: 18, color: '#666666' },
@@ -332,7 +331,7 @@ const styles = StyleSheet.create({
   selectedMarker: { backgroundColor: '#3CA0FE', borderColor: '#222222' }, completeMarker: { backgroundColor: '#BCE574', borderColor: '#222222' },
   progressMarker: { position: 'absolute', width: 20, height: 22, left: -10, top: '50%', marginTop: -14, alignItems: 'center' },
   resultsLabel: { marginBottom: 18, color: '#666666' }, searchContext: { fontSize: 10, lineHeight: 16, color: '#777777' }, empty: { paddingVertical: 24, textAlign: 'center', gap: 12 },
-  upgrade: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 12, gap: 12, marginBottom: 24 },
+  upgrade: { flexDirection: 'row', alignItems: 'center', borderWidth: theme.borderWidths.primaryCard, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 12, gap: 12, marginBottom: 24 },
   upgradeArtwork: { width: 96, height: 96, flexShrink: 0 },
   upgradeContent: { flex: 1, minWidth: 0, gap: 4 },
   upgradeTitle: { fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.bold },

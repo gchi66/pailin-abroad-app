@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs, usePathname } from 'expo-router';
@@ -34,7 +34,7 @@ export default function TabLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, isGuestMode, isLoading } = useAppSession();
+  const { continueAsGuest, hasAccount, isGuestMode, isLoading } = useAppSession();
 
   const text = labels[uiLanguage];
   const isExerciseSet = pathname.startsWith('/exercises/topic/')
@@ -44,6 +44,17 @@ export default function TabLayout() {
   // was lost), so it still receives the top safe area and bottom navigation.
   const isFreeLessonLibrary = pathname === '/lessons/free-library';
   const shouldShowTabBar = (isLoading || hasAccount || isGuestMode || isFreeLessonLibrary) && !isExerciseSet;
+
+  useEffect(() => {
+    if (isLoading || hasAccount || isGuestMode || !isFreeLessonLibrary) {
+      return;
+    }
+
+    // Placement results intentionally land signed-out learners in the free
+    // library. Restore the guest session as well as the temporary tab shell so
+    // subsequent tabs keep their navigation chrome and guest-specific UI.
+    void continueAsGuest();
+  }, [continueAsGuest, hasAccount, isFreeLessonLibrary, isGuestMode, isLoading]);
 
   const tabsScreenOptions = useMemo(
     () => ({

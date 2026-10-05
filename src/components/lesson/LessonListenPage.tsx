@@ -212,7 +212,7 @@ export function LessonListenPage({
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: '#1E1E1E',
     borderRadius: 20,
     backgroundColor: theme.colors.surface,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   focus: { color: '#666666', fontSize: 15, lineHeight: 21 },
   backstoryCard: {
     minHeight: 75,
-    borderWidth: 1,
+    borderWidth: theme.borderWidths.primaryCard,
     borderColor: '#1E1E1E',
     borderRadius: 10,
     backgroundColor: '#FFFCe5',

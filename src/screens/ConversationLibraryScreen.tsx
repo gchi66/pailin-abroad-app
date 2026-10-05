@@ -1,16 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
-import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { prefetchPricing } from '@/src/api/pricing';
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { getLessonIconSource } from '@/src/assets/lesson-icons';
 import { getConversationLibrary } from '@/src/api/lessons';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { LibraryStageLevelSelector } from '@/src/components/lesson/LibraryStageLevelSelector';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
+import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { AppText } from '@/src/components/ui/AppText';
+import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
@@ -38,6 +41,8 @@ export function ConversationLibraryScreen() {
   const lastLibrarySelection = useRef<{ stage: LibraryStage; level: number | null } | null>(null);
 
   useFocusEffect(useCallback(() => {
+    if (sessionLoading) return;
+
     let active = true;
     setLoading(true);
     setError(null);
@@ -63,13 +68,13 @@ export function ConversationLibraryScreen() {
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []));
+  }, [sessionLoading]));
 
   const stages = useMemo(() => LIBRARY_STAGES.filter((stage) => lessons.some((lesson) => stageOf(levelOf(lesson)) === stage)), [lessons]);
   const levels = useMemo(() => [...new Set(lessons.filter((lesson) => stageOf(levelOf(lesson)) === selection.stage).map(levelOf))].filter(Boolean).sort((a, b) => a - b), [lessons, selection.stage]);
   const visibleLessons = useMemo(() => lessons.filter((lesson) => levelOf(lesson) === selection.level), [lessons, selection.level]);
 
-  if (!sessionLoading && !hasMembership) return <Redirect href="/(tabs)/account/membership" />;
+  if (sessionLoading) return <PageLoadingState language={uiLanguage} />;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -85,72 +90,96 @@ export function ConversationLibraryScreen() {
             illustration={<Image source={resourceCardImages.conversations} contentFit="contain" style={styles.illustration} />}
           />
 
-          {loading ? <ActivityIndicator style={styles.loading} color={theme.colors.accent} /> : null}
-          {error ? <AppText variant="body" style={styles.error}>{error}</AppText> : null}
-          {!loading && !error && lessons.length === 0 ? <AppText variant="body" style={styles.empty}>No conversations are available yet.</AppText> : null}
-
-          {!loading && !error && stages.length > 0 ? (
-            <View style={styles.selectorWrap}>
-              <LibraryStageLevelSelector
+          {!hasMembership ? (
+            <View style={styles.unlockWrap}>
+              <ResourceUnlockCard
                 language={uiLanguage}
-                stage={selection.stage}
-                stages={stages}
-                level={selection.level}
-                levels={levels}
-                stageOpen={stageOpen}
-                bottomMargin={9}
-                onToggleStage={() => setStageOpen((value) => !value)}
-                onSelectStage={(stage) => {
-                  const first = lessons.find((lesson) => stageOf(levelOf(lesson)) === stage);
-                  setSelection({ stage, level: first ? levelOf(first) : null });
+                title={uiLanguage === 'th' ? 'ปลดล็อกหน้านี้' : 'UNLOCK THIS PAGE'}
+                body={uiLanguage === 'th'
+                  ? 'อัปเกรดเพื่อเข้าถึงบทสนทนามากกว่า 200 รายการ!'
+                  : 'Upgrade to access 200+ conversations!'}
+                buttonLabel={uiLanguage === 'th' ? 'ดูแพ็กเกจ →' : 'VIEW PLANS →'}
+                onPress={() => {
+                  prefetchPricing();
+                  router.push({
+                    pathname: '/(tabs)/account/membership',
+                    params: { returnTo: '/(tabs)/resources/conversations' },
+                  });
                 }}
-                onSelectLevel={(level) => setSelection({ stage: selection.stage, level })}
               />
             </View>
           ) : null}
 
-          {!loading && !error ? (
-            <View style={styles.lessonList}>
-              {visibleLessons.map((lesson) => {
-                const title = (uiLanguage === 'th' ? lesson.title_th ?? lesson.title : lesson.title) ?? '';
-                const number = lesson.lesson_external_id ?? `${lesson.level}.${lesson.lesson_order}`;
-                const isCheckpoint = number.toLowerCase().endsWith('.chp');
-                const iconSource = getLessonIconSource(lessonNumber(lesson));
-                const titleLayoutKey = `${uiLanguage}:${lesson.id}`;
-                return (
-                  <Pressable
-                    key={lesson.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${number} ${title}`}
-                    onPress={() => router.push({ pathname: '/conversations/[id]', params: { id: lesson.id } })}
-                    style={[styles.lessonRow, wrappedLessonTitles[titleLayoutKey] ? styles.lessonRowWrapped : null]}>
-                    <AppText
-                      variant="caption"
-                      numberOfLines={1}
-                      style={[styles.lessonNumber, isCheckpoint ? styles.checkpointLessonNumber : null]}>
-                      {number}
-                    </AppText>
-                    {iconSource ? <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} /> : null}
-                    <AppText
-                      language={uiLanguage}
-                      variant="body"
-                      numberOfLines={2}
-                      onTextLayout={({ nativeEvent }) => {
-                        if (nativeEvent.lines.length > 1) {
-                          setWrappedLessonTitles((current) => current[titleLayoutKey]
-                            ? current
-                            : { ...current, [titleLayoutKey]: true });
-                        }
-                      }}
-                      style={styles.lessonTitle}>
-                      {title}
-                    </AppText>
-                    <MaterialIcons name="chevron-right" size={21} color={theme.colors.text} />
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
+          <View>
+            {loading ? <ActivityIndicator style={styles.loading} color={theme.colors.accent} /> : null}
+            {error ? <AppText variant="body" style={styles.error}>{error}</AppText> : null}
+            {!loading && !error && lessons.length === 0 ? <AppText variant="body" style={styles.empty}>No conversations are available yet.</AppText> : null}
+
+            {!loading && !error && stages.length > 0 ? (
+              <View style={[styles.selectorWrap, !hasMembership ? styles.lockedSelectorWrap : null]}>
+                <LibraryStageLevelSelector
+                  language={uiLanguage}
+                  stage={selection.stage}
+                  stages={stages}
+                  level={selection.level}
+                  levels={levels}
+                  stageOpen={stageOpen}
+                  bottomMargin={9}
+                  onToggleStage={() => setStageOpen((value) => !value)}
+                  onSelectStage={(stage) => {
+                    const first = lessons.find((lesson) => stageOf(levelOf(lesson)) === stage);
+                    setSelection({ stage, level: first ? levelOf(first) : null });
+                  }}
+                  onSelectLevel={(level) => setSelection({ stage: selection.stage, level })}
+                />
+              </View>
+            ) : null}
+
+            {!loading && !error ? (
+              <View style={styles.lessonList}>
+                {visibleLessons.map((lesson) => {
+                  const title = (uiLanguage === 'th' ? lesson.title_th ?? lesson.title : lesson.title) ?? '';
+                  const number = lesson.lesson_external_id ?? `${lesson.level}.${lesson.lesson_order}`;
+                  const isCheckpoint = number.toLowerCase().endsWith('.chp');
+                  const iconSource = getLessonIconSource(lessonNumber(lesson));
+                  const titleLayoutKey = `${uiLanguage}:${lesson.id}`;
+                  return (
+                    <Pressable
+                      key={lesson.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: !hasMembership }}
+                      accessibilityLabel={`${number} ${title}`}
+                      disabled={!hasMembership}
+                      onPress={() => router.push({ pathname: '/conversations/[id]', params: { id: lesson.id } })}
+                      style={[styles.lessonRow, wrappedLessonTitles[titleLayoutKey] ? styles.lessonRowWrapped : null]}>
+                      <AppText
+                        variant="caption"
+                        numberOfLines={1}
+                        style={[styles.lessonNumber, isCheckpoint ? styles.checkpointLessonNumber : null]}>
+                        {number}
+                      </AppText>
+                      {iconSource ? <Image source={iconSource} contentFit="contain" style={styles.lessonIcon} /> : null}
+                      <AppText
+                        language={uiLanguage}
+                        variant="body"
+                        numberOfLines={2}
+                        onTextLayout={({ nativeEvent }) => {
+                          if (nativeEvent.lines.length > 1) {
+                            setWrappedLessonTitles((current) => current[titleLayoutKey]
+                              ? current
+                              : { ...current, [titleLayoutKey]: true });
+                          }
+                        }}
+                        style={styles.lessonTitle}>
+                        {title}
+                      </AppText>
+                      <MaterialIcons name={hasMembership ? 'chevron-right' : 'lock-outline'} size={21} color={theme.colors.text} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
         </View>
       </ResponsivePageShell>
     </ScrollView>
@@ -162,7 +191,9 @@ const styles = StyleSheet.create({
   content: { paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
   page: { paddingHorizontal: 18, paddingTop: 12 },
   illustration: { position: 'absolute', right: 4, bottom: -20, width: 112, height: 86 },
+  unlockWrap: { marginTop: 16 },
   selectorWrap: { marginTop: 8 },
+  lockedSelectorWrap: { marginTop: 16 },
   loading: { marginTop: 50 },
   error: { marginTop: 28, color: theme.colors.error },
   empty: { marginTop: 28 },
