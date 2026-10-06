@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ImageSourcePropType, StyleSheet } from 'react-native';
+import { Image, ImageSourcePropType, ImageStyle, StyleProp, StyleSheet } from 'react-native';
 
 import { PageHeader } from './PageHeader';
 
@@ -10,10 +10,11 @@ type Props = {
   onBackPress: () => void;
   subtitle?: string;
   illustration?: ImageSourcePropType;
+  illustrationStyle?: StyleProp<ImageStyle>;
   flipIllustration?: boolean;
 };
 
-export function AccountPageHeader({ language, title, backLabel, onBackPress, subtitle, illustration, flipIllustration = false }: Props) {
+export function AccountPageHeader({ language, title, backLabel, onBackPress, subtitle, illustration, illustrationStyle, flipIllustration = false }: Props) {
   return (
     <PageHeader
       language={language}
@@ -22,7 +23,7 @@ export function AccountPageHeader({ language, title, backLabel, onBackPress, sub
       backLabel={backLabel}
       onBackPress={onBackPress}
       illustration={illustration
-        ? <Image source={illustration} resizeMode="contain" style={[styles.illustration, flipIllustration && styles.flipped]} />
+        ? <Image source={illustration} resizeMode="contain" style={[styles.illustration, illustrationStyle, flipIllustration && styles.flipped]} />
         : undefined}
     />
   );

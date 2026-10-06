@@ -20,7 +20,7 @@ import { prefetchPricing } from '@/src/api/pricing';
 import arrowLeftImage from '@/assets/images/black-carrot-arrow-left.webp';
 import arrowRightImage from '@/assets/images/black-carrot-arrow-right.webp';
 import blueCheckmarkImage from '@/assets/images/blue-checkmark.webp';
-import fullLogoImage from '@/assets/images/full-logo.webp';
+import fullLogoImage from '@/assets/images/pailin-abroad-full-logo.png';
 import greyPasswordCheckmarkImage from '@/assets/images/grey-password-checkmark.webp';
 import hidePasswordImage from '@/assets/images/hide-password.webp';
 import pailinWelcomeImage from '@/assets/images/characters/pailin_blue_circle.webp';
@@ -421,7 +421,7 @@ function ProfileStep({
     <View style={[styles.stepPage, { width: cardWidth }]}>
       <Stack gap={compact ? 'lg' : 'xl'}>
         <Stack gap={compact ? 'sm' : 'md'}>
-          <AppText language={uiLanguage} variant="title" style={[styles.stepTitle, styles.profileTitle, compact ? styles.stepTitleCompact : null]}>
+          <AppText language={uiLanguage} variant="title" style={[styles.stepTitle, compact ? styles.stepTitleCompact : null]}>
             {copy.whatToCallYou}
           </AppText>
           <Stack gap="xs">
@@ -1697,9 +1697,6 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     color: theme.colors.surface,
     fontWeight: '800',
-  },
-  profileTitle: {
-    marginTop: -10,
   },
   shellFooter: {
     marginTop: 'auto',

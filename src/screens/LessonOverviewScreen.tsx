@@ -65,6 +65,23 @@ export function LessonOverviewScreen(p: Props) {
   if (p.onListen) rows.push({ id: 'listen', type: 'listen', index: -1, complete: p.listenComplete });
   if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: p.speakingComplete });
   rows.push({ id: 'discussion', type: 'discussion', index: -3, complete: false });
+  const groupedRows = groups
+    .map(group => ({ ...group, items: group.types.flatMap(type => rows.filter(row => row.type === type)) }))
+    .filter(group => group.items.length > 0);
+  const isRowDone = (candidate: OverviewRow | null) => Boolean(
+    candidate && (
+      candidate.complete ||
+      (p.complete && candidate.type !== 'discussion')
+    )
+  );
+  const isRowActive = (candidate: OverviewRow | null) => Boolean(
+    candidate &&
+    candidate.type !== 'speaking' &&
+    candidate.type !== 'discussion' &&
+    (p.activeType
+      ? p.activeType === candidate.type
+      : p.activeIndex !== null && candidate.index === p.activeIndex)
+  );
   return <View style={[s.screen, { paddingTop: insets.top }]}>
     <ScrollView
       ref={scrollRef}
@@ -103,11 +120,28 @@ export function LessonOverviewScreen(p: Props) {
           <AppText language={p.language} style={[s.statusText, !p.complete && p.hasAccount ? s.statusTextSaved : null]}>{p.complete ? (th ? 'เรียนจบแล้ว' : 'Lesson complete') : p.hasAccount ? (th ? 'บันทึกความคืบหน้าอัตโนมัติ' : 'Progress saved automatically') : (th ? 'เลือกส่วนที่ต้องการเรียน' : 'Choose a section to begin')}</AppText>
         </View>
       </View>
-      {groups.map(group => {
-        const items = group.types.flatMap(type => rows.filter(row => row.type === type));
-        if (!items.length) return null;
+      {groupedRows.map((group, groupIndex) => {
+        const { items } = group;
+        const previousGroup = groupedRows[groupIndex - 1] ?? null;
+        const nextGroup = groupedRows[groupIndex + 1] ?? null;
+        const previousGroupRow = previousGroup?.items.at(-1) ?? null;
+        const firstRow = items[0] ?? null;
+        const groupConnectorDone = isRowDone(previousGroupRow) && isRowDone(firstRow);
+        const groupConnectorActive = isRowDone(previousGroupRow) && isRowActive(firstRow) && !isRowDone(firstRow);
         return <View key={group.en} style={s.group}>
-          <View style={s.groupLabel}><AppText language={p.language} style={s.eyebrow}>{group[p.language]}</AppText></View>
+          <View style={s.groupHeader}>
+            {previousGroupRow ? (
+              <View
+                style={[
+                  s.connector,
+                  s.groupConnector,
+                  groupConnectorDone ? s.doneConnector : null,
+                  groupConnectorActive ? s.activeConnector : null,
+                ]}
+              />
+            ) : null}
+            <View style={s.groupLabel}><AppText language={p.language} style={s.eyebrow}>{group[p.language]}</AppText></View>
+          </View>
           {items.map((row, itemIndex) => {
             const speaking = row.type === 'speaking';
             const discussion = row.type === 'discussion';
@@ -116,25 +150,11 @@ export function LessonOverviewScreen(p: Props) {
             const active = !speaking && !discussion && (p.activeType
               ? p.activeType === row.type
               : p.activeIndex !== null && row.index === p.activeIndex);
-            const previousRow = items[itemIndex - 1] ?? null;
-            const nextRow = items[itemIndex + 1] ?? null;
-            const isDone = (candidate: OverviewRow | null) => Boolean(
-              candidate && (
-                candidate.complete ||
-                (p.complete && candidate.type !== 'discussion')
-              )
-            );
-            const isActive = (candidate: OverviewRow | null) => Boolean(
-              candidate &&
-              candidate.type !== 'speaking' &&
-              candidate.type !== 'discussion' &&
-              (p.activeType
-                ? p.activeType === candidate.type
-                : p.activeIndex !== null && candidate.index === p.activeIndex)
-            );
-            const previousDone = isDone(previousRow);
-            const nextDone = isDone(nextRow);
-            const nextActive = isActive(nextRow);
+            const previousRow = items[itemIndex - 1] ?? previousGroupRow;
+            const nextRow = items[itemIndex + 1] ?? nextGroup?.items[0] ?? null;
+            const previousDone = isRowDone(previousRow);
+            const nextDone = isRowDone(nextRow);
+            const nextActive = isRowActive(nextRow);
             const topConnectorDone = previousDone && done;
             const topConnectorActive = previousDone && active && !done;
             const bottomConnectorDone = done && nextDone;
@@ -223,12 +243,15 @@ const s = StyleSheet.create({
   header: { padding: 16, paddingRight: 40, borderWidth: theme.borderWidths.primaryCard, borderColor: '#D5D5D5', borderRadius: 10, backgroundColor: '#FFF', gap: 4 },
   eyebrow: { fontSize: 10, lineHeight: 15, fontWeight: '700', letterSpacing: .8 }, title: { fontSize: 20, lineHeight: 27, fontWeight: '700' },
   focus: { fontSize: 13, lineHeight: 19, color: '#777' }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }, statusText: { fontSize: 10, lineHeight: 16, color: '#777' }, statusTextSaved: { fontStyle: 'italic' },
-  group: { marginTop: 26, paddingLeft: 30 }, groupLabel: { alignSelf: 'flex-start', backgroundColor: '#FFFCE5', padding: 8, borderRadius: 4, borderWidth: theme.borderWidths.primaryCard, marginBottom: 15 },
+  group: { marginTop: 26, paddingLeft: 30 },
+  groupHeader: { position: 'relative' },
+  groupLabel: { alignSelf: 'flex-start', backgroundColor: '#FFFCE5', padding: 8, borderRadius: 4, borderWidth: theme.borderWidths.primaryCard, marginBottom: 15 },
   rowWrap: { paddingBottom: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, padding: 10, backgroundColor: '#FFF', borderWidth: theme.borderWidths.primaryCard, borderColor: '#D0D0D0', borderRadius: 4 },
   rowText: { flex: 1, fontSize: 14, lineHeight: 21 }, dot: { position: 'absolute', left: -29, top: 14, width: 17, height: 17, borderWidth: 1, borderColor: '#CCC', borderRadius: 9, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
   connector: { position: 'absolute', left: -21, borderLeftWidth: 1, borderColor: '#DDD', borderStyle: 'dashed' },
   topConnector: { top: 0, height: 23 },
   bottomConnector: { top: 22, bottom: 0 },
+  groupConnector: { top: -26, bottom: 0 },
   activeConnector: { borderColor: '#245BFF', borderStyle: 'solid' },
   doneConnector: { borderColor: '#8BBD3F', borderStyle: 'solid' },
   activeDot: { backgroundColor: '#2860E8', borderColor: '#222' }, doneDot: { backgroundColor: '#B9E679', borderColor: '#222' },

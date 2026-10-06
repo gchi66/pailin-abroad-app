@@ -10,6 +10,7 @@ import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { AppText } from '@/src/components/ui/AppText';
 import { NAVIGATION_CARD_GAP, NavigationCard } from '@/src/components/ui/NavigationCard';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
@@ -75,7 +76,17 @@ export function MoreScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <View style={styles.page}>
-          <PageHeader language={uiLanguage} variant="root" title={copy.title} subtitle={copy.subtitle} />
+          <PageHeader
+            language={uiLanguage}
+            variant="root"
+            title={copy.title}
+            subtitle={copy.subtitle}
+            rightElement={(
+              <View style={styles.languageTogglePosition}>
+                <LanguageToggle />
+              </View>
+            )}
+          />
 
           <View style={styles.cards}>
             {!hasMembership ? (
@@ -143,6 +154,9 @@ const styles = StyleSheet.create({
   page: {
     paddingHorizontal: 32,
     paddingTop: 16,
+  },
+  languageTogglePosition: {
+    marginRight: -14,
   },
   cards: {
     marginTop: 18,

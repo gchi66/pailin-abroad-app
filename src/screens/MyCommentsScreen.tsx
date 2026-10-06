@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { CommentLesson, fetchCommentLessons, fetchRepliesToComments, fetchUserComments } from '@/src/api/discussion';
+import { moreCardImages } from '@/src/assets/more-card-images';
 import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -102,7 +103,15 @@ export function MyCommentsScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <ResponsivePageShell>
-        <AccountPageHeader language={uiLanguage} title={copy.title} backLabel={copy.back} onBackPress={() => router.push('/(tabs)/account')} subtitle={copy.subtitle} illustration={require('@/assets/images/characters/pailin_thumbs_up_head.webp')} />
+        <AccountPageHeader
+          language={uiLanguage}
+          title={copy.title}
+          backLabel={copy.back}
+          onBackPress={() => router.push('/(tabs)/account')}
+          subtitle={copy.subtitle}
+          illustration={moreCardImages.comments}
+          illustrationStyle={styles.headerIllustration}
+        />
         <Pressable accessibilityRole="button" accessibilityLabel={`${copy.sort}: ${newestFirst ? copy.newest : copy.oldest}`} onPress={() => setNewestFirst((value) => !value)} style={styles.sortButton}>
           <AppText language={uiLanguage} variant="caption" style={styles.sortText}>{copy.sort}: {newestFirst ? copy.newest : copy.oldest}</AppText>
           <MaterialIcons name="keyboard-arrow-down" size={18} color={theme.colors.text} />
@@ -140,6 +149,7 @@ export function MyCommentsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { padding: theme.spacing.md, paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING },
+  headerIllustration: { top: -49, bottom: undefined },
   sortButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#888888', borderRadius: 999, paddingHorizontal: 13, minHeight: 32 },
   sortText: { fontSize: 12 },
   state: { marginTop: theme.spacing.lg },

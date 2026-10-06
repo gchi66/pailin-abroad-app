@@ -22,7 +22,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Polygon } from 'react-native-svg';
 
-import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
 import pailinThumbsUpHead from '@/assets/images/characters/pailin_thumbs_up_head.webp';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import {
@@ -36,7 +35,9 @@ import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { Card } from '@/src/components/ui/Card';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
 import { PlacementLevelTitle } from '@/src/components/placement/PlacementLevelTitle';
+import { SpeakingCoachLoader } from '@/src/components/speaking/SpeakingCoachLoader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { queueLessonLibraryPreview, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
@@ -87,11 +88,9 @@ export function PlacementTestScreen() {
   const [hasStartedAudio, setHasStartedAudio] = useState(false);
   const [audioRate, setAudioRate] = useState(1);
   const [introTrackWidth, setIntroTrackWidth] = useState(0);
-  const [isNextPressed, setIsNextPressed] = useState(false);
   const delayedPlaybackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultReveal = useRef(new Animated.Value(0)).current;
-  const logoPulse = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAudioSessionReady, setIsAudioSessionReady] = useState(false);
@@ -219,30 +218,6 @@ export function PlacementTestScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!isCalculating) {
-      logoPulse.setValue(0);
-      return;
-    }
-
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(logoPulse, {
-          toValue: 1,
-          duration: 750,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoPulse, {
-          toValue: 0,
-          duration: 750,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [isCalculating, logoPulse]);
-
   const submitConversation = () => {
     if (!conversation) {
       return;
@@ -365,22 +340,9 @@ export function PlacementTestScreen() {
 
             {isCalculating ? (
               <View style={styles.calculatingContent}>
-                <Animated.Image
-                  source={pailinBlueCircle}
-                  style={[
-                    styles.calculatingImage,
-                    {
-                      opacity: logoPulse.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }),
-                      transform: [{ scale: logoPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }],
-                    },
-                  ]}
-                  resizeMode="contain"
+                <SpeakingCoachLoader
+                  accessibilityLabel={uiLanguage === 'en' ? 'Calculating placement result' : 'กำลังคำนวณผลการวัดระดับ'}
                 />
-                <View style={styles.calculatingPill}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.calculatingText}>
-                    {uiLanguage === 'en' ? '✨ This will just take a few seconds!' : '✨ ใช้เวลาเพียงไม่กี่วินาที!'}
-                  </AppText>
-                </View>
               </View>
             ) : resultLevel !== null ? (
               <View style={styles.outcomeSlot}>
@@ -539,12 +501,13 @@ export function PlacementTestScreen() {
                 <View style={styles.questionCard}>
                   <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
                   <View style={styles.questionHeader}>
-                    <AppText language="th" variant="title" style={styles.questionHeaderTitle}>
-                      แบบทดสอบวัดระดับ
+                    <LanguageToggle />
+                    <AppText language={uiLanguage} variant="title" style={styles.questionHeaderTitle}>
+                      {uiLanguage === 'en' ? 'Placement Test' : 'แบบทดสอบวัดระดับ'}
                     </AppText>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="ปิดแบบทดสอบวัดระดับ"
+                      accessibilityLabel={uiLanguage === 'en' ? 'Close placement test' : 'ปิดแบบทดสอบวัดระดับ'}
                       hitSlop={12}
                       onPress={closePreview}
                       style={styles.closeButton}>
@@ -568,17 +531,21 @@ export function PlacementTestScreen() {
 
                   <View style={styles.reassuranceBanner}>
                     <MaterialIcons name="lightbulb-outline" size={20} color="#727272" />
-                    <AppText language="th" variant="body" style={styles.reassuranceText}>
-                      ไม่ต้องเดานะ! ถ้าไม่แน่ใจ เลือก <AppText language="th" style={styles.reassuranceBold}>ไม่รู้</AppText> ได้เลย เพื่อผลการวัดระดับที่แม่นยำที่สุด
+                    <AppText language={uiLanguage} variant="body" style={styles.reassuranceText}>
+                      {uiLanguage === 'en' ? (
+                        <>No need to guess! If you&apos;re unsure, choose <AppText language="en" style={styles.reassuranceBold}>I don&apos;t know</AppText> for the most accurate result.</>
+                      ) : (
+                        <>ไม่ต้องเดานะ! ถ้าไม่แน่ใจ เลือก <AppText language="th" style={styles.reassuranceBold}>ไม่รู้</AppText> ได้เลย เพื่อผลการวัดระดับที่แม่นยำที่สุด</>
+                      )}
                     </AppText>
                   </View>
 
-                  <AppText language="th" variant="title" style={styles.question}>
-                    {currentQuestion.promptTh ?? currentQuestion.prompt}
+                  <AppText language={uiLanguage} variant="title" style={styles.question}>
+                    {uiLanguage === 'th' ? currentQuestion.promptTh ?? currentQuestion.prompt : currentQuestion.prompt}
                   </AppText>
 
                   <View style={styles.choicesList}>
-                    {(currentQuestion.choicesTh ?? currentQuestion.choices).map((choice, choiceIndex) => {
+                    {(uiLanguage === 'th' ? currentQuestion.choicesTh ?? currentQuestion.choices : currentQuestion.choices).map((choice, choiceIndex) => {
                       const selected = answers[currentQuestion.id] === choiceIndex;
                       return (
                         <Pressable
@@ -589,12 +556,7 @@ export function PlacementTestScreen() {
                             setAnswers((current) => ({ ...current, [currentQuestion.id]: choiceIndex }))
                           }
                           style={[styles.choice, selected ? styles.choiceSelected : null]}>
-                          <View style={[styles.choiceLetterWrap, selected ? styles.choiceLetterSelected : null]}>
-                            <AppText language="en" variant="body" style={styles.choiceLetter}>
-                              {String.fromCharCode(65 + choiceIndex)}
-                            </AppText>
-                          </View>
-                          <AppText language="th" variant="body" style={styles.choiceText}>
+                          <AppText language={uiLanguage} variant="body" style={styles.choiceText}>
                             {choice}
                           </AppText>
                         </Pressable>
@@ -603,27 +565,17 @@ export function PlacementTestScreen() {
                   </View>
 
                   <View style={styles.nextButtonWrap}>
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        styles.nextButtonShadow,
-                        isNextPressed ? styles.nextButtonShadowPressed : null,
-                      ]}
-                    />
                     <Button
                       insetBorder
-                      title="ถัดไป"
-                      language="th"
+                      title={uiLanguage === 'en' ? 'NEXT' : 'ถัดไป'}
+                      language={uiLanguage}
                       size="compact"
                       disabled={answers[currentQuestion.id] === undefined}
                       disabledStyle={styles.nextButtonDisabledOpacity}
                       onPress={goToNextQuestion}
-                      onPressIn={() => setIsNextPressed(true)}
-                      onPressOut={() => setIsNextPressed(false)}
                       style={[
                         styles.nextButton,
                         answers[currentQuestion.id] === undefined ? styles.nextButtonDisabled : null,
-                        isNextPressed ? styles.nextButtonPressed : null,
                       ]}
                     />
                   </View>
@@ -654,10 +606,6 @@ export function PlacementTestScreen() {
               hideTitle
               progressColor={placementColors.cyan}
               trackColor={placementColors.track}
-              autoCollapseSignal={currentQuestion && answers[currentQuestion.id] !== undefined
-                ? `${currentQuestion.id}:${answers[currentQuestion.id]}`
-                : null}
-              autoExpandSignal={currentQuestion?.id ?? null}
               onTogglePlay={toggleAudio}
               onSkip={skipAudio}
               onSeek={seekToRatio}
@@ -703,14 +651,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.border,
   },
   calculatingContent: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
-  calculatingImage: { width: 180, height: 180, borderRadius: 999 },
-  calculatingPill: { marginTop: 8, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: placementColors.note },
-  calculatingText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
   resultCard: { paddingHorizontal: 30, paddingTop: 28, paddingBottom: 30 },
   resultContent: { width: '100%', alignItems: 'center' },
   resultImage: { width: 112, height: 112, transform: [{ scaleX: -1 }] },
@@ -857,15 +797,13 @@ const styles = StyleSheet.create({
   },
   questionHeaderTitle: {
     flex: 1,
-    marginLeft: 44,
-    fontFamily: theme.typography.fontFaces.th.bold,
     fontSize: 20,
     lineHeight: 27,
     fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
   },
   closeButton: {
-    width: 44,
+    width: 60,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
@@ -879,17 +817,16 @@ const styles = StyleSheet.create({
   },
   questionProgressTrack: {
     flex: 1,
-    height: 10,
+    height: 6,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: 999,
-    backgroundColor: '#E5E5E5',
+    borderRadius: theme.radii.xl,
+    backgroundColor: '#E8E8E8',
     overflow: 'hidden',
   },
   questionProgressFill: {
     height: '100%',
-    borderRadius: 999,
-    backgroundColor: placementColors.lime,
+    backgroundColor: '#B9E671',
   },
   reassuranceBanner: {
     minHeight: 52,
@@ -899,6 +836,8 @@ const styles = StyleSheet.create({
     marginTop: 17,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#F3C63F',
     borderRadius: 13,
     backgroundColor: placementColors.note,
   },
@@ -908,7 +847,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   reassuranceBold: {
-    fontFamily: theme.typography.fontFaces.th.bold,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: theme.typography.weights.bold,
@@ -917,7 +855,6 @@ const styles = StyleSheet.create({
   question: {
     marginTop: 20,
     paddingHorizontal: 12,
-    fontFamily: theme.typography.fontFaces.th.bold,
     fontSize: 25,
     lineHeight: 33,
     fontWeight: theme.typography.weights.bold,
@@ -927,42 +864,16 @@ const styles = StyleSheet.create({
     minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1.25,
-    borderColor: theme.colors.border,
-    borderRadius: 13,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: '#C1C1C1',
+    borderRadius: 15,
     backgroundColor: theme.colors.surface,
   },
-  choiceSelected: { backgroundColor: placementColors.paleCyan },
-  choiceLetterWrap: {
-    width: 27,
-    height: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 7,
-    backgroundColor: '#EEEEEE',
-  },
-  choiceLetterSelected: { backgroundColor: theme.colors.surface },
-  choiceLetter: {
-    color: theme.colors.text,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: theme.typography.weights.semibold,
-  },
+  choiceSelected: { borderColor: '#A8A8A8', backgroundColor: placementColors.paleCyan },
   choiceText: { flex: 1, fontSize: 16, lineHeight: 23 },
-  nextButtonWrap: { position: 'relative', marginTop: 24 },
-  nextButtonShadow: {
-    position: 'absolute',
-    top: 5,
-    right: -4,
-    bottom: -5,
-    left: 4,
-    borderRadius: theme.radii.xl,
-    backgroundColor: theme.colors.shadow,
-  },
-  nextButtonShadowPressed: { opacity: 0 },
+  nextButtonWrap: { marginTop: 24 },
   nextButton: {
     minHeight: 47,
     borderWidth: 1.5,
@@ -974,7 +885,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#CFCFCF',
   },
   nextButtonDisabledOpacity: { opacity: 1 },
-  nextButtonPressed: { transform: [{ translateX: 4 }, { translateY: 5 }] },
   audioTrayRegion: {
     position: 'relative',
     zIndex: 2,

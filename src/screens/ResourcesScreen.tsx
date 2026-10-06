@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { resourceCardImages } from '@/src/assets/resource-images';
 import { NAVIGATION_CARD_GAP, NavigationCard } from '@/src/components/ui/NavigationCard';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
@@ -166,6 +167,11 @@ export function ResourcesScreen() {
             title={copy.title}
             subtitle={copy.subtitle}
             onBackPress={returnTo ? () => router.push(returnTo as never) : undefined}
+            rightElement={(
+              <View style={styles.languageTogglePosition}>
+                <LanguageToggle />
+              </View>
+            )}
           />
 
           <View style={styles.cards}>
@@ -200,6 +206,9 @@ const styles = StyleSheet.create({
   page: {
     paddingHorizontal: 32,
     paddingTop: 16,
+  },
+  languageTogglePosition: {
+    marginRight: -14,
   },
   cards: {
     marginTop: 18,

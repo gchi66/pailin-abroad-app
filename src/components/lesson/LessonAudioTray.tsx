@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   Animated,
@@ -33,6 +33,8 @@ type LessonAudioTrayProps = {
   onSetRate: (rate: number) => void;
   showRateControl?: boolean;
   initiallyExpanded?: boolean;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
   hideTitle?: boolean;
   progressColor?: string;
   trackColor?: string;
@@ -76,6 +78,8 @@ export function LessonAudioTray({
   onSetRate,
   showRateControl = true,
   initiallyExpanded = false,
+  collapsed,
+  onCollapsedChange,
   hideTitle = false,
   progressColor = theme.colors.accent,
   trackColor = theme.colors.accentMuted,
@@ -86,7 +90,8 @@ export function LessonAudioTray({
 }: LessonAudioTrayProps) {
   const { width } = useWindowDimensions();
   const usesFloatingRateMenu = Platform.OS === 'android' || Platform.OS === 'ios' || Platform.OS === 'web';
-  const [isCollapsed, setIsCollapsed] = useState(!initiallyExpanded);
+  const [uncontrolledIsCollapsed, setUncontrolledIsCollapsed] = useState(!initiallyExpanded);
+  const isCollapsed = collapsed ?? uncontrolledIsCollapsed;
   const [showRates, setShowRates] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
   const dragTranslateY = useRef(new Animated.Value(0)).current;
@@ -102,25 +107,39 @@ export function LessonAudioTray({
   const isDisabled = !audioUrl || isLoading;
   const trackFillStyle = { width: `${progressRatio * 100}%` as const };
 
+  const animateDragReset = useCallback(() => {
+    Animated.spring(dragTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
+    }).start();
+  }, [dragTranslateY]);
+
+  const setCollapsedState = useCallback((next: boolean) => {
+    setUncontrolledIsCollapsed(next);
+    onCollapsedChange?.(next);
+    if (next) {
+      setShowRates(false);
+    }
+    animateDragReset();
+  }, [animateDragReset, onCollapsedChange]);
+
   useEffect(() => {
     if (!autoCollapseSignal) {
       return;
     }
 
-    setIsCollapsed(true);
-    setShowRates(false);
-    dragTranslateY.setValue(0);
-  }, [autoCollapseSignal, dragTranslateY]);
+    setCollapsedState(true);
+  }, [autoCollapseSignal, setCollapsedState]);
 
   useEffect(() => {
     if (!autoExpandSignal) {
       return;
     }
 
-    setIsCollapsed(false);
-    setShowRates(false);
-    dragTranslateY.setValue(0);
-  }, [autoExpandSignal, dragTranslateY]);
+    setCollapsedState(false);
+  }, [autoExpandSignal, setCollapsedState]);
 
   const handleTrackLayout = (event: LayoutChangeEvent) => {
     setTrackWidth(event.nativeEvent.layout.width);
@@ -133,23 +152,6 @@ export function LessonAudioTray({
 
     const ratio = Math.max(0, Math.min(1, locationX / trackWidth));
     onSeek(ratio);
-  };
-
-  const animateDragReset = () => {
-    Animated.spring(dragTranslateY, {
-      toValue: 0,
-      useNativeDriver: true,
-      bounciness: 0,
-      speed: 20,
-    }).start();
-  };
-
-  const setCollapsedState = (next: boolean) => {
-    setIsCollapsed(next);
-    if (next) {
-      setShowRates(false);
-    }
-    animateDragReset();
   };
 
   const handleToggleCollapsed = () => {
@@ -197,7 +199,7 @@ export function LessonAudioTray({
         },
         onPanResponderTerminationRequest: () => false,
       }),
-    [dragTranslateY, isCollapsed]
+    [animateDragReset, dragTranslateY, isCollapsed, setCollapsedState]
   );
 
   const playButtonLabel = isPlaying ? 'Pause audio' : 'Play audio';

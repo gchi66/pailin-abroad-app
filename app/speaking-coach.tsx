@@ -55,6 +55,7 @@ import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { LessonRichSectionIntro } from '@/src/components/lesson/LessonRichSectionIntro';
 import { PracticeAnswerFooter, practiceColors, practiceNeoShadowStyle } from '@/src/components/practice/PracticeExerciseUI';
+import { SpeakingCoachLoader } from '@/src/components/speaking/SpeakingCoachLoader';
 import { posthog } from '@/src/config/posthog';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -125,48 +126,6 @@ type CaptureTrace = {
   statusAfterPrepare?: RecorderDiagnostic;
   statusAfterRecord?: RecorderDiagnostic;
 };
-
-function SpeakingCoachLoader() {
-  const orbitRotation = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(orbitRotation, {
-        toValue: 1,
-        duration: 2800,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
-    animation.start();
-
-    return () => animation.stop();
-  }, [orbitRotation]);
-
-  const rotate = orbitRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  return (
-    <View style={styles.evaluationLoader} accessibilityRole="progressbar" accessibilityLabel="Loading speaking practice">
-      <View style={styles.evaluationGraphic}>
-        <Image source={pailinGoodJobImage} contentFit="contain" style={styles.evaluationPailin} />
-        <Animated.View style={[styles.evaluationOrbit, { transform: [{ rotate }] }]}>
-          <View style={[styles.orbitDot, styles.orbitDotTop]} />
-          <View style={[styles.orbitDot, styles.orbitDotLeft]} />
-          <View style={[styles.orbitSparkle, styles.orbitSparkleRight]}>
-            <Text style={styles.orbitSparkleText}>✦</Text>
-          </View>
-          <View style={[styles.orbitSparkle, styles.orbitSparkleBottom]}>
-            <Text style={styles.orbitSparkleText}>✦</Text>
-          </View>
-        </Animated.View>
-      </View>
-    </View>
-  );
-}
 
 const IOS_AZURE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -1952,9 +1911,10 @@ function SpeakingCoachTestScreen() {
           <View style={[
             styles.pronunciationActionCard,
             styles.pronunciationNeoActionCard,
+            styles.speakingPromptActionCard,
             styles.pronunciationRecordingActionCard,
           ]}>
-            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
@@ -1969,7 +1929,7 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'review') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard]}>
+          <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard, styles.speakingPromptActionCard]}>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
@@ -2233,8 +2193,14 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'recording') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.pronunciationRecordingActionCard]}>
-            <AppText language={screenLanguage} variant="caption" style={styles.conversationActionTitle}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
+          <View style={[
+            styles.pronunciationActionCard,
+            styles.speakingPromptActionCard,
+            styles.conversationActionCard,
+            styles.conversationAlignedActionCard,
+            styles.pronunciationRecordingActionCard,
+          ]}>
+            <AppText language={screenLanguage} variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
@@ -2249,7 +2215,12 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'review') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+          <View style={[
+            styles.pronunciationActionCard,
+            styles.speakingPromptActionCard,
+            styles.conversationActionCard,
+            styles.conversationAlignedActionCard,
+          ]}>
             <AppText language={screenLanguage} variant="caption" style={styles.conversationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
@@ -2285,7 +2256,12 @@ function SpeakingCoachTestScreen() {
       if (phase === 'prompt') {
         const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.speakingPromptActionCard]}>
+          <View style={[
+            styles.pronunciationActionCard,
+            styles.speakingPromptActionCard,
+            styles.conversationActionCard,
+            styles.conversationAlignedActionCard,
+          ]}>
             <AppText language={screenLanguage} variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>
               {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Respond to the question', 'ตอบคำถาม')}
             </AppText>
@@ -2570,8 +2546,8 @@ function SpeakingCoachTestScreen() {
     const renderAttemptPanel = () => {
       if (phase === 'recording') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard, styles.pronunciationRecordingActionCard]}>
-            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
+          <View style={[styles.pronunciationActionCard, styles.speakingPromptActionCard, styles.conversationActionCard, styles.pronunciationRecordingActionCard]}>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to stop', 'แตะเพื่อหยุด')}</AppText>
             <PulsingRecordingControl onPress={() => void stopRecording()} />
             <View style={styles.pronunciationTimerRow}>
@@ -2586,7 +2562,7 @@ function SpeakingCoachTestScreen() {
 
       if (phase === 'review') {
         return (
-          <View style={[styles.pronunciationActionCard, styles.conversationActionCard]}>
+          <View style={[styles.pronunciationActionCard, styles.speakingPromptActionCard, styles.conversationActionCard]}>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
@@ -2622,8 +2598,8 @@ function SpeakingCoachTestScreen() {
         return (
           <View style={[
             styles.pronunciationActionCard,
-            styles.conversationActionCard,
             styles.speakingPromptActionCard,
+            styles.conversationActionCard,
             isRetryAttempt ? styles.translationRetryActionCard : null,
           ]}>
             <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
@@ -2842,10 +2818,10 @@ function SpeakingCoachTestScreen() {
     const copy = SET_COMPLETION_COPY[completedSet.practice_type];
     const itemLabel = completedSet.question_count === 1 ? copy.singular : copy.plural;
     const thaiPracticeSummary = completedSet.practice_type === 'pronunciation'
-      ? `คุณฝึกออกเสียงแล้ว\n${completedSet.question_count} ประโยค`
+      ? `คุณฝึกออกเสียงแล้ว ${completedSet.question_count} ประโยค`
       : completedSet.practice_type === 'open'
-        ? `คุณฝึกตอบแล้ว\n${completedSet.question_count} คำถาม`
-        : `คุณฝึกแปลแล้ว\n${completedSet.question_count} ประโยค`;
+        ? `คุณฝึกตอบแล้ว ${completedSet.question_count} คำถาม`
+        : `คุณฝึกแปลแล้ว ${completedSet.question_count} ประโยค`;
 
     return (
       <ScrollView
@@ -2864,7 +2840,7 @@ function SpeakingCoachTestScreen() {
           <Image source={pailinSetCompleteImage} contentFit="contain" style={styles.setCompletionImage} />
           <View style={[styles.setProgressCard, needsReviewCount === 0 ? styles.setProgressCardPerfect : null]}>
             <AppText language={screenLanguage} variant="title" style={styles.setCompletionTitle}>{tr('You finished this set!', 'คุณฝึกชุดนี้เสร็จแล้ว!')}</AppText>
-            <AppText language={screenLanguage} variant="body" style={styles.setCompletionSubtitle}>
+            <AppText language={screenLanguage} variant="body" numberOfLines={th ? 1 : undefined} style={styles.setCompletionSubtitle}>
               {th ? thaiPracticeSummary : `You practiced ${copy.action}\n${completedSet.question_count} ${itemLabel}.`}
             </AppText>
             <View style={styles.setProgressStats}>
@@ -3339,14 +3315,14 @@ const styles = StyleSheet.create({
   pronunciationRecordingActionCard: {
     backgroundColor: practiceColors.incorrectPanel,
   },
-  speakingPromptActionCard: { paddingVertical: 24 },
+  speakingPromptActionCard: { minHeight: 230, paddingVertical: 24 },
   pronunciationActionTitle: { fontSize: 18, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
   microphoneActionTitle: { fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
   pronunciationActionHint: { marginTop: 2, color: '#777777', fontSize: 12, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   recordingPulseContainer: {
     width: 90,
     height: 90,
-    marginTop: 0,
+    marginTop: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3358,7 +3334,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFB5B8',
   },
   pronunciationRecordControl: { width: 70, height: 70 },
-  pronunciationTimerRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pronunciationTimerRow: { marginTop: 11, flexDirection: 'row', alignItems: 'center', gap: 4 },
   pronunciationTimerDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF6268' },
   pronunciationTimerText: { color: '#9A9A9A', fontSize: 10, lineHeight: 15 },
   pronunciationMicButton: {
@@ -3399,7 +3375,7 @@ const styles = StyleSheet.create({
   pronunciationReviewPlayback: {
     width: '100%',
     minHeight: 38,
-    marginTop: 10,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: '#62BDF4',
     borderRadius: 7,
@@ -3420,7 +3396,7 @@ const styles = StyleSheet.create({
   pronunciationReviewPlayIcon: { width: 23, height: 23 },
   pronunciationReviewLabel: { flex: 1, marginLeft: 6, fontSize: 11, lineHeight: 16, fontWeight: theme.typography.weights.semibold },
   pronunciationReviewDuration: { color: '#969696', fontSize: 10, lineHeight: 15 },
-  pronunciationRedoButton: { marginTop: 15, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pronunciationRedoButton: { marginTop: 19, flexDirection: 'row', alignItems: 'center', gap: 4 },
   pronunciationRedoIcon: { width: 14, height: 14 },
   pronunciationRedoLabel: { fontSize: 10, lineHeight: 15 },
   pronunciationSubmitError: { marginTop: 7, color: theme.colors.error, fontSize: 10, lineHeight: 15, textAlign: 'center' },
@@ -3522,10 +3498,11 @@ const styles = StyleSheet.create({
   },
   conversationActionCard: {
     ...practiceNeoShadowStyle,
-    minHeight: 210,
+    minHeight: 270,
     borderRadius: 11,
     backgroundColor: practiceColors.question,
   },
+  conversationAlignedActionCard: { justifyContent: 'flex-start' },
   conversationActionTitle: {
     fontSize: 18,
     lineHeight: 24,
@@ -3721,7 +3698,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   translationRecordingCoreWithHearPailin: { transform: [{ translateY: -10 }] },
-  translationRetryActionCard: { minHeight: 230 },
+  translationRetryActionCard: { minHeight: 270 },
   translationRetryMicButton: { marginTop: 0 },
   translationRetryAttemptLabel: { marginTop: 9 },
   translationHearPailinButton: {
@@ -3817,47 +3794,6 @@ const styles = StyleSheet.create({
   playbackLabel: { flex: 1, fontWeight: theme.typography.weights.semibold },
   submitError: { color: theme.colors.primary, textAlign: 'center' },
   fullState: { flex: 1, maxWidth: 520, width: '100%', alignSelf: 'center', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.lg, paddingHorizontal: theme.spacing.xl, paddingBottom: 80 },
-  evaluationLoader: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  evaluationGraphic: {
-    width: 250,
-    height: 250,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  evaluationPailin: { width: 174, height: 174 },
-  evaluationOrbit: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 7,
-    borderColor: '#2F6EEA',
-  },
-  orbitDot: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
-  },
-  orbitDotTop: { top: -14, left: 64 },
-  orbitDotLeft: { top: 96, left: -14 },
-  orbitSparkle: {
-    position: 'absolute',
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F8FC',
-  },
-  orbitSparkleRight: { top: 34, right: -8 },
-  orbitSparkleBottom: { bottom: -15, left: 91 },
-  orbitSparkleText: { color: '#F5D21F', fontSize: 39, lineHeight: 42 },
   successIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: theme.colors.success, alignItems: 'center', justifyContent: 'center' },
   playbackList: { width: '100%', gap: theme.spacing.sm },
   wideButton: { width: '100%' },

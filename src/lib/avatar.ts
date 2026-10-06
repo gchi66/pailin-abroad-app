@@ -8,7 +8,7 @@ import avatar5 from '@/assets/images/characters/avatar5_blue_circle.webp';
 import avatar6 from '@/assets/images/characters/avatar6_blue_circle.webp';
 import avatar7 from '@/assets/images/characters/avatar7_blue_circle.webp';
 import avatar8 from '@/assets/images/characters/avatar8_blue_circle.webp';
-import pailinBlueCircleRight from '@/assets/images/pailin_blue_circle_right.webp';
+import pailinBlueCircle from '@/assets/images/characters/pailin_blue_circle.webp';
 
 const avatarMap: Record<string, ImageSourcePropType> = {
   '/images/characters/avatar1_blue_circle.webp': avatar1,
@@ -35,8 +35,10 @@ const avatarMap: Record<string, ImageSourcePropType> = {
   '/images/characters/avatar8_blue_circle.webp': avatar8,
   '/images/characters/avatar_8.webp': avatar8,
   '/images/characters/avatar_8.png': avatar8,
-  '/images/pailin_blue_circle_right.webp': pailinBlueCircleRight,
-  '/images/characters/pailin_blue_circle_right.webp': pailinBlueCircleRight,
+  '/images/characters/pailin_blue_circle.webp': pailinBlueCircle,
+  // Keep legacy Pailin profile values rendering with the current artwork.
+  '/images/pailin_blue_circle_right.webp': pailinBlueCircle,
+  '/images/characters/pailin_blue_circle_right.webp': pailinBlueCircle,
 };
 
 export function resolveAvatarSource(value: string | null | undefined): ImageSourcePropType | null {

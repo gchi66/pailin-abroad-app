@@ -26,6 +26,8 @@ import {
 } from '@/src/api/discussion';
 import { getLessonById } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
+import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { resolveAvatarSource } from '@/src/lib/avatar';
@@ -180,7 +182,7 @@ function CommentCard({
   return (
     <View style={[styles.commentBranch, depth > 0 ? styles.commentBranchNested : null]}>
       {depth > 0 ? <View style={styles.replyGuide} /> : null}
-      <View style={styles.commentCard}>
+      <NeoShadowView style={styles.commentCard}>
         <View style={styles.commentHeader}>
           <Avatar comment={comment} anonymous={anonymous} />
           <View style={styles.commentAuthorWrap}>
@@ -224,7 +226,7 @@ function CommentCard({
             <AppText style={styles.replyText}>{replyLabel}</AppText>
           </Pressable>
         ) : null}
-      </View>
+      </NeoShadowView>
 
       {comment.replies.map((reply) => (
         <CommentCard
@@ -476,12 +478,12 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
                 </View>
               ) : null}
 
-              <Pressable
+              <NeoShadowPressable
                 accessibilityRole="button"
                 onPress={() => requestComposer(null)}
                 style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}>
                 <AppText language={uiLanguage} style={styles.addButtonText}>{`+ ${copy.addComment.toUpperCase()}`}</AppText>
-              </Pressable>
+              </NeoShadowPressable>
 
               <AppText language={uiLanguage} style={styles.commentsTitle}>
                 {`${copy.comments} (${commentCount})`}

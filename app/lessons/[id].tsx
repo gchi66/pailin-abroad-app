@@ -24,6 +24,7 @@ import type { ImageSourcePropType, ImageStyle, StyleProp, ViewStyle } from 'reac
 import { Stack as RouterStack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioMetadata } from 'expo-audio';
+import { Asset } from 'expo-asset';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeInDown, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -80,6 +81,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { BackAction } from '@/src/components/ui/BackAction';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
@@ -101,6 +103,7 @@ import {
   parseAppCardKey,
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
+import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
   getLessonContentLanguage,
   hydrateLessonContentLanguage,
@@ -109,6 +112,7 @@ import {
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '@/src/theme/theme';
 import { resolveTranscriptCharacterBlueCircle, resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
+import { resolveLocalLessonHeaderImage } from '@/src/assets/lesson-header-images';
 import comprehensionPerfectImage from '@/assets/images/speaking-coach/pailin-set-complete.webp';
 import comprehensionProgressImage from '@/assets/images/pailin-extra-tips.webp';
 import comprehensionPracticeImage from '@/assets/images/pailin-common-mistakes.webp';
@@ -3674,6 +3678,7 @@ export default function LessonDetailShellScreen() {
   const insets = useSafeAreaInsets();
   const menuOverlayBottomInset = APP_TAB_BAR_HEIGHT + insets.bottom;
   const uiCopy = useMemo(() => getLessonDetailCopy(uiLanguage), [uiLanguage]);
+  const playAnswerFeedbackSound = useAnswerFeedbackSound();
 
   const [lesson, setLesson] = useState<ResolvedLessonPayload | null>(null);
   const [coverLesson, setCoverLesson] = useState<LessonListItem | null>(null);
@@ -3786,6 +3791,7 @@ export default function LessonDetailShellScreen() {
   const [streakCelebration, setStreakCelebration] = useState<StreakCelebrationState | null>(null);
   const [nextSectionHintMessage, setNextSectionHintMessage] = useState<string | null>(null);
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
+  const [isAudioTrayCollapsed, setIsAudioTrayCollapsed] = useState(true);
   const [freeLessonIds, setFreeLessonIds] = useState<Set<string>>(new Set());
   const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
   const [contentScrollViewportHeight, setContentScrollViewportHeight] = useState(0);
@@ -4311,6 +4317,7 @@ export default function LessonDetailShellScreen() {
     setActiveSectionIndex(0);
     setDismissedSectionIntros({});
     setAudioTrayAutoExpandSignal(null);
+    setIsAudioTrayCollapsed(true);
     setMaxVisitedSectionIndex(0);
     setIsMenuOpen(false);
     setHasStartedLesson(false);
@@ -4452,6 +4459,35 @@ export default function LessonDetailShellScreen() {
     () => lesson?.header_image_url ?? resolveHeaderImageUrl(lesson?.header_image_path ?? lesson?.header_img ?? coverLesson?.header_img ?? null),
     [coverLesson?.header_img, lesson?.header_image_path, lesson?.header_image_url, lesson?.header_img]
   );
+  const localConversationArtworkSource = useMemo(
+    () => resolveLocalLessonHeaderImage(
+      lesson?.header_image_path ?? lesson?.header_img ?? lesson?.header_image_url ?? coverLesson?.header_img ?? null
+    ),
+    [coverLesson?.header_img, lesson?.header_image_path, lesson?.header_image_url, lesson?.header_img]
+  );
+  const [localConversationArtworkUrl, setLocalConversationArtworkUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!localConversationArtworkSource) {
+      setLocalConversationArtworkUrl(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    const artworkAsset = Asset.fromModule(localConversationArtworkSource as number);
+    setLocalConversationArtworkUrl(artworkAsset.localUri ?? artworkAsset.uri);
+    void artworkAsset.downloadAsync().then((downloadedAsset) => {
+      if (active) {
+        setLocalConversationArtworkUrl(downloadedAsset.localUri ?? downloadedAsset.uri);
+      }
+    }).catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [localConversationArtworkSource]);
   const lessonTabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
   const prepareSectionIndex = useMemo(
     () => lessonTabs.findIndex((tab) => tab.type === 'prepare'),
@@ -5575,9 +5611,9 @@ export default function LessonDetailShellScreen() {
       title: audioTrayTitle,
       artist: 'Pailin Abroad',
       albumTitle: audioTraySubtitle || 'Lesson audio',
-      artworkUrl: headerImageUrl ?? undefined,
+      artworkUrl: localConversationArtworkUrl ?? headerImageUrl ?? undefined,
     }),
-    [audioTraySubtitle, audioTrayTitle, headerImageUrl]
+    [audioTraySubtitle, audioTrayTitle, headerImageUrl, localConversationArtworkUrl]
   );
   const allPracticeExercisesChecked = useMemo(
     () =>
@@ -6481,6 +6517,7 @@ export default function LessonDetailShellScreen() {
     setLockedComprehensionQuestions(nextLocked);
     setComprehensionFirstAttemptResults(nextFirstAttempts);
     setComprehensionError('');
+    void playAnswerFeedbackSound(isCorrect);
     void saveAnswerStateForUnit(buildComprehensionAnswerStateUnitKey(), {
       selected: selectedAnswers,
       checked: nextChecked,
@@ -6497,6 +6534,7 @@ export default function LessonDetailShellScreen() {
     currentComprehensionSelections,
     lockedComprehensionQuestions,
     markLessonAnswerStateInteracted,
+    playAnswerFeedbackSound,
     saveAnswerStateForUnit,
     selectedAnswers,
   ]);
@@ -6995,6 +7033,9 @@ export default function LessonDetailShellScreen() {
     setPracticeErrorByExercise((previous) => ({ ...previous, [exercise.id]: '' }));
     setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
     try {
+      const targetResults = targetItems.map((item) =>
+        areChoiceSetsEqual(practiceSelections[`${exercise.id}:${item.key}`] ?? [], item.answerLetters)
+      );
       await saveAnswerStateForUnit(
         buildExerciseAnswerStateUnitKey(exercise.id),
         buildMultipleChoiceAnswerStatePayload(exercise)
@@ -7021,6 +7062,9 @@ export default function LessonDetailShellScreen() {
       if (completesExercise) {
         setCheckedPracticeExercises((previous) => ({ ...previous, [exercise.id]: true }));
         void writeProgressUnit('exercise', buildAppExerciseKey(exercise.id), getCurrentProgressParentKey());
+      }
+      if (targetResults.length > 0) {
+        void playAnswerFeedbackSound(targetResults.every(Boolean));
       }
     } finally {
       setCheckingPracticeExercises((previous) => ({ ...previous, [exercise.id]: false }));
@@ -7316,6 +7360,10 @@ export default function LessonDetailShellScreen() {
           }
         })
       );
+      const completedEvaluations = Object.values(nextEvaluationByItemKey).filter((evaluation) => !evaluation.error);
+      if (completedEvaluations.length > 0) {
+        void playAnswerFeedbackSound(completedEvaluations.every((evaluation) => evaluation.correct === true));
+      }
       const answerPayload =
         exercise.kind === 'fill_blank'
           ? {
@@ -10812,27 +10860,29 @@ export default function LessonDetailShellScreen() {
           setActivePhraseIndex((currentIndex) => Math.max(0, currentIndex - 1));
           contentScrollRef.current?.scrollTo({ y: 0, animated: true });
         }}
-        style={[styles.phrasePagerButton, activePhraseIndex === 0 ? styles.phrasePagerButtonDisabled : null]}>
-        <MaterialIcons name="arrow-left" size={44} color="#1E1E1E" />
+        style={[
+          styles.richPagerArrowButton,
+          activePhraseIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
+        ]}>
+        <MaterialIcons name="arrow-back-ios-new" size={18} color={theme.colors.text} />
       </Pressable>
       <AppText language="en" variant="body" style={styles.phrasePagerCount}>
         {`${activePhraseIndex + 1} / ${normalizedLessonPhrases.length}`}
       </AppText>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={pageLanguage === 'th' ? 'วลีถัดไป' : 'Next phrase'}
-        accessibilityState={{ disabled: activePhraseIndex >= normalizedLessonPhrases.length - 1 }}
-        disabled={activePhraseIndex >= normalizedLessonPhrases.length - 1}
-        onPress={() => {
-          setActivePhraseIndex((currentIndex) => Math.min(normalizedLessonPhrases.length - 1, currentIndex + 1));
-          contentScrollRef.current?.scrollTo({ y: 0, animated: true });
-        }}
-        style={[
-          styles.phrasePagerButton,
-          activePhraseIndex >= normalizedLessonPhrases.length - 1 ? styles.phrasePagerButtonDisabled : null,
-        ]}>
-        <MaterialIcons name="arrow-right" size={44} color="#1E1E1E" />
-      </Pressable>
+      {activePhraseIndex >= normalizedLessonPhrases.length - 1 ? (
+        <View style={styles.richPagerArrowSpacer} />
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pageLanguage === 'th' ? 'วลีถัดไป' : 'Next phrase'}
+          onPress={() => {
+            setActivePhraseIndex((currentIndex) => Math.min(normalizedLessonPhrases.length - 1, currentIndex + 1));
+            contentScrollRef.current?.scrollTo({ y: 0, animated: true });
+          }}
+          style={styles.richPagerArrowButton}>
+          <MaterialIcons name="arrow-forward-ios" size={18} color={theme.colors.text} />
+        </Pressable>
+      )}
     </View>
   );
 
@@ -10920,7 +10970,7 @@ export default function LessonDetailShellScreen() {
     return (
       <Animated.View style={[styles.phraseFlashcardScreen, phrasePagerAnimatedStyle]}>
         <View style={styles.phraseFlashcardShadow}>
-          <View style={styles.phraseFlashcard}>
+          <NeoShadowView style={styles.phraseFlashcard}>
             <View style={styles.phraseFlashcardHeader}>
               {renderPhraseAudioButton(activePhrase)}
               <View style={styles.phraseFlashcardTitleWrap}>
@@ -10943,7 +10993,7 @@ export default function LessonDetailShellScreen() {
               </View>
             </View>
             {renderPhraseBody(activePhrase)}
-          </View>
+          </NeoShadowView>
         </View>
 
         <View style={styles.phraseFlashcardActions}>
@@ -11448,6 +11498,7 @@ const mergeAdjacentPracticeRowTokens = (
 
     setPracticeEvaluations((previous) => ({ ...previous, [itemStateKey]: evaluation }));
     setCheckedPracticeItems((previous) => ({ ...previous, [itemStateKey]: true }));
+    void playAnswerFeedbackSound(isCorrect);
     const completesExercise = exercise.sourceItems
       .filter((question) => !question.isExample)
       .every((question) =>
@@ -15142,6 +15193,8 @@ const mergeAdjacentPracticeRowTokens = (
                         lessonLabel={studyLessonLabel}
                         subtitle={audioTraySubtitle}
                         statusLabel={audioTrayStatusLabel}
+                        collapsed={isAudioTrayCollapsed}
+                        onCollapsedChange={setIsAudioTrayCollapsed}
                         autoCollapseSignal={audioTrayAutoCollapseSignal}
                         autoExpandSignal={audioTrayAutoExpandSignal}
                         audioUrl={audioUrls.main}
@@ -15491,6 +15544,8 @@ const mergeAdjacentPracticeRowTokens = (
                         lessonLabel={studyLessonLabel}
                         subtitle={audioTraySubtitle}
                         statusLabel={audioTrayStatusLabel}
+                        collapsed={isAudioTrayCollapsed}
+                        onCollapsedChange={setIsAudioTrayCollapsed}
                         autoCollapseSignal={audioTrayAutoCollapseSignal}
                         autoExpandSignal={audioTrayAutoExpandSignal}
                         audioUrl={audioUrls.main}
@@ -15519,13 +15574,14 @@ const mergeAdjacentPracticeRowTokens = (
                   audioTray={shouldShowAudioTray ? (
                     <LessonAudioTray
                       detached
-                      initiallyExpanded={isAudioPlaying}
                       bottomInset={Math.max(insets.bottom, 10)}
                       language={pageLanguage}
                       title={audioTrayTitle}
                       lessonLabel={studyLessonLabel}
                       subtitle={audioTraySubtitle}
                       statusLabel={audioTrayStatusLabel}
+                      collapsed={isAudioTrayCollapsed}
+                      onCollapsedChange={setIsAudioTrayCollapsed}
                       audioUrl={audioUrls.main}
                       isPlaying={isAudioPlaying}
                       isLoading={isAudioLoading}
@@ -16516,15 +16572,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-  },
-  phrasePagerButton: {
-    width: 46,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  phrasePagerButtonDisabled: {
-    opacity: 1,
   },
   phrasePagerCount: {
     minWidth: 40,

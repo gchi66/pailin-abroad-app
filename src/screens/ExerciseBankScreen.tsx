@@ -1,18 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';
 import { prefetchPricing } from '@/src/api/pricing';
-import { resourceCardImages } from '@/src/assets/resource-images';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
-import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
+import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
@@ -52,7 +51,7 @@ const getCopy = (language: UiLanguage) =>
       }
     : {
         title: 'Exercise Bank',
-        intro: 'Choose a category to get started! You can practise skills by topic.',
+        intro: 'Choose a category to get started! You can practice skills by topic.',
         unlockTitle: 'UNLOCK ALL EXERCISES',
         unlockBody: 'You have access to our featured exercises.\nUpgrade to unlock the full Exercise Bank!',
         membershipCta: 'VIEW PLANS →',
@@ -147,12 +146,17 @@ export function ExerciseBankScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>
         <View style={styles.page}>
-          <ResourcePageHeader
+          <PageHeader
             language={uiLanguage}
+            variant="root"
             title={copy.title}
             subtitle={copy.intro}
             onBackPress={returnTo ? () => router.replace(returnTo as never) : undefined}
-            illustration={<Image source={resourceCardImages['exercise-bank']} contentFit="contain" style={styles.headerIllustration} />}
+            rightElement={(
+              <View style={styles.languageTogglePosition}>
+                <LanguageToggle />
+              </View>
+            )}
           />
           <View style={styles.contentWrap}>
             <Stack gap="lg">
@@ -271,9 +275,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
-  page: { paddingHorizontal: 18, paddingTop: 12 },
-  headerIllustration: { position: 'absolute', right: 4, bottom: -12, width: 112, height: 86 },
-  contentWrap: { paddingTop: theme.spacing.sm },
+  page: { paddingHorizontal: 32, paddingTop: 16 },
+  languageTogglePosition: { marginRight: -14 },
+  contentWrap: { paddingTop: 18 },
   searchShell: {
     minHeight: 48,
     flexDirection: 'row',

@@ -835,6 +835,8 @@ const styles = StyleSheet.create({
   planMeta: {
     alignItems: 'flex-start',
     gap: 4,
+    marginRight: 2,
+    transform: [{ translateY: -6 }],
   },
   cardWrap: { position: 'relative' },
   sectionLabel: {

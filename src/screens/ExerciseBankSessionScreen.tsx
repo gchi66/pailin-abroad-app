@@ -36,6 +36,7 @@ import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
   localizeExerciseBankQuestion,
   localizeExerciseBankTopic,
@@ -63,9 +64,18 @@ type ExerciseBankSessionTopic = Pick<
 
 const getParam = (value?: string | string[]) => (Array.isArray(value) ? value[0] ?? '' : value ?? '');
 
+const THAI_TEXT_RE = /[\u0E00-\u0E7F]/;
+
+const extractThaiTranslation = (value: string | null | undefined) =>
+  String(value ?? '')
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line && THAI_TEXT_RE.test(line))
+    .join('\n');
+
 const getCopy = (language: UiLanguage) => language === 'th' ? {
   back: 'กลับ', set: 'ชุดที่', question: 'คำถาม', of: 'จาก', check: 'ตรวจคำตอบ', checking: 'กำลังตรวจ…',
-  continue: 'ถัดไป', answerTryAgain: 'ลองอีกครั้ง', correct: 'ถูกต้อง!', incorrect: 'ไม่ถูกต้อง', skip: 'ข้าม', retry: 'ลองคำถามที่พลาดอีกครั้ง',
+  continue: 'ถัดไป', answerTryAgain: 'ลองอีกครั้ง', correct: 'ถูกต้อง!', incorrect: 'ลองอีกครั้ง', skip: 'ข้าม', retry: 'ลองคำถามที่พลาดอีกครั้ง',
   backToTopics: 'กลับไปที่หัวข้อ', setFinished: 'จบชุดแบบฝึกหัด', mastered: 'ทำสำเร็จ', chooseSet: 'เลือกชุดแบบฝึกหัด',
   typeAnswer: 'พิมพ์คำตอบ', rewrite: 'เขียนประโยคใหม่', sentenceCorrect: 'ประโยคนี้ถูกต้อง',
   sentenceIncorrect: 'ประโยคนี้ไม่ถูกต้อง', loadError: 'ไม่สามารถโหลดแบบฝึกหัดได้', tryAgain: 'ลองอีกครั้ง',
@@ -73,7 +83,7 @@ const getCopy = (language: UiLanguage) => language === 'th' ? {
   greatWork: 'เยี่ยมมาก!', greatProgress: 'พัฒนาได้ดีมาก!', keepPracticing: 'ฝึกต่อไป!', gotCorrect: 'คุณตอบถูก', perfectBody: 'คุณตอบถูกทุกข้อ! พร้อมสำหรับความท้าทายต่อไปแล้ว', progressBody: 'ใกล้เข้าใจหัวข้อนี้แล้ว ลองอีกครั้งหรือฝึกต่อไป', practiceBody: 'ไวยากรณ์ต้องใช้เวลา ทบทวนแบบฝึกหัดแล้วลองอีกครั้ง คุณทำได้!', goNextSet: 'ไปชุดถัดไป', chooseNewTopic: 'เลือกหัวข้อใหม่', backToBank: 'กลับคลังแบบฝึกหัด',
 } : {
   back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'CHECK ANSWER', checking: 'CHECKING…',
-  continue: 'NEXT', answerTryAgain: 'TRY AGAIN', correct: 'Correct!', incorrect: 'Incorrect', skip: 'Skip', retry: 'Retry missed questions',
+  continue: 'NEXT', answerTryAgain: 'Try again', correct: 'Correct!', incorrect: 'Try again', skip: 'Skip', retry: 'Retry missed questions',
   backToTopics: 'Back to topics', setFinished: 'Set finished', mastered: 'mastered', chooseSet: 'Choose a set',
   typeAnswer: 'Type your answer', rewrite: 'Rewrite the sentence', sentenceCorrect: 'The sentence is correct',
   sentenceIncorrect: 'The sentence is incorrect', loadError: 'Unable to load this exercise.', tryAgain: 'Try again',
@@ -88,7 +98,7 @@ const hasAnswer = (answer: ExerciseBankAnswer | undefined) => {
 };
 
 const estimateFillBlankWidth = (containerWidth: number, minLen: number) => {
-  const fontSize = 17;
+  const fontSize = 18;
   const horizontalPadding = theme.spacing.sm;
   const safeLength = Math.max(1, minLen);
   const rawWidth = (safeLength + 1) * fontSize * 0.56 + horizontalPadding * 2;
@@ -105,6 +115,7 @@ type QuestionInputProps = {
   onChange: (answer: ExerciseBankAnswer) => void;
   question: ExerciseBankV2Question;
   result?: ExerciseBankAnswerResult;
+  translationContent?: ExerciseBankV2Question['content_th'];
 };
 
 type ExamplePanelProps = {
@@ -117,7 +128,9 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const copy = getCopy(language);
   const content = example.content;
+  const translationContent = language === 'th' ? example.content_th : undefined;
   const sourceText = content.stem ?? content.text ?? '';
+  const translatedSourceText = extractThaiTranslation(translationContent?.stem ?? translationContent?.text);
   const answer = content.example_answer ?? '';
   const isSentenceTransformExample = exerciseType === 'sentence_transform';
 
@@ -165,6 +178,9 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
             {exerciseType !== 'fill_blank' && sourceText ? (
               <AppText language="en" variant="body" style={styles.exampleSentenceText}>{sourceText}</AppText>
             ) : null}
+            {exerciseType !== 'fill_blank' && translatedSourceText && translatedSourceText !== sourceText ? (
+              <AppText language="th" variant="body" style={styles.translationText}>{translatedSourceText}</AppText>
+            ) : null}
             {exerciseType !== 'fill_blank' && (answer || correctOption) ? (
               <View style={styles.exampleSolutionRow}>
                 <AppText language={language} variant="caption" style={styles.exampleSolutionLabel}>{copy.answer}:</AppText>
@@ -196,7 +212,7 @@ function FillBlankExamplePanel({ example, language }: Pick<ExamplePanelProps, 'e
   );
 }
 
-function QuestionInput({ answer, disabled, judgmentRewriteStage = false, language, onChange, question, result }: QuestionInputProps) {
+function QuestionInput({ answer, disabled, judgmentRewriteStage = false, language, onChange, question, result, translationContent }: QuestionInputProps) {
   const copy = getCopy(language);
   const [inputContainerWidth, setInputContainerWidth] = useState(0);
   const [rewriteIsWrapped, setRewriteIsWrapped] = useState(false);
@@ -216,6 +232,8 @@ function QuestionInput({ answer, disabled, judgmentRewriteStage = false, languag
           const isSelected = selectedLabel === option.label;
           const isSelectedCorrect = isSelected && result?.correct === true;
           const isSelectedWrong = isSelected && result?.correct === false;
+          const translatedOption = translationContent?.options?.find((candidate) => candidate.label === option.label);
+          const translatedOptionText = extractThaiTranslation(translatedOption?.text);
           return (
             <Pressable
               key={option.label}
@@ -233,13 +251,18 @@ function QuestionInput({ answer, disabled, judgmentRewriteStage = false, languag
                       : null,
               ]}
               onPress={() => onChange(option.label)}>
-              <AppText language={language} variant="body" style={styles.optionText}>{option.text}</AppText>
+              <View style={styles.optionTextWrap}>
+                <AppText language="en" variant="body" style={styles.optionText}>{option.text}</AppText>
+                {language === 'th' && translatedOptionText ? (
+                  <AppText language="th" variant="body" style={styles.optionThaiText}>{translatedOptionText}</AppText>
+                ) : null}
+              </View>
               {isSelectedCorrect || isSelectedWrong ? (
                 <AppText
                   language="en"
                   variant="caption"
                   style={[styles.optionOutcome, isSelectedCorrect ? styles.optionOutcomeCorrect : styles.optionOutcomeWrong]}>
-                  {isSelectedCorrect ? '✓' : '✕'}
+                  {isSelectedCorrect ? '✓' : '✗'}
                 </AppText>
               ) : null}
             </Pressable>
@@ -396,6 +419,7 @@ export function ExerciseBankSessionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
+  const playAnswerFeedbackSound = useAnswerFeedbackSound();
   const copy = getCopy(uiLanguage);
   const params = useLocalSearchParams<{ topicId?: string | string[]; setNumber?: string | string[]; returnTo?: string | string[] }>();
   const topicId = getParam(params.topicId);
@@ -532,6 +556,7 @@ export function ExerciseBankSessionScreen() {
     [setData, uiLanguage]
   );
   const currentQuestion = questionsById.get(queue[queueIndex]);
+  const sourceCurrentQuestion = setData?.questions.find((question) => question.id === currentQuestion?.id);
   const currentResult = currentQuestion ? results[currentQuestion.id] : undefined;
   const latestCorrectCount = queue.filter((questionId) => results[questionId]?.correct === true).length;
 
@@ -557,6 +582,7 @@ export function ExerciseBankSessionScreen() {
         return;
       }
       setResults((current) => ({ ...current, [currentQuestion.id]: result }));
+      void playAnswerFeedbackSound(result.correct);
       if (result.correct) {
         setSetData((current) => current ? {
           ...current,
@@ -802,6 +828,15 @@ export function ExerciseBankSessionScreen() {
   const isMultipleChoiceQuestion = currentQuestion.exercise.exercise_type === 'multiple_choice';
   const isRewriteQuestion = currentQuestion.exercise.exercise_type === 'sentence_transform' && !isJudgmentQuestion;
   const isJudgmentRewriteStage = Boolean(judgmentRewriteQuestionIds[currentQuestion.id]);
+  const englishContent = sourceCurrentQuestion?.content_en ?? sourceCurrentQuestion?.content ?? currentQuestion.content;
+  const thaiContent = sourceCurrentQuestion?.content_th;
+  const displayQuestion: ExerciseBankV2Question = {
+    ...currentQuestion,
+    content: englishContent,
+  };
+  const englishStem = englishContent.stem ?? englishContent.text ?? '';
+  const thaiStem = extractThaiTranslation(thaiContent?.stem ?? thaiContent?.text);
+  const showThaiStem = uiLanguage === 'th' && Boolean(thaiStem) && thaiStem !== englishStem;
   const currentAnswer = answers[currentQuestion.id];
   const judgmentAnswer = typeof currentAnswer === 'object'
     ? currentAnswer
@@ -893,15 +928,19 @@ export function ExerciseBankSessionScreen() {
                 {isFillBlankQuestion ? (
                   <View style={styles.fillBlankWorkArea}>
                     <PracticeSectionLabel label={currentQuestion.exercise.display_type} language={uiLanguage} />
-                    <PracticeSurface>
+                    <PracticeSurface style={showThaiStem ? styles.promptTextWrap : null}>
                       <QuestionInput
                         key={currentQuestion.id}
                         answer={answers[currentQuestion.id]}
                         disabled={Boolean(currentResult)}
                         language={uiLanguage}
-                        question={currentQuestion}
+                        question={displayQuestion}
+                        translationContent={thaiContent}
                         onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
                       />
+                      {showThaiStem ? (
+                        <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText>
+                      ) : null}
                     </PracticeSurface>
                     {typeof currentQuestion.content.image_url === 'string' && currentQuestion.content.image_url ? (
                       <PracticeImage
@@ -919,16 +958,27 @@ export function ExerciseBankSessionScreen() {
                   </View>
                 ) : isMultipleChoiceQuestion ? (
                   <View style={styles.multipleChoiceWorkArea}>
+                    {currentQuestion.exercise.examples?.[0] ? (
+                      <ExamplePanel
+                        key={`${currentQuestion.id}-multiple-choice-example`}
+                        example={currentQuestion.exercise.examples[0]}
+                        exerciseType={currentQuestion.exercise.exercise_type}
+                        language={uiLanguage}
+                      />
+                    ) : null}
                     <PracticeSectionLabel
                       icon="◎"
                       label={uiLanguage === 'th' ? 'เลือกคำตอบ' : 'CHOOSE THE ANSWER'}
                       language={uiLanguage}
                     />
                     <PracticeSurface style={styles.multipleChoicePromptCard}>
-                      {currentQuestion.content.stem || currentQuestion.content.text ? (
-                        <AppText language={uiLanguage} variant="body" style={styles.multipleChoicePromptText}>
-                          {currentQuestion.content.stem ?? currentQuestion.content.text}
-                        </AppText>
+                      {englishStem ? (
+                        <View style={styles.promptTextWrap}>
+                          <AppText language="en" variant="body" style={styles.multipleChoicePromptText}>{englishStem}</AppText>
+                          {showThaiStem ? (
+                            <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText>
+                          ) : null}
+                        </View>
                       ) : null}
                     </PracticeSurface>
                     <QuestionInput
@@ -936,8 +986,9 @@ export function ExerciseBankSessionScreen() {
                       answer={answers[currentQuestion.id]}
                       disabled={Boolean(currentResult)}
                       language={uiLanguage}
-                      question={currentQuestion}
+                      question={displayQuestion}
                       result={currentResult}
+                      translationContent={thaiContent}
                       onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
                     />
                   </View>
@@ -959,8 +1010,11 @@ export function ExerciseBankSessionScreen() {
                       language={uiLanguage}
                     />
                     <PracticeSurface style={styles.judgmentPromptCard}>
-                      {currentQuestion.content.stem || currentQuestion.content.text ? (
-                        <AppText language={uiLanguage} variant="body" style={styles.judgmentPromptText}>{currentQuestion.content.stem ?? currentQuestion.content.text}</AppText>
+                      {englishStem ? (
+                        <View style={styles.promptTextWrap}>
+                          <AppText language="en" variant="body" style={styles.judgmentPromptText}>{englishStem}</AppText>
+                          {showThaiStem ? <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText> : null}
+                        </View>
                       ) : null}
                     </PracticeSurface>
                     <QuestionInput
@@ -969,7 +1023,8 @@ export function ExerciseBankSessionScreen() {
                       disabled={Boolean(currentResult)}
                       judgmentRewriteStage={isJudgmentRewriteStage}
                       language={uiLanguage}
-                      question={currentQuestion}
+                      question={displayQuestion}
+                      translationContent={thaiContent}
                       onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
                     />
                     {isJudgmentRewriteStage && currentQuestion.exercise.examples?.[0] ? (
@@ -989,10 +1044,11 @@ export function ExerciseBankSessionScreen() {
                       language={uiLanguage}
                     />
                     <PracticeSurface style={styles.judgmentPromptCard}>
-                      {currentQuestion.content.stem || currentQuestion.content.text ? (
-                        <AppText language={uiLanguage} variant="body" style={styles.judgmentPromptText}>
-                          {currentQuestion.content.stem ?? currentQuestion.content.text}
-                        </AppText>
+                      {englishStem ? (
+                        <View style={styles.promptTextWrap}>
+                          <AppText language="en" variant="body" style={styles.judgmentPromptText}>{englishStem}</AppText>
+                          {showThaiStem ? <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText> : null}
+                        </View>
                       ) : null}
                     </PracticeSurface>
                     <QuestionInput
@@ -1000,7 +1056,8 @@ export function ExerciseBankSessionScreen() {
                       answer={answers[currentQuestion.id]}
                       disabled={Boolean(currentResult)}
                       language={uiLanguage}
-                      question={currentQuestion}
+                      question={displayQuestion}
+                      translationContent={thaiContent}
                       onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
                     />
                     {currentQuestion.exercise.examples?.[0] ? (
@@ -1020,10 +1077,11 @@ export function ExerciseBankSessionScreen() {
                       language={uiLanguage}
                     />
                     <PracticeSurface style={styles.openPromptCard}>
-                      {currentQuestion.content.stem || currentQuestion.content.text ? (
-                        <AppText language={uiLanguage} variant="body" style={styles.openPromptText}>
-                          {currentQuestion.content.stem ?? currentQuestion.content.text}
-                        </AppText>
+                      {englishStem ? (
+                        <View style={styles.promptTextWrap}>
+                          <AppText language="en" variant="body" style={styles.openPromptText}>{englishStem}</AppText>
+                          {showThaiStem ? <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText> : null}
+                        </View>
                       ) : null}
                     </PracticeSurface>
                     <QuestionInput
@@ -1031,7 +1089,8 @@ export function ExerciseBankSessionScreen() {
                       answer={answers[currentQuestion.id]}
                       disabled={Boolean(currentResult)}
                       language={uiLanguage}
-                      question={currentQuestion}
+                      question={displayQuestion}
+                      translationContent={thaiContent}
                       onChange={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
                     />
                   </View>
@@ -1097,7 +1156,7 @@ export function ExerciseBankSessionScreen() {
                   checking: copy.checking,
                   continue: copy.continue,
                   correct: copy.correct,
-                  incorrect: isMultipleChoiceQuestion || isJudgmentQuestion || isRewriteQuestion ? copy.answerTryAgain : copy.incorrect,
+                  incorrect: copy.incorrect,
                   clear: uiLanguage === 'th' ? 'ล้างคำตอบ' : 'CLEAR ANSWER',
                   skip: copy.skip,
                 }}
@@ -1263,13 +1322,15 @@ const styles = StyleSheet.create({
   openPromptCard: { minHeight: 112, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 22 },
   openPromptText: { color: '#1E1E1E', fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
   multipleChoiceWorkArea: { width: '100%', gap: theme.spacing.md },
-  multipleChoicePromptCard: { minHeight: 92, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 20 },
+  multipleChoicePromptCard: { minHeight: 92, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 22 },
   multipleChoicePromptText: { color: '#1E1E1E', fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
-  examplePanel: { overflow: 'hidden', borderWidth: 1, borderColor: '#DDDDDD', borderRadius: theme.radii.md, backgroundColor: '#F8F8F8', paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
-  exampleHeader: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  exampleLabel: { color: theme.colors.mutedText, fontSize: 13, fontWeight: theme.typography.weights.regular, textDecorationLine: 'underline' },
-  exampleArrow: { color: theme.colors.mutedText, fontSize: 18, lineHeight: 22 },
-  exampleBody: { gap: theme.spacing.sm, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.xs },
+  promptTextWrap: { width: '100%', gap: 2 },
+  translationText: { color: '#8C8D93', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.regular },
+  examplePanel: { overflow: 'hidden', borderWidth: 1, borderColor: '#D9D9D9', borderRadius: 11, backgroundColor: '#F3F3F3' },
+  exampleHeader: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 },
+  exampleLabel: { color: '#686868', fontSize: 13, lineHeight: 17, fontWeight: theme.typography.weights.regular, textDecorationLine: 'underline' },
+  exampleArrow: { color: '#686868', fontSize: 16, lineHeight: 18 },
+  exampleBody: { gap: theme.spacing.sm, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 12 },
   exampleInlineSentence: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   exampleSentenceText: { fontSize: 15, lineHeight: 23 },
   exampleAnswerPill: { minHeight: 34, justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.sm, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: 4 },
@@ -1279,9 +1340,9 @@ const styles = StyleSheet.create({
   exampleSolutionLabel: { paddingTop: 2, color: theme.colors.mutedText, fontWeight: theme.typography.weights.semibold },
   exampleSolutionText: { flex: 1, fontSize: 15, lineHeight: 22 },
   fillBlankSentence: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 0, rowGap: 1 },
-  fillBlankSentenceText: { marginRight: 5, fontSize: 17, lineHeight: 24, fontWeight: theme.typography.weights.bold },
-  fillBlankInlineInputShell: { height: 34, minHeight: 34, marginRight: 5, justifyContent: 'center', borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
-  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.semibold, fontSize: 17, fontWeight: theme.typography.weights.semibold, textAlignVertical: 'center', includeFontPadding: false },
+  fillBlankSentenceText: { marginRight: 5, fontSize: 20, lineHeight: 30, fontWeight: theme.typography.weights.bold },
+  fillBlankInlineInputShell: { height: 40, minHeight: 40, marginRight: 5, justifyContent: 'center', borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
+  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.semibold, fontSize: 18, fontWeight: theme.typography.weights.semibold, textAlignVertical: 'center', includeFontPadding: false },
   stem: { fontSize: 17, lineHeight: 26, fontWeight: theme.typography.weights.semibold },
   optionList: { width: '100%', gap: 12 },
   optionButton: { width: '100%', minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, borderWidth: 1.5, borderColor: '#C1C1C1', borderRadius: 15, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingVertical: 8, boxShadow: 'none' },
@@ -1290,7 +1351,9 @@ const styles = StyleSheet.create({
   optionButtonWrong: { backgroundColor: '#FFF0F1', borderColor: '#FF5858' },
   optionLabelCircle: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: theme.colors.accentMuted },
   optionLabel: { fontWeight: theme.typography.weights.bold },
-  optionText: { flex: 1, color: '#1E1E1E', fontSize: 16, lineHeight: 22, fontWeight: theme.typography.weights.semibold },
+  optionTextWrap: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 2 },
+  optionText: { color: '#1E1E1E', fontSize: 14.5, lineHeight: 21, fontWeight: theme.typography.weights.regular, flexShrink: 1 },
+  optionThaiText: { color: '#8C8D93', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.regular, flexShrink: 1 },
   optionOutcome: { width: 22, textAlign: 'center', fontSize: 19, lineHeight: 22, fontWeight: theme.typography.weights.bold },
   optionOutcomeCorrect: { color: '#74A82E' },
   optionOutcomeWrong: { color: '#FD6969' },
