@@ -1,16 +1,20 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { Image } from 'expo-image';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import pailinImage from '@/assets/images/speaking-coach/pailin-lesson-finished.webp';
 import confettiImage from '@/assets/images/speaking-coach/lesson-complete-confetti.png';
+import lessonCompleteSound from '@/assets/audio/lesson-complete-sound-effect.mp3';
 import { AppText } from '@/src/components/ui/AppText';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
+import { freeLibraryIds } from '@/src/lib/library-pathway';
 
 const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
 
@@ -59,14 +63,53 @@ export function LessonCompletePreviewScreen() {
   }>();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const { hasMembership } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const lessonNumber = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '5.3';
   const lessonId = typeof params.lessonId === 'string' && params.lessonId.trim() ? params.lessonId : null;
   const libraryRoute = typeof params.libraryRoute === 'string' ? params.libraryRoute : null;
   const lessonLanguage = params.language === 'en' || params.language === 'th' ? params.language : uiLanguage;
-  const isCheckpoint = /^(\d+)\.chp$/i.test(lessonNumber);
   const [isNavigating, setIsNavigating] = useState(false);
+  const completionSoundPlayer = useAudioPlayer(lessonCompleteSound, {
+    downloadFirst: true,
+    keepAudioSessionActive: true,
+  });
   const copy = getCopy(lessonLanguage === 'th', lessonNumber);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const playCompletionSound = async () => {
+        try {
+          await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+          const loadStartedAt = Date.now();
+          while (isActive && !completionSoundPlayer.isLoaded && Date.now() - loadStartedAt < 1500) {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+          }
+          if (!isActive || !completionSoundPlayer.isLoaded) {
+            return;
+          }
+          completionSoundPlayer.volume = 1;
+          await completionSoundPlayer.seekTo(0);
+          if (isActive) {
+            completionSoundPlayer.play();
+          }
+        } catch (error) {
+          console.warn('[lesson-complete] Could not play completion sound', error);
+        }
+      };
+
+      void playCompletionSound();
+
+      return () => {
+        isActive = false;
+        // useAudioPlayer owns the native player's teardown. Calling pause here
+        // can race that teardown during a route replacement on iOS.
+      };
+    }, [completionSoundPlayer])
+  );
+
   const showPreviewNotice = () => Alert.alert(copy.previewTitle, copy.previewBody);
   const closeCompletion = () => {
     router.back();
@@ -96,8 +139,12 @@ export function LessonCompletePreviewScreen() {
         if (levelDelta !== 0) return levelDelta;
         return (left.lesson_order ?? Number.MAX_SAFE_INTEGER) - (right.lesson_order ?? Number.MAX_SAFE_INTEGER);
       });
-      const currentIndex = lessons.findIndex((lesson) => lesson.id === lessonId);
-      const nextLesson = currentIndex >= 0 ? lessons[currentIndex + 1] : null;
+      const freeLessonIds = hasMembership ? null : freeLibraryIds(lessons);
+      const availableLessons = freeLessonIds
+        ? lessons.filter((lesson) => freeLessonIds.has(lesson.id))
+        : lessons;
+      const currentIndex = availableLessons.findIndex((lesson) => lesson.id === lessonId);
+      const nextLesson = currentIndex >= 0 ? availableLessons[currentIndex + 1] : null;
       if (!nextLesson?.id) {
         Alert.alert(copy.title, lessonLanguage === 'th' ? 'ไม่มีบทเรียนถัดไป' : 'There is no next lesson yet.');
         return;
@@ -138,13 +185,6 @@ export function LessonCompletePreviewScreen() {
 
             <View style={styles.completionHeading}>
               <AppText language={lessonLanguage} style={styles.title}>{copy.subtitle}</AppText>
-              <View
-                pointerEvents="none"
-                style={[styles.successRays, isCheckpoint ? styles.checkpointSuccessRays : null]}>
-                <View style={[styles.successRay, styles.successRayTop]} />
-                <View style={styles.successRay} />
-                <View style={[styles.successRay, styles.successRayBottom]} />
-              </View>
             </View>
 
             <View style={styles.divider} />
@@ -222,19 +262,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#24272A',
   },
-  successRays: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: 101,
-    width: 24,
-    height: 54,
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-  },
-  checkpointSuccessRays: { marginLeft: 122 },
-  successRay: { width: 22, height: 4, borderRadius: 3, backgroundColor: '#A8DF67' },
-  successRayTop: { transform: [{ rotate: '-20deg' }] },
-  successRayBottom: { transform: [{ rotate: '39deg' }] },
   divider: {
     width: '100%',
     height: 1,

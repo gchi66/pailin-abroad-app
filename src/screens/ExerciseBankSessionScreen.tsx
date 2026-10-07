@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -27,6 +28,8 @@ import {
   FillBlankExampleSentence,
   PracticeImage,
   practiceColors,
+  practicePresentation,
+  PracticeJudgmentButtons,
   PracticeSectionLabel,
   PracticeSurface,
   PracticeAnswerFooter,
@@ -136,29 +139,41 @@ type QuestionInputProps = {
 
 type ExamplePanelProps = {
   example: ExerciseBankV2Example;
+  expanded: boolean;
   exerciseType: string;
   language: UiLanguage;
+  onToggle: () => void;
 };
 
-function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function ExamplePanel({ example, expanded, exerciseType, language, onToggle }: ExamplePanelProps) {
   const copy = getCopy(language);
   const content = example.content;
+  const sentenceContent = example.content_en ?? content;
   const translationContent = language === 'th' ? example.content_th : undefined;
   const sourceText = content.stem ?? content.text ?? '';
+  const sentenceSourceText = sentenceContent.stem ?? sentenceContent.text ?? sourceText;
   const translatedSourceText = extractThaiTranslation(translationContent?.stem ?? translationContent?.text);
   const answer = content.example_answer ?? '';
+  const sentenceAnswer = sentenceContent.example_answer ?? answer;
   const isSentenceTransformExample = exerciseType === 'sentence_transform';
 
   if (isSentenceTransformExample) {
     return (
       <SentenceTransformExampleDisclosure
-        correctedSentence={answer}
-        expanded={isExpanded}
+        correctedLabel={sentenceContent.example_is_correct === false && sentenceAnswer ? 'CORRECT:' : undefined}
+        correctedSentence={sentenceContent.example_is_correct === true ? undefined : sentenceAnswer}
+        expanded={expanded}
         label={copy.example}
         language={language}
-        sentence={sourceText}
-        onToggle={() => setIsExpanded((current) => !current)}
+        sentence={sentenceSourceText}
+        sentenceInlines={sentenceContent.stem_runs}
+        sentenceLabel={sentenceContent.example_is_correct === true
+          ? 'CORRECT:'
+          : sentenceContent.example_is_correct === false
+            ? 'INCORRECT:'
+            : undefined}
+        sentenceLabelTone={sentenceContent.example_is_correct === true ? 'correct' : 'incorrect'}
+        onToggle={onToggle}
       />
     );
   }
@@ -182,13 +197,13 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
     <View style={styles.examplePanel}>
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ expanded: isExpanded }}
+        accessibilityState={{ expanded }}
         style={styles.exampleHeader}
-        onPress={() => setIsExpanded((current) => !current)}>
+        onPress={onToggle}>
         <AppText language={language} variant="caption" style={styles.exampleLabel}>{copy.example}</AppText>
-        <AppText language="en" variant="body" style={styles.exampleArrow}>{isExpanded ? '↑' : '↓'}</AppText>
+        <AppText language="en" variant="body" style={styles.exampleArrow}>{expanded ? '↑' : '↓'}</AppText>
       </Pressable>
-      {isExpanded ? (
+      {expanded ? (
           <View style={styles.exampleBody}>
             {exerciseType === 'fill_blank' && renderFillBlankExample()}
             {exerciseType !== 'fill_blank' && sourceText ? (
@@ -211,18 +226,17 @@ function ExamplePanel({ example, exerciseType, language }: ExamplePanelProps) {
   );
 }
 
-function FillBlankExamplePanel({ example, language }: Pick<ExamplePanelProps, 'example' | 'language'>) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function FillBlankExamplePanel({ example, expanded, language, onToggle }: Pick<ExamplePanelProps, 'example' | 'expanded' | 'language' | 'onToggle'>) {
   const copy = getCopy(language);
   const sourceText = example.content.stem ?? example.content.text ?? '';
   const answer = example.content.example_answer ?? '';
 
   return (
     <FillBlankExampleDisclosure
-      expanded={isExpanded}
+      expanded={expanded}
       label={copy.example}
       language={language}
-      onToggle={() => setIsExpanded((current) => !current)}>
+      onToggle={onToggle}>
       <FillBlankExampleSentence answers={[answer]} language="en" text={sourceText || answer} />
     </FillBlankExampleDisclosure>
   );
@@ -339,34 +353,24 @@ function QuestionInput({ answer, disabled, judgmentRewriteStage = false, languag
     const rewrite = typeof answer === 'object' ? answer.rewrite : '';
     return (
       <View style={styles.inputGroup}>
-        {!judgmentRewriteStage ? <View style={styles.judgmentRow}>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: judgment === true, disabled }}
+        {!judgmentRewriteStage ? (
+          <PracticeJudgmentButtons
+            correctLabel={language === 'th' ? copy.exampleCorrect : 'IT’S CORRECT'}
             disabled={disabled}
-            style={[
-              styles.judgmentButton,
-              judgment === true ? styles.judgmentButtonCorrect : null,
-            ]}
-            onPress={() => {
+            incorrectLabel={language === 'th' ? copy.exampleIncorrect : 'IT’S INCORRECT'}
+            language={language}
+            value={judgment}
+            onChange={(nextJudgment) => {
+              if (nextJudgment) {
               inputValueRef.current = '';
               setRewriteIsWrapped(false);
               onChange({ marked_as_correct: true, rewrite: '' });
-            }}>
-            <AppText language={language} variant="caption" style={[styles.judgmentText, judgment === true ? styles.judgmentTextActive : null]}>{language === 'th' ? copy.exampleCorrect : 'It’s correct'} ✓</AppText>
-          </Pressable>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: judgment === false, disabled }}
-            disabled={disabled}
-            style={[
-              styles.judgmentButton,
-              judgment === false ? styles.judgmentButtonIncorrect : null,
-            ]}
-            onPress={() => onChange({ marked_as_correct: false, rewrite })}>
-            <AppText language={language} variant="caption" style={[styles.judgmentText, judgment === false ? styles.judgmentTextActive : null]}>{language === 'th' ? copy.exampleIncorrect : 'It’s incorrect'} X</AppText>
-          </Pressable>
-        </View> : null}
+                return;
+              }
+              onChange({ marked_as_correct: false, rewrite });
+            }}
+          />
+        ) : null}
         {judgmentRewriteStage ? <View style={[styles.judgmentRewriteInputShell, rewriteIsWrapped ? styles.judgmentRewriteInputShellTwoLine : null]}>
           <ScriptAwareTextInput
             accessibilityLabel={copy.rewrite}
@@ -456,6 +460,7 @@ export function ExerciseBankSessionScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [isSetNavigatorOpen, setIsSetNavigatorOpen] = useState(false);
+  const [expandedExampleIds, setExpandedExampleIds] = useState<Record<number, boolean>>({});
   const [revealedAnswerIds, setRevealedAnswerIds] = useState<Record<number, boolean>>({});
   const [judgmentRewriteQuestionIds, setJudgmentRewriteQuestionIds] = useState<Record<number, boolean>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -468,11 +473,19 @@ export function ExerciseBankSessionScreen() {
     };
   }, []);
 
+  const handleToggleExample = useCallback((exampleId: number) => {
+    setExpandedExampleIds((current) => ({
+      ...current,
+      [exampleId]: !current[exampleId],
+    }));
+  }, []);
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     setIsFinished(false);
     setIsSetNavigatorOpen(false);
+    setExpandedExampleIds({});
     setRevealedAnswerIds({});
     setJudgmentRewriteQuestionIds({});
     setAnswers({});
@@ -853,6 +866,8 @@ export function ExerciseBankSessionScreen() {
   const englishStem = englishContent.stem ?? englishContent.text ?? '';
   const thaiStem = extractThaiTranslation(thaiContent?.stem ?? thaiContent?.text);
   const showThaiStem = uiLanguage === 'th' && Boolean(thaiStem) && thaiStem !== englishStem;
+  const questionImageUrl = typeof englishContent.image_url === 'string' ? englishContent.image_url : '';
+  const questionImageAltText = String(englishContent.alt_text ?? currentQuestion.exercise.prompt);
   const currentAnswer = answers[currentQuestion.id];
   const judgmentAnswer = typeof currentAnswer === 'object'
     ? currentAnswer
@@ -919,32 +934,47 @@ export function ExerciseBankSessionScreen() {
                 currentResult?.correct ? styles.questionInstructionsCorrect : null,
                 currentResult && !currentResult.correct ? styles.questionInstructionsIncorrect : null,
               ]}>
-                <View style={usesSharedAnswerFooter ? styles.promptInstructionSlot : null}>
-                  <AppText
-                    language={uiLanguage}
-                    variant="body"
-                    style={[
-                      styles.prompt,
-                      currentQuestion.exercise.exercise_type === 'fill_blank' ? styles.fillBlankPrompt : null,
-                      isOpenQuestion ? styles.openPrompt : null,
-                      isMultipleChoiceQuestion ? styles.multipleChoicePrompt : null,
-                      isJudgmentQuestion || isRewriteQuestion ? styles.judgmentPrompt : null,
-                    ]}>
-                    {currentQuestion.exercise.prompt}
-                  </AppText>
-                </View>
+                {isJudgmentQuestion ? (
+                  <View style={styles.promptInstructionSlot}>
+                    {isJudgmentRewriteStage && !currentResult ? (
+                      <AppText language={uiLanguage} variant="body" style={styles.judgmentStageSuccess}>
+                        <AppText language={uiLanguage} style={styles.judgmentStageSuccessAccent}>
+                          {uiLanguage === 'th' ? 'ทำได้ดี!' : 'Good work!'}
+                        </AppText>
+                        {uiLanguage === 'th' ? ' ประโยคนี้ไม่ถูกต้อง' : ' It is incorrect.'}
+                      </AppText>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View style={usesSharedAnswerFooter ? styles.promptInstructionSlot : null}>
+                    <AppText
+                      language={uiLanguage}
+                      variant="body"
+                      style={[
+                        styles.prompt,
+                        currentQuestion.exercise.exercise_type === 'fill_blank' ? styles.fillBlankPrompt : null,
+                        isOpenQuestion ? styles.openPrompt : null,
+                        isMultipleChoiceQuestion ? styles.multipleChoicePrompt : null,
+                        isRewriteQuestion ? styles.judgmentPrompt : null,
+                      ]}>
+                      {currentQuestion.exercise.prompt}
+                    </AppText>
+                  </View>
+                )}
                 {!usesSharedAnswerFooter && currentQuestion.exercise.examples?.[0] ? (
                   <ExamplePanel
                     key={currentQuestion.id}
                     example={currentQuestion.exercise.examples[0]}
+                    expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                     exerciseType={currentQuestion.exercise.exercise_type}
                     language={uiLanguage}
+                    onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                   />
                 ) : null}
                 {isFillBlankQuestion ? (
                   <View style={styles.fillBlankWorkArea}>
                     <PracticeSectionLabel label={currentQuestion.exercise.display_type} language={uiLanguage} />
-                    <PracticeSurface style={showThaiStem ? styles.promptTextWrap : null}>
+                    <PracticeSurface style={showThaiStem ? styles.fillBlankPromptTextWrap : null}>
                       <QuestionInput
                         key={currentQuestion.id}
                         answer={answers[currentQuestion.id]}
@@ -958,17 +988,19 @@ export function ExerciseBankSessionScreen() {
                         <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText>
                       ) : null}
                     </PracticeSurface>
-                    {typeof currentQuestion.content.image_url === 'string' && currentQuestion.content.image_url ? (
+                    {questionImageUrl ? (
                       <PracticeImage
-                        accessibilityLabel={String(currentQuestion.content.alt_text ?? currentQuestion.exercise.prompt)}
-                        source={{ uri: currentQuestion.content.image_url }}
+                        accessibilityLabel={questionImageAltText}
+                        source={{ uri: questionImageUrl }}
                       />
                     ) : null}
                     {currentQuestion.exercise.examples?.[0] ? (
                       <FillBlankExamplePanel
                         key={currentQuestion.id}
                         example={currentQuestion.exercise.examples[0]}
+                        expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         language={uiLanguage}
+                        onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />
                     ) : null}
                   </View>
@@ -978,8 +1010,10 @@ export function ExerciseBankSessionScreen() {
                       <ExamplePanel
                         key={`${currentQuestion.id}-multiple-choice-example`}
                         example={currentQuestion.exercise.examples[0]}
+                        expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         exerciseType={currentQuestion.exercise.exercise_type}
                         language={uiLanguage}
+                        onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />
                     ) : null}
                     <PracticeSectionLabel
@@ -987,9 +1021,12 @@ export function ExerciseBankSessionScreen() {
                       label={uiLanguage === 'th' ? 'เลือกคำตอบ' : 'CHOOSE THE ANSWER'}
                       language={uiLanguage}
                     />
-                    <PracticeSurface style={styles.multipleChoicePromptCard}>
+                    <PracticeSurface style={[styles.multipleChoicePromptCard, questionImageUrl ? styles.promptCardWithImage : null]}>
+                      {questionImageUrl ? (
+                        <Image source={{ uri: questionImageUrl }} accessibilityLabel={questionImageAltText} contentFit="contain" style={styles.promptCardImage} />
+                      ) : null}
                       {englishStem ? (
-                        <View style={styles.promptTextWrap}>
+                        <View style={styles.multipleChoicePromptTextWrap}>
                           <AppText language="en" variant="body" style={styles.multipleChoicePromptText}>
                             {renderMultipleChoiceTextWithBlankRuns(englishStem, `${currentQuestion.id}-multiple-choice`)}
                           </AppText>
@@ -1012,14 +1049,6 @@ export function ExerciseBankSessionScreen() {
                   </View>
                 ) : isJudgmentQuestion ? (
                   <View style={styles.judgmentWorkArea}>
-                    {isJudgmentRewriteStage && !currentResult ? (
-                      <AppText language={uiLanguage} variant="body" style={styles.judgmentStageSuccess}>
-                        <AppText language={uiLanguage} style={styles.judgmentStageSuccessAccent}>
-                          {uiLanguage === 'th' ? 'ทำได้ดี!' : 'Good work!'}
-                        </AppText>
-                        {uiLanguage === 'th' ? ' ประโยคนี้ไม่ถูกต้อง' : ' It is incorrect.'}
-                      </AppText>
-                    ) : null}
                     <PracticeSectionLabel
                       icon="⌘"
                       label={isJudgmentRewriteStage
@@ -1027,7 +1056,10 @@ export function ExerciseBankSessionScreen() {
                         : (uiLanguage === 'th' ? 'ประโยคนี้ถูกต้องไหม' : 'IS THIS CORRECT?')}
                       language={uiLanguage}
                     />
-                    <PracticeSurface style={styles.judgmentPromptCard}>
+                    <PracticeSurface style={[styles.judgmentPromptCard, questionImageUrl ? styles.promptCardWithImage : null]}>
+                      {questionImageUrl ? (
+                        <Image source={{ uri: questionImageUrl }} accessibilityLabel={questionImageAltText} contentFit="contain" style={styles.promptCardImage} />
+                      ) : null}
                       {englishStem ? (
                         <View style={styles.promptTextWrap}>
                           <AppText language="en" variant="body" style={styles.judgmentPromptText}>{englishStem}</AppText>
@@ -1049,8 +1081,10 @@ export function ExerciseBankSessionScreen() {
                       <ExamplePanel
                         key={`${currentQuestion.id}-rewrite-example`}
                         example={currentQuestion.exercise.examples[0]}
+                        expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         exerciseType={currentQuestion.exercise.exercise_type}
                         language={uiLanguage}
+                        onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />
                     ) : null}
                   </View>
@@ -1061,7 +1095,10 @@ export function ExerciseBankSessionScreen() {
                       label={uiLanguage === 'th' ? 'เขียนประโยคใหม่' : 'REWRITE THIS'}
                       language={uiLanguage}
                     />
-                    <PracticeSurface style={styles.judgmentPromptCard}>
+                    <PracticeSurface style={[styles.judgmentPromptCard, questionImageUrl ? styles.promptCardWithImage : null]}>
+                      {questionImageUrl ? (
+                        <Image source={{ uri: questionImageUrl }} accessibilityLabel={questionImageAltText} contentFit="contain" style={styles.promptCardImage} />
+                      ) : null}
                       {englishStem ? (
                         <View style={styles.promptTextWrap}>
                           <AppText language="en" variant="body" style={styles.judgmentPromptText}>{englishStem}</AppText>
@@ -1082,8 +1119,10 @@ export function ExerciseBankSessionScreen() {
                       <ExamplePanel
                         key={`${currentQuestion.id}-rewrite-example`}
                         example={currentQuestion.exercise.examples[0]}
+                        expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         exerciseType={currentQuestion.exercise.exercise_type}
                         language={uiLanguage}
+                        onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />
                     ) : null}
                   </View>
@@ -1094,12 +1133,15 @@ export function ExerciseBankSessionScreen() {
                       label={uiLanguage === 'th' ? 'ตอบคำถาม' : 'RESPOND TO THE PROMPT'}
                       language={uiLanguage}
                     />
-                    <PracticeSurface style={styles.openPromptCard}>
+                    <PracticeSurface style={[styles.openPromptCard, questionImageUrl ? styles.promptCardWithImage : null]}>
                       {englishStem ? (
                         <View style={styles.promptTextWrap}>
                           <AppText language="en" variant="body" style={styles.openPromptText}>{englishStem}</AppText>
                           {showThaiStem ? <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText> : null}
                         </View>
+                      ) : null}
+                      {questionImageUrl ? (
+                        <Image source={{ uri: questionImageUrl }} accessibilityLabel={questionImageAltText} contentFit="contain" style={styles.promptCardImage} />
                       ) : null}
                     </PracticeSurface>
                     <QuestionInput
@@ -1326,10 +1368,10 @@ const styles = StyleSheet.create({
   displayType: { color: theme.colors.text, fontSize: 10, fontWeight: theme.typography.weights.bold, textTransform: 'uppercase' },
   promptInstructionSlot: { width: '100%', minHeight: 36, justifyContent: 'flex-start' },
   prompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
-  judgmentPrompt: { fontSize: 15, lineHeight: 22, fontWeight: theme.typography.weights.regular },
+  judgmentPrompt: { color: '#1E1E1E', fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.bold },
   judgmentWorkArea: { width: '100%', gap: 14 },
   judgmentPromptCard: { paddingHorizontal: 16, paddingVertical: 18 },
-  judgmentPromptText: { color: '#1E1E1E', fontSize: 17, lineHeight: 24, fontWeight: theme.typography.weights.bold },
+  judgmentPromptText: { ...practicePresentation.prompt, fontFamily: theme.typography.fontFaces.en.bold },
   judgmentStageSuccess: { color: '#1E1E1E', fontSize: 14, lineHeight: 20, fontWeight: theme.typography.weights.semibold },
   judgmentStageSuccessAccent: { color: '#99C64F', fontWeight: theme.typography.weights.bold },
   fillBlankPrompt: { color: '#1E1E1E', fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.bold },
@@ -1338,13 +1380,17 @@ const styles = StyleSheet.create({
   fillBlankWorkArea: { width: '100%', gap: theme.spacing.md },
   openWorkArea: { width: '100%', gap: theme.spacing.md },
   openPromptCard: { minHeight: 112, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 22 },
-  openPromptText: { color: '#1E1E1E', fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
+  openPromptText: { ...practicePresentation.prompt, fontFamily: theme.typography.fontFaces.en.bold },
   multipleChoiceWorkArea: { width: '100%', gap: theme.spacing.md },
   multipleChoicePromptCard: { minHeight: 92, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 22 },
-  multipleChoicePromptText: { color: '#1E1E1E', fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
+  multipleChoicePromptText: { ...practicePresentation.prompt, fontFamily: theme.typography.fontFaces.en.bold },
   multipleChoiceInlineBlank: { color: 'transparent', textDecorationLine: 'underline', textDecorationColor: '#1E1E1E' },
-  promptTextWrap: { width: '100%', gap: 2 },
-  translationText: { color: '#8C8D93', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.regular },
+  promptTextWrap: { width: '100%', gap: practicePresentation.promptTranslationGap },
+  fillBlankPromptTextWrap: { width: '100%', gap: practicePresentation.fillBlankTranslationGap },
+  multipleChoicePromptTextWrap: { width: '100%', gap: practicePresentation.multipleChoiceTranslationGap },
+  translationText: { ...practicePresentation.translation },
+  promptCardWithImage: { gap: theme.spacing.sm },
+  promptCardImage: { width: '100%', height: 140 },
   examplePanel: { overflow: 'hidden', borderWidth: 1, borderColor: '#D9D9D9', borderRadius: 11, backgroundColor: '#F3F3F3' },
   exampleHeader: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 },
   exampleLabel: { color: '#686868', fontSize: 13, lineHeight: 17, fontWeight: theme.typography.weights.regular, textDecorationLine: 'underline' },
@@ -1359,9 +1405,9 @@ const styles = StyleSheet.create({
   exampleSolutionLabel: { paddingTop: 2, color: theme.colors.mutedText, fontWeight: theme.typography.weights.semibold },
   exampleSolutionText: { flex: 1, fontSize: 15, lineHeight: 22 },
   fillBlankSentence: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 0, rowGap: 1 },
-  fillBlankSentenceText: { marginRight: 5, fontSize: 20, lineHeight: 30, fontWeight: theme.typography.weights.bold },
+  fillBlankSentenceText: { ...practicePresentation.fillBlankPrompt, marginRight: 5 },
   fillBlankInlineInputShell: { height: 40, minHeight: 40, marginRight: 5, justifyContent: 'center', borderWidth: 1.1, borderColor: '#000000', borderRadius: 12, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.sm },
-  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.semibold, fontSize: 18, fontWeight: theme.typography.weights.semibold, textAlignVertical: 'center', includeFontPadding: false },
+  fillBlankInlineInput: { flex: 1, width: '100%', height: '100%', padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.regular, fontSize: 18, fontWeight: theme.typography.weights.regular, textAlignVertical: 'center', includeFontPadding: false },
   stem: { fontSize: 17, lineHeight: 26, fontWeight: theme.typography.weights.semibold },
   optionList: { width: '100%', gap: 12 },
   optionButton: { width: '100%', minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, borderWidth: 1.5, borderColor: '#C1C1C1', borderRadius: 15, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingVertical: 8, boxShadow: 'none' },
@@ -1371,8 +1417,8 @@ const styles = StyleSheet.create({
   optionLabelCircle: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: theme.colors.accentMuted },
   optionLabel: { fontWeight: theme.typography.weights.bold },
   optionTextWrap: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 2 },
-  optionText: { color: '#1E1E1E', fontSize: 14.5, lineHeight: 21, fontWeight: theme.typography.weights.regular, flexShrink: 1 },
-  optionThaiText: { color: '#8C8D93', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.regular, flexShrink: 1 },
+  optionText: { ...practicePresentation.option, flexShrink: 1 },
+  optionThaiText: { ...practicePresentation.optionTranslation, flexShrink: 1 },
   optionOutcome: { width: 22, textAlign: 'center', fontSize: 19, lineHeight: 22, fontWeight: theme.typography.weights.bold },
   optionOutcomeCorrect: { color: '#74A82E' },
   optionOutcomeWrong: { color: '#FD6969' },
@@ -1387,17 +1433,17 @@ const styles = StyleSheet.create({
   judgmentTextMuted: { color: '#989898', fontWeight: theme.typography.weights.regular },
   judgmentRewriteInputShell: { minHeight: 52, width: '100%', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: 11, backgroundColor: theme.colors.surface, paddingHorizontal: 14, paddingVertical: 8, boxShadow: `2px 2px 0px ${theme.colors.border}` },
   judgmentRewriteInputShellTwoLine: { minHeight: 58 },
-  judgmentRewriteInput: { width: '100%', minHeight: 22, padding: 0, borderWidth: 0, backgroundColor: 'transparent', color: theme.colors.text, fontSize: 14, lineHeight: 21, fontWeight: theme.typography.weights.semibold, textAlignVertical: 'top', includeFontPadding: false },
+  judgmentRewriteInput: { width: '100%', minHeight: 22, padding: 0, borderWidth: 0, backgroundColor: 'transparent', ...practicePresentation.responseInput, textAlignVertical: 'top', includeFontPadding: false },
   judgmentRewriteInputTwoLine: { minHeight: 44 },
-  textInput: { minHeight: 50, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, color: theme.colors.text, fontSize: 16, fontWeight: theme.typography.weights.semibold },
+  textInput: { minHeight: 50, borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radii.md, backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, ...practicePresentation.responseInput },
   multilineInput: { minHeight: 68, textAlignVertical: 'top' },
   openResponseInput: { height: 56, minHeight: 56, borderWidth: 1.5, borderColor: '#1E1E1E', borderRadius: 11, backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 0, boxShadow: '2px 2px 0px #1E1E1E' },
   openResponseInputEmpty: { textAlignVertical: 'center', paddingTop: 2, paddingBottom: 0 },
   sentenceTransformResponseInput: { borderColor: '#1E1E1E', borderRadius: 11, backgroundColor: '#FFFFFF', paddingHorizontal: 14, boxShadow: '2px 2px 0px #1E1E1E' },
   singleLineRewriteInput: { minHeight: 52, paddingVertical: 6, textAlignVertical: 'center' },
   twoLineRewriteInput: { minHeight: 62, paddingVertical: 6 },
-  englishInput: { fontFamily: theme.typography.fontFaces.en.semibold },
-  thaiInput: { fontFamily: theme.typography.fontFaces.th.semibold },
+  englishInput: { fontFamily: theme.typography.fontFaces.en.regular },
+  thaiInput: { fontFamily: theme.typography.fontFaces.th.regular },
   questionFooter: { width: '100%', marginTop: 'auto', gap: theme.spacing.sm, paddingTop: theme.spacing.lg },
   fillBlankFooter: { marginTop: 'auto', marginHorizontal: -theme.spacing.md, marginBottom: -theme.spacing.md, width: 'auto' },
   feedback: { gap: theme.spacing.xs, borderRadius: theme.radii.md, paddingHorizontal: theme.spacing.xs },

@@ -26,6 +26,7 @@ import { useUiLanguage } from '@/src/context/ui-language-context';
 import { clearLessonLibraryAnchor, getLessonLibrarySelection, hydrateLessonLibrarySelection, setLessonLibrarySelection, takeLessonLibraryPreview } from '@/src/lib/lesson-library-selection';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
 import { freeLibraryIds, LIBRARY_STAGES, LibraryStage, lessonMarker, lessonNumber, lessonTitle, matchesLessonSearch, shortLessonFocus } from '@/src/lib/library-pathway';
+import { getGuestCompletedLessonIds } from '@/src/lib/guest-lesson-completion';
 import { theme } from '@/src/theme/theme';
 import { LessonListItem } from '@/src/types/lesson';
 
@@ -33,7 +34,8 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
   const router = useRouter();
   const posthog = usePostHog();
   const { uiLanguage: language } = useUiLanguage();
-  const { hasAccount, hasMembership, user } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode, user } = useAppSession();
+  const showGuestProgress = isGuestMode && !hasAccount;
   const initial = getLessonLibrarySelection();
   const [items, setItems] = useState<LessonListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [recentId, setRecentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, AppLessonProgressSummary>>({});
+  const [guestCompletedLessonIds, setGuestCompletedLessonIds] = useState<Set<string>>(new Set());
   const [refresh, setRefresh] = useState(0);
   const [anchor, setAnchor] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -91,8 +94,15 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
         if (active) setRecentId(engagements.slice().sort((a, b) => Date.parse(b.last_visited_at || '') - Date.parse(a.last_visited_at || ''))[0]?.lesson_id ?? null);
       }).catch(() => {});
     }
+    if (showGuestProgress) {
+      void getGuestCompletedLessonIds().then((lessonIds) => {
+        if (active) setGuestCompletedLessonIds(lessonIds);
+      });
+    } else {
+      setGuestCompletedLessonIds(new Set());
+    }
     return () => { active = false; };
-  }, [hasAccount]));
+  }, [hasAccount, showGuestProgress]));
 
   useEffect(() => { setProgress({}); setSelectedId(null); setRecentId(null); }, [user?.id]);
   const freeIds = useMemo(() => freeLibraryIds(items), [items]);
@@ -146,7 +156,11 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
 
   const activeId = [selectedId, recentId].find((id) => id && visibleIds.includes(id))
     ?? lessons.find((lesson) => progress[lesson.id]?.has_started && !progress[lesson.id]?.is_completed && (hasMembership || freeIds.has(lesson.id)))?.id
-    ?? lessons.find((lesson) => !progress[lesson.id]?.is_completed && (hasMembership || freeIds.has(lesson.id)))?.id;
+    ?? lessons.find((lesson) =>
+      !progress[lesson.id]?.is_completed &&
+      !guestCompletedLessonIds.has(lesson.id) &&
+      (hasMembership || freeIds.has(lesson.id))
+    )?.id;
   const selectedIndex = lessons.findIndex((lesson) => lesson.id === activeId);
   const story = getLevelBackstory(level, language);
 
@@ -247,8 +261,11 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
           {lessons.map((lesson, index) => {
             const selected = lesson.id === activeId;
             const locked = !hasMembership && !freeIds.has(lesson.id);
-            const marker = lessonMarker(selected, progress[lesson.id]);
-            const done = !!progress[lesson.id]?.is_completed;
+            const guestCompleted = showGuestProgress && guestCompletedLessonIds.has(lesson.id);
+            const marker = guestCompleted && !selected
+              ? { kind: 'complete' as const }
+              : lessonMarker(selected, progress[lesson.id]);
+            const done = guestCompleted || !!progress[lesson.id]?.is_completed;
             const strong = selected || done || !!progress[lesson.id]?.has_started;
             const displayedLessonTitle = lessonTitle(lesson, language, th ? 'ไม่มีชื่อบทเรียน' : 'Untitled lesson');
             const iconSource = getLessonIconSource(lessonNumber(lesson));

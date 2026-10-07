@@ -26,12 +26,6 @@ const resolvedLessonCache = new Map<string, { payload: ResolvedLessonPayload; ti
 const inflightResolvedLessonRequests = new Map<string, Promise<ResolvedLessonPayload>>();
 const GUEST_MODE_STORAGE_KEY = 'pailin-abroad.guest-mode';
 const GUEST_REVENUECAT_USER_ID_STORAGE_KEY = 'pailin-abroad.guest-revenuecat-user-id';
-const TRY_LESSON_IDS = new Set([
-  'a34f5a4b-0729-430e-9b92-900dcad2f977',
-  '5f9d09b4-ed35-40ac-b89f-50dbd7e96c0c',
-  '27e50504-7021-4a7b-b30d-0cae34a094bf',
-]);
-
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.trim().replace(/\/+$/, '');
 
 const assertApiBaseUrl = () => {
@@ -494,6 +488,7 @@ type TryLessonAudioResponse = {
     bg_signed_url?: string | null;
   } | null;
   snippets?: LessonAudioSnippet[] | null;
+  phrases?: LessonAudioSnippet[] | null;
 };
 
 const EMPTY_SNIPPET_INDEX: LessonAudioSnippetIndex = {
@@ -571,6 +566,42 @@ const toTryLessonPublicAudioUrl = (path: string) => {
   return `${env.supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/try-lessons/${normalizedPath}`;
 };
 
+const inflightGuestLessonAudioRequests = new Map<string, Promise<TryLessonAudioResponse | null>>();
+
+const fetchGuestLessonAudioPayload = async (lessonId: string): Promise<TryLessonAudioResponse | null> => {
+  const inflightRequest = inflightGuestLessonAudioRequests.get(lessonId);
+  if (inflightRequest) {
+    return inflightRequest;
+  }
+
+  const requestPromise = (async () => {
+    const baseUrl = assertApiBaseUrl();
+    const headers = await getLessonAuthHeaders();
+    let response = await fetch(`${baseUrl}/api/lessons/${lessonId}/audio-url`, {
+      method: 'GET',
+      headers,
+    });
+    // Keep guest audio working while the app and backend changes roll out independently.
+    if (response.status === 404) {
+      response = await fetch(`${baseUrl}/api/try-lessons/${lessonId}/audio-url`, {
+        method: 'GET',
+        headers,
+      });
+    }
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json().catch(() => null)) as TryLessonAudioResponse | null;
+  })();
+
+  inflightGuestLessonAudioRequests.set(lessonId, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    inflightGuestLessonAudioRequests.delete(lessonId);
+  }
+};
+
 export async function fetchLessonAudioUrls(
   lesson: Pick<
     ResolvedLessonPayload,
@@ -598,18 +629,9 @@ export async function fetchLessonAudioUrls(
   }
 
   const session = await getCurrentLessonSession();
-  const isTryLesson = TRY_LESSON_IDS.has(lesson.id);
 
-  if (!session?.access_token && isTryLesson) {
-    const baseUrl = assertApiBaseUrl();
-    const response = await fetch(`${baseUrl}/api/try-lessons/${lesson.id}/audio-url`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const payload = (await response.json().catch(() => null)) as TryLessonAudioResponse | null;
+  if (!session?.access_token) {
+    const payload = await fetchGuestLessonAudioPayload(lesson.id);
     const resolvedSignedUrl = payload?.conversation?.signed_url?.trim() || null;
     const resolvedBasePath = payload?.conversation?.path?.trim() || basePath;
     if (!resolvedBasePath) {
@@ -661,23 +683,14 @@ export async function fetchLessonAudioSnippetIndex(
   }
 
   const session = await getCurrentLessonSession();
-  const isTryLesson = TRY_LESSON_IDS.has(lesson.id);
 
-  if (!session?.access_token && isTryLesson) {
-    const baseUrl = assertApiBaseUrl();
-    const response = await fetch(`${baseUrl}/api/try-lessons/${lesson.id}/audio-url`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const payload = (await response.json().catch(() => null)) as TryLessonAudioResponse | null;
+  if (!session?.access_token) {
+    const payload = await fetchGuestLessonAudioPayload(lesson.id);
     const snippets = (payload?.snippets ?? [])
-      .filter((item): item is LessonAudioSnippet => Boolean(item?.audio_key && item?.storage_path))
+      .filter((item): item is LessonAudioSnippet => Boolean(item?.audio_key && (item?.signed_url || item?.storage_path)))
       .map((item) => ({
         ...item,
-        signed_url: item.storage_path ? toTryLessonPublicAudioUrl(item.storage_path) : null,
+        signed_url: item.signed_url?.trim() || (item.storage_path ? toTryLessonPublicAudioUrl(item.storage_path) : null),
       }));
 
     return buildLessonSnippetIndex(snippets);
@@ -700,6 +713,14 @@ export async function fetchLessonPhraseAudioSnippetIndex(
 ): Promise<LessonPhraseAudioSnippetIndex> {
   if (!lesson.id) {
     return EMPTY_PHRASE_SNIPPET_INDEX;
+  }
+
+  const session = await getCurrentLessonSession();
+  if (!session?.access_token) {
+    const payload = await fetchGuestLessonAudioPayload(lesson.id);
+    const snippets = (payload?.phrases ?? [])
+      .filter((item): item is LessonAudioSnippet => Boolean(item?.audio_key && item?.signed_url));
+    return buildPhraseSnippetIndex(snippets);
   }
 
   const { data: lessonPhrases, error: lessonPhrasesError } = await supabase

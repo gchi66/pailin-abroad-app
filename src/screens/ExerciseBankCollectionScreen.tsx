@@ -8,6 +8,7 @@ import {
   fetchExerciseBankV2Topics,
   prefetchExerciseBankV2Session,
 } from '@/src/api/exercise-bank';
+import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { AndroidNeoShadowLayer } from '@/src/components/ui/AndroidNeoShadowLayer';
 import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { AppText } from '@/src/components/ui/AppText';
@@ -308,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: theme.spacing.xl * 2,
+    paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
   pageHeader: {
     paddingHorizontal: theme.spacing.md,

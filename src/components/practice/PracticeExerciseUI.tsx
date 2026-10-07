@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { Image, ImageSource } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -28,6 +28,50 @@ export const practiceNeoShadowStyle: ViewStyle = {
   borderColor: practiceColors.text,
   boxShadow: `2px 2px 0px ${practiceColors.text}`,
 };
+
+// Canonical focused-practice typography and spacing. Lesson practice and every
+// Exercise Bank renderer should consume these values instead of restating them.
+export const practicePresentation = {
+  prompt: {
+    color: practiceColors.text,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: theme.typography.weights.bold,
+  } satisfies TextStyle,
+  fillBlankPrompt: {
+    color: practiceColors.text,
+    fontSize: 20,
+    lineHeight: 30,
+    fontWeight: theme.typography.weights.bold,
+  } satisfies TextStyle,
+  translation: {
+    color: '#8C8D93',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.regular,
+  } satisfies TextStyle,
+  option: {
+    color: practiceColors.text,
+    fontSize: 14.5,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.regular,
+  } satisfies TextStyle,
+  optionTranslation: {
+    color: '#8C8D93',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.regular,
+  } satisfies TextStyle,
+  responseInput: {
+    color: practiceColors.text,
+    fontSize: 14.5,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.regular,
+  } satisfies TextStyle,
+  promptTranslationGap: 2,
+  fillBlankTranslationGap: 4,
+  multipleChoiceTranslationGap: 8,
+} as const;
 
 // Short internal aliases keep the fill-blank-specific example styles readable,
 // while the public surface remains neutral for every exercise type.
@@ -73,6 +117,47 @@ export function PracticeSectionLabel({
     <View style={styles.sectionLabelRow}>
       <AppText language="en" style={styles.sectionLabelIcon}>{icon}</AppText>
       <AppText language={language} variant="caption" style={styles.sectionLabelText}>{displayLabel}</AppText>
+    </View>
+  );
+}
+
+export function PracticeJudgmentButtons({
+  correctLabel,
+  disabled = false,
+  incorrectLabel,
+  language,
+  onChange,
+  value,
+}: {
+  correctLabel: string;
+  disabled?: boolean;
+  incorrectLabel: string;
+  language: PracticeLanguage;
+  onChange: (value: boolean) => void;
+  value?: boolean;
+}) {
+  return (
+    <View style={styles.judgmentButtons}>
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityState={{ checked: value === true, disabled }}
+        disabled={disabled}
+        style={[styles.judgmentButton, value === true ? styles.judgmentButtonActive : null]}
+        onPress={() => onChange(true)}>
+        <AppText language={language} variant="caption" style={styles.judgmentButtonText}>
+          {correctLabel}  ✓
+        </AppText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityState={{ checked: value === false, disabled }}
+        disabled={disabled}
+        style={[styles.judgmentButton, value === false ? styles.judgmentButtonActive : null]}
+        onPress={() => onChange(false)}>
+        <AppText language={language} variant="caption" style={styles.judgmentButtonText}>
+          {incorrectLabel}  X
+        </AppText>
+      </Pressable>
     </View>
   );
 }
@@ -156,6 +241,7 @@ export function FillBlankExampleSentence({
 }
 
 export function SentenceTransformExampleDisclosure({
+  correctedLabel,
   correctedSentence,
   expanded,
   label,
@@ -163,28 +249,39 @@ export function SentenceTransformExampleDisclosure({
   onToggle,
   sentence,
   sentenceInlines,
+  sentenceLabel,
+  sentenceLabelTone = 'incorrect',
 }: {
+  correctedLabel?: string;
   correctedSentence?: string;
   expanded: boolean;
   label: string;
   language: PracticeLanguage;
   onToggle: () => void;
   sentence: string;
-  sentenceInlines?: { text?: string | null; bold?: boolean | null }[];
+  sentenceInlines?: { text?: string | null; bold?: boolean | null; underline?: boolean | null }[];
+  sentenceLabel?: string;
+  sentenceLabelTone?: 'correct' | 'incorrect';
 }) {
   const visibleSentenceInlines = (sentenceInlines ?? []).filter((inline) => Boolean(inline.text));
   const sentenceParts = splitSentenceTransformLabel(sentence);
   const inlineSentenceText = visibleSentenceInlines.map((inline) => inline.text ?? '').join('');
-  const sentenceBodyInlines = removeSentenceTransformLabelFromInlines(
-    visibleSentenceInlines,
-    inlineSentenceText.startsWith(sentenceParts.label) ? sentenceParts.label.length : 0
+  const inlineSentenceParts = splitSentenceTransformLabel(inlineSentenceText);
+  const inlineLabelLength = normalizedSentenceTransformLabel(inlineSentenceParts.label) ===
+    normalizedSentenceTransformLabel(sentenceParts.label)
+    ? inlineSentenceParts.label.length
+    : 0;
+  const sentenceBodyInlines = addMissingSentenceTransformSpaces(
+    removeSentenceTransformLabelFromInlines(visibleSentenceInlines, inlineLabelLength)
   );
   const correctionParts = correctedSentence
     ? splitSentenceTransformLabel(correctedSentence)
     : { label: '', sentence: '' };
-  const correctionRuns = correctedSentence
-    ? buildSentenceTransformCorrectionRuns(sentence, correctedSentence)
-    : [];
+  const comparisonRuns = correctedSentence
+    ? buildSentenceTransformComparisonRuns(sentence, correctedSentence)
+    : { source: [], correction: [] };
+  const visibleSentenceLabel = sentenceParts.label.trim() || sentenceLabel?.trim() || '';
+  const visibleCorrectedLabel = correctionParts.label.trim() || correctedLabel?.trim() || '';
 
   return (
     <FillBlankExampleDisclosure
@@ -194,29 +291,41 @@ export function SentenceTransformExampleDisclosure({
       onToggle={onToggle}>
       <View style={styles.sentenceExampleContent}>
         <AppText language="en" variant="caption" style={styles.sentenceExampleText}>
-          {sentenceParts.label ? (
-            <Text style={styles.sentenceExampleIncorrectLabel}>{sentenceParts.label}</Text>
+          {visibleSentenceLabel ? (
+            <Text style={sentenceLabelTone === 'correct' ? styles.sentenceExampleCorrectLabel : styles.sentenceExampleIncorrectLabel}>
+              {visibleSentenceLabel}
+            </Text>
           ) : null}
-          {sentenceBodyInlines.length
+          {comparisonRuns.source.length
+            ? comparisonRuns.source.map((run, index) => (
+                <Text
+                  key={`sentence-source-comparison-${index}`}
+                  style={run.bold ? styles.sentenceExampleEmphasis : undefined}>
+                  {index === 0 && visibleSentenceLabel ? ` ${run.text.trimStart()}` : run.text}
+                </Text>
+              ))
+            : sentenceBodyInlines.length
             ? sentenceBodyInlines.map((inline, index) => (
                 <Text
                   key={`sentence-example-${index}`}
-                  style={inline.bold ? styles.sentenceExampleEmphasis : undefined}>
-                  {inline.text}
+                  style={inline.bold || inline.underline ? styles.sentenceExampleEmphasis : undefined}>
+                  {index === 0 && visibleSentenceLabel ? ` ${inline.text?.trimStart() ?? ''}` : inline.text}
                 </Text>
               ))
-            : sentenceParts.sentence}
+            : visibleSentenceLabel
+              ? ` ${sentenceParts.sentence.trimStart()}`
+              : sentenceParts.sentence}
         </AppText>
         {correctedSentence ? (
           <AppText language="en" variant="caption" style={styles.sentenceExampleCorrectionText}>
-            {correctionParts.label ? (
-              <Text style={styles.sentenceExampleCorrectLabel}>{correctionParts.label}</Text>
+            {visibleCorrectedLabel ? (
+              <Text style={styles.sentenceExampleCorrectLabel}>{visibleCorrectedLabel}</Text>
             ) : null}
-            {correctionRuns.map((run, index) => (
+            {comparisonRuns.correction.map((run, index) => (
               <Text
                 key={`sentence-correction-${index}`}
                 style={run.bold ? styles.sentenceExampleEmphasis : undefined}>
-                {run.text}
+                {index === 0 && visibleCorrectedLabel ? ` ${run.text.trimStart()}` : run.text}
               </Text>
             ))}
           </AppText>
@@ -231,12 +340,23 @@ const splitSentenceTransformLabel = (value: string) => {
   return match ? { label: match[1], sentence: match[2] } : { label: '', sentence: value };
 };
 
-const sentenceTransformWords = (value: string) => value.match(/\S+\s*/g) ?? [];
+const normalizedSentenceTransformLabel = (value: string) => value.replace(/\s+/g, '').toLocaleLowerCase();
+const sentenceTransformWords = (value: string) => value.match(/\s*\S+/g) ?? [];
 const normalizedSentenceTransformWord = (value: string) =>
   value.trim().toLocaleLowerCase().replace(/[’]/g, "'");
 
+const addMissingSentenceTransformSpaces = (
+  inlines: { text?: string | null; bold?: boolean | null; underline?: boolean | null }[]
+) => inlines.map((inline, index) => {
+  if (index === 0) return inline;
+  const previousText = inlines[index - 1]?.text ?? '';
+  const text = inline.text ?? '';
+  const needsSpace = /[A-Za-z0-9'’]$/.test(previousText) && /^[A-Za-z0-9]/.test(text);
+  return needsSpace ? { ...inline, text: ` ${text}` } : inline;
+});
+
 const removeSentenceTransformLabelFromInlines = (
-  inlines: { text?: string | null; bold?: boolean | null }[],
+  inlines: { text?: string | null; bold?: boolean | null; underline?: boolean | null }[],
   labelLength: number
 ) => {
   let remainingLabelLength = labelLength;
@@ -251,7 +371,7 @@ const removeSentenceTransformLabelFromInlines = (
     .filter((inline) => Boolean(inline.text));
 };
 
-const buildSentenceTransformCorrectionRuns = (source: string, correction: string) => {
+const buildSentenceTransformComparisonRuns = (source: string, correction: string) => {
   const sourceParts = splitSentenceTransformLabel(source);
   const correctionParts = splitSentenceTransformLabel(correction);
   const sourceWords = sentenceTransformWords(sourceParts.sentence);
@@ -277,14 +397,23 @@ const buildSentenceTransformCorrectionRuns = (source: string, correction: string
     sharedSuffixCount += 1;
   }
 
-  const emphasizedEnd = correctionWords.length - sharedSuffixCount;
-  const runs = [
+  const sourceEmphasizedEnd = sourceWords.length - sharedSuffixCount;
+  const correctionEmphasizedEnd = correctionWords.length - sharedSuffixCount;
+  const sourceRuns = [
+    { text: sourceWords.slice(0, sharedPrefixCount).join(''), bold: false },
+    { text: sourceWords.slice(sharedPrefixCount, sourceEmphasizedEnd).join(''), bold: true },
+    { text: sourceWords.slice(sourceEmphasizedEnd).join(''), bold: false },
+  ];
+  const correctionRuns = [
     { text: correctionWords.slice(0, sharedPrefixCount).join(''), bold: false },
-    { text: correctionWords.slice(sharedPrefixCount, emphasizedEnd).join(''), bold: true },
-    { text: correctionWords.slice(emphasizedEnd).join(''), bold: false },
+    { text: correctionWords.slice(sharedPrefixCount, correctionEmphasizedEnd).join(''), bold: true },
+    { text: correctionWords.slice(correctionEmphasizedEnd).join(''), bold: false },
   ];
 
-  return runs.filter((run) => run.text);
+  return {
+    source: sourceRuns.filter((run) => run.text),
+    correction: correctionRuns.filter((run) => run.text),
+  };
 };
 
 export function PracticeAnswerFooter({
@@ -420,7 +549,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   exampleSurface: { backgroundColor: fillBlankColors.example },
-  imageSurface: { backgroundColor: '#FFFFFF' },
+  imageSurface: { backgroundColor: fillBlankColors.example },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: -8 },
   sectionLabelIcon: {
     color: fillBlankColors.text,
@@ -436,6 +565,26 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  judgmentButtons: { width: '100%', gap: 10 },
+  judgmentButton: {
+    width: '100%',
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#C1C1C1',
+    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+  },
+  judgmentButtonActive: { borderColor: '#8C8C8C', backgroundColor: '#FFFAE0' },
+  judgmentButtonText: {
+    color: practiceColors.text,
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
   },
   imageSurfaceSize: { width: 184, height: 184, alignSelf: 'center', overflow: 'hidden', padding: 6 },
   image: { width: '100%', height: '100%' },

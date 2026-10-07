@@ -207,9 +207,10 @@ export function LessonRichSectionIntro({
   const copy = config[language];
   const cardWidth = Math.min(width - 80, 315);
   const usesCompactTitle = copy.title.length > 13;
+  const usesSingleLineWordTitle = language === 'en' && !copy.title.trim().includes(' ');
   const usesSingleLineFeatureTitle =
     language === 'en' && (sectionType === 'culture_note' || sectionType === 'phrases_verbs');
-  const titleLineCount = usesSingleLineFeatureTitle ? 1 : 2;
+  const titleLineCount = usesSingleLineWordTitle || usesSingleLineFeatureTitle ? 1 : 2;
   const [isLeaving, setIsLeaving] = useState(false);
   const opacity = useSharedValue(1);
   const screenAnimation = useAnimatedStyle(() => ({ opacity: opacity.value }));

@@ -318,7 +318,7 @@ export function LearningProgressScreen() {
             </Card>
           </View>
 
-          <Stack gap="sm" style={[styles.sectionBlock, styles.stageBreakdownSection]}>
+          <Stack gap="xs" style={[styles.sectionBlock, styles.stageBreakdownSection]}>
             {sectionLabel(copy.stageBreakdown)}
 
             <Stack gap="xs">

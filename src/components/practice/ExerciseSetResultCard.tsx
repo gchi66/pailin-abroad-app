@@ -9,6 +9,7 @@ type ResultTone = 'perfect' | 'partial' | 'low';
 
 type ExerciseSetResultCardProps = {
   body: string;
+  bodyMaxWidth?: number;
   imageSource: React.ComponentProps<typeof Image>['source'];
   language: 'en' | 'th';
   score: number;
@@ -42,6 +43,7 @@ const scoreToneStyles = {
 
 export function ExerciseSetResultCard({
   body,
+  bodyMaxWidth,
   imageSource,
   language,
   score,
@@ -101,7 +103,9 @@ export function ExerciseSetResultCard({
           </AppText>
         </View>
 
-        <AppText language={language} style={styles.body}>
+        <AppText
+          language={language}
+          style={[styles.body, bodyMaxWidth ? { maxWidth: bodyMaxWidth } : null]}>
           {body}
         </AppText>
       </View>

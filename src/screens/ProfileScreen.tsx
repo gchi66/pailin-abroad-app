@@ -335,7 +335,7 @@ export function ProfileScreen() {
                       <Button
                         insetBorder
                         language={uiLanguage}
-                        title={uiLanguage === 'en' ? 'CREATE\u00A0\u00A0FREE\u00A0\u00A0ACCOUNT' : copy.guestCta}
+                        title={uiLanguage === 'en' ? 'CREATE FREE ACCOUNT' : copy.guestCta}
                         onPress={() => router.push('/account/auth')}
                         style={styles.guestButton}
                         textStyle={styles.guestButtonText}
@@ -541,13 +541,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   guestButtonText: {
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
-    letterSpacing: 0.4,
+    ...theme.typography.buttonLabel,
     includeFontPadding: false,
     textTransform: 'uppercase',
-    transform: [{ translateY: 2 }],
   },
   guestButtonWrap: {
     position: 'relative',

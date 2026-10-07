@@ -3052,10 +3052,7 @@ const styles = StyleSheet.create({
   welcomeStartIcon: { width: 17, height: 17 },
   welcomeStartLabel: {
     color: theme.colors.surface,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: theme.typography.weights.medium,
-    letterSpacing: 0.3,
+    ...theme.typography.buttonLabel,
   },
   setCompletionScroll: { flex: 1 },
   setCompletionContent: {
@@ -3142,10 +3139,7 @@ const styles = StyleSheet.create({
   setCompletionButtonSpacer: { flexGrow: 1, minHeight: 36 },
   setCompletionButtonLabel: {
     color: theme.colors.surface,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: theme.typography.weights.medium,
-    letterSpacing: 0.2,
+    ...theme.typography.buttonLabel,
   },
   setCompletionButtonIcon: { width: 16, height: 16 },
   speakingExperience: { flex: 1 },
@@ -3441,7 +3435,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '4px 4px 0px #14213B',
   },
-  pronunciationContinueLabel: { color: theme.colors.surface, fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.medium },
+  pronunciationContinueLabel: { color: theme.colors.surface, ...theme.typography.buttonLabel },
   conversationPromptCard: {
     width: '100%',
     minHeight: 142,
@@ -3644,9 +3638,7 @@ const styles = StyleSheet.create({
   conversationResultButtonPressed: { opacity: 0.86 },
   conversationResultButtonLabel: {
     color: practiceColors.text,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: theme.typography.weights.bold,
+    ...theme.typography.buttonLabel,
   },
   conversationResultSkipButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 2 },
   conversationResultSkipLabel: {

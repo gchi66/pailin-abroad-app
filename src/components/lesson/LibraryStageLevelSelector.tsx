@@ -31,7 +31,10 @@ export function LibraryStageLevelSelector({
   const collapsible = stageOpen !== undefined && Boolean(onToggleStage);
 
   return (
-    <View style={[collapsible ? styles.compactNavigationShadow : styles.navigationShadow, bottomMargin === undefined ? null : { marginBottom: bottomMargin }]}>
+    <View style={[
+      collapsible ? styles.compactNavigationShadow : styles.navigationShadow,
+      bottomMargin === undefined ? null : { marginBottom: bottomMargin },
+    ]}>
       <View style={collapsible ? styles.compactNavigation : styles.navigation}>
         {!collapsible ? (
           <View style={styles.stages}>
@@ -41,11 +44,14 @@ export function LibraryStageLevelSelector({
                 accessibilityRole="button"
                 accessibilityState={{ selected: value === stage }}
                 onPress={() => onSelectStage(value)}
-                style={[styles.stageTouch, index > 0 ? styles.stageDivider : null, value === stage ? styles.activeStage : null]}>
+                style={[styles.stageTouch, value === stage ? styles.activeStage : null]}>
+                {index > 0 ? <View pointerEvents="none" style={styles.stageDivider} /> : null}
                 <AppText
                   language={language}
                   variant="caption"
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
                   style={[styles.stageName, value === stage ? styles.activeStageText : null]}>
                   {stageLabel(value)}
                 </AppText>
@@ -91,14 +97,14 @@ export function LibraryStageLevelSelector({
 }
 
 const styles = StyleSheet.create({
-  navigationShadow: { alignSelf: 'stretch', backgroundColor: '#222222', borderRadius: 12, marginBottom: 24, marginRight: -2, marginLeft: 2 },
-  navigation: { transform: [{ translateX: -2 }, { translateY: -2 }], borderWidth: 1.5, borderColor: '#222222', borderRadius: 12, backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  navigationShadow: { alignSelf: 'stretch', borderRadius: 8, marginBottom: 24, boxShadow: '2px 3px 0px #222222' },
+  navigation: { borderWidth: 1.5, borderColor: '#222222', borderRadius: 8, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   compactNavigationShadow: { alignSelf: 'stretch', backgroundColor: '#222222', borderRadius: 10, marginBottom: 24, marginRight: -3, marginLeft: 3 },
   compactNavigation: { transform: [{ translateX: -3 }, { translateY: -3 }], borderWidth: theme.borderWidths.primaryCard, borderColor: '#222222', borderRadius: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   stages: { minHeight: 40, flexDirection: 'row', alignItems: 'stretch' },
   stageTouch: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
-  stageDivider: { borderLeftWidth: 1, borderLeftColor: '#222222' },
-  stageName: { fontSize: 11, lineHeight: 16, letterSpacing: 0.3, textAlign: 'center', textTransform: 'uppercase' },
+  stageDivider: { position: 'absolute', left: 0, top: -2, bottom: -2, width: 1.5, backgroundColor: '#222222', zIndex: 1 },
+  stageName: { width: '100%', fontSize: 11, lineHeight: 16, letterSpacing: 0.3, textAlign: 'center', textTransform: 'uppercase' },
   activeStage: { backgroundColor: '#B7E8F8' },
   activeStageText: { fontWeight: theme.typography.weights.bold },
   stageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, minHeight: 27 },

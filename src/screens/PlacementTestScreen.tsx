@@ -317,14 +317,14 @@ export function PlacementTestScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <ScrollView
         bounces={false}
         contentContainerStyle={[
           styles.content,
+          hasStartedAudio && resultLevel === null ? styles.activeTestContent : null,
           !hasStartedAudio && resultLevel === null ? styles.listeningContent : null,
           isCalculating || resultLevel !== null ? styles.outcomeContent : null,
-          { paddingTop: insets.top + theme.spacing.md },
         ]}
         showsVerticalScrollIndicator={false}>
         <ResponsivePageShell style={styles.pageShell}>
@@ -623,7 +623,13 @@ export function PlacementTestScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { flexGrow: 1, paddingHorizontal: 12, paddingBottom: theme.spacing.xl },
+  content: {
+    flexGrow: 1,
+    paddingTop: theme.spacing.md,
+    paddingHorizontal: 12,
+    paddingBottom: theme.spacing.xl,
+  },
+  activeTestContent: { paddingBottom: 52 },
   listeningContent: { justifyContent: 'center' },
   outcomeContent: { justifyContent: 'center' },
   pageShell: { width: '100%' },

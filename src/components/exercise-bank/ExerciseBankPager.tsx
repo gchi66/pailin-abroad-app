@@ -8,6 +8,10 @@ import { AppText } from '@/src/components/ui/AppText';
 import { BackAction } from '@/src/components/ui/BackAction';
 import { containsThaiGlyphs } from '@/src/lib/script-aware-text';
 import { Button } from '@/src/components/ui/Button';
+import {
+  practicePresentation,
+  PracticeJudgmentButtons,
+} from '@/src/components/practice/PracticeExerciseUI';
 import { Stack } from '@/src/components/ui/Stack';
 import { theme } from '@/src/theme/theme';
 import { ExerciseBankExercise } from '@/src/types/exercise-bank';
@@ -1309,7 +1313,7 @@ function renderExerciseBody(params: {
                 <AppText language="en" variant="caption" style={styles.questionNumber}>
                   {item.numberLabel || `${itemIndex + 1}`}
                 </AppText>
-                <View style={styles.questionTextWrap}>
+                <View style={[styles.questionTextWrap, styles.multipleChoiceQuestionTextWrap]}>
                   {item.text ? (
                     <AppText language="en" variant="body" style={styles.questionText}>
                       {renderTextWithBlankRuns(item.text, `${selectionKey}-question`, 9)}
@@ -1430,26 +1434,14 @@ function renderExerciseBody(params: {
                     </AppText>
                   ) : null}
                   {showMarkButtons ? (
-                    <View style={styles.sentenceToggleRow}>
-                      <Pressable
-                        accessibilityRole="button"
-                        disabled={item.isExample}
-                        onPress={() => onSentenceCorrectToggle(exercise.id, item.key, true, item.text)}
-                        style={[styles.sentenceToggle, displayMarkState === true ? styles.sentenceToggleActive : null]}>
-                        <AppText language="en" variant="caption" style={styles.sentenceToggleText}>
-                          ✓
-                        </AppText>
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        disabled={item.isExample}
-                        onPress={() => onSentenceCorrectToggle(exercise.id, item.key, false, item.text)}
-                        style={[styles.sentenceToggle, displayMarkState === false ? styles.sentenceToggleActive : null]}>
-                        <AppText language="en" variant="caption" style={styles.sentenceToggleText}>
-                          X
-                        </AppText>
-                      </Pressable>
-                    </View>
+                    <PracticeJudgmentButtons
+                      correctLabel="IT’S CORRECT"
+                      disabled={item.isExample}
+                      incorrectLabel="IT’S INCORRECT"
+                      language="en"
+                      value={displayMarkState ?? undefined}
+                      onChange={(value) => onSentenceCorrectToggle(exercise.id, item.key, value, item.text)}
+                    />
                   ) : null}
                 </View>
               </View>
@@ -1845,10 +1837,12 @@ const styles = StyleSheet.create({
   },
   questionTextWrap: {
     flex: 1,
-    gap: 2,
+    gap: practicePresentation.promptTranslationGap,
   },
+  multipleChoiceQuestionTextWrap: { gap: practicePresentation.multipleChoiceTranslationGap },
   questionText: {
-    color: theme.colors.text,
+    ...practicePresentation.prompt,
+    fontFamily: theme.typography.fontFaces.en.bold,
   },
   inlineBlank: {
     color: 'transparent',
@@ -1856,7 +1850,7 @@ const styles = StyleSheet.create({
     textDecorationColor: theme.colors.text,
   },
   questionThaiText: {
-    color: theme.colors.mutedText,
+    ...practicePresentation.translation,
   },
   optionButton: {
     flexDirection: 'row',
@@ -1908,13 +1902,13 @@ const styles = StyleSheet.create({
   },
   optionTextWrap: {
     flex: 1,
-    gap: theme.spacing.xs,
+    gap: practicePresentation.promptTranslationGap,
   },
   optionText: {
-    color: theme.colors.text,
+    ...practicePresentation.option,
   },
   optionThaiText: {
-    color: theme.colors.mutedText,
+    ...practicePresentation.optionTranslation,
   },
   feedbackBox: {
     borderWidth: 1,
@@ -1942,9 +1936,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 10,
-    color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    ...practicePresentation.responseInput,
   },
   openInputEnglish: {
     fontFamily: theme.typography.fontFaces.en.regular,
@@ -2012,21 +2004,19 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFaces.th.regular,
   },
   fillBlankText: {
-    color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    ...practicePresentation.fillBlankPrompt,
   },
   fillBlankInput: {
-    minHeight: 32,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
+    minHeight: 40,
+    borderWidth: 1.1,
+    borderColor: '#000000',
+    borderRadius: 12,
     backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 0,
     color: theme.colors.text,
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
+    fontSize: 18,
+    fontWeight: theme.typography.weights.regular,
     textAlign: 'center',
   },
   fillBlankInputEnglish: {

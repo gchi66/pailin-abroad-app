@@ -13,8 +13,8 @@ The curriculum parser, importer, Supabase foundation, backend vertical slice, an
 - The current Level 1 speaking curriculum has been imported and verified in the live database: 33 active practice sets, 81 active questions, and 259 ordered focus items match the parsed JSON without field or relationship mismatches.
 - The speaking-coach curriculum, session, attempt, and `user_speaking_coach_skips` progress tables described below exist in the live Supabase database.
 - The private `speaking-coach-audio` Storage bucket exists.
-- The public `speaking-coach-prompts` Storage bucket contains the 13 prerecorded prompt audio files for test Lessons 4.1 and 4.9.
-- Imported pronunciation and open-speaking questions have deterministic `prompt_audio_key` values. Translation questions intentionally store `null` because Thai-to-English prompts do not use Pailin audio. Every referenced public prompt URL has been verified reachable.
+- The public `speaking-coach-prompts` Storage bucket contains the prerecorded prompt audio files.
+- All imported speaking questions have deterministic `prompt_audio_key` values. For Thai-to-English questions, the recording contains the first accepted English answer and powers the `HEAR PAILIN` control after an incorrect first attempt. Every active translation question's referenced public prompt URL has been verified reachable.
 - The backend exposes authenticated learner-facing lesson content at `GET /api/speaking/lessons/{lesson_external_id}`. It returns ordered practice sets, prompts, tips, examples, progress positions, and public prompt-audio URLs without querying or exposing private `FOCUS` or target-answer fields.
 - The profile screen includes an admin-only `Open speaking coach preview` button immediately below the placement-test trigger. It opens the barebones speaking-coach test route for Lesson 4.1.
 - The React Native test route discovers every active speaking lesson through an admin-only catalog, provides lightweight level and lesson selectors, renders all three practice types and evaluation states, plays Pailin audio when available, and records, uploads, and replays learner audio.
@@ -898,7 +898,7 @@ Thai-to-English reuses the same progress dots, aligned Pailin character states, 
 - The prompt card displays the authored Thai sentence and a gold `#C4A807` `Thai → English` direction pill.
 - The blue neobrutalist recording panel uses the same example-answer disclosure and white inset answer box as Conversation Practice.
 - The `Tap to speak`/microphone group is vertically centered in the recording panel. On the second-attempt prompt, it shifts upward to make room for the `HEAR PAILIN` reference-audio pill.
-- Translation imports currently leave `prompt_audio_key` empty, so `HEAR PAILIN` is visibly disabled until prerecorded English answer audio is added; the app does not synthesize a replacement voice.
+- Translation imports use the prerecorded English answer at the question's overall lesson position, so `HEAR PAILIN` is enabled after an incorrect first attempt. The app does not synthesize a replacement voice.
 - For temporary checker testing, the admin preview requests a single `test_answer_en` and displays it directly beneath the Thai prompt. The API only supplies this field to authenticated admins who explicitly request it; normal learner lesson responses continue to omit answers.
 - Bookmark controls are omitted.
 - Evaluated responses use the same separate learner-answer card and green/red/yellow bottom result panels as Conversation Practice. The learner-answer card includes playback and Azure's recognized transcript when available.
@@ -1056,7 +1056,7 @@ The current test content contains one sequentially numbered MP3 per question acr
 4.9_speaking_1.mp3 through 4.9_speaking_7.mp3
 ```
 
-The number follows the question's overall order within the lesson and does not restart when `PRACTICE_TYPE` changes. Store the corresponding object key in `speaking_coach_questions.prompt_audio_key` for pronunciation and open-speaking questions. Translation questions store `null` and do not play Pailin audio; any matching uploaded file is unused. The application may play referenced files using stable public Storage URLs.
+The number follows the question's overall order within the lesson and does not restart when `PRACTICE_TYPE` changes. Store the corresponding object key in `speaking_coach_questions.prompt_audio_key` for every question. For translation questions, the recording contains the first accepted English answer and is exposed through `HEAR PAILIN` after the learner's first incorrect attempt. The application may play referenced files using stable public Storage URLs.
 
 Audio meaning depends on practice type:
 

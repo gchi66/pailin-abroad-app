@@ -89,5 +89,11 @@ export const theme = {
       lg: 30,
       xl: 42,
     },
+
+    buttonLabel: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+    },
   },
 } as const;

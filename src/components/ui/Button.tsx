@@ -153,9 +153,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   label: {
-    fontSize: theme.typography.sizes.md,
-    lineHeight: theme.typography.lineHeights.md,
-    fontWeight: theme.typography.weights.semibold,
+    ...theme.typography.buttonLabel,
     textAlign: 'center',
   },
   pressed: {

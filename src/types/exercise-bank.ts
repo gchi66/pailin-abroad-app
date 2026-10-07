@@ -69,6 +69,7 @@ export type ExerciseBankV2QuestionContent = {
   example_answer?: string;
   example_is_correct?: boolean;
   example_correct_option?: string;
+  stem_runs?: { text?: string | null; bold?: boolean | null; underline?: boolean | null }[];
   [key: string]: unknown;
 };
 

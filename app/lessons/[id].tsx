@@ -5,7 +5,6 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   Alert,
-  InteractionManager,
   Keyboard,
   Linking,
   Modal,
@@ -72,6 +71,8 @@ import {
   FillBlankExampleSentence,
   practiceColors,
   practiceNeoShadowStyle,
+  practicePresentation,
+  PracticeJudgmentButtons,
   PracticeSectionLabel,
   PracticeSurface,
   PracticeAnswerFooter,
@@ -103,6 +104,7 @@ import {
   parseAppCardKey,
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
+import { markGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
 import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
   getLessonContentLanguage,
@@ -118,6 +120,7 @@ import comprehensionProgressImage from '@/assets/images/pailin-extra-tips.webp';
 import comprehensionPracticeImage from '@/assets/images/pailin-common-mistakes.webp';
 import lockWhiteImage from '@/assets/images/lock-white.png';
 import tryAgainImage from '@/assets/images/try-again.png';
+import celebrateWhiteImage from '@/assets/images/speaking-coach/celebrate-white.png';
 import transcriptLeftAvatar from '@/assets/images/characters/pailin-blue-right.png';
 import transcriptRightAvatar from '@/assets/images/characters/chloe-friend-blue-left.png';
 import listenLeftAvatar from '@/assets/images/characters/pailin_blue_circle.webp';
@@ -2649,7 +2652,8 @@ const renderTranslationMultilineWithBlankRuns = (
   text: string,
   keyPrefix: string,
   blankStyle: object,
-  focused = false
+  focused = false,
+  standaloneThai = false
 ) =>
   String(text)
     .split('\n')
@@ -2658,7 +2662,14 @@ const renderTranslationMultilineWithBlankRuns = (
         <Text
           key={`${keyPrefix}-line-${lineIndex}`}
           style={THAI_TEXT_RE.test(line)
-            ? styles.practiceLocalizedThaiLine
+            ? standaloneThai
+              ? {
+                  color: theme.colors.text,
+                  fontFamily: theme.typography.fontFaces.th.regular,
+                  fontSize: focused ? 20 : 14.5,
+                  lineHeight: focused ? 28 : 21,
+                }
+              : styles.practiceLocalizedThaiLine
             : [styles.practiceLocalizedEnglishLine, focused ? styles.practiceFocusedPromptText : null]}>
           {renderTextWithBlankRuns(line, `${keyPrefix}-line-${lineIndex}`, blankStyle, focused ? 9 : 3)}
         </Text>
@@ -2685,6 +2696,8 @@ const getRichInlineSegmentStyle = (
     manualFontScale?: number;
     englishFontSize?: number;
     englishLineHeight?: number;
+    primaryThaiFontSize?: number;
+    primaryThaiLineHeight?: number;
   }
 ) => [
   styles.richInlineText,
@@ -2717,6 +2730,9 @@ const getRichInlineSegmentStyle = (
   scriptLanguage === 'en' && !options?.muted && options?.englishFontSize
     ? { fontSize: options.englishFontSize, lineHeight: options.englishLineHeight }
     : null,
+  scriptLanguage === 'th' && !options?.muted && options?.primaryThaiFontSize
+    ? { fontSize: options.primaryThaiFontSize, lineHeight: options.primaryThaiLineHeight }
+    : null,
   options?.extraStyle ?? null,
   // Punctuation has no Thai glyph, so emphasis color follows the translation line.
   options?.audioCard && inline.underline
@@ -2743,6 +2759,8 @@ const renderRichTextScriptSegments = (
     manualFontScale?: number;
     englishFontSize?: number;
     englishLineHeight?: number;
+    primaryThaiFontSize?: number;
+    primaryThaiLineHeight?: number;
   }
 ) =>
   splitTextByScript(text).map((segment, segmentIndex) => (
@@ -2867,6 +2885,9 @@ const getNodeHeadingText = (node: LessonRichNode, contentLang: UiLanguage) => {
 
 const THAI_TEXT_RE = /[\u0E00-\u0E7F]/;
 const THAI_TRANSLATION_TEXT_COLOR = '#8C8D93';
+const startsWithThaiText = (value: string) => /^\s*[\u0E00-\u0E7F]/.test(value);
+const isStandaloneThaiText = (value: string) =>
+  startsWithThaiText(value) && !/[A-Za-z]/.test(value);
 
 const getApplyNodeText = (node: LessonRichNode, contentLang: UiLanguage) => {
   const inlineText = Array.isArray(node.inlines)
@@ -3695,7 +3716,8 @@ export default function LessonDetailShellScreen() {
     params.libraryRoute === 'library' || params.libraryRoute === 'free-library' ? params.libraryRoute : null;
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership, profile, user } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode, profile, user } = useAppSession();
+  const isGuestLessonSession = isGuestMode && !hasAccount;
   const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
   const isTabletLessonLayout = windowWidth >= 768;
   const insets = useSafeAreaInsets();
@@ -4831,6 +4853,17 @@ export default function LessonDetailShellScreen() {
     !isListenPage && (isComprehensionTab || isTranscriptTab || isApplyTab);
   const usesPrepareFooterLayout =
     !isListenPage && !usesDetachedAudioFooter && !isPracticeFooterActive;
+  const lessonFooterLayoutKey = isListenPage
+    ? 'listen'
+    : isPrepareTab
+      ? 'prepare'
+      : usesDetachedAudioFooter
+        ? 'detached-audio'
+        : isPracticeFooterActive
+          ? 'practice'
+          : isPhrasesFooterActive
+            ? 'phrases'
+            : 'standard';
   const iosLessonBodyManualFontScale =
     Platform.OS === 'ios' &&
     fontScale >= IOS_BROKEN_LESSON_FONT_SCALE_MIN &&
@@ -5352,6 +5385,7 @@ export default function LessonDetailShellScreen() {
   const finishConversationIntroTransition = useCallback(
     (targetIndex: number, shouldExpandTray: boolean) => {
       const clampedTargetIndex = Math.max(0, Math.min(targetIndex, Math.max(0, sectionCount - 1)));
+      setActiveSectionIndex(clampedTargetIndex);
       setIsConversationIntroVisible(false);
       setIsConversationIntroAnimatingOut(false);
       setConversationIntroPendingSectionIndex(null);
@@ -5359,14 +5393,12 @@ export default function LessonDetailShellScreen() {
       conversationIntroScale.value = 1;
       conversationIntroOpacity.value = 1;
 
-      InteractionManager.runAfterInteractions(() => {
-        setActiveSectionIndex(clampedTargetIndex);
-
-        if (shouldExpandTray) {
+      if (shouldExpandTray) {
+        requestAnimationFrame(() => {
           audioTrayExpandCounterRef.current += 1;
           setAudioTrayAutoExpandSignal(`conversation-intro-${audioTrayExpandCounterRef.current}`);
-        }
-      });
+        });
+      }
     },
     [conversationIntroOpacity, conversationIntroScale, conversationIntroTranslateY, sectionCount]
   );
@@ -5425,6 +5457,53 @@ export default function LessonDetailShellScreen() {
     sectionCount,
     shouldOpenConversationIntroForIndex,
   ]);
+  const navigateBackToSectionContent = useCallback((targetIndex: number) => {
+    const clampedTargetIndex = Math.max(0, Math.min(targetIndex, Math.max(0, sectionCount - 1)));
+    const targetTab = lessonTabs[clampedTargetIndex];
+
+    if (targetTab && LESSON_SECTION_INTRO_TYPES.has(targetTab.type as LessonSectionIntroType)) {
+      setDismissedSectionIntros((previous) => ({ ...previous, [targetTab.id]: true }));
+    }
+
+    navigateToSectionWithConversationGate(clampedTargetIndex);
+  }, [lessonTabs, navigateToSectionWithConversationGate, sectionCount]);
+  const navigateToPreviousLessonStep = useCallback(() => {
+    if (isListenPage) {
+      if (prepareSectionIndex < 0) {
+        return false;
+      }
+
+      const prepareTab = lessonTabs[prepareSectionIndex];
+      if (prepareTab) {
+        setDismissedSectionIntros((previous) => ({ ...previous, [prepareTab.id]: true }));
+      }
+      finishConversationIntroTransition(prepareSectionIndex, false);
+      return true;
+    }
+
+    const firstSectionAfterListen = Math.max(0, prepareSectionIndex + 1);
+    if (hasListenStep && activeSectionIndex === firstSectionAfterListen) {
+      setDismissedSectionIntros((previous) => ({ ...previous, listen: true }));
+      openConversationIntro(activeSectionIndex);
+      return true;
+    }
+
+    if (activeSectionIndex > 0) {
+      navigateBackToSectionContent(activeSectionIndex - 1);
+      return true;
+    }
+
+    return false;
+  }, [
+    activeSectionIndex,
+    finishConversationIntroTransition,
+    hasListenStep,
+    isListenPage,
+    lessonTabs,
+    navigateBackToSectionContent,
+    openConversationIntro,
+    prepareSectionIndex,
+  ]);
   const canSwipeToPreviousSection = hasStartedLesson && activeSectionIndex > 0;
   const canSwipeToNextVisitedSection =
     hasStartedLesson && activeSectionIndex < Math.min(maxVisitedSectionIndex, Math.max(0, sectionCount - 1));
@@ -5445,7 +5524,7 @@ export default function LessonDetailShellScreen() {
       }
 
       if (movingRight && canSwipeToPreviousSection) {
-        navigateToSectionWithConversationGate(Math.max(activeSectionIndex - 1, 0));
+        navigateToPreviousLessonStep();
       }
     },
     [
@@ -5455,6 +5534,7 @@ export default function LessonDetailShellScreen() {
       isInnerPagerTab,
       isPhrasesTab,
       maxVisitedSectionIndex,
+      navigateToPreviousLessonStep,
       navigateToSectionWithConversationGate,
       sectionCount,
     ]
@@ -5665,6 +5745,8 @@ export default function LessonDetailShellScreen() {
   const continueButtonLabel = pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE';
   const isLastPhraseCard =
     isPhrasesFooterActive && !showPhraseList && activePhraseIndex >= normalizedLessonPhrases.length - 1;
+  const isCheckpointPhrasesFinishAction =
+    isCheckpointCoverLesson && isPhrasesFooterActive && isLastSection;
   const hasMoreRichPagerCards = !isListenPage && isRichPagerTab && !isLastPagerCard;
   const shouldShowFooterCta = !hasMoreRichPagerCards;
   const isFinalPracticeQuestion =
@@ -5766,29 +5848,13 @@ export default function LessonDetailShellScreen() {
     snippetSoundRef.current?.pause();
     setPlayingSnippetKey(null);
 
-    if (isListenPage) {
-      if (prepareSectionIndex >= 0) {
-        finishConversationIntroTransition(prepareSectionIndex, false);
-      } else {
-        setIsConversationIntroVisible(false);
-        setIsConversationIntroAnimatingOut(false);
-        setConversationIntroPendingSectionIndex(null);
-        setShowOverview(true);
-      }
+    if (navigateToPreviousLessonStep()) {
       return;
     }
 
-    const firstSectionAfterListen = Math.max(0, prepareSectionIndex + 1);
-    if (hasListenStep && activeSectionIndex === firstSectionAfterListen) {
-      openConversationIntro(activeSectionIndex);
-      return;
-    }
-
-    if (activeSectionIndex > 0) {
-      navigateToSectionWithConversationGate(activeSectionIndex - 1);
-      return;
-    }
-
+    setIsConversationIntroVisible(false);
+    setIsConversationIntroAnimatingOut(false);
+    setConversationIntroPendingSectionIndex(null);
     setShowOverview(true);
   };
 
@@ -6451,7 +6517,33 @@ export default function LessonDetailShellScreen() {
     }
   }, [flushPendingLessonPersistence, isLessonCompleted, lessonCover?.id, openLessonCompletePage, pageCopy.completionSavedError]);
 
+  const completeGuestLesson = useCallback(async () => {
+    if (!lessonCover?.id) return;
+
+    setIsSavingLessonCompletion(true);
+    setLessonCompletionError(null);
+
+    try {
+      await markGuestLessonCompleted(lessonCover.id);
+    } catch (error) {
+      console.warn('[guest-lesson-completion] local save failed', {
+        lessonId: lessonCover.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsSavingLessonCompletion(false);
+    }
+
+    setIsLessonCompleted(true);
+    openLessonCompletePage();
+  }, [lessonCover?.id, openLessonCompletePage]);
+
   const handleFinishLessonPress = useCallback(async () => {
+    if (isGuestLessonSession) {
+      await completeGuestLesson();
+      return;
+    }
+
     await flushPendingLessonPersistence();
 
     if (isLessonCompleted) {
@@ -6478,8 +6570,10 @@ export default function LessonDetailShellScreen() {
     activeLessonNumber,
     allPracticeExercisesChecked,
     completeLesson,
+    completeGuestLesson,
     completedSpeakingLessonIds,
     flushPendingLessonPersistence,
+    isGuestLessonSession,
     isLessonCompleted,
     isCheckpointCoverLesson,
     openLessonCompletePage,
@@ -9150,6 +9244,8 @@ export default function LessonDetailShellScreen() {
       manualFontScale?: number;
       englishFontSize?: number;
       englishLineHeight?: number;
+      primaryThaiFontSize?: number;
+      primaryThaiLineHeight?: number;
     }
   ) => {
     const mergedInlines = mergeAdjacentRichInlines(inlines, contentLang);
@@ -9208,6 +9304,8 @@ export default function LessonDetailShellScreen() {
             manualFontScale: options?.manualFontScale,
             englishFontSize: options?.englishFontSize,
             englishLineHeight: options?.englishLineHeight,
+            primaryThaiFontSize: options?.primaryThaiFontSize,
+            primaryThaiLineHeight: options?.primaryThaiLineHeight,
           });
         }
 
@@ -11939,6 +12037,8 @@ const mergeAdjacentPracticeRowTokens = (
               const orderedContentText = item.orderedContent
                 ? textJsonbToString(orderedPracticeContentToInlines(item.orderedContent))
                 : '';
+              const isStandaloneThaiOrderedQuestion =
+                contentLang === 'th' && isStandaloneThaiText(orderedContentText);
               const itemImageUrl = resolveLessonImageUrl(item.imageKey ? lesson?.images?.[item.imageKey] : null, item.imageKey);
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
@@ -12038,7 +12138,8 @@ const mergeAdjacentPracticeRowTokens = (
                             orderedContentText,
                             `${selectionKey}-ordered-question-with-blank`,
                             styles.practiceInlineBlank,
-                            isFocusedPracticeSession
+                            isFocusedPracticeSession,
+                            isStandaloneThaiOrderedQuestion
                           )}
                         </AppText>
                       ) : item.orderedContent ? (
@@ -12054,7 +12155,13 @@ const mergeAdjacentPracticeRowTokens = (
                           {renderRichInlines(
                             orderedPracticeContentToInlines(item.orderedContent),
                             `${selectionKey}-ordered-question`,
-                            orderedQuestionTextOptions
+                            isStandaloneThaiOrderedQuestion
+                              ? {
+                                  enableHighlights: true,
+                                  primaryThaiFontSize: isFocusedPracticeSession ? 20 : 14.5,
+                                  primaryThaiLineHeight: isFocusedPracticeSession ? 28 : 21,
+                                }
+                              : orderedQuestionTextOptions
                           )}
                         </AppText>
                       ) : localizedMultilineText ? (
@@ -12072,7 +12179,8 @@ const mergeAdjacentPracticeRowTokens = (
                             localizedMultilineText,
                             `${selectionKey}-localized-multiline`,
                             styles.practiceInlineBlank,
-                            isFocusedPracticeSession
+                            isFocusedPracticeSession,
+                            isStandaloneThaiText(localizedMultilineText)
                           )}
                         </AppText>
                       ) : abPromptLayout ? (
@@ -12824,36 +12932,27 @@ const mergeAdjacentPracticeRowTokens = (
                     ) : null}
                   </View>
 
-                  {showMarkButtons ? (
-                    <View style={[
-                      styles.practiceSentenceToggleRow,
-                      isFocusedPracticeSession ? styles.practiceSentenceToggleFocusedRow : null,
-                    ]}>
+                  {showMarkButtons ? isFocusedPracticeSession ? (
+                    <PracticeJudgmentButtons
+                      correctLabel="IT’S CORRECT"
+                      incorrectLabel="IT’S INCORRECT"
+                      language="en"
+                      value={displayMarkState ?? undefined}
+                      onChange={(value) => handlePracticeSentenceCorrectToggle(exercise.id, item.key, value, item.text)}
+                    />
+                  ) : (
+                    <View style={styles.practiceSentenceToggleRow}>
                       <Pressable
                         accessibilityRole="button"
                         onPress={() => handlePracticeSentenceCorrectToggle(exercise.id, item.key, true, item.text)}
-                        style={[
-                          styles.practiceSentenceToggle,
-                          isFocusedPracticeSession ? styles.practiceSentenceToggleFocused : null,
-                          displayMarkState === true ? styles.practiceSentenceToggleActive : null,
-                          isFocusedPracticeSession && displayMarkState === true ? styles.practiceSentenceToggleFocusedActive : null,
-                        ]}>
-                        <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                          {isFocusedPracticeSession ? 'IT’S CORRECT  ✓' : '✓'}
-                        </AppText>
+                        style={[styles.practiceSentenceToggle, displayMarkState === true ? styles.practiceSentenceToggleActive : null]}>
+                        <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>✓</AppText>
                       </Pressable>
                       <Pressable
                         accessibilityRole="button"
                         onPress={() => handlePracticeSentenceCorrectToggle(exercise.id, item.key, false, item.text)}
-                        style={[
-                          styles.practiceSentenceToggle,
-                          isFocusedPracticeSession ? styles.practiceSentenceToggleFocused : null,
-                          displayMarkState === false ? styles.practiceSentenceToggleActive : null,
-                          isFocusedPracticeSession && displayMarkState === false ? styles.practiceSentenceToggleFocusedActive : null,
-                        ]}>
-                        <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                          {isFocusedPracticeSession ? 'IT’S INCORRECT  X' : 'X'}
-                        </AppText>
+                        style={[styles.practiceSentenceToggle, displayMarkState === false ? styles.practiceSentenceToggleActive : null]}>
+                        <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>X</AppText>
                       </Pressable>
                     </View>
                   ) : null}
@@ -14706,6 +14805,7 @@ const mergeAdjacentPracticeRowTokens = (
                             <View style={[styles.comprehensionResult, styles.comprehensionScoreResult]}>
                               <ExerciseSetResultCard
                                 body={resultBody}
+                                bodyMaxWidth={pageLanguage === 'th' ? 250 : undefined}
                                 imageSource={resultImage}
                                 language={pageLanguage}
                                 score={comprehensionFirstAttemptScore}
@@ -15277,6 +15377,7 @@ const mergeAdjacentPracticeRowTokens = (
                   ) : null}
 
                   <View
+                    key={lessonFooterLayoutKey}
                     pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
                     onLayout={
                       usesDetachedAudioFooter
@@ -15585,7 +15686,10 @@ const mergeAdjacentPracticeRowTokens = (
                           styles.ctaButton,
                           styles.ctaNextButton,
                           styles.ctaNextButtonFull,
-                          isPhrasesFooterActive && !isLastPhraseCard ? styles.phraseSkipButton : null,
+                          isCheckpointPhrasesFinishAction ? styles.checkpointFinishLessonButton : null,
+                          isPhrasesFooterActive && !isLastPhraseCard && !isCheckpointPhrasesFinishAction
+                            ? styles.phraseSkipButton
+                            : null,
                           isComprehensionFooterActive && showComprehensionResults
                             ? styles.comprehensionResultActionButton
                             : null,
@@ -15618,14 +15722,21 @@ const mergeAdjacentPracticeRowTokens = (
                           variant="caption"
                           style={[
                             styles.ctaNextButtonText,
-                            isPhrasesFooterActive && !isLastPhraseCard ? styles.phraseSkipButtonText : null,
+                            isCheckpointPhrasesFinishAction
+                              ? styles.checkpointFinishLessonButtonText
+                              : null,
+                            isPhrasesFooterActive && !isLastPhraseCard && !isCheckpointPhrasesFinishAction
+                              ? styles.phraseSkipButtonText
+                              : null,
                           ]}>
                           {isSavingLessonCompletion
                             ? pageCopy.practiceChecking
                             : isPrepareTab || isListenPage || isTranscriptTab || isApplyTab
                               ? nextSectionButtonLabel
                               : isPhrasesFooterActive
-                                ? nextSectionButtonLabel
+                                ? isCheckpointPhrasesFinishAction && pageLanguage !== 'th'
+                                  ? 'FINISH LESSON'
+                                  : nextSectionButtonLabel
                               : isRichPagerTab
                                 ? hasMoreRichPagerCards ? continueButtonLabel : nextSectionButtonLabel
                               : isComprehensionFooterActive
@@ -15640,7 +15751,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 ? showPracticeSetResults
                                   ? extraPracticeOrder !== null && extraPracticeBatchIndex < extraPracticeBatchCount - 1
                                     ? continueButtonLabel
-                                    : isCheckpointCoverLesson
+                                    : isCheckpointCoverLesson || (isGuestLessonSession && isLastSection)
                                       ? pageCopy.finishLesson
                                       : nextSectionButtonLabel
                                 : isCurrentPracticeChecking
@@ -15654,6 +15765,13 @@ const mergeAdjacentPracticeRowTokens = (
                                     : (pageLanguage === 'th' ? 'ตรวจคำตอบ' : 'CHECK ANSWER')
                               : nextSectionButtonLabel}
                         </AppText>
+                        {isCheckpointPhrasesFinishAction ? (
+                          <Image
+                            source={celebrateWhiteImage}
+                            contentFit="contain"
+                            style={styles.checkpointFinishLessonIcon}
+                          />
+                        ) : null}
                       </Pressable>
                       ) : null}
                       {isPracticeFooterActive && !showPracticeSetResults && activePracticeExercise && activePracticeQuestion &&
@@ -18251,16 +18369,11 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
   },
   practiceFocusedPromptText: {
-    color: theme.colors.text,
-    fontSize: 20,
-    lineHeight: 28,
+    ...practicePresentation.prompt,
     fontFamily: theme.typography.fontFaces.en.bold,
-    fontWeight: theme.typography.weights.bold,
   },
   practiceFocusedFillBlankText: {
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: theme.typography.weights.bold,
+    ...practicePresentation.fillBlankPrompt,
   },
   practiceFocusedFillBlankInput: {
     fontSize: 18,
@@ -18476,7 +18589,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   practiceMultipleChoiceQuestionTextWrap: {
-    gap: theme.spacing.sm,
+    gap: practicePresentation.multipleChoiceTranslationGap,
   },
   comprehensionQuestionTextWrap: {
     flex: 1,
@@ -18552,7 +18665,7 @@ const styles = StyleSheet.create({
   practiceQuestionTextWrap: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: practicePresentation.promptTranslationGap,
   },
   practiceQuestionTextWrapCompactCentered: {
     width: '100%',
@@ -18631,7 +18744,7 @@ const styles = StyleSheet.create({
     lineHeight: theme.typography.lineHeights.sm,
   },
   practiceQuestionThaiText: {
-    color: THAI_TRANSLATION_TEXT_COLOR,
+    ...practicePresentation.translation,
   },
   practiceMultipleChoiceQuestionThaiText: {
     fontSize: 14,
@@ -19118,9 +19231,7 @@ const styles = StyleSheet.create({
     height: 108,
   },
   practiceOptionText: {
-    color: theme.colors.text,
-    fontSize: 14.5,
-    lineHeight: 21,
+    ...practicePresentation.option,
     flexShrink: 1,
   },
   practiceMultipleChoiceOptionText: {
@@ -19138,9 +19249,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   practiceOptionThaiText: {
-    color: THAI_TRANSLATION_TEXT_COLOR,
-    fontSize: theme.typography.sizes.sm,
-    lineHeight: theme.typography.lineHeights.sm,
+    ...practicePresentation.optionTranslation,
     flexShrink: 1,
   },
   practiceMultipleChoiceOptionThaiText: {
@@ -19326,9 +19435,7 @@ const styles = StyleSheet.create({
     minHeight: 0,
     padding: 0,
     borderWidth: 0,
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: theme.colors.text,
+    ...practicePresentation.responseInput,
     backgroundColor: 'transparent',
   },
   practiceOpenInputMeasurementText: {
@@ -20017,6 +20124,24 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 24,
     backgroundColor: '#2563EB',
+  },
+  checkpointFinishLessonButton: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: '#14213B',
+    borderRadius: 26,
+    backgroundColor: '#2F6EEA',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: theme.spacing.lg,
+    boxShadow: '4px 4px 0px #14213B',
+  },
+  checkpointFinishLessonButtonText: {
+    ...theme.typography.buttonLabel,
+  },
+  checkpointFinishLessonIcon: {
+    width: 16,
+    height: 16,
   },
   phraseSkipButton: {
     backgroundColor: theme.colors.surface,
