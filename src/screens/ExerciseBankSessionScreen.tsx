@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -72,6 +73,21 @@ const extractThaiTranslation = (value: string | null | undefined) =>
     .map((line) => line.trim())
     .filter((line) => line && THAI_TEXT_RE.test(line))
     .join('\n');
+
+const renderMultipleChoiceTextWithBlankRuns = (text: string, keyPrefix: string) =>
+  String(text ?? '')
+    .split(/(_{2,})/g)
+    .map((segment, index) => {
+      if (!segment) return null;
+      if (/^_{2,}$/.test(segment)) {
+        return (
+          <Text key={`${keyPrefix}-blank-${index}`} style={styles.multipleChoiceInlineBlank}>
+            {'\u00A0'.repeat(9)}
+          </Text>
+        );
+      }
+      return <React.Fragment key={`${keyPrefix}-text-${index}`}>{segment}</React.Fragment>;
+    });
 
 const getCopy = (language: UiLanguage) => language === 'th' ? {
   back: 'กลับ', set: 'ชุดที่', question: 'คำถาม', of: 'จาก', check: 'ตรวจคำตอบ', checking: 'กำลังตรวจ…',
@@ -974,7 +990,9 @@ export function ExerciseBankSessionScreen() {
                     <PracticeSurface style={styles.multipleChoicePromptCard}>
                       {englishStem ? (
                         <View style={styles.promptTextWrap}>
-                          <AppText language="en" variant="body" style={styles.multipleChoicePromptText}>{englishStem}</AppText>
+                          <AppText language="en" variant="body" style={styles.multipleChoicePromptText}>
+                            {renderMultipleChoiceTextWithBlankRuns(englishStem, `${currentQuestion.id}-multiple-choice`)}
+                          </AppText>
                           {showThaiStem ? (
                             <AppText language="th" variant="body" style={styles.translationText}>{thaiStem}</AppText>
                           ) : null}
@@ -1324,6 +1342,7 @@ const styles = StyleSheet.create({
   multipleChoiceWorkArea: { width: '100%', gap: theme.spacing.md },
   multipleChoicePromptCard: { minHeight: 92, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 22 },
   multipleChoicePromptText: { color: '#1E1E1E', fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
+  multipleChoiceInlineBlank: { color: 'transparent', textDecorationLine: 'underline', textDecorationColor: '#1E1E1E' },
   promptTextWrap: { width: '100%', gap: 2 },
   translationText: { color: '#8C8D93', fontSize: 14, lineHeight: 18, fontWeight: theme.typography.weights.regular },
   examplePanel: { overflow: 'hidden', borderWidth: 1, borderColor: '#D9D9D9', borderRadius: 11, backgroundColor: '#F3F3F3' },

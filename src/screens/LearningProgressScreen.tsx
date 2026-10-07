@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import pathwayProgressImage from '@/assets/images/my-pathway-progress.png';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AppText } from '@/src/components/ui/AppText';
@@ -181,8 +180,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     currentStage: 'Current stage',
     learningSince: 'Learning since',
     lessonsCompleted: 'Lessons completed',
-    levelsCompleted: 'Levels completed',
-    dailyStreak: 'Day streak',
+    levelsCompleted: 'Levels\ncompleted',
+    dailyStreak: 'Day\nstreak',
     stageBreakdown: 'Stage breakdown',
     recentLessons: 'Recent lessons',
     untitledLesson: 'Untitled lesson',
@@ -221,15 +220,13 @@ export function LearningProgressScreen() {
   const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
   const dailyStreak = stats?.daily_streak ?? 0;
 
-  const sectionLabel = (label: string, icon: 'bars' | 'star' = 'bars') => (
+  const sectionLabel = (label: string, icon?: 'star') => (
     <View style={styles.sectionLabel}>
       {icon === 'star' ? (
         <View style={styles.currentStageIcon} accessible={false}>
           <MaterialIcons name="star" size={7} color="#FFFFFF" />
         </View>
-      ) : (
-        <Image source={pathwayProgressImage} style={styles.sectionIcon} resizeMode="contain" accessible={false} />
-      )}
+      ) : null}
       <AppText language={uiLanguage} variant="caption" style={styles.sectionEyebrow}>
         {label}
       </AppText>
@@ -321,7 +318,7 @@ export function LearningProgressScreen() {
             </Card>
           </View>
 
-          <Stack gap="sm" style={styles.sectionBlock}>
+          <Stack gap="sm" style={[styles.sectionBlock, styles.stageBreakdownSection]}>
             {sectionLabel(copy.stageBreakdown)}
 
             <Stack gap="xs">
@@ -467,7 +464,7 @@ const styles = StyleSheet.create({
   currentProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     marginTop: 12,
   },
   progressTrack: {
@@ -485,7 +482,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#B9E671',
   },
   currentProgressCount: {
-    minWidth: 30,
+    width: 34,
+    flexShrink: 0,
+    textAlign: 'right',
     color: theme.colors.text,
     fontSize: 8,
     lineHeight: 12,
@@ -518,14 +517,14 @@ const styles = StyleSheet.create({
   sectionBlock: {
     marginTop: 4,
   },
+  stageBreakdownSection: {
+    marginTop: 8,
+  },
   sectionLabel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  sectionIcon: {
-    width: 12,
-    height: 12,
+    marginBottom: 4,
   },
   currentStageIcon: {
     width: 11,

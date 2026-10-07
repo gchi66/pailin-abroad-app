@@ -472,12 +472,14 @@ function PailinCoachBubble({
   language = 'en',
   plain = false,
   overlapCard = false,
+  shiftRight = false,
 }: {
   tone: 'instruction' | 'success' | 'error' | 'unclear';
   instruction: string;
   language?: LessonContentLanguage;
   plain?: boolean;
   overlapCard?: boolean;
+  shiftRight?: boolean;
 }) {
   const image = tone === 'success'
     ? pailinGoodJobImage
@@ -495,7 +497,11 @@ function PailinCoachBubble({
         : instruction;
 
   return (
-    <View style={[styles.pronunciationCoachRow, overlapCard ? styles.pronunciationCoachRowOverlap : null]}>
+    <View style={[
+      styles.pronunciationCoachRow,
+      overlapCard ? styles.pronunciationCoachRowOverlap : null,
+      shiftRight ? styles.pronunciationCoachRowShiftRight : null,
+    ]}>
       <Image
         source={image}
         contentFit="contain"
@@ -1930,7 +1936,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'review') {
         return (
           <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard, styles.speakingPromptActionCard]}>
-            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
@@ -2197,7 +2203,6 @@ function SpeakingCoachTestScreen() {
             styles.pronunciationActionCard,
             styles.speakingPromptActionCard,
             styles.conversationActionCard,
-            styles.conversationAlignedActionCard,
             styles.pronunciationRecordingActionCard,
           ]}>
             <AppText language={screenLanguage} variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>{tr('Recording…', 'กำลังบันทึก…')}</AppText>
@@ -2219,9 +2224,8 @@ function SpeakingCoachTestScreen() {
             styles.pronunciationActionCard,
             styles.speakingPromptActionCard,
             styles.conversationActionCard,
-            styles.conversationAlignedActionCard,
           ]}>
-            <AppText language={screenLanguage} variant="caption" style={styles.conversationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your answer"
@@ -2301,7 +2305,7 @@ function SpeakingCoachTestScreen() {
       >
         <AppText language={screenLanguage} variant="caption" style={styles.pronunciationEyebrow}>{tr('CONVERSATION PRACTICE', 'ฝึกบทสนทนา')}</AppText>
 
-        <PailinCoachBubble tone={coachTone} instruction={tr('Let’s chat!', 'มาคุยกัน!')} language={screenLanguage} plain overlapCard />
+        <PailinCoachBubble tone={coachTone} instruction={tr('Let’s chat!', 'มาคุยกัน!')} language={screenLanguage} plain overlapCard shiftRight />
 
         <View style={styles.conversationPromptCard}>
           <View style={styles.conversationPromptEnglishRow}>
@@ -2329,7 +2333,6 @@ function SpeakingCoachTestScreen() {
           ) : null}
           {practiceSet.tip_en || practiceSet.tip_th ? (
             <View style={styles.conversationTipBox}>
-              <MaterialIcons name="lightbulb-outline" size={20} color="#C4A807" />
               <AppText language={screenLanguage} variant="caption" style={styles.conversationTipText}>
                 {th ? practiceSet.tip_th || practiceSet.tip_en : practiceSet.tip_en || practiceSet.tip_th}
               </AppText>
@@ -2356,8 +2359,8 @@ function SpeakingCoachTestScreen() {
               >
                 <Image
                   source={recordingPlayerStatus.playing
-                    ? (correctResult ? pauseGreenImage : isUnclear ? pauseBlueImage : pauseRedImage)
-                    : (correctResult ? playGreenImage : isUnclear ? playBlueImage : playRedImage)}
+                    ? (correctResult ? pauseGreenImage : pauseRedImage)
+                    : (correctResult ? playGreenImage : playRedImage)}
                   contentFit="contain"
                   style={styles.conversationLearnerPlayIcon}
                 />
@@ -2563,7 +2566,7 @@ function SpeakingCoachTestScreen() {
       if (phase === 'review') {
         return (
           <View style={[styles.pronunciationActionCard, styles.speakingPromptActionCard, styles.conversationActionCard]}>
-            <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionTitle}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>{tr('Review your recording', 'ตรวจสอบเสียงบันทึก')}</AppText>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Play your recording"
@@ -2690,8 +2693,8 @@ function SpeakingCoachTestScreen() {
               >
                 <Image
                   source={recordingPlayerStatus.playing
-                    ? (correctResult ? pauseGreenImage : isUnclear ? pauseBlueImage : pauseRedImage)
-                    : (correctResult ? playGreenImage : isUnclear ? playBlueImage : playRedImage)}
+                    ? (correctResult ? pauseGreenImage : pauseRedImage)
+                    : (correctResult ? playGreenImage : playRedImage)}
                   contentFit="contain"
                   style={styles.conversationLearnerPlayIcon}
                 />
@@ -2882,7 +2885,9 @@ function SpeakingCoachTestScreen() {
             {hasNextSet
               ? tr(guidedMode ? 'NEXT SECTION' : 'NEXT SET', guidedMode ? 'ส่วนถัดไป' : 'ชุดถัดไป')
               : lessonMode
-                ? tr('FINISH LESSON', 'จบบทเรียน')
+                ? params.requiredPracticeComplete === '1'
+                  ? tr('FINISH LESSON', 'จบบทเรียน')
+                  : tr('BACK TO LESSON', 'กลับไปบทเรียน')
                 : resourceMode
                   ? tr('BACK TO SPEAKING PRACTICE', 'กลับไปฝึกพูด')
                   : tr('FINISH LESSON!', 'จบบทเรียน!')}
@@ -3176,6 +3181,7 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     transform: [{ translateY: 26 }],
   },
+  pronunciationCoachRowShiftRight: { marginLeft: 10 },
   pronunciationCoachImage: { width: 150, height: 130 },
   pronunciationCoachImageOverlapSuccess: { transform: [{ translateX: -12 }, { translateY: 7 }] },
   pronunciationCoachImageOverlapError: { transform: [{ translateX: -9 }] },
@@ -3469,8 +3475,9 @@ const styles = StyleSheet.create({
   conversationPromptThai: {
     marginTop: 7,
     color: '#9A9A9A',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.semibold,
     textAlign: 'center',
   },
   conversationTipBox: {
@@ -3481,20 +3488,17 @@ const styles = StyleSheet.create({
     borderColor: '#C4A807',
     borderRadius: 10,
     backgroundColor: '#FFFCE5',
-    paddingHorizontal: 18,
+    paddingHorizontal: 48,
     paddingVertical: 2,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 10,
+    justifyContent: 'center',
   },
   conversationTipText: {
-    flex: 1,
     color: '#C4A807',
     fontSize: 11,
     lineHeight: 16,
     fontWeight: theme.typography.weights.semibold,
-    textAlign: 'left',
+    textAlign: 'center',
   },
   conversationActionCard: {
     ...practiceNeoShadowStyle,
@@ -3619,6 +3623,7 @@ const styles = StyleSheet.create({
     backgroundColor: practiceColors.incorrectPanel,
   },
   conversationResultFooterUnclear: {
+    marginHorizontal: -24,
     borderColor: '#F1DB35',
     backgroundColor: '#FFFCE5',
   },

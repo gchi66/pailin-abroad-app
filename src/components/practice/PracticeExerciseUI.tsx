@@ -162,6 +162,7 @@ export function SentenceTransformExampleDisclosure({
   language,
   onToggle,
   sentence,
+  sentenceInlines,
 }: {
   correctedSentence?: string;
   expanded: boolean;
@@ -169,7 +170,22 @@ export function SentenceTransformExampleDisclosure({
   language: PracticeLanguage;
   onToggle: () => void;
   sentence: string;
+  sentenceInlines?: { text?: string | null; bold?: boolean | null }[];
 }) {
+  const visibleSentenceInlines = (sentenceInlines ?? []).filter((inline) => Boolean(inline.text));
+  const sentenceParts = splitSentenceTransformLabel(sentence);
+  const inlineSentenceText = visibleSentenceInlines.map((inline) => inline.text ?? '').join('');
+  const sentenceBodyInlines = removeSentenceTransformLabelFromInlines(
+    visibleSentenceInlines,
+    inlineSentenceText.startsWith(sentenceParts.label) ? sentenceParts.label.length : 0
+  );
+  const correctionParts = correctedSentence
+    ? splitSentenceTransformLabel(correctedSentence)
+    : { label: '', sentence: '' };
+  const correctionRuns = correctedSentence
+    ? buildSentenceTransformCorrectionRuns(sentence, correctedSentence)
+    : [];
+
   return (
     <FillBlankExampleDisclosure
       expanded={expanded}
@@ -178,17 +194,98 @@ export function SentenceTransformExampleDisclosure({
       onToggle={onToggle}>
       <View style={styles.sentenceExampleContent}>
         <AppText language="en" variant="caption" style={styles.sentenceExampleText}>
-          {sentence}
+          {sentenceParts.label ? (
+            <Text style={styles.sentenceExampleIncorrectLabel}>{sentenceParts.label}</Text>
+          ) : null}
+          {sentenceBodyInlines.length
+            ? sentenceBodyInlines.map((inline, index) => (
+                <Text
+                  key={`sentence-example-${index}`}
+                  style={inline.bold ? styles.sentenceExampleEmphasis : undefined}>
+                  {inline.text}
+                </Text>
+              ))
+            : sentenceParts.sentence}
         </AppText>
         {correctedSentence ? (
           <AppText language="en" variant="caption" style={styles.sentenceExampleCorrectionText}>
-            → {correctedSentence}
+            {correctionParts.label ? (
+              <Text style={styles.sentenceExampleCorrectLabel}>{correctionParts.label}</Text>
+            ) : null}
+            {correctionRuns.map((run, index) => (
+              <Text
+                key={`sentence-correction-${index}`}
+                style={run.bold ? styles.sentenceExampleEmphasis : undefined}>
+                {run.text}
+              </Text>
+            ))}
           </AppText>
         ) : null}
       </View>
     </FillBlankExampleDisclosure>
   );
 }
+
+const splitSentenceTransformLabel = (value: string) => {
+  const match = value.match(/^(.*?:\s*)(.*)$/s);
+  return match ? { label: match[1], sentence: match[2] } : { label: '', sentence: value };
+};
+
+const sentenceTransformWords = (value: string) => value.match(/\S+\s*/g) ?? [];
+const normalizedSentenceTransformWord = (value: string) =>
+  value.trim().toLocaleLowerCase().replace(/[’]/g, "'");
+
+const removeSentenceTransformLabelFromInlines = (
+  inlines: { text?: string | null; bold?: boolean | null }[],
+  labelLength: number
+) => {
+  let remainingLabelLength = labelLength;
+  return inlines
+    .map((inline) => {
+      const text = inline.text ?? '';
+      if (remainingLabelLength <= 0) return inline;
+      const consumedLength = Math.min(remainingLabelLength, text.length);
+      remainingLabelLength -= consumedLength;
+      return { ...inline, text: text.slice(consumedLength) };
+    })
+    .filter((inline) => Boolean(inline.text));
+};
+
+const buildSentenceTransformCorrectionRuns = (source: string, correction: string) => {
+  const sourceParts = splitSentenceTransformLabel(source);
+  const correctionParts = splitSentenceTransformLabel(correction);
+  const sourceWords = sentenceTransformWords(sourceParts.sentence);
+  const correctionWords = sentenceTransformWords(correctionParts.sentence);
+
+  let sharedPrefixCount = 0;
+  while (
+    sharedPrefixCount < sourceWords.length &&
+    sharedPrefixCount < correctionWords.length &&
+    normalizedSentenceTransformWord(sourceWords[sharedPrefixCount]) ===
+      normalizedSentenceTransformWord(correctionWords[sharedPrefixCount])
+  ) {
+    sharedPrefixCount += 1;
+  }
+
+  let sharedSuffixCount = 0;
+  while (
+    sharedSuffixCount < sourceWords.length - sharedPrefixCount &&
+    sharedSuffixCount < correctionWords.length - sharedPrefixCount &&
+    normalizedSentenceTransformWord(sourceWords[sourceWords.length - 1 - sharedSuffixCount]) ===
+      normalizedSentenceTransformWord(correctionWords[correctionWords.length - 1 - sharedSuffixCount])
+  ) {
+    sharedSuffixCount += 1;
+  }
+
+  const emphasizedEnd = correctionWords.length - sharedSuffixCount;
+  const runs = [
+    { text: correctionWords.slice(0, sharedPrefixCount).join(''), bold: false },
+    { text: correctionWords.slice(sharedPrefixCount, emphasizedEnd).join(''), bold: true },
+    { text: correctionWords.slice(emphasizedEnd).join(''), bold: false },
+  ];
+
+  return runs.filter((run) => run.text);
+};
 
 export function PracticeAnswerFooter({
   disabled = false,
@@ -352,8 +449,22 @@ const styles = StyleSheet.create({
   exampleAnswer: { color: fillBlankColors.text, textDecorationLine: 'underline', fontWeight: theme.typography.weights.bold },
   exampleBracket: { color: '#A7A9AF', fontWeight: theme.typography.weights.semibold },
   sentenceExampleContent: { gap: 8 },
-  sentenceExampleText: { color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.semibold },
-  sentenceExampleCorrectionText: { color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.bold },
+  sentenceExampleText: { color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.regular },
+  sentenceExampleCorrectionText: { color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.regular },
+  sentenceExampleEmphasis: {
+    fontFamily: theme.typography.fontFaces.en.bold,
+    fontWeight: theme.typography.weights.bold,
+  },
+  sentenceExampleIncorrectLabel: {
+    color: fillBlankColors.incorrectButton,
+    fontFamily: theme.typography.fontFaces.en.bold,
+    fontWeight: theme.typography.weights.bold,
+  },
+  sentenceExampleCorrectLabel: {
+    color: fillBlankColors.correctButton,
+    fontFamily: theme.typography.fontFaces.en.bold,
+    fontWeight: theme.typography.weights.bold,
+  },
   footer: { width: '100%', gap: 12, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
   correctFooter: {
     backgroundColor: fillBlankColors.correctPanel,
@@ -365,7 +476,7 @@ const styles = StyleSheet.create({
   },
   incorrectFooter: {
     backgroundColor: fillBlankColors.incorrectPanel,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderBottomWidth: 0,
     borderColor: fillBlankColors.incorrectButton,
     borderTopLeftRadius: 28,

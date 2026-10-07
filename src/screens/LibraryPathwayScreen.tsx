@@ -256,7 +256,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             return <View key={lesson.id} style={styles.lessonRow} onLayout={({ nativeEvent }) => { offsets.current[lesson.id] = nativeEvent.layout.y; if (anchor === lesson.id) restoreAnchor(); }}>
               {!searching && index < lessons.length - 1 ? <View pointerEvents="none" style={[styles.connector, index < selectedIndex ? styles.connectorActive : null]} /> : null}
               <View style={styles.cardArea}>
-                <View style={styles.cardShadow}>
+                <View style={[styles.cardShadow, locked ? styles.lockedCardShadow : null]}>
                   <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${lessonNumber(lesson)} ${displayedLessonTitle}. ${status}${locked ? (th ? ' ล็อกอยู่' : '. Locked') : ''}`}
                     style={[styles.card, iconSource ? styles.cardWithIcon : null, strong ? styles.strongCard : null, selected ? styles.selectedCard : null]}
                     onPressIn={() => { if (!locked) prefetchResolvedLesson(lesson.id, 'en'); }}
@@ -320,6 +320,7 @@ const styles = StyleSheet.create({
   lessonList: { marginHorizontal: 20 }, lessonRow: { paddingBottom: 22, position: 'relative' },
   connector: { position: 'absolute', left: 22, top: 20, bottom: -1, borderLeftWidth: 2, borderStyle: 'dashed', borderColor: '#DDDDDD' }, connectorActive: { borderStyle: 'solid', borderColor: '#2860F0' },
   cardArea: { position: 'relative' }, cardShadow: { backgroundColor: '#222222', borderRadius: 10 },
+  lockedCardShadow: { backgroundColor: '#D0D0D0' },
   card: { justifyContent: 'center', paddingVertical: 15, paddingLeft: 30, paddingRight: 14, borderWidth: theme.borderWidths.primaryCard, borderColor: '#D0D0D0', borderRadius: 10, backgroundColor: '#FFFFFF', gap: 4, minHeight: 72, transform: [{ translateX: -2 }, { translateY: -2 }] },
   cardWithIcon: { paddingRight: 82, minHeight: 88 },
   strongCard: { borderColor: '#222222' }, selectedCard: { backgroundColor: '#BFEDFC' },

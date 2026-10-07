@@ -248,7 +248,7 @@ const getDisplayPromptPair = (primaryValue: string, secondaryValue: string) => {
   };
 };
 
-const renderTextWithBlankRuns = (text: string, keyPrefix: string) => {
+const renderTextWithBlankRuns = (text: string, keyPrefix: string, minimumBlankCharacters = 3) => {
   const segments = String(text ?? '').split(/(_{2,})/g);
   return segments.map((segment, index) => {
     if (!segment) {
@@ -257,7 +257,7 @@ const renderTextWithBlankRuns = (text: string, keyPrefix: string) => {
     if (/^_{2,}$/.test(segment)) {
       return (
         <Text key={`${keyPrefix}-blank-${index}`} style={styles.inlineBlank}>
-          {'\u00A0'.repeat(Math.max(3, Math.min(segment.length, 4)))}
+          {'\u00A0'.repeat(Math.max(minimumBlankCharacters, Math.min(segment.length, 4)))}
         </Text>
       );
     }
@@ -1312,7 +1312,7 @@ function renderExerciseBody(params: {
                 <View style={styles.questionTextWrap}>
                   {item.text ? (
                     <AppText language="en" variant="body" style={styles.questionText}>
-                      {renderTextWithBlankRuns(item.text, `${selectionKey}-question`)}
+                      {renderTextWithBlankRuns(item.text, `${selectionKey}-question`, 9)}
                     </AppText>
                   ) : null}
                   {contentLang === 'th' && item.textTh ? (

@@ -105,7 +105,7 @@ export function LessonCompletePreviewScreen() {
       prefetchResolvedLesson(nextLesson.id, lessonLanguage);
       router.replace({
         pathname: '/lessons/[id]',
-        params: { id: nextLesson.id, ...(libraryRoute ? { libraryRoute } : {}) },
+        params: { id: nextLesson.id, overview: '1', ...(libraryRoute ? { libraryRoute } : {}) },
       });
     } catch {
       Alert.alert(copy.title, lessonLanguage === 'th' ? 'ไม่สามารถเปิดบทเรียนถัดไปได้' : 'Could not open the next lesson.');

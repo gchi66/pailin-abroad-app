@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   compactNavigation: { transform: [{ translateX: -3 }, { translateY: -3 }], borderWidth: theme.borderWidths.primaryCard, borderColor: '#222222', borderRadius: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   stages: { minHeight: 40, flexDirection: 'row', alignItems: 'stretch' },
   stageTouch: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
-  stageDivider: { borderLeftWidth: 1.5, borderLeftColor: '#222222' },
+  stageDivider: { borderLeftWidth: 1, borderLeftColor: '#222222' },
   stageName: { fontSize: 11, lineHeight: 16, letterSpacing: 0.3, textAlign: 'center', textTransform: 'uppercase' },
   activeStage: { backgroundColor: '#B7E8F8' },
   activeStageText: { fontWeight: theme.typography.weights.bold },

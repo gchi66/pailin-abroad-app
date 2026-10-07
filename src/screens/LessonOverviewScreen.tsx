@@ -245,7 +245,7 @@ const s = StyleSheet.create({
   focus: { fontSize: 13, lineHeight: 19, color: '#777' }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }, statusText: { fontSize: 10, lineHeight: 16, color: '#777' }, statusTextSaved: { fontStyle: 'italic' },
   group: { marginTop: 26, paddingLeft: 30 },
   groupHeader: { position: 'relative' },
-  groupLabel: { alignSelf: 'flex-start', backgroundColor: '#FFFCE5', padding: 8, borderRadius: 4, borderWidth: theme.borderWidths.primaryCard, marginBottom: 15 },
+  groupLabel: { alignSelf: 'flex-start', backgroundColor: '#FFFCE5', padding: 8, borderRadius: 4, borderWidth: theme.borderWidths.standard, marginBottom: 15 },
   rowWrap: { paddingBottom: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, padding: 10, backgroundColor: '#FFF', borderWidth: theme.borderWidths.primaryCard, borderColor: '#D0D0D0', borderRadius: 4 },
   rowText: { flex: 1, fontSize: 14, lineHeight: 21 }, dot: { position: 'absolute', left: -29, top: 14, width: 17, height: 17, borderWidth: 1, borderColor: '#CCC', borderRadius: 9, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
   connector: { position: 'absolute', left: -21, borderLeftWidth: 1, borderColor: '#DDD', borderStyle: 'dashed' },

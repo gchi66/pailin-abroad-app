@@ -43,7 +43,7 @@ const resourcePageCopy: Record<UiLanguage, ResourcePageCopy> = {
       {
         id: 'pronunciation',
         title: 'Speaking Coach',
-        description: 'Practise your English speaking with our AI coach!',
+        description: 'Practice your English speaking with our AI coach!',
         enabled: true,
       },
       {

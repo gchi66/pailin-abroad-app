@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,7 +46,8 @@ const bottomBarInset = (bottomInset: number) =>
 
 export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { hasAccount, isGuestMode } = useAppSession();
+  const router = useRouter();
+  const { hasAccount, hasMembership, isGuestMode } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const labels = LABELS[uiLanguage];
 
@@ -77,7 +79,13 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
                 canPreventDefault: true,
               });
 
-              if (!isFocused && !event.defaultPrevented) {
+              if (event.defaultPrevented) {
+                return;
+              }
+
+              if (routeName === 'lessons' && !hasMembership) {
+                router.navigate('/(tabs)/lessons/free-library');
+              } else if (!isFocused) {
                 navigation.navigate(route.name, route.params);
               }
             };

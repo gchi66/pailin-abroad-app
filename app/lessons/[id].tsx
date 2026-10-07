@@ -1662,6 +1662,29 @@ const orderedPracticeContentToInlines = (content: OrderedPracticeContent): Lesso
   return inlines;
 };
 
+const getLocalizedOrderedDialoguePairs = (content: OrderedPracticeContent) => {
+  const lines = splitTextLines(textJsonbToString(orderedPracticeContentToInlines(content)));
+  if (lines.length < 4 || lines.length % 2 !== 0) {
+    return null;
+  }
+
+  const pairCount = lines.length / 2;
+  const englishLines = lines.slice(0, pairCount);
+  const thaiLines = lines.slice(pairCount);
+  const isDialogue =
+    englishLines.every((line) => /^[A-Z]:\s*/.test(line) && !THAI_TEXT_RE.test(line)) &&
+    thaiLines.every((line) => THAI_TEXT_RE.test(line));
+
+  if (!isDialogue) {
+    return null;
+  }
+
+  return englishLines.map((english, index) => ({
+    english,
+    thai: thaiLines[index] ?? '',
+  }));
+};
+
 const parsePracticeOption = (option: unknown): NormalizedPracticeOption => {
   if (typeof option === 'string') {
     const match = option.match(/^([A-Z])\.\s*(.*)$/s);
@@ -2049,10 +2072,10 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       (typeof englishFallback.display_answer === 'string' && englishFallback.display_answer.trim()) ||
       (typeof current.display_answer === 'string' && current.display_answer.trim()) ||
       '';
-    const currentTextJsonb = safeParseArray<LessonRichInline>(current.text_jsonb);
-    const currentTextJsonbTh = safeParseArray<LessonRichInline>(current.text_jsonb_th);
-    const thaiFallbackTextJsonb = safeParseArray<LessonRichInline>(thaiFallback.text_jsonb);
-    const thaiFallbackTextJsonbTh = safeParseArray<LessonRichInline>(thaiFallback.text_jsonb_th);
+    const currentTextJsonb = cleanPracticeOptionInlines('', current.text_jsonb);
+    const currentTextJsonbTh = cleanPracticeOptionInlines('', current.text_jsonb_th);
+    const thaiFallbackTextJsonb = cleanPracticeOptionInlines('', thaiFallback.text_jsonb);
+    const thaiFallbackTextJsonbTh = cleanPracticeOptionInlines('', thaiFallback.text_jsonb_th);
     const shouldUsePrimaryTextJsonb =
       kind === 'multiple_choice' || currentTextJsonb.some((inline) => hasMeaningfulRichInlineFormatting(inline));
     const resolvedTextJsonbTh = currentTextJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''))
@@ -2637,7 +2660,7 @@ const renderTranslationMultilineWithBlankRuns = (
           style={THAI_TEXT_RE.test(line)
             ? styles.practiceLocalizedThaiLine
             : [styles.practiceLocalizedEnglishLine, focused ? styles.practiceFocusedPromptText : null]}>
-          {renderTextWithBlankRuns(line, `${keyPrefix}-line-${lineIndex}`, blankStyle)}
+          {renderTextWithBlankRuns(line, `${keyPrefix}-line-${lineIndex}`, blankStyle, focused ? 9 : 3)}
         </Text>
       );
 
@@ -6312,6 +6335,7 @@ export default function LessonDetailShellScreen() {
         pathname: '/lessons/[id]',
         params: {
           id: nextLessonId,
+          overview: '1',
           ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
         },
       });
@@ -6463,12 +6487,8 @@ export default function LessonDetailShellScreen() {
   ]);
 
   const handleEndOfLessonContent = useCallback(() => {
-    if (isCheckpointCoverLesson) {
-      void handleFinishLessonPress();
-      return;
-    }
-    openSpeakingPractice();
-  }, [handleFinishLessonPress, isCheckpointCoverLesson, openSpeakingPractice]);
+    void handleFinishLessonPress();
+  }, [handleFinishLessonPress]);
 
   const handleContentTogglePress = useCallback(() => {
     setContentLang((previous) => {
@@ -8855,6 +8875,23 @@ export default function LessonDetailShellScreen() {
       };
     });
     const manualAudioFontScales = lineMetadata.map(() => iosLessonBodyManualFontScale);
+    const phraseDialogueGroups: number[][] = [];
+
+    if (options?.isPhraseCard) {
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        const nextLineIndex = lineIndex + 1;
+        const isDialoguePair =
+          lineMetadata[lineIndex]?.isEnglishSpeakerLine === true &&
+          lineMetadata[nextLineIndex]?.isThaiLineForPhraseCard === true;
+
+        phraseDialogueGroups.push(isDialoguePair ? [lineIndex, nextLineIndex] : [lineIndex]);
+        if (isDialoguePair) {
+          lineIndex = nextLineIndex;
+        }
+      }
+    }
+
+    const hasPhraseDialoguePairs = phraseDialogueGroups.some((group) => group.length === 2);
 
     const shouldShowHighlightFor = (inline: LessonRichInline) => {
       const highlightColor = typeof inline.highlight === 'string' ? inline.highlight.trim().toLowerCase() : '';
@@ -9010,13 +9047,7 @@ export default function LessonDetailShellScreen() {
 
     const LineStack = options?.isPhraseCard ? PhraseTextLane : View;
 
-    return (
-      <LineStack style={[
-        styles.richAudioLineStack,
-        options?.isPhraseCard ? styles.phraseAudioLineStack : null,
-        options?.audioCard ? styles.richAudioCardLineStack : null,
-      ]}>
-        {lines.map((lineSpans, lineIndex) => {
+    const renderAudioLine = (lineSpans: LessonRichInline[], lineIndex: number) => {
           const lineMeta = lineMetadata[lineIndex];
           const manualFontScale = manualAudioFontScales[lineIndex];
           const phraseTextScale = manualFontScale ?? 1;
@@ -9036,6 +9067,7 @@ export default function LessonDetailShellScreen() {
                 style={[
                   styles.phraseDialogueThaiPlainText,
                   styles.phraseDialogueThaiTurn,
+                  hasPhraseDialoguePairs ? styles.phraseDialogueThaiPairEnd : null,
                   {
                     fontSize: 15 * phraseTextScale,
                     lineHeight: 21 * phraseTextScale,
@@ -9059,7 +9091,7 @@ export default function LessonDetailShellScreen() {
                 options?.isPhraseCard ? styles.phraseAudioText : null,
                 styles.richAudioTextCompact,
                 options?.isPhraseCard ? styles.phraseAudioTextCompact : null,
-                options?.isPhraseCard && lineIndex > 0 && lineMeta?.isEnglishSpeakerLine
+                options?.isPhraseCard && !hasPhraseDialoguePairs && lineIndex > 0 && lineMeta?.isEnglishSpeakerLine
                   ? styles.phraseDialogueEnglishTurn
                   : null,
                 options?.isPhraseCard && options.phraseIsLeadAudio ? styles.phraseLeadAudioText : null,
@@ -9082,7 +9114,24 @@ export default function LessonDetailShellScreen() {
               {renderLineContent(lineSpans, lineIndex)}
             </AppText>
           );
-        })}
+    };
+
+    return (
+      <LineStack style={[
+        styles.richAudioLineStack,
+        options?.isPhraseCard ? styles.phraseAudioLineStack : null,
+        hasPhraseDialoguePairs ? styles.phraseDialoguePairStack : null,
+        options?.audioCard ? styles.richAudioCardLineStack : null,
+      ]}>
+        {hasPhraseDialoguePairs
+          ? phraseDialogueGroups.map((group, groupIndex) => (
+              <View
+                key={`${keyPrefix}-dialogue-group-${groupIndex}`}
+                style={group.length === 2 ? styles.phraseDialoguePair : null}>
+                {group.map((lineIndex) => renderAudioLine(lines[lineIndex], lineIndex))}
+              </View>
+            ))
+          : lines.map(renderAudioLine)}
       </LineStack>
     );
   };
@@ -10851,21 +10900,25 @@ export default function LessonDetailShellScreen() {
 
   const renderPhrasePagerControls = () => (
     <View style={styles.phrasePagerRow}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={pageLanguage === 'th' ? 'วลีก่อนหน้า' : 'Previous phrase'}
-        accessibilityState={{ disabled: activePhraseIndex === 0 }}
-        disabled={activePhraseIndex === 0}
-        onPress={() => {
-          setActivePhraseIndex((currentIndex) => Math.max(0, currentIndex - 1));
-          contentScrollRef.current?.scrollTo({ y: 0, animated: true });
-        }}
-        style={[
-          styles.richPagerArrowButton,
-          activePhraseIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
-        ]}>
-        <MaterialIcons name="arrow-back-ios-new" size={18} color={theme.colors.text} />
-      </Pressable>
+      {normalizedLessonPhrases.length > 1 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pageLanguage === 'th' ? 'วลีก่อนหน้า' : 'Previous phrase'}
+          accessibilityState={{ disabled: activePhraseIndex === 0 }}
+          disabled={activePhraseIndex === 0}
+          onPress={() => {
+            setActivePhraseIndex((currentIndex) => Math.max(0, currentIndex - 1));
+            contentScrollRef.current?.scrollTo({ y: 0, animated: true });
+          }}
+          style={[
+            styles.richPagerArrowButton,
+            activePhraseIndex === 0 ? styles.richPagerArrowButtonDisabled : null,
+          ]}>
+          <MaterialIcons name="arrow-back-ios-new" size={18} color={theme.colors.text} />
+        </Pressable>
+      ) : (
+        <View style={styles.richPagerArrowSpacer} />
+      )}
       <AppText language="en" variant="body" style={styles.phrasePagerCount}>
         {`${activePhraseIndex + 1} / ${normalizedLessonPhrases.length}`}
       </AppText>
@@ -11369,6 +11422,7 @@ const mergeAdjacentPracticeRowTokens = (
       exerciseIds.forEach((exerciseId) => { next[exerciseId] = ''; });
       return next;
     });
+    setActivePracticeCardIndex(0);
     setActivePracticeQuestionIndex(0);
     setShowPracticeSetResults(false);
     exerciseIds.forEach((exerciseId) => {
@@ -11692,6 +11746,11 @@ const mergeAdjacentPracticeRowTokens = (
     const tryAgainLabel = pageCopy.tryAgain;
     const continueLabel = pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE';
     const isFocusedPracticeSession = !isInlineQuickPractice && Boolean(visibleItemKey);
+    const showSentenceRewriteInstruction =
+      isFocusedPracticeSession &&
+      isSentenceJudgmentExercise &&
+      sentenceTransformRewriteStageActive &&
+      !isChecked;
     const focusedEnglishQuestionSize = isFocusedPracticeSession && contentLang === 'en'
       ? { englishFontSize: 20, englishLineHeight: 28 }
       : undefined;
@@ -11803,7 +11862,15 @@ const mergeAdjacentPracticeRowTokens = (
         {hasPromptBlocks || (exercise.prompt && exercise.title !== exercise.prompt) || isFocusedPracticeSession ? (
           <View style={isFocusedPracticeSession ? styles.practiceInstructionSlot : null}>
             <Stack gap="md">
-              {!hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
+              {showSentenceRewriteInstruction ? (
+                <AppText language={pageLanguage} variant="body" style={styles.practiceSentenceStageSuccess}>
+                  <AppText language={pageLanguage} style={styles.practiceSentenceStageSuccessAccent}>
+                    {pageLanguage === 'th' ? 'ทำได้ดี!' : 'Good work!'}
+                  </AppText>
+                  {pageLanguage === 'th' ? ' ประโยคนี้ไม่ถูกต้อง' : ' It is incorrect.'}
+                </AppText>
+              ) : null}
+              {!showSentenceRewriteInstruction && !hasPromptBlocks && exercise.prompt && exercise.title !== exercise.prompt ? (
                 <AppText
                   language={contentLang === 'th' ? 'th' : 'en'}
                   variant="muted"
@@ -11818,10 +11885,12 @@ const mergeAdjacentPracticeRowTokens = (
                 </AppText>
               ) : null}
 
-              {renderPracticePromptBlocks(
-                exercise,
-                (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
-              )}
+              {!showSentenceRewriteInstruction
+                ? renderPracticePromptBlocks(
+                    exercise,
+                    (isFillBlankExercise || isOpenExercise || isMultipleChoiceExercise || isSentenceTransformExercise) && isFocusedPracticeSession
+                  )
+                : null}
             </Stack>
           </View>
         ) : null}
@@ -11863,6 +11932,13 @@ const mergeAdjacentPracticeRowTokens = (
               const abPromptLayout = parsePracticeAbPromptLayout(item);
               const localizedMultilineText =
                 contentLang === 'th' ? getLocalizedMultilinePracticeText(item) : null;
+              const localizedOrderedDialoguePairs =
+                contentLang === 'th' && item.orderedContent
+                  ? getLocalizedOrderedDialoguePairs(item.orderedContent)
+                  : null;
+              const orderedContentText = item.orderedContent
+                ? textJsonbToString(orderedPracticeContentToInlines(item.orderedContent))
+                : '';
               const itemImageUrl = resolveLessonImageUrl(item.imageKey ? lesson?.images?.[item.imageKey] : null, item.imageKey);
               const itemAltText =
                 contentLang === 'th' ? item.altTextTh || item.altText || 'Practice prompt image' : item.altText || item.altTextTh || 'Practice prompt image';
@@ -11889,13 +11965,19 @@ const mergeAdjacentPracticeRowTokens = (
                       !isInlineQuickPractice && !isFocusedPracticeSession ? styles.practiceFocusedPromptCard : null,
                       isFocusedPracticeSession ? styles.practiceSharedMultipleChoicePromptCard : null,
                       itemImageUrl ? styles.practiceMultipleChoiceQuestionHeaderWithImage : null,
+                      isFocusedPracticeSession && itemImageUrl ? styles.practiceFocusedImagePromptCard : null,
                     ]}>
                     {!isFocusedPracticeSession ? (
                       <AppText language="en" variant="caption" style={styles.practiceQuestionNumber}>
                         {item.numberLabel || `${itemIndex + 1}`}
                       </AppText>
                     ) : null}
-                    <View style={[styles.practiceQuestionTextWrap, styles.practiceMultipleChoiceQuestionTextWrap]}>
+                    <View
+                      style={[
+                        styles.practiceQuestionTextWrap,
+                        styles.practiceMultipleChoiceQuestionTextWrap,
+                        isFocusedPracticeSession && itemImageUrl ? styles.practiceQuestionTextWrapWithImage : null,
+                      ]}>
                       {isFocusedPracticeSession ? null : renderFocusedPromptLabel('CHOOSE THE CORRECT ANSWER', '🎯')}
                       {itemImageUrl ? (
                         <View style={styles.practiceMultipleChoicePromptImageShell}>
@@ -11908,7 +11990,58 @@ const mergeAdjacentPracticeRowTokens = (
                         </View>
                       ) : null}
                       {renderPracticeItemAudioButton(item.audioKey, selectionKey)}
-                      {item.orderedContent ? (
+                      {localizedOrderedDialoguePairs ? (
+                        <View style={styles.practiceLocalizedDialogueStack}>
+                          {localizedOrderedDialoguePairs.map((pair, pairIndex) => (
+                            <View key={`${selectionKey}-dialogue-${pairIndex}`} style={styles.practiceLocalizedDialoguePair}>
+                              <AppText
+                                language="en"
+                                variant="body"
+                                style={[
+                                  styles.practiceQuestionText,
+                                  styles.practiceMultipleChoiceQuestionText,
+                                  isFocusedPracticeSession ? styles.practiceFocusedPromptText : null,
+                                  isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                                ]}>
+                                {renderTextWithBlankRuns(
+                                  pair.english,
+                                  `${selectionKey}-dialogue-${pairIndex}-en`,
+                                  styles.practiceInlineBlank,
+                                  isFocusedPracticeSession ? 9 : 3
+                                )}
+                              </AppText>
+                              <AppText
+                                language="th"
+                                variant="muted"
+                                style={[
+                                  styles.practiceQuestionThaiText,
+                                  styles.practiceMultipleChoiceQuestionThaiText,
+                                  isInlineQuickPractice ? styles.practiceQuestionThaiTextCompact : null,
+                                ]}>
+                                {pair.thai}
+                              </AppText>
+                            </View>
+                          ))}
+                        </View>
+                      ) : item.orderedContent && /_{2,}/.test(orderedContentText) ? (
+                        <AppText
+                          language="th"
+                          variant="body"
+                          style={[
+                            styles.practiceQuestionText,
+                            styles.practiceMultipleChoiceQuestionText,
+                            styles.practiceLocalizedMultilineQuestionText,
+                            isFocusedPracticeSession ? styles.practiceFocusedPromptText : null,
+                            isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
+                          ]}>
+                          {renderTranslationMultilineWithBlankRuns(
+                            orderedContentText,
+                            `${selectionKey}-ordered-question-with-blank`,
+                            styles.practiceInlineBlank,
+                            isFocusedPracticeSession
+                          )}
+                        </AppText>
+                      ) : item.orderedContent ? (
                         <AppText
                           language="th"
                           variant="body"
@@ -11953,9 +12086,16 @@ const mergeAdjacentPracticeRowTokens = (
                               isFocusedPracticeSession ? styles.practiceFocusedPromptText : null,
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
-                            {abPromptLayout.aInlines.length
-                              ? renderRichInlines(abPromptLayout.aInlines, `${selectionKey}-ab-a`, focusedEnglishQuestionSize)
-                              : renderTextWithBlankRuns(abPromptLayout.aLine, `${selectionKey}-ab-a`, styles.practiceInlineBlank)}
+                            {/_{2,}/.test(abPromptLayout.aLine)
+                              ? renderTextWithBlankRuns(
+                                  abPromptLayout.aLine,
+                                  `${selectionKey}-ab-a`,
+                                  styles.practiceInlineBlank,
+                                  isFocusedPracticeSession ? 9 : 3
+                                )
+                              : abPromptLayout.aInlines.length
+                                ? renderRichInlines(abPromptLayout.aInlines, `${selectionKey}-ab-a`, focusedEnglishQuestionSize)
+                                : abPromptLayout.aLine}
                           </AppText>
                           <AppText
                             language="en"
@@ -11966,9 +12106,16 @@ const mergeAdjacentPracticeRowTokens = (
                               isFocusedPracticeSession ? styles.practiceFocusedPromptText : null,
                               isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                             ]}>
-                            {abPromptLayout.bInlines.length
-                              ? renderRichInlines(abPromptLayout.bInlines, `${selectionKey}-ab-b`, focusedEnglishQuestionSize)
-                              : renderTextWithBlankRuns(abPromptLayout.bLine, `${selectionKey}-ab-b`, styles.practiceInlineBlank)}
+                            {/_{2,}/.test(abPromptLayout.bLine)
+                              ? renderTextWithBlankRuns(
+                                  abPromptLayout.bLine,
+                                  `${selectionKey}-ab-b`,
+                                  styles.practiceInlineBlank,
+                                  isFocusedPracticeSession ? 9 : 3
+                                )
+                              : abPromptLayout.bInlines.length
+                                ? renderRichInlines(abPromptLayout.bInlines, `${selectionKey}-ab-b`, focusedEnglishQuestionSize)
+                                : abPromptLayout.bLine}
                           </AppText>
                           {contentLang === 'th' && abPromptLayout.thaiLine ? (
                             <AppText
@@ -12000,7 +12147,7 @@ const mergeAdjacentPracticeRowTokens = (
                                     item.text,
                                     `${selectionKey}-question`,
                                     styles.practiceInlineBlank,
-                                    7
+                                    9
                                   )
                                 : item.textJsonb.length
                                 ? renderRichInlines(item.textJsonb, `${selectionKey}-question`, focusedEnglishQuestionSize)
@@ -12345,6 +12492,7 @@ const mergeAdjacentPracticeRowTokens = (
                     label={pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
                     language={pageLanguage}
                     sentence={sentenceExampleText}
+                    sentenceInlines={item.textJsonb}
                     onToggle={() => setExpandedPracticeExampleIds((previous) => ({
                       ...previous,
                       [exercise.id]: !previous[exercise.id],
@@ -12563,27 +12711,17 @@ const mergeAdjacentPracticeRowTokens = (
                     isFocusedPracticeSession ? styles.practiceFocusedQuestionLayout : null,
                   ]}>
                   {(isOpenExercise || isSentenceTransformExercise) && isFocusedPracticeSession ? (
-                    <>
-                      {isSentenceTransformExercise && isSentenceRewriteStage && !isExerciseChecked ? (
-                        <AppText language={pageLanguage} variant="body" style={styles.practiceSentenceStageSuccess}>
-                          <AppText language={pageLanguage} style={styles.practiceSentenceStageSuccessAccent}>
-                            {pageLanguage === 'th' ? 'ทำได้ดี!' : 'Good work!'}
-                          </AppText>
-                          {pageLanguage === 'th' ? ' ประโยคนี้ไม่ถูกต้อง' : ' It is incorrect.'}
-                        </AppText>
-                      ) : null}
-                      <PracticeSectionLabel
-                        icon={isSentenceJudgmentItem ? '⌘' : '✎'}
-                        label={isSentenceTransformExercise
-                          ? isSentenceJudgmentItem
-                            ? isSentenceRewriteStage
-                              ? (pageLanguage === 'th' ? 'แก้ไขประโยค' : 'FIX IT!')
-                              : (pageLanguage === 'th' ? 'ประโยคนี้ถูกต้องไหม' : 'IS THIS CORRECT?')
-                            : (pageLanguage === 'th' ? 'เขียนประโยคใหม่' : 'REWRITE THIS')
-                          : (pageLanguage === 'th' ? 'ตอบคำถาม' : 'RESPOND TO THE PROMPT')}
-                        language={pageLanguage}
-                      />
-                    </>
+                    <PracticeSectionLabel
+                      icon={isSentenceJudgmentItem ? '⌘' : '✎'}
+                      label={isSentenceTransformExercise
+                        ? isSentenceJudgmentItem
+                          ? isSentenceRewriteStage
+                            ? (pageLanguage === 'th' ? 'แก้ไขประโยค' : 'FIX IT!')
+                            : (pageLanguage === 'th' ? 'ประโยคนี้ถูกต้องไหม' : 'IS THIS CORRECT?')
+                          : (pageLanguage === 'th' ? 'เขียนประโยคใหม่' : 'REWRITE THIS')
+                        : (pageLanguage === 'th' ? 'ตอบคำถาม' : 'RESPOND TO THE PROMPT')}
+                      language={pageLanguage}
+                    />
                   ) : null}
                   <View
                     style={[
@@ -16808,6 +16946,15 @@ const styles = StyleSheet.create({
   phraseDialogueThaiTurn: {
     marginTop: 0,
   },
+  phraseDialogueThaiPairEnd: {
+    marginBottom: 5,
+  },
+  phraseDialoguePairStack: {
+    gap: 10,
+  },
+  phraseDialoguePair: {
+    gap: 2,
+  },
   phraseDialogueThaiPlainText: {
     minWidth: 0,
     flexShrink: 1,
@@ -18417,18 +18564,14 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   practiceMultipleChoicePromptImageShell: {
-    width: 184,
-    minHeight: 148,
-    borderWidth: 1,
-    borderColor: '#E6EAF2',
-    borderRadius: 18,
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.sm,
-    ...brutalShadow,
+    width: '100%',
+    minHeight: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   practiceMultipleChoicePromptImage: {
     width: '100%',
-    height: 130,
+    height: 140,
   },
   practiceQuestionText: {
     color: theme.colors.text,
@@ -18443,6 +18586,12 @@ const styles = StyleSheet.create({
   },
   practiceLocalizedMultilineQuestionText: {
     lineHeight: Platform.OS === 'android' ? 22 : 18,
+  },
+  practiceLocalizedDialogueStack: {
+    gap: theme.spacing.sm,
+  },
+  practiceLocalizedDialoguePair: {
+    gap: 2,
   },
   practiceLocalizedEnglishLine: {
     fontFamily: theme.typography.fontFaces.en.regular,

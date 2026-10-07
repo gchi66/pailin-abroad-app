@@ -144,7 +144,7 @@ export function ExerciseBankScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
-      <ResponsivePageShell>
+      <ResponsivePageShell style={styles.pageShell}>
         <View style={styles.page}>
           <PageHeader
             language={uiLanguage}
@@ -159,7 +159,7 @@ export function ExerciseBankScreen() {
             )}
           />
           <View style={styles.contentWrap}>
-            <Stack gap="lg">
+            <Stack gap="lg" style={styles.contentStack}>
 
               {!hasMembership ? (
                 <ResourceUnlockCard
@@ -218,45 +218,47 @@ export function ExerciseBankScreen() {
               ) : null}
 
               {!errorMessage && collections.length > 0 ? (
-                <View style={styles.collectionGrid}>
-                  {collections.map((collection) => (
-                    <Pressable
-                      key={collection.slug}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${collection.label[uiLanguage]}, ${collection.topicCount} ${
-                        collection.topicCount === 1 ? copy.topicSingle : copy.topicPlural
-                      }`}
-                      style={styles.collectionCardWrap}
-                      onPress={() => handleCollectionPress(collection)}>
-                      <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
-                      <View style={styles.collectionCard}>
-                        <InsetBorderSurface
-                          backgroundColor={collection.slug === 'verbs-and-tenses' ? '#C8F0FF' : theme.colors.surface}
-                          borderRadius={theme.radii.lg}
-                          borderWidth={theme.borderWidths.primaryCard}
-                        />
-                        <AppText language="en" variant="body" style={styles.collectionEmoji}>
-                          {collection.emoji}
-                        </AppText>
-                        <View style={styles.collectionCopy}>
-                          <AppText
-                            language={uiLanguage}
-                            variant="body"
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
-                            minimumFontScale={0.78}
-                            style={styles.collectionTitle}>
-                            {collection.label[uiLanguage]}
+                <View style={styles.collectionGridArea}>
+                  <View style={styles.collectionGrid}>
+                    {collections.map((collection) => (
+                      <Pressable
+                        key={collection.slug}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${collection.label[uiLanguage]}, ${collection.topicCount} ${
+                          collection.topicCount === 1 ? copy.topicSingle : copy.topicPlural
+                        }`}
+                        style={styles.collectionCardWrap}
+                        onPress={() => handleCollectionPress(collection)}>
+                        <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
+                        <View style={styles.collectionCard}>
+                          <InsetBorderSurface
+                            backgroundColor={collection.slug === 'verbs-and-tenses' ? '#C8F0FF' : theme.colors.surface}
+                            borderRadius={theme.radii.lg}
+                            borderWidth={theme.borderWidths.primaryCard}
+                          />
+                          <AppText language="en" variant="body" style={styles.collectionEmoji}>
+                            {collection.emoji}
                           </AppText>
-                          <AppText language={uiLanguage} variant="muted" style={styles.collectionCount}>
-                            {`${collection.topicCount} ${
-                              collection.topicCount === 1 ? copy.topicSingle : copy.topicPlural
-                            }`}
-                          </AppText>
+                          <View style={styles.collectionCopy}>
+                            <AppText
+                              language={uiLanguage}
+                              variant="body"
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.78}
+                              style={styles.collectionTitle}>
+                              {collection.label[uiLanguage]}
+                            </AppText>
+                            <AppText language={uiLanguage} variant="muted" style={styles.collectionCount}>
+                              {`${collection.topicCount} ${
+                                collection.topicCount === 1 ? copy.topicSingle : copy.topicPlural
+                              }`}
+                            </AppText>
+                          </View>
                         </View>
-                      </View>
-                    </Pressable>
-                  ))}
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               ) : null}
             </Stack>
@@ -273,11 +275,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FBFF',
   },
   contentContainer: {
+    flexGrow: 1,
     paddingBottom: FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING,
   },
-  page: { paddingHorizontal: 32, paddingTop: 16 },
-  languageTogglePosition: { marginRight: -14 },
-  contentWrap: { paddingTop: 18 },
+  pageShell: { flex: 1 },
+  page: { flex: 1, paddingHorizontal: 18, paddingTop: 12 },
+  languageTogglePosition: { transform: [{ translateY: 5 }] },
+  contentWrap: { flex: 1, paddingTop: 18 },
+  contentStack: { flex: 1 },
   searchShell: {
     minHeight: 48,
     flexDirection: 'row',
@@ -322,6 +327,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 12,
+  },
+  collectionGridArea: {
+    flex: 1,
+    justifyContent: 'center',
   },
   collectionCardWrap: {
     position: 'relative',
