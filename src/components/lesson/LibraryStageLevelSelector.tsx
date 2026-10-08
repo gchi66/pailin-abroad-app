@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { LIBRARY_STAGES, LibraryStage } from '@/src/lib/library-pathway';
@@ -46,15 +46,16 @@ export function LibraryStageLevelSelector({
                 onPress={() => onSelectStage(value)}
                 style={[styles.stageTouch, value === stage ? styles.activeStage : null]}>
                 {index > 0 ? <View pointerEvents="none" style={styles.stageDivider} /> : null}
-                <AppText
-                  language={language}
-                  variant="caption"
+                <Text
                   numberOfLines={1}
                   adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  style={[styles.stageName, value === stage ? styles.activeStageText : null]}>
+                  minimumFontScale={0.85}
+                  style={[
+                    styles.stageName,
+                    { fontFamily: theme.typography.fontFaces[language][value === stage ? 'bold' : 'medium'] },
+                  ]}>
                   {stageLabel(value)}
-                </AppText>
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -104,9 +105,8 @@ const styles = StyleSheet.create({
   stages: { minHeight: 40, flexDirection: 'row', alignItems: 'stretch' },
   stageTouch: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   stageDivider: { position: 'absolute', left: 0, top: -2, bottom: -2, width: 1.5, backgroundColor: '#222222', zIndex: 1 },
-  stageName: { width: '100%', fontSize: 11, lineHeight: 16, letterSpacing: 0.3, textAlign: 'center', textTransform: 'uppercase' },
+  stageName: { width: '100%', color: theme.colors.text, fontSize: 11, lineHeight: 16, letterSpacing: 0.3, textAlign: 'center', textTransform: 'uppercase' },
   activeStage: { backgroundColor: '#B7E8F8' },
-  activeStageText: { fontWeight: theme.typography.weights.bold },
   stageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, minHeight: 27 },
   stageHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   stageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#BCE574' },

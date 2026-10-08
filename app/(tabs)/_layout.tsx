@@ -1,5 +1,9 @@
-import React, { useEffect, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { CommonActions } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs, usePathname } from 'expo-router';
 
@@ -29,12 +33,37 @@ const labels: Record<UiLanguage, { home: string; pathway: string; exercises: str
   },
 };
 
+const TAB_HISTORY_EDGE_WIDTH = 24;
+const TAB_HISTORY_SWIPE_DISTANCE = 56;
+const TAB_HISTORY_SWIPE_VELOCITY = 500;
+
+type TabNavigation = BottomTabBarProps['navigation'];
+
+type HistoryAwareTabBarProps = BottomTabBarProps & {
+  onHistoryStateChange: (navigation: TabNavigation, canSwipeBack: boolean) => void;
+};
+
+function HistoryAwareTabBar({ onHistoryStateChange, ...props }: HistoryAwareTabBarProps) {
+  const activeRoute = props.state.routes[props.state.index];
+  const activeChildIndex = activeRoute?.state?.index ?? 0;
+  const visitedTabCount = props.state.history?.filter((entry) => entry.type === 'route').length ?? 0;
+  const canSwipeBack = activeChildIndex === 0 && visitedTabCount > 1;
+
+  useEffect(() => {
+    onHistoryStateChange(props.navigation, canSwipeBack);
+  }, [canSwipeBack, onHistoryStateChange, props.navigation]);
+
+  return <PailinTabBar {...props} />;
+}
+
 export default function TabLayout() {
   useColorScheme();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   const { continueAsGuest, hasAccount, isGuestMode, isLoading } = useAppSession();
+  const tabNavigationRef = useRef<TabNavigation | null>(null);
+  const [canSwipeThroughTabHistory, setCanSwipeThroughTabHistory] = useState(false);
 
   const text = labels[uiLanguage];
   const isExerciseSet = pathname.startsWith('/exercises/topic/')
@@ -66,61 +95,112 @@ export default function TabLayout() {
     [insets.top, isExerciseSet, shouldShowTabBar]
   );
 
+  const handleHistoryStateChange = useCallback((navigation: TabNavigation, canSwipeBack: boolean) => {
+    tabNavigationRef.current = navigation;
+    setCanSwipeThroughTabHistory(canSwipeBack);
+  }, []);
+
+  useEffect(() => {
+    if (!shouldShowTabBar) {
+      setCanSwipeThroughTabHistory(false);
+    }
+  }, [shouldShowTabBar]);
+
+  const goBackThroughTabHistory = useCallback(() => {
+    const navigation = tabNavigationRef.current;
+    if (!navigation) {
+      return;
+    }
+
+    const state = navigation.getState();
+    navigation.dispatch({
+      ...CommonActions.goBack(),
+      target: state.key,
+    });
+  }, []);
+
+  const tabHistoryGesture = useMemo(
+    () => Gesture.Pan()
+      .enabled(Platform.OS === 'ios' && canSwipeThroughTabHistory)
+      .hitSlop({ left: 0, width: TAB_HISTORY_EDGE_WIDTH })
+      .activeOffsetX(10)
+      .failOffsetY([-18, 18])
+      .onEnd((event) => {
+        if (
+          event.translationX >= TAB_HISTORY_SWIPE_DISTANCE
+          || event.velocityX >= TAB_HISTORY_SWIPE_VELOCITY
+        ) {
+          runOnJS(goBackThroughTabHistory)();
+        }
+      }),
+    [canSwipeThroughTabHistory, goBackThroughTabHistory]
+  );
+
   return (
-    <Tabs
-      screenOptions={tabsScreenOptions}
-      tabBar={(props) => (shouldShowTabBar ? <PailinTabBar {...props} /> : null)}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: hasAccount || isGuestMode ? text.pathway : text.home,
-        }}
-      />
-      <Tabs.Screen
-        name="exercises"
-        options={{
-          title: text.exercises,
-        }}
-      />
-      <Tabs.Screen
-        name="lessons"
-        options={{
-          title: text.lessons,
-        }}
-      />
-      <Tabs.Screen
-        name="resources"
-        options={{
-          title: text.resources,
-        }}
-      />
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: text.more,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="pathway"
-        options={{
-          href: null,
-        }}
-      />
-    </Tabs>
+    <GestureDetector gesture={tabHistoryGesture}>
+      <View style={styles.container}>
+        <Tabs
+          backBehavior="history"
+          screenOptions={tabsScreenOptions}
+          tabBar={(props) => shouldShowTabBar
+            ? <HistoryAwareTabBar {...props} onHistoryStateChange={handleHistoryStateChange} />
+            : null}>
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: hasAccount || isGuestMode ? text.pathway : text.home,
+            }}
+          />
+          <Tabs.Screen
+            name="exercises"
+            options={{
+              title: text.exercises,
+            }}
+          />
+          <Tabs.Screen
+            name="lessons"
+            options={{
+              title: text.lessons,
+            }}
+          />
+          <Tabs.Screen
+            name="resources"
+            options={{
+              title: text.resources,
+            }}
+          />
+          <Tabs.Screen
+            name="account"
+            options={{
+              title: text.more,
+            }}
+          />
+          <Tabs.Screen
+            name="explore"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="pathway"
+            options={{
+              href: null,
+            }}
+          />
+        </Tabs>
+      </View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-    scene: {
-      backgroundColor: theme.colors.background,
-    },
-    sceneFullscreen: {
-      backgroundColor: theme.colors.background,
-    },
-  });
+  container: {
+    flex: 1,
+  },
+  scene: {
+    backgroundColor: theme.colors.background,
+  },
+  sceneFullscreen: {
+    backgroundColor: theme.colors.background,
+  },
+});

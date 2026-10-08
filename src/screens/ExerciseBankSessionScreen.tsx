@@ -39,6 +39,7 @@ import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
@@ -438,6 +439,7 @@ function QuestionInput({ answer, disabled, judgmentRewriteStage = false, languag
 export function ExerciseBankSessionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { hasAccount } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const playAnswerFeedbackSound = useAnswerFeedbackSound();
   const copy = getCopy(uiLanguage);
@@ -553,7 +555,7 @@ export function ExerciseBankSessionScreen() {
       setQueue(allQuestionIds);
       setQueueIndex(resumeIndex);
       setIsFinished(resumeView === 'results');
-      if (!resumesThisSet) {
+      if (hasAccount && !resumesThisSet) {
         void saveExerciseBankV2Cursor(topicId, {
           setNumber: resolvedSetNumber,
           setPosition: resumeIndex + 1,
@@ -565,7 +567,7 @@ export function ExerciseBankSessionScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [hasSetNumber, setNumber, topicId]);
+  }, [hasAccount, hasSetNumber, setNumber, topicId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -628,7 +630,7 @@ export function ExerciseBankSessionScreen() {
   };
 
   const persistCursor = (position: number, view: 'question' | 'results') => {
-    if (!topicId || !setData) return;
+    if (!hasAccount || !topicId || !setData) return;
     void saveExerciseBankV2Cursor(topicId, {
       setNumber: setData.set_number,
       setPosition: position,
@@ -729,7 +731,9 @@ export function ExerciseBankSessionScreen() {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      await advanceExerciseBankV2Set(topicId, currentSetNumber);
+      if (hasAccount) {
+        await advanceExerciseBankV2Set(topicId, currentSetNumber);
+      }
       if (nextSet) {
         router.setParams({ setNumber: String(nextSet.set_number) });
         return;

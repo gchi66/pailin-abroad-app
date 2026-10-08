@@ -529,10 +529,14 @@ export function PracticeAnswerFooter({
           {primaryLabel}
         </AppText>
       </Pressable>
-      {!isCorrect && onSkip ? (
-        <Pressable accessibilityRole="button" style={styles.skipButton} onPress={onSkip}>
-          <AppText language={language} variant="caption" style={styles.skipText}>{labels.skip}</AppText>
-        </Pressable>
+      {onSkip ? (
+        isCorrect ? (
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.skipButtonPlaceholder} />
+        ) : (
+          <Pressable accessibilityRole="button" style={styles.skipButton} onPress={onSkip}>
+            <AppText language={language} variant="caption" style={styles.skipText}>{labels.skip}</AppText>
+          </Pressable>
+        )
       ) : null}
     </View>
   );
@@ -585,6 +589,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
+    transform: [{ translateY: 2 }],
   },
   imageSurfaceSize: { width: 184, height: 184, alignSelf: 'center', overflow: 'hidden', padding: 6 },
   image: { width: '100%', height: '100%' },
@@ -652,6 +657,7 @@ const styles = StyleSheet.create({
   lightButtonText: { color: '#FFFFFF' },
   disabledButtonText: { color: fillBlankColors.disabledText },
   skipButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 2 },
+  skipButtonPlaceholder: { height: 18 },
   skipText: { color: '#5E5E5E', fontSize: 10, lineHeight: 14, textDecorationLine: 'underline', textTransform: 'uppercase' },
   errorText: { color: theme.colors.error, textAlign: 'center' },
 });

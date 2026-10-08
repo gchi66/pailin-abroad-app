@@ -414,14 +414,15 @@ export async function evaluateLessonAnswer(
   const session = await getCurrentLessonSession();
   const headers = await getLessonAuthHeaders();
   const userId = session?.user?.id?.trim();
+  const guestUserId = headers['X-Guest-RevenueCat-User-Id']?.trim();
 
-  if (!userId) {
+  if (!userId && !guestUserId) {
     throw new Error('Please log in to check your answers.');
   }
 
   const payload: Record<string, unknown> = {
     ...(input.extra ?? {}),
-    user_id: userId,
+    user_id: userId ?? guestUserId,
     exercise_type: input.exerciseType,
     user_answer: input.userAnswer,
     correct_answer: input.correctAnswer ?? '',

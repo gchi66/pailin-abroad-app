@@ -3841,7 +3841,7 @@ export default function LessonDetailShellScreen() {
   const [lessonKeyboardHeight, setLessonKeyboardHeight] = useState(0);
   const [contentScrollViewportHeight, setContentScrollViewportHeight] = useState(0);
   const [contentScrollMeasuredHeight, setContentScrollMeasuredHeight] = useState(0);
-  const [detachedAudioFooterHeight, setDetachedAudioFooterHeight] = useState(0);
+  const [overlayFooterHeight, setOverlayFooterHeight] = useState(0);
   const [appLessonProgressDetail, setAppLessonProgressDetail] = useState<AppLessonProgressDetail | null>(null);
   const [savedAnswerStateByUnit, setSavedAnswerStateByUnit] = useState<Record<string, Record<string, unknown>>>({});
   const [pendingRichLink, setPendingRichLink] = useState<PendingRichLink | null>(null);
@@ -5743,8 +5743,6 @@ export default function LessonDetailShellScreen() {
             ? 'ส่วนถัดไป'
             : 'NEXT SECTION';
   const continueButtonLabel = pageLanguage === 'th' ? 'ดำเนินการต่อ' : 'CONTINUE';
-  const isLastPhraseCard =
-    isPhrasesFooterActive && !showPhraseList && activePhraseIndex >= normalizedLessonPhrases.length - 1;
   const isCheckpointPhrasesFinishAction =
     isCheckpointCoverLesson && isPhrasesFooterActive && isLastSection;
   const hasMoreRichPagerCards = !isListenPage && isRichPagerTab && !isLastPagerCard;
@@ -6018,7 +6016,7 @@ export default function LessonDetailShellScreen() {
     setApplyInputLineCount(1);
     setShowApplyTask(false);
     setShowApplyResponse(false);
-  }, [activeTab?.id, contentLang, lessonId]);
+  }, [activeTab?.id, lessonId]);
 
   useEffect(() => {
     setActivePhraseIndex(0);
@@ -9860,6 +9858,7 @@ export default function LessonDetailShellScreen() {
           <View key={`${cellKey}-line-${lineIndex}`} style={styles.richTableAudioLine}>
             <LessonSnippetAudioButton
               tapFeedback
+              style={styles.richTableAudioButton}
               accessibilityLabel={
                 pageLanguage === 'th'
                   ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
@@ -11076,7 +11075,13 @@ export default function LessonDetailShellScreen() {
                     styles.phraseCompactCard,
                     contentLang === 'th' && phrase.phraseTh ? styles.phraseCompactCardThai : null,
                   ]}>
-                  <View style={styles.phraseCompactAudioSlot}>{renderPhraseAudioButton(phrase, true)}</View>
+                  <View
+                    style={[
+                      styles.phraseCompactAudioSlot,
+                      contentLang === 'th' && phrase.phraseTh ? styles.phraseCompactAudioSlotThai : null,
+                    ]}>
+                    {renderPhraseAudioButton(phrase, true)}
+                  </View>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${phraseLabel}. ${pageLanguage === 'th' ? 'เปิดแฟลชการ์ด' : 'Open flashcard'}`}
@@ -14534,8 +14539,8 @@ const mergeAdjacentPracticeRowTokens = (
                       styles.contentScrollContent,
                       shouldContainLessonContent ? styles.contentScrollContentTablet : null,
                       isFullscreen ? { paddingTop: insets.top + 12 } : null,
-                      usesDetachedAudioFooter && !shouldShowBottomPagerDock
-                        ? { paddingBottom: detachedAudioFooterHeight + 16 }
+                      (usesDetachedAudioFooter || isListenPage) && !shouldShowBottomPagerDock
+                        ? { paddingBottom: overlayFooterHeight + 16 }
                         : null,
                       isKeyboardOpen ? { paddingBottom: lessonKeyboardHeight + 24 } : null,
                     ]}
@@ -15370,7 +15375,7 @@ const mergeAdjacentPracticeRowTokens = (
                   {shouldShowBottomPagerDock ? (
                     <View style={[
                       styles.bottomPagerDock,
-                      usesDetachedAudioFooter ? { marginBottom: detachedAudioFooterHeight } : null,
+                      usesDetachedAudioFooter ? { marginBottom: overlayFooterHeight } : null,
                     ]}>
                       {renderRichPagerControls()}
                     </View>
@@ -15380,10 +15385,10 @@ const mergeAdjacentPracticeRowTokens = (
                     key={lessonFooterLayoutKey}
                     pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
                     onLayout={
-                      usesDetachedAudioFooter
+                      usesDetachedAudioFooter || isListenPage
                         ? (event) => {
                             const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-                            setDetachedAudioFooterHeight((currentHeight) =>
+                            setOverlayFooterHeight((currentHeight) =>
                               currentHeight === nextHeight ? currentHeight : nextHeight
                             );
                           }
@@ -15687,9 +15692,6 @@ const mergeAdjacentPracticeRowTokens = (
                           styles.ctaNextButton,
                           styles.ctaNextButtonFull,
                           isCheckpointPhrasesFinishAction ? styles.checkpointFinishLessonButton : null,
-                          isPhrasesFooterActive && !isLastPhraseCard && !isCheckpointPhrasesFinishAction
-                            ? styles.phraseSkipButton
-                            : null,
                           isComprehensionFooterActive && showComprehensionResults
                             ? styles.comprehensionResultActionButton
                             : null,
@@ -15724,9 +15726,6 @@ const mergeAdjacentPracticeRowTokens = (
                             styles.ctaNextButtonText,
                             isCheckpointPhrasesFinishAction
                               ? styles.checkpointFinishLessonButtonText
-                              : null,
-                            isPhrasesFooterActive && !isLastPhraseCard && !isCheckpointPhrasesFinishAction
-                              ? styles.phraseSkipButtonText
                               : null,
                           ]}>
                           {isSavingLessonCompletion
@@ -16795,7 +16794,7 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ scale: 0.82 }],
+    transform: [{ scale: 0.88 }],
   },
   phraseViewAllButton: {
     alignSelf: 'center',
@@ -16890,6 +16889,10 @@ const styles = StyleSheet.create({
     width: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  phraseCompactAudioSlotThai: {
+    alignSelf: 'flex-start',
+    transform: [{ translateY: -1 }],
   },
   phraseCompactCardCopy: {
     flex: 1,
@@ -17501,8 +17504,11 @@ const styles = StyleSheet.create({
   },
   richTableAudioLine: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 4,
+  },
+  richTableAudioButton: {
+    marginTop: -3,
   },
   richTableAudioText: {
     flex: 1,
@@ -20142,12 +20148,6 @@ const styles = StyleSheet.create({
   checkpointFinishLessonIcon: {
     width: 16,
     height: 16,
-  },
-  phraseSkipButton: {
-    backgroundColor: theme.colors.surface,
-  },
-  phraseSkipButtonText: {
-    color: theme.colors.text,
   },
   comprehensionResultActionButton: {
     flex: 0,

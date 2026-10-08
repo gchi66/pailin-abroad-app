@@ -75,7 +75,8 @@ export function ChooseLevelResultScreen() {
       route: 'free-library',
     });
     queueLessonLibraryPreview(lessonId);
-    router.replace({
+    router.dismissAll();
+    router.navigate({
       pathname: '/(tabs)/lessons/free-library',
     });
   };

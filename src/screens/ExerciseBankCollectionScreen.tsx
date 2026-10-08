@@ -134,10 +134,6 @@ export function ExerciseBankCollectionScreen() {
   );
 
   const handleTopicPress = (topic: ExerciseBankTopic) => {
-    if (!hasAccount) {
-      router.push('/account/auth');
-      return;
-    }
     if (!hasMembership && !topic.is_featured) {
       router.push({
         pathname: '/(tabs)/account/membership',

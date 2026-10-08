@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { env } from '@/src/config/env';
 import { supabase } from '@/src/lib/supabase';
 import {
@@ -14,12 +16,27 @@ import {
 
 const EXERCISE_BANK_CACHE_FRESH_MS = 30 * 1000;
 const EXERCISE_BANK_CACHE_STALE_MS = 5 * 60 * 1000;
+const GUEST_MODE_STORAGE_KEY = 'pailin-abroad.guest-mode';
+const GUEST_REVENUECAT_USER_ID_STORAGE_KEY = 'pailin-abroad.guest-revenuecat-user-id';
 const exerciseBankCache = new Map<string, { payload: unknown; timestamp: number }>();
 const exerciseBankInflight = new Map<string, Promise<unknown>>();
 
+const getStoredGuestUserId = async () => {
+  try {
+    const [storedGuestMode, guestRevenueCatUserId] = await Promise.all([
+      AsyncStorage.getItem(GUEST_MODE_STORAGE_KEY),
+      AsyncStorage.getItem(GUEST_REVENUECAT_USER_ID_STORAGE_KEY),
+    ]);
+    return storedGuestMode === 'true' ? guestRevenueCatUserId?.trim() || null : null;
+  } catch {
+    return null;
+  }
+};
+
 const userCacheKey = async (resource: string) => {
   const { data } = await supabase.auth.getSession();
-  return `${data.session?.user.id ?? 'guest'}:${resource}`;
+  const userId = data.session?.user.id ?? await getStoredGuestUserId() ?? 'guest';
+  return `${userId}:${resource}`;
 };
 
 async function cachedExerciseBankRequest<T>(
@@ -92,15 +109,25 @@ async function exerciseBankV2Request<T>(path: string, init?: RequestInit): Promi
   const { data, error: sessionError } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
 
-  if (sessionError || !accessToken) {
-    throw new Error('Please sign in to use the Exercise Bank.');
+  if (sessionError) {
+    throw new Error(sessionError.message || 'Unable to load the Exercise Bank.');
+  }
+
+  const authHeaders: Record<string, string> = {};
+  if (accessToken) {
+    authHeaders.Authorization = `Bearer ${accessToken}`;
+  } else {
+    const guestUserId = await getStoredGuestUserId();
+    if (guestUserId) {
+      authHeaders['X-Guest-RevenueCat-User-Id'] = guestUserId;
+    }
   }
 
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       Accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+      ...authHeaders,
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...(init?.headers ?? {}),
     },

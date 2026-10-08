@@ -126,7 +126,7 @@ export function PlacementTestScreen() {
       calculationTimerRef.current = null;
     }
     player.pause();
-    router.replace('/(tabs)');
+    router.dismissAll();
   };
   const progressRatio = playerStatus.duration > 0
     ? Math.max(0, Math.min(1, playerStatus.currentTime / playerStatus.duration))
@@ -300,7 +300,8 @@ export function PlacementTestScreen() {
       route: 'free-library',
     });
     queueLessonLibraryPreview(resultLessonId);
-    router.replace({
+    router.dismissAll();
+    router.navigate({
       pathname: '/(tabs)/lessons/free-library',
     });
   };

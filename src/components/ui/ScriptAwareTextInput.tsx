@@ -13,6 +13,7 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
     placeholder,
     onChangeText,
     inputAccessoryViewID,
+    enterKeyHint,
     returnKeyType,
     submitBehavior,
     ...props
@@ -27,6 +28,14 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
 
   const hasThai = lastInputHasThai || containsThaiGlyphs(value) || containsThaiGlyphs(placeholder);
   const flattenedStyle = StyleSheet.flatten(style);
+  const resolvedEnterKeyHint =
+    enterKeyHint ??
+    (returnKeyType === 'go' ||
+    returnKeyType === 'next' ||
+    returnKeyType === 'search' ||
+    returnKeyType === 'send'
+      ? returnKeyType
+      : 'done');
 
   return (
     <TextInput
@@ -38,6 +47,7 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
       inputAccessoryViewID={
         inputAccessoryViewID ?? (Platform.OS === 'ios' ? DEFAULT_KEYBOARD_DISMISS_ACCESSORY_ID : undefined)
       }
+      enterKeyHint={resolvedEnterKeyHint}
       returnKeyType={returnKeyType ?? 'done'}
       submitBehavior={submitBehavior ?? 'blurAndSubmit'}
       onChangeText={(text) => {
