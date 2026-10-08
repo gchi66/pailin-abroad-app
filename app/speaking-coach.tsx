@@ -500,6 +500,7 @@ function PailinCoachBubble({
     <View style={[
       styles.pronunciationCoachRow,
       overlapCard ? styles.pronunciationCoachRowOverlap : null,
+      overlapCard && tone === 'unclear' ? styles.pronunciationCoachRowOverlapUnclear : null,
       shiftRight ? styles.pronunciationCoachRowShiftRight : null,
     ]}>
       <Image
@@ -517,6 +518,7 @@ function PailinCoachBubble({
           styles.pronunciationCoachBubble,
           plain ? styles.pronunciationCoachMessagePlain : null,
           overlapCard ? styles.pronunciationCoachMessageOverlap : null,
+          overlapCard && tone === 'unclear' ? styles.pronunciationCoachMessageOverlapUnclear : null,
           tone === 'success'
             ? (plain ? styles.pronunciationCoachMessagePlainSuccess : styles.pronunciationCoachBubbleSuccess)
             : tone === 'unclear'
@@ -3175,6 +3177,7 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     transform: [{ translateY: 26 }],
   },
+  pronunciationCoachRowOverlapUnclear: { transform: [{ translateX: -5 }, { translateY: 26 }] },
   pronunciationCoachRowShiftRight: { marginLeft: 10 },
   pronunciationCoachImage: { width: 150, height: 130 },
   pronunciationCoachImageOverlapSuccess: { transform: [{ translateX: -12 }, { translateY: 7 }] },
@@ -3226,6 +3229,7 @@ const styles = StyleSheet.create({
   pronunciationCoachMessagePlainUnclear: { backgroundColor: 'transparent' },
   pronunciationCoachMessagePlainError: { backgroundColor: 'transparent' },
   pronunciationCoachMessageOverlap: { marginLeft: -26 },
+  pronunciationCoachMessageOverlapUnclear: { marginLeft: -32 },
   pronunciationCoachMessageOverlapInstruction: { marginLeft: -42 },
   pronunciationCoachMessage: { fontSize: 12, lineHeight: 17, fontWeight: theme.typography.weights.semibold },
   pronunciationCoachMessagePlainText: { fontSize: 16, lineHeight: 22 },

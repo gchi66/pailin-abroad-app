@@ -17482,7 +17482,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#CDD7E5',
     backgroundColor: 'transparent',
-    justifyContent: 'center',
+    // Keep paired examples aligned from the top when device font metrics cause
+    // one cell to wrap onto more lines than its neighbor.
+    justifyContent: 'flex-start',
     gap: 4,
   },
   richTableCellLast: {
