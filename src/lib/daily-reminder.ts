@@ -11,10 +11,12 @@ import {
 
 const DAILY_REMINDER_ID_STORAGE_KEY = 'pailin-abroad.daily-reminder-id';
 const DAILY_REMINDER_ENABLED_STORAGE_KEY = 'pailin-abroad.daily-reminder-enabled';
+const DAILY_REMINDER_RANDOM_SEED_STORAGE_KEY = 'pailin-abroad.daily-reminder-random-seed';
 const DAILY_REMINDER_CHANNEL_ID = 'daily-reminders';
 const DAILY_REMINDER_DATA_KEY = 'pailinDailyReminder';
-const DAILY_REMINDER_HOUR = 19;
-const DAILY_REMINDER_MINUTE = 0;
+const DAILY_REMINDER_START_HOUR = 17;
+const DAILY_REMINDER_END_HOUR = 20;
+const MINUTES_PER_HOUR = 60;
 let dailyReminderOperation: Promise<void> = Promise.resolve();
 
 export type ReminderLanguage = 'en' | 'th';
@@ -37,6 +39,39 @@ const runDailyReminderOperation = <T,>(operation: () => Promise<T>) => {
     () => undefined
   );
   return result;
+};
+
+const getDailyReminderRandomSeed = async () => {
+  const storedValue = await AsyncStorage.getItem(DAILY_REMINDER_RANDOM_SEED_STORAGE_KEY);
+  const storedSeed = storedValue === null ? Number.NaN : Number(storedValue);
+  if (Number.isInteger(storedSeed) && storedSeed >= 0 && storedSeed <= 0xffff_ffff) {
+    return storedSeed;
+  }
+
+  const seed = Math.floor(Math.random() * 0x1_0000_0000);
+  await AsyncStorage.setItem(DAILY_REMINDER_RANDOM_SEED_STORAGE_KEY, String(seed));
+  return seed;
+};
+
+const setRandomDailyReminderTime = (date: Date, seed: number) => {
+  const startMinute = DAILY_REMINDER_START_HOUR * MINUTES_PER_HOUR;
+  const endMinute = DAILY_REMINDER_END_HOUR * MINUTES_PER_HOUR;
+  const localCalendarDay =
+    date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate();
+  let hash = seed ^ localCalendarDay;
+  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+  hash ^= hash >>> 16;
+  const randomFraction = (hash >>> 0) / 0x1_0000_0000;
+  const minuteOfDay =
+    startMinute + Math.floor(randomFraction * (endMinute - startMinute + 1));
+
+  date.setHours(
+    Math.floor(minuteOfDay / MINUTES_PER_HOUR),
+    minuteOfDay % MINUTES_PER_HOUR,
+    0,
+    0,
+  );
 };
 
 const isLegacyDailyReminder = (request: Notifications.NotificationRequest) => {
@@ -101,6 +136,7 @@ export type DailyReminderLesson = {
   id: string;
   lessonExternalId?: string | null;
   level?: number | null;
+  libraryRoute?: 'library' | 'free-library';
   isCheckpoint?: boolean;
 };
 
@@ -149,16 +185,16 @@ export const scheduleDailyReminder = (
 
     const identifiers: string[] = [];
     const now = new Date();
-    const todayAtReminderTime = new Date(now);
-    todayAtReminderTime.setHours(DAILY_REMINDER_HOUR, DAILY_REMINDER_MINUTE, 0, 0);
-    const firstInactiveDay = todayAtReminderTime.getTime() > now.getTime() ? 0 : 1;
+    const randomSeed = await getDailyReminderRandomSeed();
 
-    // Keep today's reminder when 7 PM has not passed. The foreground notification
-    // handler suppresses it only when the learner is actively using the app at 7 PM.
-    for (let inactiveDays = firstInactiveDay; inactiveDays <= 28; inactiveDays += 1) {
+    // Date uses the device's local timezone. Each calendar day gets an independent
+    // reminder time from 5:00 PM through 8:00 PM.
+    for (let inactiveDays = 0; inactiveDays <= 28; inactiveDays += 1) {
       const notificationDate = new Date(now);
       notificationDate.setDate(now.getDate() + inactiveDays);
-      notificationDate.setHours(DAILY_REMINDER_HOUR, DAILY_REMINDER_MINUTE, 0, 0);
+      setRandomDailyReminderTime(notificationDate, randomSeed);
+      if (notificationDate.getTime() <= now.getTime()) continue;
+
       const calendarDayIndex = Math.floor(notificationDate.getTime() / 86_400_000);
       const copy = getReminderCopy(inactiveDays, calendarDayIndex, language, lesson);
       if (!copy) continue;
@@ -169,6 +205,13 @@ export const scheduleDailyReminder = (
           data: {
             destination: lesson?.id ? `/lessons/${lesson.id}` : '/(tabs)',
             [DAILY_REMINDER_DATA_KEY]: true,
+            ...(lesson?.id
+              ? {
+                  lessonId: lesson.id,
+                  libraryRoute: lesson.libraryRoute,
+                  overview: true,
+                }
+              : {}),
           },
           sound: 'default',
         },

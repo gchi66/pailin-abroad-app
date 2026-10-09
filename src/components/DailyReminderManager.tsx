@@ -40,6 +40,7 @@ export function DailyReminderManager() {
   const promptStarted = useRef(false);
   const languageRef = useRef(uiLanguage);
   const lessonRef = useRef<DailyReminderLesson | null>(null);
+  const hasMembershipRef = useRef(hasMembership);
   const resumeLesson = resumeRow?.lesson ?? null;
   const reminderLesson = useMemo<DailyReminderLesson | null>(
     () =>
@@ -51,22 +52,50 @@ export function DailyReminderManager() {
                 ? `${resumeLesson.level}.${resumeLesson.lesson_order}`
                 : null,
             level: resumeLesson.level,
+            libraryRoute: hasMembership ? 'library' : 'free-library',
             isCheckpoint: [resumeLesson.title, resumeLesson.title_th].some((title) =>
               String(title ?? '').toLowerCase().includes('checkpoint'),
             ),
           }
         : null,
-    [resumeLesson],
+    [hasMembership, resumeLesson],
   );
 
   useEffect(() => {
     languageRef.current = uiLanguage;
     lessonRef.current = reminderLesson;
-  }, [reminderLesson, uiLanguage]);
+    hasMembershipRef.current = hasMembership;
+  }, [hasMembership, reminderLesson, uiLanguage]);
 
   useEffect(() => {
     const openNotification = (response: Notifications.NotificationResponse) => {
-      const destination = response.notification.request.content.data?.destination;
+      const data = response.notification.request.content.data;
+      const destination = data?.destination;
+      const legacyLessonMatch =
+        typeof destination === 'string' ? destination.match(/^\/lessons\/([^/?#]+)$/) : null;
+      const lessonId =
+        typeof data?.lessonId === 'string' && data.lessonId.trim()
+          ? data.lessonId.trim()
+          : legacyLessonMatch?.[1];
+
+      if (lessonId) {
+        const libraryRoute =
+          data?.libraryRoute === 'library' || data?.libraryRoute === 'free-library'
+            ? data.libraryRoute
+            : hasMembershipRef.current
+              ? 'library'
+              : 'free-library';
+        router.push({
+          pathname: '/lessons/[id]',
+          params: {
+            id: lessonId,
+            libraryRoute,
+            overview: '1',
+          },
+        });
+        return;
+      }
+
       if (typeof destination === 'string' && destination.startsWith('/')) {
         router.push(destination as never);
       }

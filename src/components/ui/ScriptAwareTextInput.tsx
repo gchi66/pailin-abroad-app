@@ -1,8 +1,7 @@
-import React, { forwardRef, useEffect, useState } from 'react';
+import React, { forwardRef } from 'react';
 import { Platform, StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
-import { containsThaiGlyphs } from '@/src/lib/script-aware-text';
-import { resolveScriptFontFamily } from '@/src/theme/typography';
+import { fontWeightFromFamily, resolveFontFamily } from '@/src/theme/typography';
 import { DEFAULT_KEYBOARD_DISMISS_ACCESSORY_ID } from './KeyboardDismissAccessory';
 
 export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(function ScriptAwareTextInput(
@@ -20,14 +19,11 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
   },
   ref
 ) {
-  const [lastInputHasThai, setLastInputHasThai] = useState(containsThaiGlyphs(defaultValue));
-
-  useEffect(() => {
-    if (value !== undefined) setLastInputHasThai(containsThaiGlyphs(value));
-  }, [value]);
-
-  const hasThai = lastInputHasThai || containsThaiGlyphs(value) || containsThaiGlyphs(placeholder);
   const flattenedStyle = StyleSheet.flatten(style);
+  const fontFamily = resolveFontFamily('en', {
+    weight: flattenedStyle?.fontWeight ?? fontWeightFromFamily(flattenedStyle?.fontFamily),
+    italic: flattenedStyle?.fontStyle === 'italic' || /Italic/i.test(flattenedStyle?.fontFamily ?? ''),
+  });
   const resolvedEnterKeyHint =
     enterKeyHint ??
     (returnKeyType === 'go' ||
@@ -50,22 +46,8 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
       enterKeyHint={resolvedEnterKeyHint}
       returnKeyType={returnKeyType ?? 'done'}
       submitBehavior={submitBehavior ?? 'blurAndSubmit'}
-      onChangeText={(text) => {
-        setLastInputHasThai(containsThaiGlyphs(text));
-        onChangeText?.(text);
-      }}
-      style={[
-        style,
-        hasThai
-          ? {
-              fontFamily: resolveScriptFontFamily('th', {
-                explicitFontFamily: flattenedStyle?.fontFamily,
-                weight: flattenedStyle?.fontWeight,
-                italic: flattenedStyle?.fontStyle === 'italic',
-              }),
-            }
-          : null,
-      ]}
+      onChangeText={onChangeText}
+      style={[style, { fontFamily }]}
     />
   );
 });

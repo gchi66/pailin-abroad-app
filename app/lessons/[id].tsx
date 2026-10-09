@@ -112,6 +112,7 @@ import {
   setLessonContentLanguage,
 } from '@/src/lib/lesson-content-language';
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
+import { isStandaloneTranscriptCue } from '@/src/lib/transcript';
 import { theme } from '@/src/theme/theme';
 import { resolveTranscriptCharacterBlueCircle, resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import { resolveLocalLessonHeaderImage } from '@/src/assets/lesson-header-images';
@@ -14488,44 +14489,6 @@ const mergeAdjacentPracticeRowTokens = (
 
                     <View style={styles.lessonHeaderDivider} />
 
-                    <View style={styles.lessonHeaderTitleRow}>
-                      <View style={styles.lessonHeaderTitleGroup}>
-                        {isPrepareTab && !isListenPage ? (
-                          <MaterialCommunityIcons name="creation-outline" size={27} color={theme.colors.text} />
-                        ) : (
-                          <MaterialIcons name={activeSectionHeaderIcon} size={27} color={theme.colors.text} />
-                        )}
-                        <AppText
-                          language={pageLanguage}
-                          variant="title"
-                          style={[
-                            styles.lessonHeaderTitle,
-                            isRichPagerTab ? styles.lessonHeaderTitleWithCounter : null,
-                            pageLanguage === 'th' ? styles.studySectionTitleThai : styles.studySectionTitleEnglish,
-                            isPrepareTab && !isListenPage
-                              ? (pageLanguage === 'th' ? styles.prepareHeaderTitleThai : styles.prepareHeaderTitleEnglish)
-                              : isComprehensionTab
-                                ? (pageLanguage === 'th'
-                                    ? styles.comprehensionHeaderTitleThai
-                                    : styles.comprehensionHeaderTitleEnglish)
-                                : isTranscriptTab
-                                  ? (pageLanguage === 'th'
-                                      ? styles.transcriptHeaderTitleThai
-                                      : styles.transcriptHeaderTitleEnglish)
-                              : null,
-                          ]}>
-                          {isListenPage
-                            ? (pageLanguage === 'th' ? 'ฟัง' : 'Listen')
-                            : activeSectionTitle ?? pageCopy.noSectionAvailable}
-                        </AppText>
-                        {isRichPagerTab && activeInnerCardCount > 0 ? (
-                          <AppText language="en" variant="caption" style={styles.richPagerCounterText}>
-                            {`${Math.min(activeInnerCardIndex + 1, activeInnerCardCount)} of ${activeInnerCardCount}`}
-                          </AppText>
-                        ) : null}
-                      </View>
-
-                    </View>
                   </View>
                 </View>
               ) : null}
@@ -14562,6 +14525,45 @@ const mergeAdjacentPracticeRowTokens = (
                     showsVerticalScrollIndicator={false}
                     style={styles.contentScroll}>
                     <View style={[styles.lessonContentShell, shouldContainLessonContent ? styles.lessonContentShellTablet : null]}>
+                  {!isFullscreen ? (
+                    <View style={[styles.lessonHeaderTitleRow, styles.lessonHeaderTitleRowScrollable]}>
+                      <View style={styles.lessonHeaderTitleGroup}>
+                        {isPrepareTab && !isListenPage ? (
+                          <MaterialCommunityIcons name="creation-outline" size={27} color={theme.colors.text} />
+                        ) : (
+                          <MaterialIcons name={activeSectionHeaderIcon} size={27} color={theme.colors.text} />
+                        )}
+                        <AppText
+                          language={pageLanguage}
+                          variant="title"
+                          style={[
+                            styles.lessonHeaderTitle,
+                            isRichPagerTab ? styles.lessonHeaderTitleWithCounter : null,
+                            pageLanguage === 'th' ? styles.studySectionTitleThai : styles.studySectionTitleEnglish,
+                            isPrepareTab && !isListenPage
+                              ? (pageLanguage === 'th' ? styles.prepareHeaderTitleThai : styles.prepareHeaderTitleEnglish)
+                              : isComprehensionTab
+                                ? (pageLanguage === 'th'
+                                    ? styles.comprehensionHeaderTitleThai
+                                    : styles.comprehensionHeaderTitleEnglish)
+                                : isTranscriptTab
+                                  ? (pageLanguage === 'th'
+                                      ? styles.transcriptHeaderTitleThai
+                                      : styles.transcriptHeaderTitleEnglish)
+                              : null,
+                          ]}>
+                          {isListenPage
+                            ? (pageLanguage === 'th' ? 'ฟัง' : 'Listen')
+                            : activeSectionTitle ?? pageCopy.noSectionAvailable}
+                        </AppText>
+                        {isRichPagerTab && activeInnerCardCount > 0 ? (
+                          <AppText language="en" variant="caption" style={styles.richPagerCounterText}>
+                            {`${Math.min(activeInnerCardIndex + 1, activeInnerCardCount)} of ${activeInnerCardCount}`}
+                          </AppText>
+                        ) : null}
+                      </View>
+                    </View>
+                  ) : null}
                   <View
                     style={[
                       styles.sectionBodyBlock,
@@ -14835,6 +14837,22 @@ const mergeAdjacentPracticeRowTokens = (
                       {normalizedTranscript.map((line) => {
                         if (isTranscriptDividerLine(line)) {
                           return <View key={line.id} style={styles.transcriptDivider} />;
+                        }
+                        if (isStandaloneTranscriptCue(line)) {
+                          return (
+                            <View key={line.id} style={styles.transcriptStandaloneCue}>
+                              {line.englishLine ? (
+                                <AppText language="en" style={styles.transcriptStandaloneCueEnglish}>
+                                  {line.englishLine}
+                                </AppText>
+                              ) : null}
+                              {contentLang === 'th' && line.thaiLine ? (
+                                <AppText language="th" style={styles.transcriptStandaloneCueThai}>
+                                  {line.thaiLine}
+                                </AppText>
+                              ) : null}
+                            </View>
+                          );
                         }
 
                         const side = transcriptSideByLineId[line.id] ?? 'left';
@@ -16250,7 +16268,6 @@ const styles = StyleSheet.create({
   studyTopChrome: {
     backgroundColor: theme.colors.background,
     paddingHorizontal: LESSON_CONTENT_HORIZONTAL_PADDING,
-    paddingBottom: 6,
   },
   studyTopChromeContent: {
     width: '100%',
@@ -16282,6 +16299,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
+  },
+  lessonHeaderTitleRowScrollable: {
+    marginTop: 0,
+    marginBottom: 14,
   },
   lessonHeaderTitleGroup: {
     minWidth: 0,
@@ -17800,6 +17821,28 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginVertical: 7,
     backgroundColor: '#C8CBD0',
+  },
+  transcriptStandaloneCue: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 24,
+    paddingTop: 0,
+    paddingBottom: 12,
+  },
+  transcriptStandaloneCueEnglish: {
+    color: theme.colors.text,
+    fontFamily: theme.typography.fontFaces.en.bold,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  transcriptStandaloneCueThai: {
+    color: theme.colors.mutedText,
+    fontFamily: theme.typography.fontFaces.th.bold,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   transcriptMessageRow: {
     width: '100%',

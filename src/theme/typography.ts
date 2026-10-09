@@ -110,7 +110,7 @@ export const resolveFontFamily = (
   return fontFaces[resolvedFontFaceKey] ?? fontFaces.regular;
 };
 
-const fontWeightFromFamily = (family: string | undefined): TextStyle['fontWeight'] | undefined => {
+export const fontWeightFromFamily = (family: string | undefined): TextStyle['fontWeight'] | undefined => {
   if (!family) return undefined;
   if (/(?:ExtraBold|Black)/i.test(family)) return '800';
   if (/Bold/i.test(family) && !/SemiBold/i.test(family)) return '700';

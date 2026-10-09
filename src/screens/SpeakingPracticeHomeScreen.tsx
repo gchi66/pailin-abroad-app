@@ -118,7 +118,7 @@ export function SpeakingPracticeHomeScreen() {
         <View style={styles.page}>
           <ResourcePageHeader
             language={uiLanguage}
-            title={uiLanguage === 'th' ? 'ฝึกพูด' : 'Speaking Practice'}
+            title={uiLanguage === 'th' ? 'โค้ชฝึกพูด' : 'Speaking Coach'}
             subtitle={uiLanguage === 'th'
               ? 'ฝึกการออกเสียงและการพูด Pailin จะให้คำแนะนำที่เป็นประโยชน์!'
               : 'Work on your pronunciation and speaking. Our AI checker will give you valuable feedback!'}

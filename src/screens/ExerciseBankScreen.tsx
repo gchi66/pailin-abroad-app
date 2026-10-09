@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   },
   collectionGridArea: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   collectionCardWrap: {
     position: 'relative',

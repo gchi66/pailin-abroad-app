@@ -3315,6 +3315,7 @@ const styles = StyleSheet.create({
     ...practiceNeoShadowStyle,
     borderRadius: 11,
     backgroundColor: practiceColors.question,
+    boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
   pronunciationRecordingActionCard: {
     backgroundColor: practiceColors.incorrectPanel,
@@ -3503,6 +3504,7 @@ const styles = StyleSheet.create({
     minHeight: 270,
     borderRadius: 11,
     backgroundColor: practiceColors.question,
+    boxShadow: `4px 4px 0px ${theme.colors.border}`,
   },
   conversationAlignedActionCard: { justifyContent: 'flex-start' },
   conversationActionTitle: {

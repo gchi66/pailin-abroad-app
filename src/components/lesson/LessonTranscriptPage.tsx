@@ -7,6 +7,7 @@ import transcriptLeftAvatar from '@/assets/images/characters/pailin-blue-right.p
 import transcriptRightAvatar from '@/assets/images/characters/chloe-friend-blue-left.png';
 import { resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import { AppText } from '@/src/components/ui/AppText';
+import { isStandaloneTranscriptCue } from '@/src/lib/transcript';
 import { theme } from '@/src/theme/theme';
 import type { ResolvedLessonTranscriptLine } from '@/src/types/lesson';
 
@@ -61,6 +62,22 @@ export function LessonTranscriptPage({ language, lessonExternalId, lines }: Prop
     <View style={styles.conversation}>
       {normalizedLines.map((line) => {
         if (isDivider(line)) return <View key={line.id} style={styles.divider} />;
+        if (isStandaloneTranscriptCue(line)) {
+          return (
+            <View key={line.id} style={styles.standaloneCue}>
+              {line.englishLine ? (
+                <AppText language="en" style={styles.standaloneCueEnglish}>
+                  {line.englishLine}
+                </AppText>
+              ) : null}
+              {language === 'th' && line.thaiLine ? (
+                <AppText language="th" style={styles.standaloneCueThai}>
+                  {line.thaiLine}
+                </AppText>
+              ) : null}
+            </View>
+          );
+        }
         const isLeft = (sides[line.id] ?? 'left') === 'left';
         const characterHead = resolveTranscriptCharacterHead(line.speaker, lessonExternalId);
         const avatar: ImageSourcePropType | null = characterHead === undefined
@@ -95,6 +112,9 @@ export function LessonTranscriptPage({ language, lessonExternalId, lines }: Prop
 const styles = StyleSheet.create({
   conversation: { marginHorizontal: 4, gap: 13, paddingTop: 3, paddingBottom: 12 },
   divider: { width: '84%', height: 1, alignSelf: 'center', marginVertical: 7, backgroundColor: '#C8CBD0' },
+  standaloneCue: { width: '100%', alignItems: 'center', gap: 4, paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12 },
+  standaloneCueEnglish: { color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.bold, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  standaloneCueThai: { color: theme.colors.mutedText, fontFamily: theme.typography.fontFaces.th.bold, fontSize: 13, lineHeight: 20, textAlign: 'center' },
   messageRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
   messageRowRight: { justifyContent: 'flex-end' },
   avatar: { width: 42, height: 42, marginBottom: 14, flexShrink: 0 },
