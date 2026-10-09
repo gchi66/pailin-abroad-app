@@ -11,6 +11,7 @@ import { theme } from '@/src/theme/theme';
 type PlacementTestIntroCardProps = {
   language: 'en' | 'th';
   onChooseManually: () => void;
+  onClose?: () => void;
   onStart: () => void;
 };
 
@@ -35,7 +36,7 @@ const copy = {
   },
 } as const;
 
-export function PlacementTestIntroCard({ language, onChooseManually, onStart }: PlacementTestIntroCardProps) {
+export function PlacementTestIntroCard({ language, onChooseManually, onClose, onStart }: PlacementTestIntroCardProps) {
   const [isStartPressed, setIsStartPressed] = useState(false);
   const text = copy[language];
 
@@ -44,7 +45,17 @@ export function PlacementTestIntroCard({ language, onChooseManually, onStart }: 
       <View pointerEvents="none" style={styles.cardShadow} />
       <View style={styles.card}>
         <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
-        <AppText language={language} variant="title" style={styles.title}>
+        {onClose ? (
+          <Pressable
+            accessibilityLabel={language === 'en' ? 'Go to My Pathway' : 'ไปที่เส้นทางการเรียนของฉัน'}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={onClose}
+            style={({ pressed }) => [styles.closeButton, pressed ? styles.closeButtonPressed : null]}>
+            <MaterialIcons name="close" size={25} color={theme.colors.text} />
+          </Pressable>
+        ) : null}
+        <AppText language={language} variant="title" style={[styles.title, onClose ? styles.titleWithClose : null]}>
           {text.title}
         </AppText>
         <AppText language={language} variant="body" style={styles.body}>
@@ -121,6 +132,23 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     fontWeight: theme.typography.weights.bold,
     letterSpacing: -0.25,
+  },
+  titleWithClose: {
+    paddingRight: 28,
+  },
+  closeButton: {
+    position: 'absolute',
+    zIndex: 1,
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+  },
+  closeButtonPressed: {
+    backgroundColor: '#ECEDEF',
   },
   body: {
     marginTop: 10,

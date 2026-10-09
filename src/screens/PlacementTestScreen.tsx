@@ -126,7 +126,6 @@ export function PlacementTestScreen() {
       calculationTimerRef.current = null;
     }
     player.pause();
-    router.dismissAll();
     router.replace('/(tabs)');
   };
   const progressRatio = playerStatus.duration > 0

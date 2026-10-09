@@ -149,7 +149,10 @@ type ExamplePanelProps = {
 function ExamplePanel({ example, expanded, exerciseType, language, onToggle }: ExamplePanelProps) {
   const copy = getCopy(language);
   const content = example.content;
-  const sentenceContent = example.content_en ?? content;
+  // Sentence-transform examples stay in English in both UI languages. Merge the
+  // base payload as a fallback because older/localized responses can keep the
+  // correctness metadata there while `content_en` owns the stem and rich runs.
+  const sentenceContent = { ...content, ...(example.content_en ?? {}) };
   const translationContent = language === 'th' ? example.content_th : undefined;
   const sourceText = content.stem ?? content.text ?? '';
   const sentenceSourceText = sentenceContent.stem ?? sentenceContent.text ?? sourceText;
@@ -1392,7 +1395,12 @@ const styles = StyleSheet.create({
   promptTextWrap: { width: '100%', gap: practicePresentation.promptTranslationGap },
   fillBlankPromptTextWrap: { width: '100%', gap: practicePresentation.fillBlankTranslationGap },
   multipleChoicePromptTextWrap: { width: '100%', gap: practicePresentation.multipleChoiceTranslationGap },
-  translationText: { ...practicePresentation.translation },
+  translationText: {
+    ...practicePresentation.translation,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: theme.typography.weights.semibold,
+  },
   promptCardWithImage: { gap: theme.spacing.sm },
   promptCardImage: { width: '100%', height: 140 },
   examplePanel: { overflow: 'hidden', borderWidth: 1, borderColor: '#D9D9D9', borderRadius: 11, backgroundColor: '#F3F3F3' },

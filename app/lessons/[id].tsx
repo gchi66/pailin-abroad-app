@@ -527,10 +527,13 @@ const getPracticeInlineTextStyle = (
   compact ? styles.practiceInlineTextCompact : null,
   focused && scriptLanguage === 'en' ? styles.practiceFocusedFillBlankText : null,
   {
-    fontFamily: getInlineFontFamily(scriptLanguage, {
-      bold: focused || inline?.bold === true,
-      italic: inline?.italic === true,
-    }),
+    fontFamily:
+      focused && scriptLanguage === 'en' && inline?.italic !== true
+        ? theme.typography.fontFaces.en.bold
+        : getInlineFontFamily(scriptLanguage, {
+            bold: focused || inline?.bold === true,
+            italic: inline?.italic === true,
+          }),
   },
   includeUnderline && inline?.underline ? styles.practiceInlineUnderline : null,
   typeof inline?.color === 'string' && inline.color.trim() ? { color: inline.color.trim() } : null,
@@ -1122,6 +1125,7 @@ const MASTER_ORDER = [
 
 const CYAN_HIGHLIGHT = '#00ffff';
 const APPLY_ACCENT_COLOR = '#7BE6C9';
+const APPLY_BLUE_TEXT_COLORS = new Set(['#0000ff', '#2563eb']);
 const UNDERSTAND_HIGHLIGHTS = new Set(['#f4cccc', '#d9ead3', '#c9daf7', '#c9daf8']);
 const INLINE_MARKER_RE = /(\[\s*(?:X|x|✓|√|✔|check|-|✗|✕|✖|×)\ufe0e?\ufe0f?\s*\])/g;
 const SPEAKER_PREFIX_RE = /^\s*((?:[A-Za-z][A-Za-z ]{0,24}|[\u0E00-\u0E7F][\u0E00-\u0E7F ]{0,24}):\s*)/;
@@ -2027,11 +2031,22 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
 
   const items = itemsSource.map((item, index) => {
     const current = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
-    const englishFallback =
-      englishItemsSource[index] && typeof englishItemsSource[index] === 'object'
-        ? (englishItemsSource[index] as Record<string, unknown>)
-        : {};
     const currentNumber = current.number != null ? String(current.number) : null;
+    const normalizedCurrentNumber = String(currentNumber ?? '').trim().toLocaleLowerCase();
+    const currentIsExample = ['example', 'ex', 'ตัวอย่าง'].includes(normalizedCurrentNumber);
+    const englishFallbackByNumber = englishItemsSource.find((englishItem) => {
+      if (!englishItem || typeof englishItem !== 'object') return false;
+      const englishNumber = String((englishItem as Record<string, unknown>).number ?? '').trim().toLocaleLowerCase();
+      return currentIsExample
+        ? ['example', 'ex', 'ตัวอย่าง'].includes(englishNumber)
+        : Boolean(normalizedCurrentNumber) && englishNumber === normalizedCurrentNumber;
+    });
+    const englishFallback =
+      englishFallbackByNumber && typeof englishFallbackByNumber === 'object'
+        ? (englishFallbackByNumber as Record<string, unknown>)
+        : englishItemsSource[index] && typeof englishItemsSource[index] === 'object'
+          ? (englishItemsSource[index] as Record<string, unknown>)
+          : {};
     const thaiFallbackByNumber = currentNumber
       ? thaiItemsSource.find(
           (thaiItem) =>
@@ -2069,7 +2084,10 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       getPracticeFieldByLang(current, 'placeholder', 'en') || getPracticeFieldByLang(englishFallback, 'placeholder', 'en');
     const placeholderTh =
       getPracticeFieldByLang(thaiFallback, 'placeholder', 'th') || getPracticeExactLocalizedField(current, 'placeholder', 'th');
-    const answer = getPracticeAnswerValue(current, englishFallback, thaiFallback);
+    // Answers remain English even in Thai mode. Some legacy `items_th` example
+    // rows contain the adjacent question's answer, so the paired English item
+    // must be authoritative for both questions and examples.
+    const answer = getPracticeAnswerValue(englishFallback, current, thaiFallback);
     const reviewAnswer =
       (typeof englishFallback.review_answer === 'string' && englishFallback.review_answer.trim()) ||
       (typeof current.review_answer === 'string' && current.review_answer.trim()) ||
@@ -2077,11 +2095,13 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       (typeof current.display_answer === 'string' && current.display_answer.trim()) ||
       '';
     const currentTextJsonb = cleanPracticeOptionInlines('', current.text_jsonb);
+    const englishFallbackTextJsonb = cleanPracticeOptionInlines('', englishFallback.text_jsonb);
     const currentTextJsonbTh = cleanPracticeOptionInlines('', current.text_jsonb_th);
     const thaiFallbackTextJsonb = cleanPracticeOptionInlines('', thaiFallback.text_jsonb);
     const thaiFallbackTextJsonbTh = cleanPracticeOptionInlines('', thaiFallback.text_jsonb_th);
+    const primaryTextJsonb = hasOrderedThaiItems ? englishFallbackTextJsonb : currentTextJsonb;
     const shouldUsePrimaryTextJsonb =
-      kind === 'multiple_choice' || currentTextJsonb.some((inline) => hasMeaningfulRichInlineFormatting(inline));
+      kind === 'multiple_choice' || primaryTextJsonb.some((inline) => hasMeaningfulRichInlineFormatting(inline));
     const resolvedTextJsonbTh = currentTextJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''))
       ? currentTextJsonbTh
       : thaiFallbackTextJsonb.some((inline) => THAI_TEXT_RE.test(inline.text ?? ''))
@@ -2111,9 +2131,17 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
           : [];
     const baseOptions = baseOptionsSource.map(parsePracticeOption);
     const fallbackThaiOptions = thaiOptionsSource.map(parsePracticeOption);
+    const candidateOptionLabels = baseOptions.map((option, optionIndex) =>
+      normalizeOptionLetter(option.label || fallbackThaiOptions[optionIndex]?.label || String.fromCharCode(65 + optionIndex))
+    );
+    const hasInvalidOptionLabels = candidateOptionLabels.some((label, optionIndex) =>
+      !label || candidateOptionLabels.indexOf(label) !== optionIndex
+    );
     const options = baseOptions.map((option, optionIndex) => {
       const thaiOption =
-        fallbackThaiOptions.find((candidate) => candidate.label && candidate.label === option.label) ??
+        (!hasInvalidOptionLabels
+          ? fallbackThaiOptions.find((candidate) => candidate.label && candidate.label === option.label)
+          : undefined) ??
         fallbackThaiOptions[optionIndex];
       const optionTextTh = THAI_TEXT_RE.test(option.textTh) ? option.textTh : '';
       const optionTextJsonbTh = option.textJsonbTh.some((inline) => THAI_TEXT_RE.test(inline.text ?? '')) ? option.textJsonbTh : [];
@@ -2138,7 +2166,12 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
 
       return {
         ...option,
-        label: option.label || thaiOption?.label || String.fromCharCode(65 + optionIndex),
+        // Imported worksheets occasionally repeat an option label (for example
+        // A, B, B). Canonical positional labels keep React identity and answer
+        // selection distinct instead of making both duplicate choices act as B.
+        label: hasInvalidOptionLabels
+          ? String.fromCharCode(65 + optionIndex)
+          : candidateOptionLabels[optionIndex],
         textTh: optionTextTh || thaiOptionText,
         textJsonbTh: optionTextJsonbTh.length ? optionTextJsonbTh : thaiOptionTextJsonb,
         altTextTh: THAI_TEXT_RE.test(option.altTextTh) ? option.altTextTh : thaiAltText,
@@ -2217,7 +2250,7 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       numberLabel: String(numberValue),
       text,
       textTh,
-      textJsonb: shouldUsePrimaryTextJsonb ? currentTextJsonb : [],
+      textJsonb: shouldUsePrimaryTextJsonb ? primaryTextJsonb : [],
       textJsonbTh: resolvedTextJsonbTh,
       prompt,
       promptTh,
@@ -2254,7 +2287,12 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
               ? thaiFallback.audio_key
               : inlineAudioKey,
       keywords,
-      correctTag: typeof current.correct === 'string' ? current.correct.trim().toLowerCase() : '',
+      correctTag:
+        typeof englishFallback.correct === 'string'
+          ? englishFallback.correct.trim().toLowerCase()
+          : typeof current.correct === 'string'
+            ? current.correct.trim().toLowerCase()
+            : '',
       stemBlocks: safeParseObjectArray(current.stem && typeof current.stem === 'object' ? (current.stem as Record<string, unknown>).blocks : []),
       blanks,
       answersV2: safeParseStringMatrix(current.answers_v2),
@@ -2262,7 +2300,7 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
       isExample:
         typeof current.is_example === 'boolean'
           ? current.is_example
-          : ['example', 'ex', 'ตัวอย่าง'].includes(String(current.number ?? '').trim().toLowerCase()),
+          : currentIsExample,
       orderedContent:
         hasOrderedThaiItems
           ? parseOrderedPracticeContent(current.content)
@@ -2958,6 +2996,81 @@ const groupApplyExampleLines = (nodes: LessonRichNode[], contentLang: UiLanguage
   });
 
   return examples;
+};
+
+const collectApplyBlueTargets = (nodes: LessonRichNode[]) => {
+  const targets: Record<ScriptLanguage, Set<string>> = {
+    en: new Set<string>(),
+    th: new Set<string>(),
+  };
+
+  nodes.forEach((node) => {
+    (node.inlines ?? []).forEach((inline) => {
+      const color = typeof inline.color === 'string' ? inline.color.trim().toLowerCase() : '';
+      if (!APPLY_BLUE_TEXT_COLORS.has(color)) {
+        return;
+      }
+
+      const text = cleanAudioTags(String(inline.text ?? '')).trim();
+      if (text) {
+        targets[THAI_TEXT_RE.test(text) ? 'th' : 'en'].add(text);
+      }
+    });
+  });
+
+  return {
+    en: [...targets.en].sort((left, right) => right.length - left.length),
+    th: [...targets.th].sort((left, right) => right.length - left.length),
+  };
+};
+
+const splitApplyTextByBlueTargets = (text: string, targets: string[]) => {
+  if (!text || !targets.length) {
+    return [{ text, isBlue: false }];
+  }
+
+  const normalizedText = text.toLocaleLowerCase();
+  const normalizedTargets = targets.map((target) => ({
+    original: target,
+    normalized: target.toLocaleLowerCase(),
+  }));
+  const pieces: { text: string; isBlue: boolean }[] = [];
+  let plainStart = 0;
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    const match = normalizedTargets.find(({ original, normalized }) => {
+      if (!normalizedText.startsWith(normalized, cursor)) {
+        return false;
+      }
+
+      const previous = cursor > 0 ? text[cursor - 1] : '';
+      const next = text[cursor + original.length] ?? '';
+      const needsLeadingBoundary = /^[A-Za-z0-9]/.test(original);
+      const needsTrailingBoundary = /[A-Za-z0-9]$/.test(original);
+      return !(needsLeadingBoundary && /[A-Za-z0-9]/.test(previous)) &&
+        !(needsTrailingBoundary && /[A-Za-z0-9]/.test(next));
+    });
+
+    if (!match) {
+      cursor += 1;
+      continue;
+    }
+
+    if (plainStart < cursor) {
+      pieces.push({ text: text.slice(plainStart, cursor), isBlue: false });
+    }
+    const matchEnd = cursor + match.original.length;
+    pieces.push({ text: text.slice(cursor, matchEnd), isBlue: true });
+    cursor = matchEnd;
+    plainStart = matchEnd;
+  }
+
+  if (plainStart < text.length) {
+    pieces.push({ text: text.slice(plainStart), isBlue: false });
+  }
+
+  return pieces.length ? pieces : [{ text, isBlue: false }];
 };
 
 const normalizeForcedSubheaderText = (value: string) =>
@@ -4612,6 +4725,33 @@ export default function LessonDetailShellScreen() {
       hasStartedLesson ? normalizeApplyContent(activeTab?.type === 'apply' ? activeSection : null, contentLang) : EMPTY_NORMALIZED_APPLY,
     [activeSection, activeTab?.type, contentLang, hasStartedLesson]
   );
+  const englishApplyFallbackSection = useMemo(() => {
+    if (activeTab?.type !== 'apply') {
+      return null;
+    }
+
+    const fallbackSections = englishLessonFallback?.sections ?? [];
+    return fallbackSections.find((section) => section.id === activeSection?.id) ??
+      fallbackSections.find((section) => getResolvedSectionType(section) === 'apply') ??
+      null;
+  }, [activeSection?.id, activeTab?.type, englishLessonFallback?.sections]);
+  const normalizedEnglishApplyFallback = useMemo(
+    () => hasStartedLesson
+      ? normalizeApplyContent(englishApplyFallbackSection, 'en')
+      : EMPTY_NORMALIZED_APPLY,
+    [englishApplyFallbackSection, hasStartedLesson]
+  );
+  const applyExampleBlueTargets = useMemo(() => {
+    const currentTargets = collectApplyBlueTargets(normalizedApply.responseNodes);
+    const englishFallbackTargets = collectApplyBlueTargets(normalizedEnglishApplyFallback.responseNodes);
+
+    return {
+      en: [...new Set([...currentTargets.en, ...englishFallbackTargets.en])]
+        .sort((left, right) => right.length - left.length),
+      th: [...new Set([...currentTargets.th, ...englishFallbackTargets.th])]
+        .sort((left, right) => right.length - left.length),
+    };
+  }, [normalizedApply.responseNodes, normalizedEnglishApplyFallback.responseNodes]);
   const applyPresentation = useMemo(() => {
     const visibleNodes = normalizedApply.promptNodes.filter((node) =>
       Boolean(getApplyNodeText(node, contentLang))
@@ -8222,6 +8362,9 @@ export default function LessonDetailShellScreen() {
 
       const shouldAccentInline =
         typeof inline.highlight === 'string' && inline.highlight.trim().toLowerCase() === CYAN_HIGHLIGHT;
+      const inlineColor = typeof inline.color === 'string' && inline.color.trim()
+        ? inline.color.trim()
+        : null;
 
       const baseApplyTextStyle = [
         styles.applyInlineText,
@@ -8232,7 +8375,7 @@ export default function LessonDetailShellScreen() {
           }),
         },
         !options?.suppressUnderlineAndItalic && inline.underline ? styles.applyInlineUnderline : null,
-        typeof inline.color === 'string' && inline.color.trim() ? { color: inline.color.trim() } : null,
+        inlineColor ? { color: inlineColor } : null,
         shouldAccentInline ? styles.applyInlineAccent : null,
       ];
 
@@ -8246,7 +8389,7 @@ export default function LessonDetailShellScreen() {
                 bold: options?.forceSemibold === true || inline.bold === true,
                 italic: options?.suppressUnderlineAndItalic ? false : inline.italic === true,
               }) },
-              isThaiLine ? styles.richInlineThaiMuted : null,
+              isThaiLine && !inlineColor && !shouldAccentInline ? styles.richInlineThaiMuted : null,
               shouldAccentInline ? styles.applyInlineAccent : null,
             ]}>
             {segment.text}
@@ -8341,7 +8484,13 @@ export default function LessonDetailShellScreen() {
               ? { color: inline.color.trim() }
               : null,
           ]}>
-          {segment.text}
+          {splitApplyTextByBlueTargets(segment.text, applyExampleBlueTargets[lineLanguage]).map((piece, pieceIndex) => (
+            <Text
+              key={`apply-example-inline-${inlineIndex}-${segmentIndex}-piece-${pieceIndex}`}
+              style={piece.isBlue ? styles.applyInlineAccent : null}>
+              {piece.text}
+            </Text>
+          ))}
         </Text>
       ));
     });
@@ -12288,7 +12437,7 @@ const mergeAdjacentPracticeRowTokens = (
                   </View>
 
                   <Stack gap="sm" style={styles.comprehensionOptionsList}>
-                    {item.options.map((option) => {
+                    {item.options.map((option, optionIndex) => {
                       const normalizedOptionLabel = normalizeOptionLetter(option.label);
                       const isSelected = selectedSet.has(normalizedOptionLabel);
                       const isCorrectOption = answerSet.has(normalizedOptionLabel);
@@ -12308,7 +12457,7 @@ const mergeAdjacentPracticeRowTokens = (
 
                       return (
                         <Pressable
-                          key={`${selectionKey}:${option.label}`}
+                          key={`${selectionKey}:${option.label}:${optionIndex}`}
                           accessibilityRole="button"
                           accessibilityLabel={optionAltText}
                           accessibilityState={{ selected: isSelected, disabled: isItemChecked }}
@@ -12597,16 +12746,27 @@ const mergeAdjacentPracticeRowTokens = (
                 const sentenceExampleText =
                   item.prompt || item.text || stripInlineMediaTags(textJsonbToString(item.textJsonb)) || item.promptTh || item.textTh;
                 const sentenceExampleCorrection = item.answer || item.keywords || '';
+                const sentenceExampleHasIncorrectLabel = /^\s*incorrect\s*:/i.test(sentenceExampleText);
+                const sentenceExampleHasCorrectLabel = /^\s*correct\s*:/i.test(sentenceExampleText);
+                const sentenceExampleIsCorrect = sentenceExampleHasCorrectLabel ||
+                  (!sentenceExampleHasIncorrectLabel && item.correctTag === 'yes');
 
                 return (
                   <SentenceTransformExampleDisclosure
                     key={answerKey}
-                    correctedSentence={sentenceExampleCorrection}
+                    correctedLabel={!sentenceExampleIsCorrect && sentenceExampleCorrection ? 'CORRECT:' : undefined}
+                    correctedSentence={sentenceExampleIsCorrect ? undefined : sentenceExampleCorrection}
                     expanded={isPracticeExampleExpanded}
                     label={pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
                     language={pageLanguage}
                     sentence={sentenceExampleText}
                     sentenceInlines={item.textJsonb}
+                    sentenceLabel={sentenceExampleIsCorrect
+                      ? 'CORRECT:'
+                      : sentenceExampleHasIncorrectLabel || item.correctTag === 'no'
+                        ? 'INCORRECT:'
+                        : undefined}
+                    sentenceLabelTone={sentenceExampleIsCorrect ? 'correct' : 'incorrect'}
                     onToggle={() => setExpandedPracticeExampleIds((previous) => ({
                       ...previous,
                       [exercise.id]: !previous[exercise.id],
@@ -18130,7 +18290,8 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
   applyAccentBlock: {
-    alignItems: 'center',
+    width: '100%',
+    alignItems: 'flex-start',
   },
   applyNoteText: {
     color: theme.colors.mutedText,
@@ -20178,8 +20339,8 @@ const styles = StyleSheet.create({
   },
   checkpointFinishLessonButton: {
     minHeight: 50,
-    borderWidth: 1,
-    borderColor: '#14213B',
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
     borderRadius: 26,
     backgroundColor: '#2F6EEA',
     flexDirection: 'row',

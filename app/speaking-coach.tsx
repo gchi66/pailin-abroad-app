@@ -1975,7 +1975,7 @@ function SpeakingCoachTestScreen() {
         const isRetryAttempt = instructionalAttemptNumber === 2;
         return (
           <View style={[styles.pronunciationActionCard, styles.pronunciationNeoActionCard, styles.speakingPromptActionCard]}>
-            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle, styles.speakingPromptActionTitle]}>
               {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Your turn!', 'ตาคุณแล้ว!')}
             </AppText>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to speak', 'แตะเพื่อพูด')}</AppText>
@@ -2268,7 +2268,7 @@ function SpeakingCoachTestScreen() {
             styles.conversationActionCard,
             styles.conversationAlignedActionCard,
           ]}>
-            <AppText language={screenLanguage} variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle]}>
+            <AppText language={screenLanguage} variant="caption" style={[styles.conversationActionTitle, styles.microphoneActionTitle, styles.speakingPromptActionTitle]}>
               {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Respond to the question', 'ตอบคำถาม')}
             </AppText>
             <AppText language={screenLanguage} variant="caption" style={styles.pronunciationActionHint}>{tr('Tap to speak', 'แตะเพื่อพูด')}</AppText>
@@ -2607,7 +2607,7 @@ function SpeakingCoachTestScreen() {
             styles.conversationActionCard,
             isRetryAttempt ? styles.translationRetryActionCard : null,
           ]}>
-            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle]}>
+            <AppText language={screenLanguage} variant="caption" style={[styles.pronunciationActionTitle, styles.microphoneActionTitle, styles.speakingPromptActionTitle]}>
               {isRetryAttempt ? tr('Try again!', 'ลองอีกครั้ง!') : tr('Translate the sentence', 'แปลประโยค')}
             </AppText>
             <View style={[
@@ -2880,10 +2880,23 @@ function SpeakingCoachTestScreen() {
           onPress={() => void continueAfterSet()}
           style={({ pressed }) => [
             styles.setCompletionButton,
-            pressed ? styles.welcomeStartButtonPressed : null,
+            lessonMode && hasNextSet ? styles.lessonNextSectionButton : null,
+            lessonMode && !hasNextSet && params.requiredPracticeComplete === '1'
+              ? styles.lessonFinishButton
+              : null,
+            pressed
+              ? lessonMode && hasNextSet
+                ? styles.lessonNextSectionButtonPressed
+                : styles.welcomeStartButtonPressed
+              : null,
           ]}
         >
-          <AppText variant="caption" style={styles.setCompletionButtonLabel}>
+          <AppText
+            variant="caption"
+            style={[
+              styles.setCompletionButtonLabel,
+              lessonMode && hasNextSet ? styles.lessonNextSectionButtonLabel : null,
+            ]}>
             {hasNextSet
               ? tr(guidedMode ? 'NEXT SECTION' : 'NEXT SET', guidedMode ? 'ส่วนถัดไป' : 'ชุดถัดไป')
               : lessonMode
@@ -3138,6 +3151,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     boxShadow: '4px 4px 0px #14213B',
   },
+  lessonNextSectionButton: {
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: 24,
+    backgroundColor: '#2563EB',
+    gap: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    boxShadow: 'none',
+  },
+  lessonNextSectionButtonPressed: {
+    opacity: 0.9,
+  },
+  lessonNextSectionButtonLabel: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  lessonFinishButton: {
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+  },
   setCompletionButtonSpacer: { flexGrow: 1, minHeight: 36 },
   setCompletionButtonLabel: {
     color: theme.colors.surface,
@@ -3177,8 +3213,8 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     transform: [{ translateY: 26 }],
   },
-  pronunciationCoachRowOverlapUnclear: { transform: [{ translateX: -5 }, { translateY: 26 }] },
-  pronunciationCoachRowShiftRight: { marginLeft: 10 },
+  pronunciationCoachRowOverlapUnclear: { transform: [{ translateX: -13 }, { translateY: 26 }] },
+  pronunciationCoachRowShiftRight: { left: 12 },
   pronunciationCoachImage: { width: 150, height: 130 },
   pronunciationCoachImageOverlapSuccess: { transform: [{ translateX: -12 }, { translateY: 7 }] },
   pronunciationCoachImageOverlapError: { transform: [{ translateX: -9 }] },
@@ -3323,6 +3359,7 @@ const styles = StyleSheet.create({
   speakingPromptActionCard: { minHeight: 230, paddingVertical: 24 },
   pronunciationActionTitle: { fontSize: 18, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
   microphoneActionTitle: { fontSize: 20, lineHeight: 28, fontWeight: theme.typography.weights.bold },
+  speakingPromptActionTitle: { letterSpacing: -0.5 },
   pronunciationActionHint: { marginTop: 2, color: '#777777', fontSize: 12, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   recordingPulseContainer: {
     width: 90,

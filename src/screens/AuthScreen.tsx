@@ -904,10 +904,12 @@ const styles = StyleSheet.create({
   appleIcon: {
     width: 20,
     textAlign: 'center',
+    transform: [{ translateY: -2 }],
   },
   googleBadgeImage: {
     width: 20,
     height: 20,
+    transform: [{ translateY: -1.5 }],
   },
   dividerRow: {
     flexDirection: 'row',

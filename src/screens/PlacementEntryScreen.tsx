@@ -67,6 +67,7 @@ export function PlacementEntryScreen() {
           <PlacementTestIntroCard
             language={uiLanguage}
             onChooseManually={() => router.push('/choose-level')}
+            onClose={isGuest ? () => router.replace('/(tabs)') : undefined}
             onStart={() => router.push('/placement-test')}
           />
         </ResponsivePageShell>

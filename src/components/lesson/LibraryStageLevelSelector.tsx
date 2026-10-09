@@ -47,9 +47,8 @@ export function LibraryStageLevelSelector({
                 style={[styles.stageTouch, value === stage ? styles.activeStage : null]}>
                 {index > 0 ? <View pointerEvents="none" style={styles.stageDivider} /> : null}
                 <Text
+                  allowFontScaling={false}
                   numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.85}
                   style={[
                     styles.stageName,
                     { fontFamily: theme.typography.fontFaces[language][value === stage ? 'bold' : 'medium'] },

@@ -274,6 +274,9 @@ export function SentenceTransformExampleDisclosure({
   const sentenceBodyInlines = addMissingSentenceTransformSpaces(
     removeSentenceTransformLabelFromInlines(visibleSentenceInlines, inlineLabelLength)
   );
+  const hasAuthoredSourceEmphasis = sentenceBodyInlines.some(
+    (inline) => inline.bold === true || inline.underline === true
+  );
   const correctionParts = correctedSentence
     ? splitSentenceTransformLabel(correctedSentence)
     : { label: '', sentence: '' };
@@ -296,7 +299,15 @@ export function SentenceTransformExampleDisclosure({
               {visibleSentenceLabel}
             </Text>
           ) : null}
-          {comparisonRuns.source.length
+          {hasAuthoredSourceEmphasis
+            ? sentenceBodyInlines.map((inline, index) => (
+                <Text
+                  key={`sentence-example-${index}`}
+                  style={inline.bold || inline.underline ? styles.sentenceExampleEmphasis : undefined}>
+                  {index === 0 && visibleSentenceLabel ? ` ${inline.text?.trimStart() ?? ''}` : inline.text}
+                </Text>
+              ))
+            : comparisonRuns.source.length
             ? comparisonRuns.source.map((run, index) => (
                 <Text
                   key={`sentence-source-comparison-${index}`}
@@ -306,9 +317,7 @@ export function SentenceTransformExampleDisclosure({
               ))
             : sentenceBodyInlines.length
             ? sentenceBodyInlines.map((inline, index) => (
-                <Text
-                  key={`sentence-example-${index}`}
-                  style={inline.bold || inline.underline ? styles.sentenceExampleEmphasis : undefined}>
+                <Text key={`sentence-example-${index}`}>
                   {index === 0 && visibleSentenceLabel ? ` ${inline.text?.trimStart() ?? ''}` : inline.text}
                 </Text>
               ))
