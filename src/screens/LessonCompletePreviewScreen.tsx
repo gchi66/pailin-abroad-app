@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   discussionLink: { fontSize: 13, lineHeight: 20, fontWeight: '600', color: '#2861DB', textAlign: 'center', marginTop: 14 },
   nextButton: {
     width: '100%', minHeight: 50, borderRadius: 25, backgroundColor: '#2861DB',
-    borderWidth: 1, borderColor: '#20252A',
+    borderWidth: 1.5, borderColor: '#20252A',
     alignItems: 'center', justifyContent: 'center',
   },
   nextButtonText: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '600' },

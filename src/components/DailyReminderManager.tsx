@@ -11,6 +11,7 @@ import {
   requestDailyReminderPermission,
   scheduleDailyReminder,
 } from '@/src/lib/daily-reminder';
+import { queueLessonLibraryPreview } from '@/src/lib/lesson-library-selection';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -85,14 +86,13 @@ export function DailyReminderManager() {
             : hasMembershipRef.current
               ? 'library'
               : 'free-library';
-        router.push({
-          pathname: '/lessons/[id]',
-          params: {
-            id: lessonId,
-            libraryRoute,
-            overview: '1',
-          },
-        });
+        queueLessonLibraryPreview(lessonId);
+        router.dismissAll();
+        router.navigate(
+          libraryRoute === 'library'
+            ? '/(tabs)/lessons/library'
+            : '/(tabs)/lessons/free-library',
+        );
         return;
       }
 

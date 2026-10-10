@@ -40,7 +40,9 @@ import {
   fetchSpeakingCoachLesson,
   skipSpeakingCoachQuestion,
 } from '@/src/api/speaking-coach';
+import { fetchAppLessonProgressDetail } from '@/src/api/app-lesson-progress';
 import { upsertLessonCompletion } from '@/src/api/user';
+import { hasCompletedRequiredPractice } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
 import {
   getLessonContentLanguage,
@@ -970,7 +972,20 @@ function SpeakingCoachTestScreen() {
         throw new Error('The lesson record could not be found.');
       }
 
-      if (params.requiredPracticeComplete !== '1') {
+      let requiredPracticeComplete = params.requiredPracticeComplete === '1';
+      if (!requiredPracticeComplete) {
+        try {
+          const progress = await fetchAppLessonProgressDetail(lessonRecordId);
+          requiredPracticeComplete = hasCompletedRequiredPractice(progress);
+        } catch (error) {
+          console.warn(
+            '[speaking-coach] Could not refresh required practice progress',
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+        }
+      }
+
+      if (!requiredPracticeComplete) {
         bumpLessonLibraryProgressRefreshToken();
         router.replace({
           pathname: '/lessons/[id]',
@@ -3152,6 +3167,10 @@ const styles = StyleSheet.create({
     boxShadow: '4px 4px 0px #14213B',
   },
   lessonNextSectionButton: {
+    width: 'auto',
+    alignSelf: 'stretch',
+    marginHorizontal: -18,
+    marginBottom: 20,
     minHeight: 44,
     borderWidth: 1.5,
     borderColor: theme.colors.border,

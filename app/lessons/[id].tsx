@@ -101,6 +101,7 @@ import {
   buildAppExampleRevealKey,
   buildAppExerciseKey,
   buildAppPageKey,
+  hasCompletedRequiredPractice,
   parseAppCardKey,
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
@@ -1539,6 +1540,9 @@ const splitThaiText = (value: string) => {
   return { en: english, th: thai };
 };
 
+const normalizeThaiPracticePlaceholderDashes = (value: string) =>
+  value.replace(/(^|\s)—(?=\s|$)/gm, '$1_____');
+
 const extractThaiParentheticalText = (value: string) => {
   const matches = Array.from(String(value ?? '').matchAll(/\(([^()]*)\)/g));
 
@@ -1642,6 +1646,17 @@ const parseOrderedPracticeStem = (
       tokens: block.tokens.map((rawToken) => {
         if (!rawToken || typeof rawToken !== 'object') return rawToken;
         const token = rawToken as Record<string, unknown>;
+        if (
+          blanks.length > 0 &&
+          token.type === 'text' &&
+          typeof token.text === 'string' &&
+          /[\u0E00-\u0E7F]/.test(token.text)
+        ) {
+          return {
+            ...token,
+            text: normalizeThaiPracticePlaceholderDashes(token.text),
+          };
+        }
         if (token.type !== 'blank' || typeof token.id !== 'string') return rawToken;
 
         return {
@@ -1934,7 +1949,7 @@ const normalizePracticeInputCount = (value: unknown) => {
 const parsePracticePromptBlocks = (value: unknown): NormalizedPracticePromptBlock[] => {
   const blocks = safeParseObjectArray(value);
 
-  return blocks
+  const normalizedBlocks = blocks
     .map((block) => {
       const type = String(block.type ?? '').trim().toLowerCase();
 
@@ -1972,6 +1987,19 @@ const parsePracticePromptBlocks = (value: unknown): NormalizedPracticePromptBloc
       return null;
     })
     .filter((block): block is NormalizedPracticePromptBlock => block !== null);
+
+  // Translated worksheet documents sometimes put the instruction before the
+  // prompt image even though the English exercise uses image -> instruction.
+  // Keep the presentation consistent without relying on authored block order.
+  const imageBlocks = normalizedBlocks.filter((block) => block.type === 'image');
+  if (!imageBlocks.length) {
+    return normalizedBlocks;
+  }
+
+  return [
+    ...imageBlocks,
+    ...normalizedBlocks.filter((block) => block.type !== 'image'),
+  ];
 };
 
 const normalizePracticeExerciseKind = (value: unknown) => {
@@ -2302,9 +2330,13 @@ const normalizePracticeExercise = (exercise: ResolvedLessonExercise, contentLang
           ? current.is_example
           : currentIsExample,
       orderedContent:
-        hasOrderedThaiItems
-          ? parseOrderedPracticeContent(current.content)
-          : parseOrderedPracticeStem(current.stem, blanks),
+        contentLang === 'th'
+          ? parseOrderedPracticeContent(thaiFallback.content) ??
+            parseOrderedPracticeStem(thaiFallback.stem, blanks) ??
+            parseOrderedPracticeContent(current.content) ??
+            parseOrderedPracticeStem(current.stem, blanks)
+          : parseOrderedPracticeContent(current.content) ??
+            parseOrderedPracticeStem(current.stem, blanks),
     };
 
     return normalizedItem;
@@ -3917,6 +3949,7 @@ export default function LessonDetailShellScreen() {
   const [activePracticeCardIndex, setActivePracticeCardIndex] = useState(0);
   const [activePracticeQuestionIndex, setActivePracticeQuestionIndex] = useState(0);
   const [showPracticeSetResults, setShowPracticeSetResults] = useState(false);
+  const [hasCompletedCorePracticeSet, setHasCompletedCorePracticeSet] = useState(false);
   const [extraPracticeOrder, setExtraPracticeOrder] = useState<string[] | null>(null);
   const [extraPracticeBatchIndex, setExtraPracticeBatchIndex] = useState(0);
   const [expandedPracticeExampleIds, setExpandedPracticeExampleIds] = useState<Record<string, boolean>>({});
@@ -4892,6 +4925,18 @@ export default function LessonDetailShellScreen() {
     [normalizedAllPracticeExercises, normalizedQuickPracticeExercises]
   );
   useEffect(() => {
+    setHasCompletedCorePracticeSet(false);
+  }, [lessonId]);
+  useEffect(() => {
+    if (!appLessonProgressDetail) {
+      return;
+    }
+
+    if (hasCompletedRequiredPractice(appLessonProgressDetail)) {
+      setHasCompletedCorePracticeSet(true);
+    }
+  }, [appLessonProgressDetail]);
+  useEffect(() => {
     const validQuestionIds = new Set(normalizedQuestions.map((question) => question.id));
 
     setSelectedAnswers((previous) => {
@@ -5861,6 +5906,7 @@ export default function LessonDetailShellScreen() {
   );
   const allPracticeExercisesChecked = useMemo(
     () =>
+      hasCompletedCorePracticeSet ||
       corePracticeExercises.length === 0 ||
       corePracticeExercises.every((exercise) =>
         exercise.items
@@ -5869,7 +5915,7 @@ export default function LessonDetailShellScreen() {
           )
           .every((item) => checkedPracticeItems[`${exercise.id}:${item.key}`] === true)
       ),
-    [checkedPracticeItems, corePracticeExercises, lesson?.lesson_external_id]
+    [checkedPracticeItems, corePracticeExercises, hasCompletedCorePracticeSet, lesson?.lesson_external_id]
   );
   const nextSectionButtonLabel =
     isListenPage
@@ -6413,11 +6459,12 @@ export default function LessonDetailShellScreen() {
     router.push('/(tabs)/exercises');
   }, [flushPendingLessonPersistence, router]);
 
-  const openSpeakingPractice = useCallback(() => {
+  const openSpeakingPractice = useCallback(async () => {
     if (!hasMembership) {
       router.push('/(tabs)/account/membership');
       return;
     }
+    await flushPendingLessonPersistence();
     router.push({
       pathname: '/speaking-coach',
       params: {
@@ -6431,7 +6478,7 @@ export default function LessonDetailShellScreen() {
         ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
       },
     });
-  }, [activeLessonNumber, allPracticeExercisesChecked, contentLang, hasMembership, lessonCover?.id, libraryRouteParam, router, sectionIntroTotal]);
+  }, [activeLessonNumber, allPracticeExercisesChecked, contentLang, flushPendingLessonPersistence, hasMembership, lessonCover?.id, libraryRouteParam, router, sectionIntroTotal]);
 
   const openLessonCompletePage = useCallback(() => {
     if (!lessonCover?.id) return;
@@ -6700,7 +6747,7 @@ export default function LessonDetailShellScreen() {
     }
 
     if (allPracticeExercisesChecked && !speakingRequirementSatisfied) {
-      openSpeakingPractice();
+      await openSpeakingPractice();
       return;
     }
 
@@ -11614,6 +11661,16 @@ const mergeAdjacentPracticeRowTokens = (
     }
 
     if (isPracticeTab && activePracticeExercise && activePracticeQuestions.length > 0) {
+      if (extraPracticeOrder === null) {
+        setHasCompletedCorePracticeSet(true);
+        corePracticeExercises.forEach((exercise) => {
+          void writeProgressUnit(
+            'exercise',
+            buildAppExerciseKey(exercise.id),
+            buildAppPageKey('practice')
+          );
+        });
+      }
       setShowPracticeSetResults(true);
       contentScrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
@@ -13469,7 +13526,9 @@ const mergeAdjacentPracticeRowTokens = (
                 thaiLeadLineSource;
               const thaiBlankLines = thaiDisplayLines.filter((line) => line.includes('_'));
               const thaiBlankText = thaiBlankLines.join('\n');
-              const thaiCompanionText = thaiOnlyText.trim();
+              const thaiCompanionText = item.blanks.length > 0
+                ? normalizeThaiPracticePlaceholderDashes(thaiOnlyText.trim())
+                : thaiOnlyText.trim();
               const thaiCompanionHasVisibleThai = THAI_TEXT_RE.test(thaiCompanionText);
               const englishSourceTokens = item.orderedContent
                 ? item.orderedContent.blocks.flatMap((block, blockIndex) => [
@@ -14152,7 +14211,7 @@ const mergeAdjacentPracticeRowTokens = (
             ) : completionModalState === 'skip_warning' ? (
               <>
                 <View style={styles.completionModalCheckWrap}>
-                  <Image source={pailinBlueThumbsUpImage} style={styles.completionModalSuccessImage} contentFit="contain" />
+                  <Image source={comprehensionPerfectImage} style={styles.completionModalSuccessImage} contentFit="contain" />
                 </View>
 
                 <Stack gap="sm" style={styles.completionModalWarningContent}>

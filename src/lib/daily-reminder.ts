@@ -203,7 +203,9 @@ export const scheduleDailyReminder = (
         content: {
           ...copy,
           data: {
-            destination: lesson?.id ? `/lessons/${lesson.id}` : '/(tabs)',
+            destination: lesson?.id
+              ? `/(tabs)/lessons/${lesson.libraryRoute ?? 'free-library'}`
+              : '/(tabs)',
             [DAILY_REMINDER_DATA_KEY]: true,
             ...(lesson?.id
               ? {

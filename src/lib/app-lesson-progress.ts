@@ -128,6 +128,30 @@ export const buildAppComprehensionExerciseKey = () => `${APP_PROGRESS_PREFIX}exe
 
 export const buildAppExampleRevealKey = (name = 'apply') => `${APP_PROGRESS_PREFIX}example_reveal:${name}`;
 
+export const hasCompletedRequiredPractice = ({
+  completed_unit_keys: completedUnitKeys,
+  expected_units: expectedUnits,
+}: {
+  completed_unit_keys: string[];
+  expected_units: AppLessonExpectedUnit[];
+}) => {
+  const practicePageKey = buildAppPageKey('practice');
+  const requiredExerciseKeys = expectedUnits
+    .filter(
+      (unit) =>
+        unit.unit_type === 'exercise' &&
+        (unit.section_key === practicePageKey || unit.parent_unit_key === practicePageKey)
+    )
+    .map((unit) => unit.unit_key);
+
+  if (!requiredExerciseKeys.length) {
+    return true;
+  }
+
+  const completedKeys = new Set(completedUnitKeys);
+  return requiredExerciseKeys.every((unitKey) => completedKeys.has(unitKey));
+};
+
 export const isAppCardSectionType = (sectionType: string | null | undefined) =>
   typeof sectionType === 'string' && CARD_SECTION_TYPES.has(sectionType);
 
