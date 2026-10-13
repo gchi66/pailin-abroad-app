@@ -1,5 +1,6 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { StandardPageHeader } from '@/src/components/ui/StandardPageHeader';

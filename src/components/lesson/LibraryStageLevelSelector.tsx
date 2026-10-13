@@ -1,8 +1,9 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { AnimatedPlusMinus, DisclosureContent } from '@/src/components/ui/MotionEffects';
 import { LIBRARY_STAGES, LibraryStage } from '@/src/lib/library-pathway';
 import { theme } from '@/src/theme/theme';
 
@@ -49,6 +50,9 @@ export function LibraryStageLevelSelector({
                 <Text
                   allowFontScaling={false}
                   numberOfLines={1}
+                  // Keep the other labels fixed; fit both medium and bold INTERMEDIATE in narrow tabs.
+                  adjustsFontSizeToFit={!th && value === 'Intermediate'}
+                  minimumFontScale={0.65}
                   style={[
                     styles.stageName,
                     { fontFamily: theme.typography.fontFaces[language][value === stage ? 'bold' : 'medium'] },
@@ -65,18 +69,20 @@ export function LibraryStageLevelSelector({
                 <View style={styles.stageDot} />
                 <AppText language={language} variant="caption" style={styles.collapsibleStageName}>{stageLabel(stage)}</AppText>
               </View>
-              <MaterialIcons name={stageOpen ? 'remove' : 'add'} size={17} color={theme.colors.text} />
+              <AnimatedPlusMinus expanded={stageOpen} size={17} color={theme.colors.text} />
             </Pressable>
             {stageOpen ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collapsibleStages}>
-                {LIBRARY_STAGES.filter((value) => stages.includes(value)).map((value) => (
-                  <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === stage }} onPress={() => onSelectStage(value)} style={[styles.collapsibleStageTouch, th ? styles.collapsibleStageTouchThai : null]}>
-                    <View style={[styles.stagePill, th ? styles.stagePillThai : null, value === stage ? styles.collapsibleActiveStage : null]}>
-                      <AppText language={language} variant="caption" style={[styles.collapsibleStageName, value === stage ? styles.collapsibleActiveStageText : null]}>{stageLabel(value)}</AppText>
-                    </View>
-                  </Pressable>
-                ))}
-              </ScrollView>
+              <DisclosureContent>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collapsibleStages}>
+                  {LIBRARY_STAGES.filter((value) => stages.includes(value)).map((value) => (
+                    <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === stage }} onPress={() => onSelectStage(value)} style={[styles.collapsibleStageTouch, th ? styles.collapsibleStageTouchThai : null]}>
+                      <View style={[styles.stagePill, th ? styles.stagePillThai : null, value === stage ? styles.collapsibleActiveStage : null]}>
+                        <AppText language={language} variant="caption" style={[styles.collapsibleStageName, value === stage ? styles.collapsibleActiveStageText : null]}>{stageLabel(value)}</AppText>
+                      </View>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </DisclosureContent>
             ) : null}
           </>
         )}

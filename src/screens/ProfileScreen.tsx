@@ -1,6 +1,7 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -317,6 +318,7 @@ export function ProfileScreen() {
               <Card padding="lg" radius="lg" style={[styles.neoCard, styles.guestCard]}>
                 <Stack gap="md">
                   <Pressable
+                    motionDisabled
                     accessibilityRole="button"
                     accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าต่างสร้างบัญชีฟรี' : 'Dismiss create free account prompt'}
                     onPress={() => router.push('/(tabs)/account')}
@@ -458,7 +460,7 @@ export function ProfileScreen() {
       </ResponsivePageShell>
       <Modal visible={showAvatarPicker} transparent animationType="fade" onRequestClose={() => setShowAvatarPicker(false)}>
         <View style={styles.modalShade}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAvatarPicker(false)} />
+          <Pressable motionDisabled style={StyleSheet.absoluteFill} onPress={() => setShowAvatarPicker(false)} />
           <View style={styles.avatarModal}>
             <View style={styles.avatarGrid}>
               {AVATAR_OPTIONS.map((avatarPath) => {
@@ -503,7 +505,7 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
-    backgroundColor: '#EAF4FF',
+    backgroundColor: '#EAFFC8',
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
@@ -536,7 +538,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 28,
     borderColor: theme.colors.border,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#99C64F',
     paddingHorizontal: 4,
     overflow: 'hidden',
   },

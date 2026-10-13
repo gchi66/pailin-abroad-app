@@ -1,8 +1,9 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -181,7 +182,7 @@ export function ConversationDetailScreen() {
             <AppText language={uiLanguage} variant="body" style={styles.lessonLabel}>
               {uiLanguage === 'th' ? `บทเรียน ${lessonNumber}` : `Lesson ${lessonNumber}`}
             </AppText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close conversation" onPress={() => router.replace('/(tabs)/resources/conversations')} style={styles.closeButton}>
+            <Pressable motionDisabled accessibilityRole="button" accessibilityLabel="Close conversation" onPress={() => router.replace('/(tabs)/resources/conversations')} style={styles.closeButton}>
               <MaterialIcons name="close" size={25} color={theme.colors.text} />
             </Pressable>
           </View>

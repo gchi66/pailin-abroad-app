@@ -1,3 +1,4 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useState } from 'react';
 import {
@@ -7,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -18,6 +18,7 @@ import { submitContactMessage } from '@/src/api/contact';
 import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -163,6 +164,7 @@ export function ContactScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0}
       style={styles.keyboardAvoidingView}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
       <ResponsivePageShell>

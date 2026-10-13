@@ -5,7 +5,6 @@ import {
   ImageProps,
   ImageSourcePropType,
   ImageStyle,
-  Pressable,
   StyleProp,
   StyleSheet,
   View,
@@ -16,6 +15,7 @@ import { theme } from '@/src/theme/theme';
 import { AndroidNeoShadowLayer } from './AndroidNeoShadowLayer';
 import { AppText } from './AppText';
 import { InsetBorderSurface } from './InsetBorderSurface';
+import { MotionPressable } from './MotionPressable';
 
 export const NAVIGATION_CARD_HEIGHT = 104;
 export const NAVIGATION_CARD_GAP = 15;
@@ -48,7 +48,7 @@ export function NavigationCard({
   onPress,
 }: NavigationCardProps) {
   return (
-    <Pressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled }}
@@ -82,7 +82,7 @@ export function NavigationCard({
         </View>
         <MaterialIcons name="chevron-right" size={24} color={theme.colors.text} style={styles.chevron} />
       </View>
-    </Pressable>
+    </MotionPressable>
   );
 }
 

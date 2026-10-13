@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { useRouter } from 'expo-router';
 
 import lockWhiteImage from '@/assets/images/lock-white.png';

@@ -1,6 +1,7 @@
 import React from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Image, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { Image, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 
 const playIcon = require('../../../assets/images/speaking-coach/play-blue.png');
 const pauseIcon = require('../../../assets/images/speaking-coach/pause-blue.png');

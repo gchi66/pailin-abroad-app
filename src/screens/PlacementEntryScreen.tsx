@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import pailinAvatar from '@/assets/images/characters/pailin_blue_circle.webp';
@@ -17,10 +17,12 @@ const isEmailLike = (value: string | null | undefined) => Boolean(value && /\S+@
 
 export function PlacementEntryScreen() {
   const router = useRouter();
+  const { source } = useLocalSearchParams<{ source?: string }>();
   const insets = useSafeAreaInsets();
-  const { isGuestMode, profile, user } = useAppSession();
+  const { continueAsGuest, hasAccount, isGuestMode, profile, user } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const isGuest = isGuestMode && !user?.id;
+  const isGuestEntry = source === 'guest' || isGuest;
   const displayName =
     (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
     (!isEmailLike(profile?.username) ? profile?.username?.trim() || '' : '') ||
@@ -33,6 +35,13 @@ export function PlacementEntryScreen() {
         profile?.avatar_image ||
           (typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null)
       ) || pailinAvatar;
+
+  const returnToPathway = async () => {
+    if (!hasAccount) {
+      await continueAsGuest();
+    }
+    router.replace('/(tabs)');
+  };
 
   return (
     <View style={styles.screen}>
@@ -67,7 +76,7 @@ export function PlacementEntryScreen() {
           <PlacementTestIntroCard
             language={uiLanguage}
             onChooseManually={() => router.push('/choose-level')}
-            onClose={isGuest ? () => router.replace('/(tabs)') : undefined}
+            onClose={isGuestEntry ? () => void returnToPathway() : undefined}
             onStart={() => router.push('/placement-test')}
           />
         </ResponsivePageShell>

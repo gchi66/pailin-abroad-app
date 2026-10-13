@@ -1,7 +1,8 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Animated, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 

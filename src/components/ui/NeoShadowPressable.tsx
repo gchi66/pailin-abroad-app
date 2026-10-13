@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, PressableProps, PressableStateCallbackType, StyleSheet, ViewStyle } from 'react-native';
+import { PressableProps, PressableStateCallbackType, StyleSheet, ViewStyle } from 'react-native';
 
 import { theme } from '../../theme/theme';
 import { InsetBorderSurface } from './InsetBorderSurface';
+import { MotionPressable } from './MotionPressable';
 
 type NeoShadowPressableProps = Omit<PressableProps, 'children' | 'style'> & {
   children?: React.ReactNode;
@@ -14,7 +15,7 @@ export function NeoShadowPressable({ style, children, ...rest }: NeoShadowPressa
     StyleSheet.flatten(typeof style === 'function' ? style(state) : style) as ViewStyle | undefined;
 
   return (
-    <Pressable
+    <MotionPressable
       {...rest}
       style={(state) => {
         const resolvedStyle = resolveStyle(state);
@@ -43,6 +44,6 @@ export function NeoShadowPressable({ style, children, ...rest }: NeoShadowPressa
           </>
         );
       }}
-    </Pressable>
+    </MotionPressable>
   );
 }

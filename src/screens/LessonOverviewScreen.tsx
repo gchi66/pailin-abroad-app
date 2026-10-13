@@ -1,13 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import pailinHead from '@/assets/images/characters/pailin_head.webp';
 import lockBlackImage from '@/assets/images/lock-black.png';
 import speakingIcon from '@/assets/images/lesson-speaking-icon.png';
 import speakingIconGray from '@/assets/images/lesson-speaking-icon-gray.png';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/src/components/ui/AppText';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { BackAction } from '@/src/components/ui/BackAction';
 import { LessonOverviewTabBar } from '@/src/components/navigation/PailinTabBar';
 import { getLessonSectionLabel } from '@/src/copy/lesson-detail';
@@ -22,6 +23,7 @@ type Props = {
   onToggleLanguage: () => void; isLanguageLoading?: boolean;
   hasMembership: boolean; onSection: (index: number) => void; onListen?: () => void;
   listenComplete: boolean; speakingComplete: boolean; onSpeaking?: () => void; onDiscussion: () => void; onUpgrade: () => void;
+  onMarkFinished: () => Promise<void>;
   tabs: { key: string; onPress: () => void }[];
 };
 const groups = [
@@ -38,6 +40,9 @@ const icons: Record<string, React.ComponentProps<typeof MaterialIcons>['name']> 
 };
 export function LessonOverviewScreen(p: Props) {
   const insets = useSafeAreaInsets();
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [isMarkingFinished, setIsMarkingFinished] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const contentRef = useRef<View>(null);
   const activeRowRef = useRef<View>(null);
@@ -61,6 +66,27 @@ export function LessonOverviewScreen(p: Props) {
     scrollToActiveRow();
   }, [p.activeIndex, p.activeType, scrollToActiveRow]);
   const th = p.language === 'th';
+  const closeFinishModal = useCallback(() => {
+    if (isMarkingFinished) return;
+    setShowFinishModal(false);
+    setFinishError(null);
+  }, [isMarkingFinished]);
+  const handleMarkFinished = useCallback(async () => {
+    if (p.complete) {
+      closeFinishModal();
+      return;
+    }
+    setIsMarkingFinished(true);
+    setFinishError(null);
+    try {
+      await p.onMarkFinished();
+      setShowFinishModal(false);
+    } catch {
+      setFinishError(th ? 'ยังบันทึกไม่ได้ โปรดลองอีกครั้ง' : 'Could not save this lesson. Please try again.');
+    } finally {
+      setIsMarkingFinished(false);
+    }
+  }, [closeFinishModal, p, th]);
   const rows = [...p.rows];
   if (p.onListen) rows.push({ id: 'listen', type: 'listen', index: -1, complete: p.listenComplete });
   if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: p.speakingComplete });
@@ -225,9 +251,84 @@ export function LessonOverviewScreen(p: Props) {
           })}
         </View>;
       })}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={p.complete
+          ? (th ? 'เรียนจบแล้ว' : 'Lesson complete')
+          : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as finished')}
+        onPress={() => {
+          setFinishError(null);
+          setShowFinishModal(true);
+        }}
+        style={({ pressed }) => [s.finishControl, pressed ? s.finishControlPressed : null]}>
+        <View style={[s.finishCheck, p.complete ? s.finishCheckComplete : null]}>
+          <MaterialIcons name="check" size={15} color="#1E1E1E" />
+        </View>
+        <AppText language={p.language} style={s.finishControlText}>
+          {p.complete
+            ? (th ? 'เรียนจบแล้ว!' : 'Lesson complete!')
+            : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as finished')}
+        </AppText>
+      </Pressable>
       </View>
     </ScrollView>
     <LessonOverviewTabBar actions={p.tabs.map(tab => tab.onPress)} />
+    <Modal
+      animationType="fade"
+      onRequestClose={closeFinishModal}
+      transparent
+      visible={showFinishModal}>
+      <View style={s.finishModalBackdrop}>
+        <View style={s.finishModalCard}>
+          <Pressable
+            motionDisabled
+            accessibilityRole="button"
+            accessibilityLabel={th ? 'ปิด' : 'Close'}
+            disabled={isMarkingFinished}
+            onPress={closeFinishModal}
+            hitSlop={8}
+            style={s.finishModalClose}>
+            <MaterialIcons name="close" size={28} color="#1E1E1E" />
+          </Pressable>
+          <AppText language={p.language} style={s.finishModalTitle}>
+            {p.complete
+              ? (th ? 'บทเรียนนี้เรียนจบแล้ว!' : 'This lesson is finished!')
+              : (th ? 'ทำเครื่องหมายบทเรียนนี้ว่าเรียนจบ?' : 'Mark this lesson as finished?')}
+          </AppText>
+          <AppText language={p.language} style={s.finishModalBody}>
+            {th ? 'คุณสามารถกลับมาทบทวนส่วนที่พลาดไปได้เสมอ' : 'You can always return to review any sections you missed.'}
+          </AppText>
+          {finishError ? <AppText language={p.language} style={s.finishModalError}>{finishError}</AppText> : null}
+          <Pressable
+            accessibilityRole="button"
+            disabled={isMarkingFinished}
+            onPress={() => void handleMarkFinished()}
+            style={({ pressed }) => [
+              s.finishModalButton,
+              s.finishModalPrimary,
+              pressed ? s.finishModalButtonPressed : null,
+              isMarkingFinished ? s.finishModalButtonDisabled : null,
+            ]}>
+            {isMarkingFinished ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <AppText language={p.language} style={s.finishModalPrimaryText}>
+                {p.complete
+                  ? (th ? 'เรียนจบแล้ว\u00A0\u00A0✓' : 'MARKED AS FINISHED\u00A0\u00A0✓')
+                  : (th ? 'ทำเครื่องหมายว่าเรียนจบ\u00A0\u00A0✓' : 'MARK AS FINISHED\u00A0\u00A0✓')}
+              </AppText>
+            )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isMarkingFinished}
+            onPress={closeFinishModal}
+            style={({ pressed }) => [s.finishModalButton, s.finishModalCancel, pressed ? s.finishModalButtonPressed : null]}>
+            <AppText language={p.language} style={s.finishModalCancelText}>{th ? 'ยกเลิก' : 'CANCEL'}</AppText>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   </View>;
 }
 const s = StyleSheet.create({
@@ -261,4 +362,22 @@ const s = StyleSheet.create({
   speakingIcon: { width: 20, height: 20 }, lockIcon: { width: 20, height: 20 },
   upgrade: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, marginTop: 4, borderWidth: theme.borderWidths.primaryCard, borderColor: '#245BFF', backgroundColor: '#EBF3FF', borderRadius: 4 },
   upgradeTitle: { color: '#245BFF', fontSize: 9, lineHeight: 14, fontWeight: '700' }, upgradeBody: { fontSize: 10, lineHeight: 15 },
+  finishControl: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 22, paddingHorizontal: 12, paddingVertical: 10 },
+  finishControlPressed: { opacity: 0.65 },
+  finishCheck: { width: 20, height: 20, borderWidth: 1, borderColor: '#1E1E1E', borderRadius: 10, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+  finishCheckComplete: { backgroundColor: '#B9E679' },
+  finishControlText: { fontSize: 14, lineHeight: 21, color: '#1E1E1E' },
+  finishModalBackdrop: { flex: 1, backgroundColor: 'rgba(30, 30, 30, 0.46)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  finishModalCard: { width: '100%', maxWidth: 440, borderWidth: 1.5, borderColor: '#1E1E1E', borderRadius: 28, backgroundColor: '#FFF', paddingHorizontal: 40, paddingTop: 50, paddingBottom: 24, alignItems: 'center', boxShadow: '6px 7px 0px #1E1E1E' },
+  finishModalClose: { position: 'absolute', top: 17, right: 18, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  finishModalTitle: { color: '#1E1E1E', fontSize: 20, lineHeight: 27, fontWeight: '700', textAlign: 'center' },
+  finishModalBody: { maxWidth: 320, marginTop: 10, marginBottom: 22, color: '#1E1E1E', fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  finishModalError: { marginTop: -18, marginBottom: 12, color: theme.colors.error, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  finishModalButton: { width: '100%', minHeight: 44, borderWidth: 1.5, borderColor: '#1E1E1E', borderRadius: 22, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingVertical: 6 },
+  finishModalPrimary: { backgroundColor: '#2D67E8' },
+  finishModalCancel: { marginTop: 12, backgroundColor: '#FFF' },
+  finishModalPrimaryText: { color: '#FFF', fontSize: 14, lineHeight: 19, fontWeight: '700', textAlign: 'center' },
+  finishModalCancelText: { color: '#1E1E1E', fontSize: 14, lineHeight: 19, fontWeight: '700', textAlign: 'center' },
+  finishModalButtonPressed: { opacity: 0.82 },
+  finishModalButtonDisabled: { opacity: 0.7 },
 });

@@ -25,13 +25,13 @@ import {
   AppState,
   Easing,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   createOrResumeSpeakingSession,
@@ -40,6 +40,7 @@ import {
   fetchSpeakingCoachLesson,
   skipSpeakingCoachQuestion,
 } from '@/src/api/speaking-coach';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { fetchAppLessonProgressDetail } from '@/src/api/app-lesson-progress';
 import { upsertLessonCompletion } from '@/src/api/user';
 import { hasCompletedRequiredPractice } from '@/src/lib/app-lesson-progress';
@@ -53,6 +54,7 @@ import {
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { DisclosureContent, FeedbackEntrance } from '@/src/components/ui/MotionEffects';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack as UiStack } from '@/src/components/ui/Stack';
 import { LessonRichSectionIntro } from '@/src/components/lesson/LessonRichSectionIntro';
@@ -200,20 +202,39 @@ const THAI_TYPE_COPY: typeof TYPE_COPY = {
 };
 
 const WELCOME_PRACTICE_COPY = {
-  pronunciation: {
-    title: 'PRONUNCIATION PRACTICE',
-    description: 'Listen to the sentences and repeat. Focus on getting your pronunciation right!',
-    image: pronunciationPracticeImage,
+  en: {
+    pronunciation: {
+      title: 'PRONUNCIATION PRACTICE',
+      description: 'Listen to the sentences and repeat. Focus on getting your pronunciation right!',
+      image: pronunciationPracticeImage,
+    },
+    open: {
+      title: 'CONVERSATION PRACTICE',
+      description: 'Answer the questions using what you’ve learned! Use the lesson focus in your answers.',
+      image: conversationPracticeImage,
+    },
+    translation: {
+      title: 'THAI TO ENGLISH',
+      description: 'Translate the sentences from Thai to English, then speak them out loud!',
+      image: thaiToEnglishImage,
+    },
   },
-  open: {
-    title: 'CONVERSATION PRACTICE',
-    description: 'Answer the questions using what you’ve learned! Use the lesson focus in your answers.',
-    image: conversationPracticeImage,
-  },
-  translation: {
-    title: 'THAI TO ENGLISH',
-    description: 'Translate the sentences from Thai to English, then speak them out loud!',
-    image: thaiToEnglishImage,
+  th: {
+    pronunciation: {
+      title: 'ฝึกการออกเสียง',
+      description: 'ฟังประโยคแล้วพูดตาม โดยเน้นการออกเสียงให้ถูกต้อง',
+      image: pronunciationPracticeImage,
+    },
+    open: {
+      title: 'ฝึกบทสนทนา',
+      description: 'ตอบคำถามโดยใช้สิ่งที่คุณได้เรียนรู้ และนำเนื้อหาหลักของบทเรียนมาใช้ในคำตอบ',
+      image: conversationPracticeImage,
+    },
+    translation: {
+      title: 'แปลไทยเป็นอังกฤษ',
+      description: 'แปลประโยคจากภาษาไทยเป็นภาษาอังกฤษ แล้วพูดออกเสียง',
+      image: thaiToEnglishImage,
+    },
   },
 } as const;
 
@@ -330,8 +351,15 @@ function PlaybackButton({
 
 function PulsingRecordingControl({ onPress }: { onPress: () => void }) {
   const pulse = useRef(new Animated.Value(0)).current;
+  const breath = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(0);
+      breath.setValue(0);
+      return;
+    }
     const animation = Animated.loop(
       Animated.timing(pulse, {
         toValue: 1,
@@ -340,13 +368,32 @@ function PulsingRecordingControl({ onPress }: { onPress: () => void }) {
         useNativeDriver: true,
       })
     );
+    const breathingAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breath, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(breath, {
+          toValue: 0,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
     animation.start();
+    breathingAnimation.start();
 
     return () => {
       animation.stop();
+      breathingAnimation.stop();
       pulse.setValue(0);
+      breath.setValue(0);
     };
-  }, [pulse]);
+  }, [breath, pulse, reduceMotion]);
 
   return (
     <View style={styles.recordingPulseContainer}>
@@ -360,9 +407,11 @@ function PulsingRecordingControl({ onPress }: { onPress: () => void }) {
           },
         ]}
       />
-      <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={onPress}>
-        <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
-      </Pressable>
+      <Animated.View style={{ transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Stop recording" onPress={onPress}>
+          <Image source={stopRecordRedImage} contentFit="contain" style={styles.pronunciationRecordControl} />
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -412,11 +461,13 @@ function CompletedSetProgress({ questionCount }: { questionCount: number }) {
 function WelcomePracticeCard({
   step,
   practiceType,
+  language,
 }: {
   step: number;
   practiceType: SpeakingPracticeType;
+  language: LessonContentLanguage;
 }) {
-  const copy = WELCOME_PRACTICE_COPY[practiceType];
+  const copy = WELCOME_PRACTICE_COPY[language][practiceType];
 
   return (
     <View style={styles.welcomePracticeRow}>
@@ -425,8 +476,8 @@ function WelcomePracticeCard({
       </View>
       <View style={styles.welcomePracticeCard}>
         <View style={styles.welcomePracticeCopy}>
-          <AppText variant="caption" style={styles.welcomePracticeTitle}>{copy.title}</AppText>
-          <AppText variant="caption" style={styles.welcomePracticeDescription}>{copy.description}</AppText>
+          <AppText language={language} variant="caption" style={styles.welcomePracticeTitle}>{copy.title}</AppText>
+          <AppText language={language} variant="caption" style={styles.welcomePracticeDescription}>{copy.description}</AppText>
         </View>
         <Image source={copy.image} contentFit="contain" style={styles.welcomePracticeIcon} />
       </View>
@@ -1478,7 +1529,7 @@ function SpeakingCoachTestScreen() {
               <AppText variant="caption" style={styles.newSessionLabel}>New session</AppText>
             </Pressable>
           ) : null}
-          <Pressable accessibilityRole="button" accessibilityLabel="Close speaking coach" onPress={() => router.back()} style={styles.closeButton}>
+          <Pressable motionDisabled accessibilityRole="button" accessibilityLabel="Close speaking coach" onPress={() => router.back()} style={styles.closeButton}>
             <MaterialIcons name="close" size={28} color={theme.colors.text} />
           </Pressable>
         </View>
@@ -1548,7 +1599,7 @@ function SpeakingCoachTestScreen() {
             : <PracticeProgress {...activeQuestion} />
         ) : null}
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={lessonMode ? tr('Back to lesson', 'กลับไปบทเรียน') : tr('Back to Speaking Practice', 'กลับไปฝึกพูด')} onPress={() => router.back()} style={styles.closeButton}>
+      <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={lessonMode ? tr('Back to lesson', 'กลับไปบทเรียน') : tr('Back to Speaking Practice', 'กลับไปฝึกพูด')} onPress={() => router.back()} style={styles.closeButton}>
         <MaterialIcons name="close" size={25} color={theme.colors.text} />
       </Pressable>
     </View>
@@ -1572,34 +1623,37 @@ function SpeakingCoachTestScreen() {
               source={pailinTimeToSpeakImage}
               contentFit="contain"
               style={styles.welcomeHeroImage}
-              accessibilityLabel="Pailin inviting you to speak"
+              accessibilityLabel={tr('Pailin inviting you to speak', 'ไพลินชวนคุณมาฝึกพูด')}
             />
-            <AppText variant="title" style={styles.welcomeTitle}>Time to speak</AppText>
-            <AppText variant="body" style={styles.welcomeSubtitle}>
-              Put what you learned into practice{`\n`}by speaking out loud.
+            <AppText language={screenLanguage} variant="title" style={styles.welcomeTitle}>{tr('Time to speak', 'ได้เวลาฝึกพูด')}</AppText>
+            <AppText language={screenLanguage} variant="body" style={styles.welcomeSubtitle}>
+              {tr(
+                `Put what you learned into practice\nby speaking out loud.`,
+                `นำสิ่งที่เรียนมาใช้จริง\nด้วยการพูดออกเสียง`
+              )}
             </AppText>
           </View>
 
           <View style={styles.welcomePracticeTimeline}>
-            <WelcomePracticeCard step={1} practiceType={welcomePracticeTypes[0]} />
-            <WelcomePracticeCard step={2} practiceType={welcomePracticeTypes[1]} />
+            <WelcomePracticeCard step={1} practiceType={welcomePracticeTypes[0]} language={screenLanguage} />
+            <WelcomePracticeCard step={2} practiceType={welcomePracticeTypes[1]} language={screenLanguage} />
           </View>
 
           <View style={styles.welcomeActions}>
             <View style={styles.welcomeReminder}>
               <Image source={lightBulbImage} contentFit="contain" style={styles.welcomeReminderIcon} />
-              <AppText variant="caption" style={styles.welcomeReminderText}>
-                Make sure you’re in a quiet place and speak clearly!
+              <AppText language={screenLanguage} variant="caption" style={styles.welcomeReminderText}>
+                {tr('Make sure you’re in a quiet place and speak clearly!', 'ควรอยู่ในที่เงียบและพูดให้ชัดเจน')}
               </AppText>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Start speaking"
+              accessibilityLabel={tr('Start speaking', 'เริ่มฝึกพูด')}
               onPress={() => void startFromWelcome()}
               style={({ pressed }) => [styles.welcomeStartButton, pressed ? styles.welcomeStartButtonPressed : null]}
             >
               <Image source={microphoneWhiteImage} contentFit="contain" style={styles.welcomeStartIcon} />
-              <AppText variant="caption" style={styles.welcomeStartLabel}>START SPEAKING!</AppText>
+              <AppText language={screenLanguage} variant="caption" style={styles.welcomeStartLabel}>{tr('START SPEAKING!', 'เริ่มฝึกพูด!')}</AppText>
             </Pressable>
           </View>
         </ScrollView>
@@ -1669,10 +1723,10 @@ function SpeakingCoachTestScreen() {
                 <AppText language={screenLanguage} variant="caption">{showExample ? tr('Hide example answer', 'ซ่อนตัวอย่างคำตอบ') : tr('Show example answer', 'ดูตัวอย่างคำตอบ')}</AppText>
               </Pressable>
               {showExample ? (
-                <View style={styles.exampleAnswer}>
+                <DisclosureContent style={styles.exampleAnswer}>
                   <AppText variant="body">{question.examples[0]?.en}</AppText>
                   {question.examples[0]?.th ? <AppText language="th" variant="muted">{question.examples[0].th}</AppText> : null}
-                </View>
+                </DisclosureContent>
               ) : null}
             </View>
           ) : null}
@@ -2055,6 +2109,7 @@ function SpeakingCoachTestScreen() {
         {renderAttemptPanel()}
 
         {showResultFooter ? (
+          <FeedbackEntrance>
           <View
             style={[
               styles.conversationResultFooter,
@@ -2124,6 +2179,7 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
           </View>
+          </FeedbackEntrance>
         ) : null}
       </ScrollView>
       {renderSubmissionFooter()}
@@ -2181,7 +2237,7 @@ function SpeakingCoachTestScreen() {
         );
       }
       return (
-        <View style={styles.conversationExampleAnswer}>
+        <DisclosureContent style={styles.conversationExampleAnswer}>
           <AppText variant="caption" style={styles.conversationExampleEnglish}>{example.en}</AppText>
           {example.th ? (
             <AppText language="th" variant="caption" style={styles.conversationExampleThai}>
@@ -2191,7 +2247,7 @@ function SpeakingCoachTestScreen() {
           <Pressable accessibilityRole="button" onPress={() => setShowExample(false)}>
             <AppText language={screenLanguage} variant="caption" style={styles.conversationExampleHide}>{tr('HIDE', 'ซ่อน')}</AppText>
           </Pressable>
-        </View>
+        </DisclosureContent>
       );
     };
 
@@ -2404,6 +2460,7 @@ function SpeakingCoachTestScreen() {
         {renderAttemptPanel()}
 
         {showResultFooter ? (
+          <FeedbackEntrance>
           <View
             style={[
               styles.conversationResultFooter,
@@ -2471,6 +2528,7 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
           </View>
+          </FeedbackEntrance>
         ) : null}
       </ScrollView>
       {renderSubmissionFooter()}
@@ -2549,7 +2607,7 @@ function SpeakingCoachTestScreen() {
         );
       }
       return (
-        <View style={styles.conversationExampleAnswer}>
+        <DisclosureContent style={styles.conversationExampleAnswer}>
           <AppText variant="caption" style={styles.conversationExampleEnglish}>{example.en}</AppText>
           {example.th ? (
             <AppText language="th" variant="caption" style={styles.conversationExampleThai}>
@@ -2559,7 +2617,7 @@ function SpeakingCoachTestScreen() {
           <Pressable accessibilityRole="button" onPress={() => setShowExample(false)}>
             <AppText language={screenLanguage} variant="caption" style={styles.conversationExampleHide}>{tr('HIDE', 'ซ่อน')}</AppText>
           </Pressable>
-        </View>
+        </DisclosureContent>
       );
     };
 
@@ -2738,6 +2796,7 @@ function SpeakingCoachTestScreen() {
         {renderAttemptPanel()}
 
         {showResultFooter ? (
+          <FeedbackEntrance>
           <View
             style={[
               styles.conversationResultFooter,
@@ -2811,6 +2870,7 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
           </View>
+          </FeedbackEntrance>
         ) : null}
       </ScrollView>
       {renderSubmissionFooter()}
@@ -2896,7 +2956,7 @@ function SpeakingCoachTestScreen() {
           style={({ pressed }) => [
             styles.setCompletionButton,
             lessonMode && hasNextSet ? styles.lessonNextSectionButton : null,
-            lessonMode && !hasNextSet && params.requiredPracticeComplete === '1'
+            lessonMode && !hasNextSet
               ? styles.lessonFinishButton
               : null,
             pressed
@@ -2915,9 +2975,7 @@ function SpeakingCoachTestScreen() {
             {hasNextSet
               ? tr(guidedMode ? 'NEXT SECTION' : 'NEXT SET', guidedMode ? 'ส่วนถัดไป' : 'ชุดถัดไป')
               : lessonMode
-                ? params.requiredPracticeComplete === '1'
-                  ? tr('FINISH LESSON', 'จบบทเรียน')
-                  : tr('BACK TO LESSON', 'กลับไปบทเรียน')
+                ? tr('FINISH LESSON', 'จบบทเรียน')
                 : resourceMode
                   ? tr('BACK TO SPEAKING PRACTICE', 'กลับไปฝึกพูด')
                   : tr('FINISH LESSON!', 'จบบทเรียน!')}

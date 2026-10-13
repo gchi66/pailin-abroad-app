@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import {

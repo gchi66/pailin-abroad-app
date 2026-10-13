@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CustomerInfo, PurchasesPackage, PURCHASES_ERROR_CODE, PurchasesError } from 'react-native-purchases';
 import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
@@ -653,6 +654,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
           <Stack gap="lg">
             {showCloseButton ? (
               <Pressable
+                motionDisabled
                 accessibilityRole="button"
                 accessibilityLabel={uiLanguage === 'th' ? 'ปิดหน้าสมาชิก' : 'Close membership page'}
                 onPress={() => router.replace(closeRoute as never)}

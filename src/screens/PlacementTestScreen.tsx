@@ -14,7 +14,6 @@ import {
   Image,
   LayoutAnimation,
   LayoutChangeEvent,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -31,6 +30,7 @@ import {
 } from '@/src/api/placement-test';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { Card } from '@/src/components/ui/Card';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
@@ -39,6 +39,7 @@ import { SpeakingCoachLoader } from '@/src/components/speaking/SpeakingCoachLoad
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
+import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { queueLessonLibraryPreview, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { placementColors } from '@/src/theme/placement';
@@ -74,6 +75,7 @@ const formatTime = (seconds: number) => {
 
 export function PlacementTestScreen() {
   const router = useRouter();
+  const { continueAsGuest, hasAccount } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<PlacementConversation[]>([]);
@@ -116,7 +118,7 @@ export function PlacementTestScreen() {
         : 'เยี่ยมเลย! ไปต่อที่บทสนทนาสุดท้ายกัน';
   const player = useAudioPlayer(audioUrl, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
-  const closePreview = () => {
+  const closePreview = async () => {
     if (delayedPlaybackRef.current) {
       clearTimeout(delayedPlaybackRef.current);
       delayedPlaybackRef.current = null;
@@ -126,6 +128,9 @@ export function PlacementTestScreen() {
       calculationTimerRef.current = null;
     }
     player.pause();
+    if (!hasAccount) {
+      await continueAsGuest();
+    }
     router.replace('/(tabs)');
   };
   const progressRatio = playerStatus.duration > 0
@@ -437,10 +442,11 @@ export function PlacementTestScreen() {
                     </AppText>
                   </View>
                   <Pressable
+                    motionDisabled
                     accessibilityRole="button"
                     accessibilityLabel={uiLanguage === 'en' ? 'Close placement test' : 'ปิดแบบทดสอบวัดระดับ'}
                     hitSlop={12}
-                    onPress={closePreview}
+                    onPress={() => void closePreview()}
                     style={styles.audioCardCloseButton}>
                     <MaterialIcons name="close" size={23} color={theme.colors.text} />
                   </Pressable>
@@ -507,10 +513,11 @@ export function PlacementTestScreen() {
                       {uiLanguage === 'en' ? 'Placement Test' : 'แบบทดสอบวัดระดับ'}
                     </AppText>
                     <Pressable
+                      motionDisabled
                       accessibilityRole="button"
                       accessibilityLabel={uiLanguage === 'en' ? 'Close placement test' : 'ปิดแบบทดสอบวัดระดับ'}
                       hitSlop={12}
-                      onPress={closePreview}
+                      onPress={() => void closePreview()}
                       style={styles.closeButton}>
                       <MaterialIcons name="close" size={28} color={theme.colors.text} />
                     </Pressable>

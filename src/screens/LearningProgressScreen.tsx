@@ -3,10 +3,12 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
+import { prefetchResolvedLesson } from '@/src/api/lessons';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { AppText } from '@/src/components/ui/AppText';
 import { Card } from '@/src/components/ui/Card';
+import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
@@ -220,6 +222,17 @@ export function LearningProgressScreen() {
   const recentCompleted = useMemo(() => completedProgress.slice(0, 3), [completedProgress]);
   const dailyStreak = stats?.daily_streak ?? 0;
 
+  const handleOpenLesson = (lesson: LessonListItem) => {
+    prefetchResolvedLesson(lesson.id, 'en');
+    router.push({
+      pathname: '/lesson-preview/[id]',
+      params: {
+        id: lesson.id,
+        libraryRoute: hasMembership ? 'library' : 'free-library',
+      },
+    });
+  };
+
   const sectionLabel = (label: string, icon?: 'star') => (
     <View style={styles.sectionLabel}>
       {icon === 'star' ? (
@@ -351,7 +364,12 @@ export function LearningProgressScreen() {
                 }
 
                 return (
-                  <Card key={progress.id ?? progress.lesson_id} padding="md" radius="sm" style={styles.recentCard}>
+                  <NeoShadowPressable
+                    key={progress.id ?? progress.lesson_id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${getLessonNumber(lesson)} ${getLessonTitle(lesson, uiLanguage, copy.untitledLesson)}`}
+                    onPress={() => handleOpenLesson(lesson)}
+                    style={styles.recentCard}>
                     <View style={styles.recentRow}>
                       <View style={styles.recentCheckBadge}>
                         <AppText language="en" variant="caption" style={styles.recentCheckText}>
@@ -374,7 +392,7 @@ export function LearningProgressScreen() {
                         </AppText>
                       </View>
                     </View>
-                  </Card>
+                  </NeoShadowPressable>
                 );
               })}
             </Stack>

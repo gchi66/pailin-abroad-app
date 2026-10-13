@@ -5,13 +5,13 @@ import {
   LayoutChangeEvent,
   PanResponder,
   Platform,
-  Pressable,
   StyleSheet,
   View,
   useWindowDimensions,
 } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
@@ -81,7 +81,7 @@ export function LessonAudioTray({
   collapsed,
   onCollapsedChange,
   hideTitle = false,
-  progressColor = theme.colors.accent,
+  progressColor = theme.colors.audioProgress,
   trackColor = theme.colors.accentMuted,
   autoCollapseSignal = null,
   autoExpandSignal = null,

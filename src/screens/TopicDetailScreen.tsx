@@ -1,5 +1,6 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { fetchTopicDetail } from '@/src/api/topic-library';

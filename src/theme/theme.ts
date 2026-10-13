@@ -7,6 +7,7 @@ export const theme = {
     primary: '#FF4545',
     error: '#FF4545',
     accent: '#3CA0FE',
+    audioProgress: '#3CBFF2',
     accentSurface: '#F8FCFF',
     accentMuted: '#DCEEFF',
     success: '#CDEB8B',

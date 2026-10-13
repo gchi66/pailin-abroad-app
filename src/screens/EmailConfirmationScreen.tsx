@@ -1,7 +1,8 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import fullLogoImage from '../../assets/images/pailin-abroad-full-logo.png';

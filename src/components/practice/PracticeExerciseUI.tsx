@@ -1,5 +1,7 @@
 import React, { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { DisclosureContent, FeedbackEntrance } from '@/src/components/ui/MotionEffects';
 import { Image, ImageSource } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -206,7 +208,7 @@ export function FillBlankExampleDisclosure({
           <Text style={styles.exampleArrow}>{expanded ? '▲' : '▼'}</Text>
         </AppText>
       </Pressable>
-      {expanded && children ? <View style={styles.exampleBody}>{children}</View> : null}
+      {expanded && children ? <DisclosureContent style={styles.exampleBody}>{children}</DisclosureContent> : null}
     </PracticeSurface>
   );
 }
@@ -475,9 +477,10 @@ export function PracticeAnswerFooter({
       : isIncorrect
         ? labels.clear
         : labels.check;
+  const FooterContainer = visibleStatus === 'idle' ? View : FeedbackEntrance;
 
   return (
-    <View
+    <FooterContainer
       style={[
         styles.footer,
         isCorrect ? styles.correctFooter : null,
@@ -507,7 +510,9 @@ export function PracticeAnswerFooter({
                   </AppText>
                 </Pressable>
                 {review.expanded ? (
-                  <AppText language={language} variant="caption" style={styles.reviewAnswer}>{review.answer}</AppText>
+                  <DisclosureContent>
+                    <AppText language={language} variant="caption" style={styles.reviewAnswer}>{review.answer}</AppText>
+                  </DisclosureContent>
                 ) : null}
               </View>
             ) : null}
@@ -547,7 +552,7 @@ export function PracticeAnswerFooter({
           </Pressable>
         )
       ) : null}
-    </View>
+    </FooterContainer>
   );
 }
 

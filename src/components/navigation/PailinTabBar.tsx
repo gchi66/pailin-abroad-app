@@ -1,9 +1,10 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppSession } from '@/src/context/app-session-context';

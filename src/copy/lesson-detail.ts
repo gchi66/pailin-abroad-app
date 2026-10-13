@@ -2,6 +2,7 @@ import { UiLanguage } from '@/src/types/home';
 
 const SECTION_TYPE_LABELS: Record<string, { en: string; th: string }> = {
   prepare: { en: 'Prepare', th: 'เตรียมตัว' },
+  listen: { en: 'Listen', th: 'ฟัง' },
   comprehension: { en: 'Check', th: 'ความเข้าใจ' },
   transcript: { en: 'Transcript', th: 'สคริปต์บท' },
   conversation: { en: 'Conversation', th: 'บทสนทนา' },

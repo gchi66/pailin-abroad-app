@@ -5,7 +5,6 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -29,7 +28,7 @@ import pailinPlanImage from '@/assets/images/speaking-coach/pailin-lesson-finish
 import passwordLockImage from '@/assets/images/password-lock.webp';
 import showPasswordImage from '@/assets/images/show-password.webp';
 import { AppText } from '@/src/components/ui/AppText';
-import { KeyboardDismissAccessory } from '@/src/components/ui/KeyboardDismissAccessory';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
@@ -116,7 +115,6 @@ type ProfileStepProps = StepBaseProps & {
   onUsernameChange: (value: string) => void;
   onAvatarSelect: (value: string) => void;
   errorMessage: string;
-  keyboardAccessoryViewID?: string;
   isUsernameOptional?: boolean;
 };
 
@@ -414,7 +412,6 @@ function ProfileStep({
   onUsernameChange,
   onAvatarSelect,
   errorMessage,
-  keyboardAccessoryViewID,
   isUsernameOptional,
 }: ProfileStepProps) {
   return (
@@ -434,7 +431,6 @@ function ProfileStep({
                 placeholder={copy.namePlaceholder}
                 placeholderTextColor={theme.colors.mutedText}
                 style={styles.simpleTextInput}
-                inputAccessoryViewID={keyboardAccessoryViewID}
                 value={username}
                 onChangeText={onUsernameChange}
               />
@@ -650,8 +646,6 @@ export function OnboardingScreen() {
   const { markOnboardingComplete } = useOnboarding();
   const { hasMembership, isGuestConversionPending, isLoading: sessionLoading, profile, refreshProfile, user } = useAppSession();
   const posthog = usePostHog();
-  const keyboardAccessoryId = 'onboarding-keyboard-accessory';
-
   const copy = getCopy(uiLanguage);
   const scrollRef = useRef<ScrollView | null>(null);
   const hasEnsuredUserRecordRef = useRef(false);
@@ -1024,7 +1018,6 @@ export function OnboardingScreen() {
           onUsernameChange={setUsername}
           onAvatarSelect={setSelectedAvatarPath}
           errorMessage={currentStep === 2 ? errorMessage : ''}
-          keyboardAccessoryViewID={Platform.OS === 'ios' ? keyboardAccessoryId : undefined}
           isUsernameOptional={isAppleAuthProvider}
         />
       ),
@@ -1185,9 +1178,6 @@ export function OnboardingScreen() {
 
         </Stack>
       </View>
-      {Platform.OS === 'ios' ? (
-        <KeyboardDismissAccessory nativeID={keyboardAccessoryId} />
-      ) : null}
     </View>
   );
 }

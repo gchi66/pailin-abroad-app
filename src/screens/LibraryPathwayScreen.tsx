@@ -3,8 +3,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { AnimatedPlusMinus, DisclosureContent } from '@/src/components/ui/MotionEffects';
 
 import { AppLessonProgressSummary } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
@@ -195,7 +197,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
             </Pressable>
             <View style={styles.headerActions}>
               <LanguageToggle />
-              <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? (th ? 'ปิดการค้นหา' : 'Close search') : (th ? 'ค้นหาบทเรียน' : 'Search lessons')}
+              <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={searchOpen ? (th ? 'ปิดการค้นหา' : 'Close search') : (th ? 'ค้นหาบทเรียน' : 'Search lessons')}
                 style={styles.searchButton} onPress={() => {
                   setLibraryMenu(false);
                   if (searchOpen) closeSearch();
@@ -251,9 +253,9 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
         {!searching && !freeOnly && story ? <View style={styles.storyShadow}><View style={styles.story}>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: storyOpen }} onPress={() => setStoryOpen((value) => !value)} style={styles.storyHeader}>
             <AppText language={language} variant="caption" style={styles.storyLabel}>{th ? 'เรื่องราวของไพลิน' : "PAILIN’S STORY"}</AppText>
-            <MaterialIcons name={storyOpen ? 'remove' : 'add'} size={19} color={theme.colors.text} />
+            <AnimatedPlusMinus expanded={storyOpen} size={19} color={theme.colors.text} />
           </Pressable>
-          {storyOpen ? <AppText language={language} variant="muted" style={styles.storyBody}>{story}</AppText> : null}
+          {storyOpen ? <DisclosureContent><AppText language={language} variant="muted" style={styles.storyBody}>{story}</AppText></DisclosureContent> : null}
         </View></View> : null}
 
         {failed ? <View style={styles.empty}><AppText language={language}>{th ? 'โหลดบทเรียนไม่สำเร็จ' : 'Could not load lessons.'}</AppText><Button title={th ? 'ลองอีกครั้ง' : 'Try again'} language={language} onPress={() => setRetry((value) => value + 1)} /></View> : null}

@@ -1,8 +1,7 @@
 import React, { forwardRef } from 'react';
-import { Platform, StyleSheet, TextInput, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
 import { fontWeightFromFamily, resolveFontFamily } from '@/src/theme/typography';
-import { DEFAULT_KEYBOARD_DISMISS_ACCESSORY_ID } from './KeyboardDismissAccessory';
 
 export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(function ScriptAwareTextInput(
   {
@@ -15,6 +14,7 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
     enterKeyHint,
     returnKeyType,
     submitBehavior,
+    multiline,
     ...props
   },
   ref
@@ -26,12 +26,14 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
   });
   const resolvedEnterKeyHint =
     enterKeyHint ??
-    (returnKeyType === 'go' ||
-    returnKeyType === 'next' ||
-    returnKeyType === 'search' ||
-    returnKeyType === 'send'
-      ? returnKeyType
-      : 'done');
+    (multiline && returnKeyType == null
+      ? 'enter'
+      : returnKeyType === 'go' ||
+          returnKeyType === 'next' ||
+          returnKeyType === 'search' ||
+          returnKeyType === 'send'
+        ? returnKeyType
+        : 'done');
 
   return (
     <TextInput
@@ -40,12 +42,11 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
       value={value}
       defaultValue={defaultValue}
       placeholder={placeholder}
-      inputAccessoryViewID={
-        inputAccessoryViewID ?? (Platform.OS === 'ios' ? DEFAULT_KEYBOARD_DISMISS_ACCESSORY_ID : undefined)
-      }
+      inputAccessoryViewID={inputAccessoryViewID}
       enterKeyHint={resolvedEnterKeyHint}
-      returnKeyType={returnKeyType ?? 'done'}
-      submitBehavior={submitBehavior ?? 'blurAndSubmit'}
+      returnKeyType={returnKeyType ?? (multiline ? 'default' : 'done')}
+      submitBehavior={submitBehavior ?? (multiline ? 'newline' : 'blurAndSubmit')}
+      multiline={multiline}
       onChangeText={onChangeText}
       style={[style, { fontFamily }]}
     />

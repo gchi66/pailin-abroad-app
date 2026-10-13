@@ -1,6 +1,7 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import React, { useEffect, useMemo, useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/src/components/ui/AppText';
@@ -116,7 +117,7 @@ export function LessonConversationIntroOverlay({
           </AppText>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Close conversation intro" onPress={onDismiss} style={styles.closeButton}>
+        <Pressable motionDisabled accessibilityRole="button" accessibilityLabel="Close conversation intro" onPress={onDismiss} style={styles.closeButton}>
           <MaterialIcons name="close" size={20} color={theme.colors.text} />
         </Pressable>
       </View>

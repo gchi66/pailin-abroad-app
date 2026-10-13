@@ -1,8 +1,9 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import pailinImage from '@/assets/images/speaking-coach/pailin-time-to-speak.webp';
 import { getLessonsIndex } from '@/src/api/lessons';

@@ -1,5 +1,6 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import React, { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 import { characterImages } from '@/src/assets/app-images';
 import { pickText } from '../../mocks/home';

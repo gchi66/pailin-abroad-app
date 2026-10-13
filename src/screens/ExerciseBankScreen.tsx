@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { fetchExerciseBankTopics } from '@/src/api/exercise-bank';

@@ -1,3 +1,5 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -12,7 +14,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -58,9 +59,9 @@ export function AuthScreen() {
       uiLanguage === 'th'
         ? {
             signUpTitle: 'สมัคร Pailin Abroad',
-            signUpSubtitle: 'Real English, made for Thai speakers.',
+            signUpSubtitle: 'อังกฤษติดปาก',
             signInTitle: 'เข้าสู่ระบบ Pailin Abroad',
-            signInSubtitle: 'ดีใจที่ได้เจอคุณอีกครั้ง',
+            signInSubtitle: 'อังกฤษติดปาก',
             apple: 'ดำเนินการต่อด้วย Apple',
             appleLoading: 'กำลังเชื่อมต่อ Apple...',
             google: 'สมัครด้วย Google',
@@ -87,9 +88,9 @@ export function AuthScreen() {
           }
         : {
             signUpTitle: 'Sign Up',
-            signUpSubtitle: 'Real English, made for Thai speakers.',
+            signUpSubtitle: 'English for Thais!',
             signInTitle: 'Log In',
-            signInSubtitle: 'Good to see you again.',
+            signInSubtitle: 'English for Thais!',
             apple: 'Continue with Apple',
             appleLoading: 'Connecting Apple...',
             google: 'Continue with Google',
@@ -228,7 +229,10 @@ export function AuthScreen() {
     posthog.capture('guest_mode_started');
     try {
       await continueAsGuest();
-      router.replace('/placement-entry');
+      router.replace({
+        pathname: '/placement-entry',
+        params: { source: 'guest' },
+      });
     } catch {
       setIsGuestSubmitting(false);
     }
@@ -256,7 +260,7 @@ export function AuthScreen() {
     hasAppliedSignUpFocusOffsetRef.current = true;
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({
-        y: scrollOffsetRef.current + 96,
+        y: scrollOffsetRef.current + 96 + KEYBOARD_DISMISS_ACCESSORY_HEIGHT,
         animated: true,
       });
     }, 300);
@@ -278,7 +282,11 @@ export function AuthScreen() {
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' && mode === 'signin' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' && mode === 'signin' ? 12 : 0}>
+      keyboardVerticalOffset={
+        Platform.OS === 'ios'
+          ? (mode === 'signin' ? 12 : 0) + KEYBOARD_DISMISS_ACCESSORY_HEIGHT
+          : 0
+      }>
       <ScrollView
         ref={scrollViewRef}
         style={styles.screen}
@@ -783,19 +791,19 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     marginTop: 18,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   headerBlockTablet: {
     marginTop: 24,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   headerBlockLargeTablet: {
     marginTop: 30,
-    marginBottom: 30,
+    marginBottom: 26,
   },
   headerBlockCompact: {
     marginTop: 14,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   headlineLine: {
     fontSize: 28,
@@ -818,24 +826,24 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 8,
     color: '#5A6A7E',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '600',
   },
   subtitleCompact: {
     marginTop: 6,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 19,
   },
   subtitleTablet: {
     marginTop: 10,
-    fontSize: 17,
-    lineHeight: 24,
+    fontSize: 19,
+    lineHeight: 26,
   },
   subtitleLargeTablet: {
     marginTop: 12,
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 30,
   },
   formShell: {
     gap: 14,

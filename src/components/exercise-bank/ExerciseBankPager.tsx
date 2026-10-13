@@ -1,6 +1,8 @@
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { FeedbackEntrance } from '@/src/components/ui/MotionEffects';
 import { Image } from 'expo-image';
 
 import { evaluateLessonAnswer, EvaluateLessonAnswerResult } from '@/src/api/lessons';
@@ -1372,11 +1374,11 @@ function renderExerciseBody(params: {
               </Stack>
 
               {isChecked ? (
-                <View style={styles.feedbackBox}>
+                <FeedbackEntrance style={styles.feedbackBox}>
                   <AppText language={language} variant="body" style={styles.feedbackHeadline}>
                     {`${copy.correctAnswerPrefix}: ${item.answerLetters.join(', ')}`}
                   </AppText>
-                </View>
+                </FeedbackEntrance>
               ) : null}
             </View>
           );
@@ -1487,7 +1489,7 @@ function renderExerciseBody(params: {
               ) : null}
 
               {evaluation ? (
-                <View style={styles.feedbackBox}>
+                <FeedbackEntrance style={styles.feedbackBox}>
                   <AppText language={language} variant="body" style={styles.feedbackHeadline}>
                     {evaluation.loading ? copy.checking : evaluation.correct ? copy.correct : copy.needsWork}
                   </AppText>
@@ -1501,7 +1503,7 @@ function renderExerciseBody(params: {
                       {evaluation.error}
                     </AppText>
                   ) : null}
-                </View>
+                </FeedbackEntrance>
               ) : null}
             </View>
           );
@@ -1599,7 +1601,7 @@ function renderExerciseBody(params: {
               </View>
 
               {!item.isExample && evaluation ? (
-                <View style={styles.feedbackBox}>
+                <FeedbackEntrance style={styles.feedbackBox}>
                   <AppText language={language} variant="body" style={styles.feedbackHeadline}>
                     {evaluation.loading ? copy.checking : evaluation.correct ? copy.correct : copy.needsWork}
                   </AppText>
@@ -1613,7 +1615,7 @@ function renderExerciseBody(params: {
                       {evaluation.error}
                     </AppText>
                   ) : null}
-                </View>
+                </FeedbackEntrance>
               ) : null}
             </View>
           );

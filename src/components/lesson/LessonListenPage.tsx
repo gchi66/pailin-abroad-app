@@ -1,9 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Polygon } from 'react-native-svg';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { theme } from '@/src/theme/theme';
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressBase: { ...StyleSheet.absoluteFillObject, backgroundColor: '#EBF5FF' },
-  progressFill: { height: '100%', borderRadius: 10, backgroundColor: '#3CBFF2' },
+  progressFill: { height: '100%', borderRadius: 10, backgroundColor: theme.colors.audioProgress },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
   time: { color: '#3F3F3F', fontSize: 11, lineHeight: 15 },
   rateWrap: { alignItems: 'center', position: 'relative', zIndex: 3, marginTop: -2 },

@@ -1,6 +1,7 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -47,6 +48,7 @@ export function PlacementTestIntroCard({ language, onChooseManually, onClose, on
         <InsetBorderSurface backgroundColor={theme.colors.surface} borderRadius={theme.radii.lg} borderWidth={1.5} />
         {onClose ? (
           <Pressable
+            motionDisabled
             accessibilityLabel={language === 'en' ? 'Go to My Pathway' : 'ไปที่เส้นทางการเรียนของฉัน'}
             accessibilityRole="button"
             hitSlop={8}

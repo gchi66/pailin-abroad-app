@@ -10,7 +10,6 @@ import {
   Modal,
   NativeSyntheticEvent,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -26,10 +25,11 @@ import type { AudioMetadata } from 'expo-audio';
 import { Asset } from 'expo-asset';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { FadeInDown, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import {
   evaluateLessonAnswer,
   fetchPracticeReviewAnswer,
@@ -82,6 +82,7 @@ import { AppText } from '@/src/components/ui/AppText';
 import { BackAction } from '@/src/components/ui/BackAction';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
+import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -2962,7 +2963,7 @@ const isStandaloneThaiText = (value: string) =>
 
 const getApplyNodeText = (node: LessonRichNode, contentLang: UiLanguage) => {
   const inlineText = Array.isArray(node.inlines)
-    ? node.inlines.map((inline) => resolveRichInlineText(inline, contentLang)).join(' ')
+    ? node.inlines.map((inline) => resolveRichInlineText(inline, contentLang)).join('')
     : '';
   const directText = resolveNodeText(node, contentLang);
 
@@ -3056,15 +3057,18 @@ const collectApplyBlueTargets = (nodes: LessonRichNode[]) => {
   };
 };
 
+const normalizeApplyTargetText = (value: string) =>
+  value.toLocaleLowerCase().replace(/[\u2018\u2019\u02bc\uff07]/g, "'");
+
 const splitApplyTextByBlueTargets = (text: string, targets: string[]) => {
   if (!text || !targets.length) {
     return [{ text, isBlue: false }];
   }
 
-  const normalizedText = text.toLocaleLowerCase();
+  const normalizedText = normalizeApplyTargetText(text);
   const normalizedTargets = targets.map((target) => ({
     original: target,
-    normalized: target.toLocaleLowerCase(),
+    normalized: normalizeApplyTargetText(target),
   }));
   const pieces: { text: string; isBlue: boolean }[] = [];
   let plainStart = 0;
@@ -3945,6 +3949,7 @@ export default function LessonDetailShellScreen() {
   const [applyInputLineCount, setApplyInputLineCount] = useState(1);
   const [showApplyTask, setShowApplyTask] = useState(false);
   const [showApplyResponse, setShowApplyResponse] = useState(false);
+  const [showApplyEncouragement, setShowApplyEncouragement] = useState(false);
   const [activeUnderstandGroupIndex, setActiveUnderstandGroupIndex] = useState(0);
   const [activePracticeCardIndex, setActivePracticeCardIndex] = useState(0);
   const [activePracticeQuestionIndex, setActivePracticeQuestionIndex] = useState(0);
@@ -4087,6 +4092,7 @@ export default function LessonDetailShellScreen() {
           windowHeight -
           lessonKeyboardHeight -
           LESSON_INPUT_KEYBOARD_GAP -
+          (Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0) -
           (Platform.OS === 'android' ? ANDROID_LESSON_INPUT_FOCUS_LIFT : 0);
         const overlap = inputBottom - desiredInputBottom;
 
@@ -5206,6 +5212,30 @@ export default function LessonDetailShellScreen() {
       : null;
   const activeSectionIntroKey = isListenPage ? 'listen' : activeTab?.id ?? null;
   const hasListenStep = Boolean(lesson?.conversation_audio_url);
+  const previousLessonStepLabel = useMemo(() => {
+    const lessonOverviewLabel = pageLanguage === 'th' ? 'ภาพรวมบทเรียน' : 'Lesson Overview';
+
+    if (isListenPage) {
+      const prepareTab = lessonTabs[prepareSectionIndex];
+      return prepareTab
+        ? getLessonSectionTitle(pageLanguage, prepareTab.type, prepareSectionIndex)
+        : lessonOverviewLabel;
+    }
+
+    const firstSectionAfterListen = Math.max(0, prepareSectionIndex + 1);
+    if (hasListenStep && activeSectionIndex === firstSectionAfterListen) {
+      return getLessonSectionLabel(pageLanguage, 'listen');
+    }
+
+    if (activeSectionIndex > 0) {
+      const previousTab = lessonTabs[activeSectionIndex - 1];
+      if (previousTab) {
+        return getLessonSectionTitle(pageLanguage, previousTab.type, activeSectionIndex - 1);
+      }
+    }
+
+    return lessonOverviewLabel;
+  }, [activeSectionIndex, hasListenStep, isListenPage, lessonTabs, pageLanguage, prepareSectionIndex]);
   const includesSpeakingSection = !isCheckpointCoverLesson;
   const sectionIntroTotal = sectionCount + (hasListenStep ? 1 : 0) + (includesSpeakingSection ? 1 : 0);
   const sectionIntroPosition = isListenPage
@@ -6459,7 +6489,7 @@ export default function LessonDetailShellScreen() {
     router.push('/(tabs)/exercises');
   }, [flushPendingLessonPersistence, router]);
 
-  const openSpeakingPractice = useCallback(async () => {
+  const openSpeakingPractice = useCallback(async (requiredPracticeComplete = allPracticeExercisesChecked) => {
     if (!hasMembership) {
       router.push('/(tabs)/account/membership');
       return;
@@ -6470,7 +6500,7 @@ export default function LessonDetailShellScreen() {
       params: {
         lesson: activeLessonNumber,
         entry: 'lesson',
-        requiredPracticeComplete: allPracticeExercisesChecked ? '1' : '0',
+        requiredPracticeComplete: requiredPracticeComplete ? '1' : '0',
         sectionPosition: String(sectionIntroTotal),
         sectionTotal: String(sectionIntroTotal),
         language: contentLang,
@@ -6724,6 +6754,30 @@ export default function LessonDetailShellScreen() {
     openLessonCompletePage();
   }, [lessonCover?.id, openLessonCompletePage]);
 
+  const markLessonFinishedFromOverview = useCallback(async () => {
+    if (isLessonCompleted || !lessonCover?.id) return;
+
+    setIsSavingLessonCompletion(true);
+    setLessonCompletionError(null);
+
+    try {
+      await flushPendingLessonPersistence();
+      if (isGuestLessonSession) {
+        await markGuestLessonCompleted(lessonCover.id);
+      } else {
+        await upsertLessonCompletion({ lessonId: lessonCover.id, completed: true });
+      }
+      bumpLessonLibraryProgressRefreshToken();
+      setIsLessonCompleted(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : pageCopy.completionSavedError;
+      setLessonCompletionError(message);
+      throw error;
+    } finally {
+      setIsSavingLessonCompletion(false);
+    }
+  }, [flushPendingLessonPersistence, isGuestLessonSession, isLessonCompleted, lessonCover?.id, pageCopy.completionSavedError]);
+
   const handleFinishLessonPress = useCallback(async () => {
     if (isGuestLessonSession) {
       await completeGuestLesson();
@@ -6767,8 +6821,16 @@ export default function LessonDetailShellScreen() {
   ]);
 
   const handleEndOfLessonContent = useCallback(() => {
-    void handleFinishLessonPress();
-  }, [handleFinishLessonPress]);
+    if (isCheckpointCoverLesson) {
+      void handleFinishLessonPress();
+      return;
+    }
+
+    // Reaching the end of a regular lesson hands completion ownership to the
+    // final speaking-practice action. The practice-results path supplies an
+    // explicit completion override while other section types use live state.
+    void openSpeakingPractice();
+  }, [handleFinishLessonPress, isCheckpointCoverLesson, openSpeakingPractice]);
 
   const handleContentTogglePress = useCallback(() => {
     setContentLang((previous) => {
@@ -9743,16 +9805,15 @@ export default function LessonDetailShellScreen() {
     const isLoading = Boolean(audioKey) && activeSnippetKey === audioKey && isSnippetLoading;
     const hasSpeakerPrefix = richNodeHasSpeakerPrefix(node, contentLang);
     const shouldUseCompactAudioSpacing = !hasSpeakerPrefix;
+    const audioActionLabel = pageLanguage === 'th'
+      ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
+      : isPlaying
+        ? 'Pause example audio'
+        : 'Play example audio';
     const audioButton = (
       <LessonSnippetAudioButton
         tapFeedback
-        accessibilityLabel={
-          pageLanguage === 'th'
-            ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
-            : isPlaying
-              ? 'Pause example audio'
-              : 'Play example audio'
-        }
+        accessibilityLabel={audioActionLabel}
         disabled={!snippet}
         hitSlop={options?.isPhraseCard ? 11 : undefined}
         isLoading={isLoading}
@@ -9810,6 +9871,11 @@ export default function LessonDetailShellScreen() {
     const translationKey = `${activeTab?.id ?? 'section'}:${nodeKey}`;
     const hasTranslationToggle = contentLang === 'th' && hasMultipleAudioSpeakers({ ...node, inlines: dialogueInlines }, contentLang);
     const translationsExpanded = expandedRichAudioTranslations[translationKey] === true;
+    const dialogueAccessibilityText = dialogueInlines
+      .map((inline) => cleanAudioTags(resolveRichInlineText(inline, contentLang)))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     return (
       <View key={nodeKey} style={[styles.richAudioCard, mistakeColors ? { borderColor: mistakeColors.border } : null]}>
@@ -9817,12 +9883,24 @@ export default function LessonDetailShellScreen() {
           <View style={[styles.richAudioCardMainRow, mistakeColors ? styles.richMistakeCardMainRow : null]}>
             {hasNodeAudio ? audioButton : <View style={styles.richAudioCardButtonPlaceholder} />}
             <View style={styles.richAudioTextWrap}>
-              {renderRichAudioBulletLines(dialogueInlines, nodeKey, {
-                ...options,
-                audioCard: true,
-                emphasisColor: mistakeColors?.emphasis,
-                showThaiTranslations: !hasTranslationToggle,
-              })}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={dialogueAccessibilityText
+                  ? `${dialogueAccessibilityText}. ${audioActionLabel}`
+                  : audioActionLabel}
+                accessibilityState={{ disabled: !snippet, busy: isLoading, selected: isPlaying }}
+                disabled={!snippet}
+                onPress={() => {
+                  void handleToggleSnippet(snippet);
+                }}
+                style={styles.richAudioSentenceButton}>
+                {renderRichAudioBulletLines(dialogueInlines, nodeKey, {
+                  ...options,
+                  audioCard: true,
+                  emphasisColor: mistakeColors?.emphasis,
+                  showThaiTranslations: !hasTranslationToggle,
+                })}
+              </Pressable>
               {hasTranslationToggle ? (
                 <>
                   <Pressable
@@ -10049,20 +10127,20 @@ export default function LessonDetailShellScreen() {
       const previousLineHasAudio = lineIndex > 0 && (lines[lineIndex - 1]?.audioKeys.length ?? 0) > 0;
       const lineIsThaiOnly = THAI_TEXT_RE.test(lineText) && !/[A-Za-z]/.test(lineText);
       const lineIsThaiOverride = lineIsThaiOnly && line.audioKeys.length === 0 && previousLineHasAudio;
+      const audioActionLabel = pageLanguage === 'th'
+        ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
+        : isPlaying
+          ? 'Pause example audio'
+          : 'Play example audio';
 
       if (line.audioKeys.length) {
         return (
           <View key={`${cellKey}-line-${lineIndex}`} style={styles.richTableAudioLine}>
             <LessonSnippetAudioButton
               tapFeedback
+              appearance="plain"
               style={styles.richTableAudioButton}
-              accessibilityLabel={
-                pageLanguage === 'th'
-                  ? (isPlaying ? 'หยุดเสียงตัวอย่าง' : 'เล่นเสียงตัวอย่าง')
-                  : isPlaying
-                    ? 'Pause example audio'
-                    : 'Play example audio'
-              }
+              accessibilityLabel={audioActionLabel}
               disabled={!snippet}
               isLoading={isLoading}
               isPlaying={isPlaying}
@@ -10070,27 +10148,37 @@ export default function LessonDetailShellScreen() {
                 void handleToggleSnippet(snippet);
               }}
             />
-            <AppText
-              language={contentLang}
-              variant="body"
-              allowFontScaling={manualTableBodyFontScale ? false : undefined}
-              style={[
-                styles.richTableAudioText,
-                contentLang === 'th' ? styles.richThaiTableTextCompact : null,
-                manualTableBodyFontScale
-                  ? {
-                      fontSize: 14 * manualTableBodyFontScale,
-                      lineHeight: (contentLang === 'th' ? 16 : 18) * manualTableBodyFontScale,
-                    }
-                  : null,
-              ]}>
-              {hasText
-                ? renderRichInlines(line.inlines, `${cellKey}-audio-line-${lineIndex}`, {
-                    forceSemibold: options?.isHeaderRow,
-                    manualFontScale: manualTableBodyFontScale,
-                  })
-                : textValue || ' '}
-            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={lineText.trim() ? `${lineText.trim()}. ${audioActionLabel}` : audioActionLabel}
+              accessibilityState={{ disabled: !snippet, busy: isLoading, selected: isPlaying }}
+              disabled={!snippet}
+              onPress={() => {
+                void handleToggleSnippet(snippet);
+              }}
+              style={styles.richTableAudioTextButton}>
+              <AppText
+                language={contentLang}
+                variant="body"
+                allowFontScaling={manualTableBodyFontScale ? false : undefined}
+                style={[
+                  styles.richTableAudioText,
+                  contentLang === 'th' ? styles.richThaiTableTextCompact : null,
+                  manualTableBodyFontScale
+                    ? {
+                        fontSize: 14 * manualTableBodyFontScale,
+                        lineHeight: (contentLang === 'th' ? 16 : 18) * manualTableBodyFontScale,
+                      }
+                    : null,
+                ]}>
+                {hasText
+                  ? renderRichInlines(line.inlines, `${cellKey}-audio-line-${lineIndex}`, {
+                      forceSemibold: options?.isHeaderRow,
+                      manualFontScale: manualTableBodyFontScale,
+                    })
+                  : textValue || ' '}
+              </AppText>
+            </Pressable>
           </View>
         );
       }
@@ -11300,9 +11388,6 @@ export default function LessonDetailShellScreen() {
                       </AppText>
                     ) : null}
                   </Pressable>
-                  <View style={styles.phraseBookmarkSlot}>
-                    <MaterialIcons name="bookmark-border" size={21} color="#A9A9A9" />
-                  </View>
                 </View>
               );
             })}
@@ -11340,9 +11425,6 @@ export default function LessonDetailShellScreen() {
                     {pageCopy.phrasesVariantLabel(activePhrase.variant)}
                   </AppText>
                 ) : null}
-              </View>
-              <View style={styles.phraseBookmarkSlot}>
-                <MaterialIcons name="bookmark-border" size={22} color="#A9A9A9" />
               </View>
             </View>
             {renderPhraseBody(activePhrase)}
@@ -11680,7 +11762,7 @@ const mergeAdjacentPracticeRowTokens = (
       if (isCheckpointCoverLesson) {
         void handleFinishLessonPress();
       } else {
-        handleEndOfLessonContent();
+        void openSpeakingPractice(true);
       }
       return;
     }
@@ -11698,7 +11780,7 @@ const mergeAdjacentPracticeRowTokens = (
     } else if (isCheckpointCoverLesson) {
       void handleFinishLessonPress();
     } else if (isLastSection) {
-      handleEndOfLessonContent();
+      void openSpeakingPractice(true);
     } else {
       navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, sectionCount - 1));
     }
@@ -12158,7 +12240,13 @@ const mergeAdjacentPracticeRowTokens = (
           {isChecked && !hasPerfectPracticeScore && !options.disabled ? (
             <Image source={tryAgainImage} contentFit="contain" style={styles.tryAgainIcon} />
           ) : null}
-          <AppText language={pageLanguage} variant="caption" style={styles.comprehensionCheckButtonText}>
+          <AppText
+            language={pageLanguage}
+            variant="caption"
+            style={[
+              styles.comprehensionCheckButtonText,
+              !isChecked && !options.disabled ? styles.quickPracticeCheckButtonText : null,
+            ]}>
             {options.label}
           </AppText>
         </Pressable>
@@ -12807,6 +12895,9 @@ const mergeAdjacentPracticeRowTokens = (
                 const sentenceExampleHasCorrectLabel = /^\s*correct\s*:/i.test(sentenceExampleText);
                 const sentenceExampleIsCorrect = sentenceExampleHasCorrectLabel ||
                   (!sentenceExampleHasIncorrectLabel && item.correctTag === 'yes');
+                const sentenceExampleIsIncorrect = sentenceExampleHasIncorrectLabel ||
+                  item.correctTag === 'no' ||
+                  (!sentenceExampleIsCorrect && Boolean(sentenceExampleCorrection));
 
                 return (
                   <SentenceTransformExampleDisclosure
@@ -12820,7 +12911,7 @@ const mergeAdjacentPracticeRowTokens = (
                     sentenceInlines={item.textJsonb}
                     sentenceLabel={sentenceExampleIsCorrect
                       ? 'CORRECT:'
-                      : sentenceExampleHasIncorrectLabel || item.correctTag === 'no'
+                      : sentenceExampleIsIncorrect
                         ? 'INCORRECT:'
                         : undefined}
                     sentenceLabelTone={sentenceExampleIsCorrect ? 'correct' : 'incorrect'}
@@ -13408,7 +13499,7 @@ const mergeAdjacentPracticeRowTokens = (
 
                   {evaluationCorrect !== null && !usesSharedOpenPresentation ? (
                     <Animated.View
-                      entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
+                      entering={FadeInUp.duration(220).reduceMotion(ReduceMotion.System)}
                       style={styles.practiceFeedbackBox}>
                       <View style={styles.practiceFeedbackRow}>
                         <AppText
@@ -13912,7 +14003,7 @@ const mergeAdjacentPracticeRowTokens = (
 
                   {!item.isExample && !isFocusedPracticeSession && evaluationCorrect !== null && isExerciseChecked ? (
                     <Animated.View
-                      entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
+                      entering={FadeInUp.duration(220).reduceMotion(ReduceMotion.System)}
                       style={styles.practiceFeedbackBox}>
                       <View style={styles.practiceFeedbackRow}>
                         <AppText
@@ -14058,7 +14149,7 @@ const mergeAdjacentPracticeRowTokens = (
 
     return matchedItem?.scm === true;
   }, [activePagerGroup, activePagerHeading, activeSection, activeUnderstandGroupIndex, isCommonMistakeTab]);
-  const commonMistakeScmLabel = pageLanguage === 'th' ? 'ข้อผิดพลาดที่พบบ่อยมาก! 🚨' : 'SUPER COMMON MISTAKE! 🚨';
+  const commonMistakeScmLabel = pageLanguage === 'th' ? 'ข้อผิดพลาดที่พบบ่อยมาก!' : 'SUPER COMMON MISTAKE!';
   const pagerDotKeys = isPracticeTab
     ? normalizedPracticeExercises.map((exercise) => exercise.sessionKey)
     : activePagerGroups.map((group) => group.key);
@@ -14152,6 +14243,7 @@ const mergeAdjacentPracticeRowTokens = (
         <View style={styles.completionModalBackdrop}>
           <View style={styles.completionModalCard}>
             <Pressable
+              motionDisabled
               accessibilityLabel={pageCopy.completionClose}
               accessibilityRole="button"
               onPress={closeCompletionModal}
@@ -14340,8 +14432,9 @@ const mergeAdjacentPracticeRowTokens = (
         onRequestClose={closePracticeImagePreview}
         transparent
         visible={practiceImagePreview !== null}>
-        <Pressable style={styles.practiceImagePreviewBackdrop} onPress={closePracticeImagePreview}>
+        <Pressable motionDisabled style={styles.practiceImagePreviewBackdrop} onPress={closePracticeImagePreview}>
           <Pressable
+            motionDisabled
             accessibilityLabel={pageLanguage === 'th' ? 'ปิดภาพขยาย' : 'Close enlarged image'}
             accessibilityRole="button"
             onPress={closePracticeImagePreview}
@@ -14365,7 +14458,7 @@ const mergeAdjacentPracticeRowTokens = (
         transparent
         visible={Boolean(pendingRichLink)}>
         <View style={styles.richLinkModalRoot}>
-          <Pressable accessibilityRole="button" onPress={closeRichLinkSheet} style={styles.richLinkBackdrop} />
+          <Pressable motionDisabled accessibilityRole="button" onPress={closeRichLinkSheet} style={styles.richLinkBackdrop} />
 
           <View style={[styles.richLinkSheetWrap, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
             <GestureDetector gesture={richLinkSheetGesture}>
@@ -14379,6 +14472,7 @@ const mergeAdjacentPracticeRowTokens = (
                     </AppText>
 
                     <Pressable
+                      motionDisabled
                       accessibilityRole="button"
                       accessibilityLabel={pageCopy.completionClose}
                       onPress={closeRichLinkSheet}
@@ -14484,6 +14578,7 @@ const mergeAdjacentPracticeRowTokens = (
           onSpeaking={!isCheckpointCoverLesson ? openSpeakingPractice : undefined}
           onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
           onUpgrade={() => router.push('/(tabs)/account/membership')}
+          onMarkFinished={markLessonFinishedFromOverview}
           tabs={overlayTabItems}
         /> : <PageLoadingState language={uiLanguage} errorBody={errorMessage || undefined} />
       ) : null}
@@ -14649,6 +14744,7 @@ const mergeAdjacentPracticeRowTokens = (
                       </AppText>
                     </View>
                     <Pressable
+                      motionDisabled
                       accessibilityRole="button"
                       accessibilityLabel={uiLanguage === 'th' ? 'ปิดการแจ้งเตือนสตรีค' : 'Dismiss streak message'}
                       onPress={() => setStreakCelebration(null)}
@@ -14668,6 +14764,7 @@ const mergeAdjacentPracticeRowTokens = (
                     <View style={styles.lessonHeaderMetaRow}>
                       <BackAction
                         language={pageLanguage}
+                        label={previousLessonStepLabel}
                         onPress={handleLessonBackPress}
                         style={styles.lessonHeaderBackButton}
                       />
@@ -14679,6 +14776,7 @@ const mergeAdjacentPracticeRowTokens = (
                           </AppText>
                         ) : null}
                         <Pressable
+                          motionDisabled
                           accessibilityRole="button"
                           accessibilityLabel={contentToggleLabel}
                           disabled={isTranslatingContent}
@@ -14691,6 +14789,7 @@ const mergeAdjacentPracticeRowTokens = (
                           </View>
                         </Pressable>
                         <Pressable
+                          motionDisabled
                           accessibilityRole="button"
                           accessibilityLabel={pageLanguage === 'th' ? 'กลับไปภาพรวมบทเรียน' : 'Back to lesson overview'}
                           hitSlop={8}
@@ -15283,7 +15382,11 @@ const mergeAdjacentPracticeRowTokens = (
                                   if (!value) setApplyInputLineCount(1);
                                   setApplyText(value);
                                 }}
-                                onFocus={() => scrollLessonInputIntoView(applyInputOffsetYRef.current)}
+                                onFocus={() => {
+                                  setShowApplyEncouragement(false);
+                                  scrollLessonInputIntoView(applyInputOffsetYRef.current);
+                                }}
+                                onBlur={() => setShowApplyEncouragement(true)}
                                 onSubmitEditing={dismissLessonKeyboard}
                                 editable
                                 blurOnSubmit
@@ -15335,6 +15438,29 @@ const mergeAdjacentPracticeRowTokens = (
                               </Animated.View>
                             ) : null}
                           </PracticeSurface>
+
+                          {showApplyEncouragement ? (
+                            <Animated.View
+                              entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}
+                              style={styles.applyEncouragementCard}>
+                              <MaterialCommunityIcons
+                                name="creation-outline"
+                                size={30}
+                                color={practiceColors.exampleAccent}
+                                style={styles.applyEncouragementIcon}
+                              />
+                              <View style={styles.applyEncouragementCopy}>
+                                <AppText language={pageLanguage} style={styles.applyEncouragementTitle}>
+                                  {pageLanguage === 'th' ? 'ดีมาก!' : 'Nice!'}
+                                </AppText>
+                                <AppText language={pageLanguage} style={styles.applyEncouragementText}>
+                                  {pageLanguage === 'th'
+                                    ? 'คุณใช้โครงสร้างประโยคเดียวกับตัวอย่างหรือไม่?'
+                                    : 'Did you use the same sentence structure as the example?'}
+                                </AppText>
+                              </View>
+                            </Animated.View>
+                          ) : null}
                         </View>
                       )}
                     </View>
@@ -15404,6 +15530,11 @@ const mergeAdjacentPracticeRowTokens = (
                                         <AppText language={contentLang} variant="body" style={styles.richPagerHeadingLabel}>
                                           {activePagerHeading}
                                         </AppText>
+                                        {isCommonMistakeTab && activeCommonMistakeScm ? (
+                                          <AppText language={pageLanguage} variant="caption" style={styles.commonMistakeScmLabel}>
+                                            {commonMistakeScmLabel}
+                                          </AppText>
+                                        ) : null}
                                         {isLessonFocusHeading ? (
                                           <Image
                                             source={require('@/assets/images/characters/pailin_thumbs_up_head.webp')}
@@ -15429,11 +15560,6 @@ const mergeAdjacentPracticeRowTokens = (
                                           />
                                         ) : null}
                                       </View>
-                                      {isCommonMistakeTab && activeCommonMistakeScm ? (
-                                        <AppText language={pageLanguage} variant="caption" style={styles.commonMistakeScmLabel}>
-                                          {commonMistakeScmLabel}
-                                        </AppText>
-                                      ) : null}
                                     </View>
                                   ) : null}
                                 </View>
@@ -16110,7 +16236,7 @@ const mergeAdjacentPracticeRowTokens = (
         statusBarTranslucent
         onRequestClose={() => setIsMenuOpen(false)}>
         <View style={[styles.menuOverlayModalRoot, { paddingBottom: menuOverlayBottomInset }]}>
-          <Pressable style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)} />
+          <Pressable motionDisabled style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)} />
           <Card padding="md" radius="lg" style={styles.menuSheet}>
             <Stack gap="sm">
               <View style={styles.menuHeader}>
@@ -16131,7 +16257,7 @@ const mergeAdjacentPracticeRowTokens = (
                   {sectionMenuLabel}
                 </AppText>
 
-                <Pressable accessibilityRole="button" onPress={() => setIsMenuOpen(false)} style={styles.menuHeaderButton}>
+                <Pressable motionDisabled accessibilityRole="button" onPress={() => setIsMenuOpen(false)} style={styles.menuHeaderButton}>
                   <MaterialIcons name="close" size={20} color={theme.colors.text} />
                 </Pressable>
               </View>
@@ -16872,7 +16998,8 @@ const styles = StyleSheet.create({
   },
   commonMistakeScmLabel: {
     color: '#FF4545',
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: theme.typography.weights.medium,
+    marginTop: 8,
   },
   richPagerBody: {
     flex: 1,
@@ -17005,13 +17132,6 @@ const styles = StyleSheet.create({
     color: '#8D8D8D',
     fontSize: 16,
     lineHeight: 22,
-  },
-  phraseBookmarkSlot: {
-    width: 28,
-    minHeight: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   phraseCardBody: {
     gap: 12,
@@ -17522,6 +17642,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexShrink: 1,
   },
+  richAudioSentenceButton: {
+    alignSelf: 'stretch',
+    borderRadius: 6,
+  },
   richAudioCard: {
     borderWidth: 1,
     borderColor: '#C8CDD3',
@@ -17559,6 +17683,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   richAudioCardButton: {
+    alignSelf: 'flex-start',
     marginTop: 0,
     flexShrink: 0,
   },
@@ -17752,8 +17877,12 @@ const styles = StyleSheet.create({
   richTableAudioButton: {
     marginTop: -3,
   },
-  richTableAudioText: {
+  richTableAudioTextButton: {
     flex: 1,
+    minWidth: 0,
+    borderRadius: 4,
+  },
+  richTableAudioText: {
     fontSize: theme.typography.sizes.sm,
     lineHeight: theme.typography.lineHeights.sm,
     color: theme.colors.text,
@@ -18295,6 +18424,39 @@ const styles = StyleSheet.create({
   },
   applyExampleTogglePressed: {
     opacity: 0.58,
+  },
+  applyEncouragementCard: {
+    width: '100%',
+    minHeight: 86,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: 1,
+    borderColor: practiceColors.exampleAccent,
+    borderRadius: 11,
+    backgroundColor: practiceColors.example,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  applyEncouragementIcon: {
+    flexShrink: 0,
+  },
+  applyEncouragementCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  applyEncouragementTitle: {
+    color: practiceColors.text,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: theme.typography.weights.bold,
+  },
+  applyEncouragementText: {
+    color: practiceColors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: theme.typography.weights.regular,
   },
   applyPromptWrap: {
     gap: theme.spacing.sm,
@@ -19585,7 +19747,10 @@ const styles = StyleSheet.create({
   },
   comprehensionCheckButton: {
     flex: 1,
-    backgroundColor: '#91CAFF',
+    backgroundColor: practiceColors.checkButton,
+  },
+  quickPracticeCheckButtonText: {
+    color: theme.colors.surface,
   },
   quickPracticeCheckButtonAndroid: {
     elevation: 0,

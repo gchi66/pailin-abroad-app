@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +21,9 @@ import {
 } from '@/src/api/exercise-bank';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { FeedbackEntrance } from '@/src/components/ui/MotionEffects';
 import { ExerciseSetResultCard } from '@/src/components/practice/ExerciseSetResultCard';
 import {
   FillBlankExampleDisclosure,
@@ -810,7 +812,7 @@ export function ExerciseBankSessionScreen() {
             </View>
             <View style={styles.headerActions}>
               <LanguageToggle />
-              <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
+              <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
             </View>
@@ -882,8 +884,12 @@ export function ExerciseBankSessionScreen() {
   const usesSharedAnswerFooter = isFillBlankQuestion || isOpenQuestion || isMultipleChoiceQuestion || isJudgmentQuestion || isRewriteQuestion;
   const extendsFeedbackThroughSafeArea = Boolean(currentResult && usesSharedAnswerFooter);
   const feedback = uiLanguage === 'th' ? currentResult?.feedback_th : currentResult?.feedback_en;
+  const QuestionFooterContainer = currentResult ? FeedbackEntrance : View;
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
@@ -898,7 +904,7 @@ export function ExerciseBankSessionScreen() {
             </View>
             <View style={styles.headerActions}>
               <LanguageToggle />
-              <Pressable accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
+              <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
                 <MaterialIcons name="close" size={30} color={theme.colors.text} />
               </Pressable>
             </View>
@@ -1257,7 +1263,7 @@ export function ExerciseBankSessionScreen() {
                 style={styles.fillBlankFooter}
               />
             ) : (
-            <View style={styles.questionFooter}>
+            <QuestionFooterContainer style={styles.questionFooter}>
                 {errorMessage ? <AppText language={uiLanguage} variant="caption" style={styles.errorText}>{errorMessage}</AppText> : null}
                 {currentResult?.correct ? (
                   <View style={styles.correctResult}>
@@ -1317,7 +1323,7 @@ export function ExerciseBankSessionScreen() {
                     </Pressable>
                   </View>
                 )}
-            </View>
+            </QuestionFooterContainer>
             )}
           </View>
         </ResponsivePageShell>

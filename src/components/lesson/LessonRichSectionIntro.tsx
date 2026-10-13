@@ -1,7 +1,8 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import React, { useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   FadeInDown,
   ReduceMotion,
@@ -43,7 +44,6 @@ type LessonRichSectionIntroProps = {
   onClose: () => void;
 };
 
-const placeholderArtwork = require('@/assets/images/speaking-coach/pailin-do-the-task.webp');
 const TITLE_OUTLINE_OFFSETS = [
   { x: -1.25, y: 0 },
   { x: 1.25, y: 0 },
@@ -65,7 +65,8 @@ const introCopy = {
       title: 'เตรียมตัว',
       body: 'ทำความคุ้นเคยกับคำศัพท์ที่คุณจะได้ยินในบทสนทนา',
     },
-    artwork: placeholderArtwork,
+    artwork: require('@/assets/images/lesson-intros/1-prepare.webp'),
+    palette: { card: '#EAF9FF', text: '#3CBFF2' },
   },
   listen: {
     en: {
@@ -76,7 +77,8 @@ const introCopy = {
       title: 'ฟัง',
       body: 'ฟังบทสนทนาทั้งหมดและเรียนรู้การใช้ภาษาในสถานการณ์จริง',
     },
-    artwork: placeholderArtwork,
+    artwork: require('@/assets/images/lesson-intros/2-listen.webp'),
+    palette: { card: '#EAF9FF', text: '#3CBFF2' },
   },
   comprehension: {
     en: {
@@ -87,7 +89,8 @@ const introCopy = {
       title: 'ตรวจสอบ',
       body: 'ตรวจสอบว่าคุณเข้าใจบทสนทนามากน้อยแค่ไหน',
     },
-    artwork: placeholderArtwork,
+    artwork: require('@/assets/images/lesson-intros/3-check.webp'),
+    palette: { card: '#EAF9FF', text: '#3CBFF2' },
   },
   transcript: {
     en: {
@@ -98,7 +101,8 @@ const introCopy = {
       title: 'สคริปต์บท',
       body: 'อ่านตามและสำรวจบทสนทนาทีละบรรทัด',
     },
-    artwork: placeholderArtwork,
+    artwork: require('@/assets/images/lesson-intros/4-transcript.webp'),
+    palette: { card: '#EAF9FF', text: '#3CBFF2' },
   },
   apply: {
     en: {
@@ -109,7 +113,8 @@ const introCopy = {
       title: 'นำไปใช้',
       body: 'ลองนำภาษาจากบทสนทนาไปใช้ในสถานการณ์ของคุณเอง',
     },
-    artwork: placeholderArtwork,
+    artwork: require('@/assets/images/lesson-intros/5-apply.webp'),
+    palette: { card: '#EAF9FF', text: '#3CBFF2' },
   },
   understand: {
     en: {
@@ -120,7 +125,8 @@ const introCopy = {
       title: 'ทำความเข้าใจ',
       body: 'เจาะลึกเนื้อหาหลักของบทเรียน พร้อมตัวอย่างจากบทสนทนา',
     },
-    artwork: require('@/assets/images/pailin-understand.webp'),
+    artwork: require('@/assets/images/lesson-intros/6-understand.webp'),
+    palette: { card: '#FFFCE5', text: '#F6D45A' },
   },
   extra_tip: {
     en: {
@@ -131,7 +137,8 @@ const introCopy = {
       title: 'เคล็ดลับเพิ่มเติม',
       body: 'เรียนรู้รายละเอียดที่มีประโยชน์เพิ่มเติมจากหัวข้อหลักของบทเรียน',
     },
-    artwork: require('@/assets/images/pailin-extra-tips.webp'),
+    artwork: require('@/assets/images/lesson-intros/7-extra-tips.webp'),
+    palette: { card: '#FFFCE5', text: '#F6D45A' },
   },
   common_mistake: {
     en: {
@@ -142,7 +149,8 @@ const introCopy = {
       title: 'ข้อผิดพลาดที่พบบ่อย',
       body: 'ดูข้อผิดพลาดที่คนไทยมักเจอเมื่อเรียนหัวข้อนี้',
     },
-    artwork: require('@/assets/images/pailin-common-mistakes.webp'),
+    artwork: require('@/assets/images/lesson-intros/8-common-mistakes.webp'),
+    palette: { card: '#FFFCE5', text: '#F6D45A' },
   },
   culture_note: {
     en: {
@@ -153,7 +161,8 @@ const introCopy = {
       title: 'เกร็ดวัฒนธรรม',
       body: 'เรียนรู้วัฒนธรรมอเมริกันที่กล่าวถึงในบทสนทนา',
     },
-    artwork: require('@/assets/images/pailin-culture-note.webp'),
+    artwork: require('@/assets/images/lesson-intros/9-culture-note.webp'),
+    palette: { card: '#FFFCE5', text: '#F6D45A' },
   },
   phrases_verbs: {
     en: {
@@ -164,7 +173,8 @@ const introCopy = {
       title: 'วลีและคำกริยา',
       body: 'เรียนรู้วลีและ phrasal verbs ที่ใช้ในบทสนทนา พร้อมตัวอย่างที่นำไปใช้ได้ในชีวิตประจำวัน',
     },
-    artwork: require('@/assets/images/pailin-phrases-verbs.webp'),
+    artwork: require('@/assets/images/lesson-intros/10-phrases-verbs.webp'),
+    palette: { card: '#FFFCE5', text: '#F6D45A' },
   },
   practice: {
     en: {
@@ -175,7 +185,8 @@ const introCopy = {
       title: 'ฝึกฝน',
       body: 'นำสิ่งที่คุณได้เรียนรู้มาฝึกใช้จริง',
     },
-    artwork: placeholderArtwork,
+    artwork: require('@/assets/images/lesson-intros/11-practice.webp'),
+    palette: { card: '#EDFFD1', text: '#B9E671' },
   },
   speaking_practice: {
     en: {
@@ -186,7 +197,8 @@ const introCopy = {
       title: 'ฝึกพูด',
       body: 'นำสิ่งที่คุณเรียนรู้มาฝึกพูดออกเสียงจริง',
     },
-    artwork: require('@/assets/images/speaking-coach/pailin-time-to-speak.webp'),
+    artwork: require('@/assets/images/lesson-intros/12-speaking.webp'),
+    palette: { card: '#EDFFD1', text: '#B9E671' },
   },
 } as const;
 
@@ -227,6 +239,7 @@ export function LessonRichSectionIntro({
     <Animated.View style={[styles.screen, screenAnimation]}>
       <View style={[styles.topBar, { paddingTop: topInset + 8 }]}>
         <Pressable
+          motionDisabled
           accessibilityRole="button"
           accessibilityLabel={language === 'th' ? 'กลับไปหน้าภาพรวมบทเรียน' : 'Back to lesson overview'}
           disabled={isLeaving}
@@ -241,7 +254,7 @@ export function LessonRichSectionIntro({
         <Animated.View
           entering={FadeInDown.duration(220).reduceMotion(ReduceMotion.System)}
           style={styles.cardEntry}>
-          <View style={[styles.card, { width: cardWidth }]}>
+          <View style={[styles.card, { width: cardWidth, backgroundColor: config.palette.card }]}>
             <View pointerEvents="none" style={styles.progressBadgeWrap}>
               <View style={styles.progressBadgeShadow} />
               <View style={styles.progressBadge}>
@@ -249,12 +262,6 @@ export function LessonRichSectionIntro({
                   {badgeLabel ?? `${position} / ${total}`}
                 </AppText>
               </View>
-            </View>
-
-            <View pointerEvents="none" style={styles.decorativeMarks}>
-              <View style={[styles.decorativeMark, styles.decorativeMarkOne]} />
-              <View style={[styles.decorativeMark, styles.decorativeMarkTwo]} />
-              <View style={[styles.decorativeMark, styles.decorativeMarkThree]} />
             </View>
 
             <View style={styles.content}>
@@ -307,6 +314,7 @@ export function LessonRichSectionIntro({
                     usesCompactTitle ? styles.titleCompact : null,
                     usesSingleLineFeatureTitle ? styles.titleSingleLineFeature : null,
                     language === 'th' ? styles.titleThai : null,
+                    { color: config.palette.text },
                   ]}>
                   {copy.title}
                 </AppText>
@@ -374,7 +382,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 13,
-    backgroundColor: '#FFFDE8',
     paddingHorizontal: 18,
     paddingTop: 45,
     paddingBottom: 34,
@@ -405,42 +412,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 10,
-    backgroundColor: '#DDF6FF',
+    backgroundColor: theme.colors.surface,
   },
   progressBadgeText: {
     color: theme.colors.text,
     fontFamily: theme.typography.fontFaces.en.bold,
     fontSize: 17,
     lineHeight: 22,
-  },
-  decorativeMarks: {
-    position: 'absolute',
-    top: -17,
-    right: -12,
-    width: 58,
-    height: 61,
-  },
-  decorativeMark: {
-    position: 'absolute',
-    width: 8,
-    height: 39,
-    borderRadius: 999,
-    backgroundColor: '#36B9EE',
-  },
-  decorativeMarkOne: {
-    top: -3,
-    left: 12,
-    transform: [{ rotate: '18deg' }],
-  },
-  decorativeMarkTwo: {
-    top: 11,
-    right: 12,
-    transform: [{ rotate: '48deg' }],
-  },
-  decorativeMarkThree: {
-    top: 36,
-    right: -1,
-    transform: [{ rotate: '80deg' }],
   },
   content: {
     width: '100%',

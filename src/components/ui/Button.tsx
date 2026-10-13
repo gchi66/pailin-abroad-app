@@ -98,10 +98,6 @@ export function Button({
   const backgroundColor = typeof resolvedBaseStyle.backgroundColor === 'string' ? resolvedBaseStyle.backgroundColor : 'transparent';
   const hasNeoShadow = typeof resolvedBaseStyle.boxShadow === 'string' && resolvedBaseStyle.boxShadow !== 'none';
   const shouldInsetBorder = borderWidth > 0 && (insetBorder ?? hasNeoShadow);
-  const pressedShadow = typeof resolvedBaseStyle.boxShadow === 'string'
-    ? resolvedBaseStyle.boxShadow.replace(/^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/, '1px 1px')
-    : null;
-
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -119,7 +115,6 @@ export function Button({
       style={[
         resolvedBaseStyle,
         shouldInsetBorder ? { borderWidth: 0, backgroundColor: borderColor } : null,
-        pressed && !disabled && pressedShadow ? { boxShadow: pressedShadow } : null,
         pressed && !disabled ? styles.pressed : null,
         disabled ? [styles.disabled, disabledStyle] : null,
         pressStyle,

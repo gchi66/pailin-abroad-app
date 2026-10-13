@@ -1,8 +1,9 @@
+import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, BackHandler, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, BackHandler, PanResponder, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import fallbackImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
@@ -128,7 +129,7 @@ export default function LessonPreviewScreen() {
   return (
     <View style={styles.screen} accessibilityViewIsModal onAccessibilityEscape={() => leave()}>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: translateY.interpolate({ inputRange: [0, height], outputRange: [1, 0], extrapolate: 'clamp' }) }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={copy.dismiss} onPress={() => leave()} style={styles.backdrop} />
+        <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={copy.dismiss} onPress={() => leave()} style={styles.backdrop} />
       </Animated.View>
       <Animated.View style={[styles.sheet, { maxHeight: height - insets.top - 16, transform: [{ translateY }] }]}>
         <View {...drag.panHandlers} style={styles.grabberArea}>
