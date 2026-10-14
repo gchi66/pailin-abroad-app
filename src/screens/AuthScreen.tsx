@@ -1,5 +1,4 @@
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
-import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -88,9 +87,9 @@ export function AuthScreen() {
           }
         : {
             signUpTitle: 'Sign Up',
-            signUpSubtitle: 'English for Thais!',
+            signUpSubtitle: 'English for Thais',
             signInTitle: 'Log In',
-            signInSubtitle: 'English for Thais!',
+            signInSubtitle: 'English for Thais',
             apple: 'Continue with Apple',
             appleLoading: 'Connecting Apple...',
             google: 'Continue with Google',
@@ -260,7 +259,7 @@ export function AuthScreen() {
     hasAppliedSignUpFocusOffsetRef.current = true;
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({
-        y: scrollOffsetRef.current + 96 + KEYBOARD_DISMISS_ACCESSORY_HEIGHT,
+        y: scrollOffsetRef.current + 96,
         animated: true,
       });
     }, 300);
@@ -282,11 +281,7 @@ export function AuthScreen() {
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' && mode === 'signin' ? 'padding' : undefined}
-      keyboardVerticalOffset={
-        Platform.OS === 'ios'
-          ? (mode === 'signin' ? 12 : 0) + KEYBOARD_DISMISS_ACCESSORY_HEIGHT
-          : 0
-      }>
+      keyboardVerticalOffset={Platform.OS === 'ios' && mode === 'signin' ? 12 : 0}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.screen}

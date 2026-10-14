@@ -135,16 +135,10 @@ const transcriptCharacterHeadByLesson = {
 
 export type TranscriptCharacterHeadResolution = ImageSourcePropType | null | undefined;
 
-export const resolveTranscriptCharacterHead = (
-  speaker: string | null | undefined,
-  lessonExternalId?: string | null
+const resolveTranscriptCharacterHeadByKey = (
+  key: string,
+  lessonKey?: string
 ): TranscriptCharacterHeadResolution => {
-  const key = speaker?.trim().toLocaleLowerCase();
-  if (!key) {
-    return undefined;
-  }
-
-  const lessonKey = lessonExternalId?.trim().toLocaleLowerCase();
   if (lessonKey) {
     const scopedKey = `${lessonKey}|${key}`;
     if (Object.prototype.hasOwnProperty.call(transcriptCharacterHeadByLesson, scopedKey)) {
@@ -162,6 +156,29 @@ export const resolveTranscriptCharacterHead = (
   }
 
   return transcriptCharacterHeads[key as keyof typeof transcriptCharacterHeads];
+};
+
+export const resolveTranscriptCharacterHead = (
+  speaker: string | null | undefined,
+  lessonExternalId?: string | null
+): TranscriptCharacterHeadResolution => {
+  const key = speaker?.trim().toLocaleLowerCase();
+  if (!key) {
+    return undefined;
+  }
+
+  const lessonKey = lessonExternalId?.trim().toLocaleLowerCase();
+  const exactMatch = resolveTranscriptCharacterHeadByKey(key, lessonKey);
+  if (exactMatch !== undefined) {
+    return exactMatch;
+  }
+
+  // A shared line is labelled with both speakers (for example, "Pailin & Tyler").
+  // Use the first named character instead of falling back to the legacy avatar.
+  const firstSpeakerKey = key.split(/\s*&\s*/, 1)[0];
+  return firstSpeakerKey === key
+    ? undefined
+    : resolveTranscriptCharacterHeadByKey(firstSpeakerKey, lessonKey);
 };
 
 const blueCircleByHead = new Map<ImageSourcePropType, ImageSourcePropType>([

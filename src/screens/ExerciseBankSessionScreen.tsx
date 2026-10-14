@@ -21,7 +21,6 @@ import {
 } from '@/src/api/exercise-bank';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
-import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { FeedbackEntrance } from '@/src/components/ui/MotionEffects';
 import { ExerciseSetResultCard } from '@/src/components/practice/ExerciseSetResultCard';
@@ -889,7 +888,7 @@ export function ExerciseBankSessionScreen() {
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0}>
+      keyboardVerticalOffset={0}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[

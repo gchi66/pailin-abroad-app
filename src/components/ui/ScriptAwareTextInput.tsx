@@ -1,6 +1,10 @@
-import React, { forwardRef } from 'react';
-import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
+import React, { forwardRef, useId } from 'react';
+import { Platform, StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
+import {
+  KeyboardDismissAccessory,
+  KEYBOARD_DISMISS_ACCESSORY_ID,
+} from '@/src/components/ui/KeyboardDismissAccessory';
 import { fontWeightFromFamily, resolveFontFamily } from '@/src/theme/typography';
 
 export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(function ScriptAwareTextInput(
@@ -19,6 +23,7 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
   },
   ref
 ) {
+  const reactID = useId();
   const flattenedStyle = StyleSheet.flatten(style);
   const fontFamily = resolveFontFamily('en', {
     weight: flattenedStyle?.fontWeight ?? fontWeightFromFamily(flattenedStyle?.fontFamily),
@@ -34,21 +39,30 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
           returnKeyType === 'send'
         ? returnKeyType
         : 'done');
+  const usesDefaultAccessory = Platform.OS === 'ios' && inputAccessoryViewID == null;
+  const resolvedAccessoryID = usesDefaultAccessory
+    ? `${KEYBOARD_DISMISS_ACCESSORY_ID}-${reactID}`
+    : inputAccessoryViewID;
 
   return (
-    <TextInput
-      {...props}
-      ref={ref}
-      value={value}
-      defaultValue={defaultValue}
-      placeholder={placeholder}
-      inputAccessoryViewID={inputAccessoryViewID}
-      enterKeyHint={resolvedEnterKeyHint}
-      returnKeyType={returnKeyType ?? (multiline ? 'default' : 'done')}
-      submitBehavior={submitBehavior ?? (multiline ? 'newline' : 'blurAndSubmit')}
-      multiline={multiline}
-      onChangeText={onChangeText}
-      style={[style, { fontFamily }]}
-    />
+    <>
+      <TextInput
+        {...props}
+        ref={ref}
+        value={value}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        inputAccessoryViewID={resolvedAccessoryID}
+        enterKeyHint={resolvedEnterKeyHint}
+        returnKeyType={returnKeyType ?? (multiline ? 'default' : 'done')}
+        submitBehavior={submitBehavior ?? (multiline ? 'newline' : 'blurAndSubmit')}
+        multiline={multiline}
+        onChangeText={onChangeText}
+        style={[style, { fontFamily }]}
+      />
+      {usesDefaultAccessory && resolvedAccessoryID ? (
+        <KeyboardDismissAccessory nativeID={resolvedAccessoryID} />
+      ) : null}
+    </>
   );
 });

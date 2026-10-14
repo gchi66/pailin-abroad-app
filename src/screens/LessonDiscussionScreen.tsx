@@ -25,10 +25,6 @@ import {
 } from '@/src/api/discussion';
 import { getLessonById } from '@/src/api/lessons';
 import { AppText } from '@/src/components/ui/AppText';
-import {
-  KeyboardDismissAccessory,
-  KEYBOARD_DISMISS_ACCESSORY_HEIGHT,
-} from '@/src/components/ui/KeyboardDismissAccessory';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
@@ -425,7 +421,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0}
+      keyboardVerticalOffset={0}
       style={[styles.screen, { paddingTop: insets.top }]}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 28 }]}
@@ -524,7 +520,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
       <Modal animationType="slide" onRequestClose={closeComposer} transparent visible={Boolean(composerTarget)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0}
+          keyboardVerticalOffset={0}
           style={styles.modalRoot}>
           <Pressable motionDisabled accessibilityRole="button" onPress={closeComposer} style={styles.modalBackdrop} />
           <View style={[styles.composerSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
@@ -555,7 +551,6 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
               <AppText language={uiLanguage} style={styles.postButtonText}>{isPosting ? copy.posting : copy.post}</AppText>
             </Pressable>
           </View>
-          <KeyboardDismissAccessory />
         </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>

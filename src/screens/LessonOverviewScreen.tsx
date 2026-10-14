@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import pailinHead from '@/assets/images/characters/pailin_head.webp';
@@ -6,6 +7,16 @@ import lockBlackImage from '@/assets/images/lock-black.png';
 import speakingIcon from '@/assets/images/lesson-speaking-icon.png';
 import speakingIconGray from '@/assets/images/lesson-speaking-icon-gray.png';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/src/components/ui/AppText';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
@@ -19,11 +30,12 @@ export type OverviewRow = { id: string; type: string; index: number; complete: b
 type Props = {
   language: UiLanguage; lessonLabel: string; title: string; focus: string;
   rows: OverviewRow[]; activeIndex: number | null; complete: boolean; hasAccount: boolean;
+  lessonStarted: boolean;
   activeType?: string | null;
   onToggleLanguage: () => void; isLanguageLoading?: boolean;
   hasMembership: boolean; onSection: (index: number) => void; onListen?: () => void;
   listenComplete: boolean; speakingComplete: boolean; onSpeaking?: () => void; onDiscussion: () => void; onUpgrade: () => void;
-  onMarkFinished: () => Promise<void>;
+  onSetFinished: (completed: boolean) => Promise<void>;
   tabs: { key: string; onPress: () => void }[];
 };
 const groups = [
@@ -38,6 +50,8 @@ const icons: Record<string, React.ComponentProps<typeof MaterialIcons>['name']> 
   phrases_verbs: 'format-quote', culture_note: 'public', practice: 'track-changes', speaking: 'mic-none',
   discussion: 'forum',
 };
+const PREPARE_START_HINT_STORAGE_KEY = '@pailin_abroad:prepare_start_hint_seen';
+
 export function LessonOverviewScreen(p: Props) {
   const insets = useSafeAreaInsets();
   const [showFinishModal, setShowFinishModal] = useState(false);
@@ -48,6 +62,9 @@ export function LessonOverviewScreen(p: Props) {
   const activeRowRef = useRef<View>(null);
   const viewportHeightRef = useRef(0);
   const didScrollToActiveRef = useRef(false);
+  const prepareHintDismissedRef = useRef(false);
+  const [showPrepareStartHint, setShowPrepareStartHint] = useState(false);
+  const prepareHintPulse = useSharedValue(0);
   const scrollToActiveRow = useCallback(() => {
     if (didScrollToActiveRef.current || viewportHeightRef.current <= 0 || !contentRef.current || !activeRowRef.current) return;
     requestAnimationFrame(() => {
@@ -66,27 +83,88 @@ export function LessonOverviewScreen(p: Props) {
     scrollToActiveRow();
   }, [p.activeIndex, p.activeType, scrollToActiveRow]);
   const th = p.language === 'th';
+  const dismissPrepareStartHint = useCallback(() => {
+    if (prepareHintDismissedRef.current) return;
+    prepareHintDismissedRef.current = true;
+    setShowPrepareStartHint(false);
+    void AsyncStorage.setItem(PREPARE_START_HINT_STORAGE_KEY, 'true').catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (p.complete) {
+      dismissPrepareStartHint();
+      return;
+    }
+
+    let active = true;
+    void AsyncStorage.getItem(PREPARE_START_HINT_STORAGE_KEY)
+      .then((storedValue) => {
+        if (!active || prepareHintDismissedRef.current) return;
+        if (storedValue === 'true') {
+          prepareHintDismissedRef.current = true;
+        } else {
+          setShowPrepareStartHint(true);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [dismissPrepareStartHint, p.complete]);
+  useEffect(() => {
+    const prepareRow = p.rows.find((row) => row.type === 'prepare');
+    if (
+      p.lessonStarted &&
+      prepareRow &&
+      !p.activeType &&
+      p.activeIndex === prepareRow.index
+    ) {
+      dismissPrepareStartHint();
+    }
+  }, [dismissPrepareStartHint, p.activeIndex, p.activeType, p.lessonStarted, p.rows]);
+  useEffect(() => {
+    cancelAnimation(prepareHintPulse);
+    prepareHintPulse.value = 0;
+    if (!showPrepareStartHint) return;
+
+    prepareHintPulse.value = withDelay(
+      350,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 360, reduceMotion: ReduceMotion.System }),
+          withTiming(0, { duration: 360, reduceMotion: ReduceMotion.System }),
+          withDelay(850, withTiming(0, { duration: 0, reduceMotion: ReduceMotion.System }))
+        ),
+        3,
+        false
+      )
+    );
+    return () => cancelAnimation(prepareHintPulse);
+  }, [prepareHintPulse, showPrepareStartHint]);
+  const prepareHintAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: prepareHintPulse.value * -2 },
+      { scale: 1 + prepareHintPulse.value * 0.012 },
+    ],
+  }));
   const closeFinishModal = useCallback(() => {
     if (isMarkingFinished) return;
     setShowFinishModal(false);
     setFinishError(null);
   }, [isMarkingFinished]);
-  const handleMarkFinished = useCallback(async () => {
-    if (p.complete) {
-      closeFinishModal();
-      return;
-    }
+  const handleSetFinished = useCallback(async (completed: boolean) => {
     setIsMarkingFinished(true);
     setFinishError(null);
     try {
-      await p.onMarkFinished();
-      setShowFinishModal(false);
+      await p.onSetFinished(completed);
+      if (completed) {
+        setShowFinishModal(false);
+      }
     } catch {
       setFinishError(th ? 'ยังบันทึกไม่ได้ โปรดลองอีกครั้ง' : 'Could not save this lesson. Please try again.');
     } finally {
       setIsMarkingFinished(false);
     }
-  }, [closeFinishModal, p, th]);
+  }, [p, th]);
   const rows = [...p.rows];
   if (p.onListen) rows.push({ id: 'listen', type: 'listen', index: -1, complete: p.listenComplete });
   if (p.onSpeaking) rows.push({ id: 'speaking', type: 'speaking', index: -2, complete: p.speakingComplete });
@@ -94,12 +172,7 @@ export function LessonOverviewScreen(p: Props) {
   const groupedRows = groups
     .map(group => ({ ...group, items: group.types.flatMap(type => rows.filter(row => row.type === type)) }))
     .filter(group => group.items.length > 0);
-  const isRowDone = (candidate: OverviewRow | null) => Boolean(
-    candidate && (
-      candidate.complete ||
-      (p.complete && candidate.type !== 'discussion')
-    )
-  );
+  const isRowDone = (candidate: OverviewRow | null) => Boolean(candidate?.complete);
   const isRowActive = (candidate: OverviewRow | null) => Boolean(
     candidate &&
     candidate.type !== 'speaking' &&
@@ -116,7 +189,7 @@ export function LessonOverviewScreen(p: Props) {
         viewportHeightRef.current = event.nativeEvent.layout.height;
         scrollToActiveRow();
       }}>
-      <View ref={contentRef} style={[s.content, { paddingBottom: insets.bottom + 110 }]}>
+      <View ref={contentRef} style={[s.content, { paddingBottom: insets.bottom + 86 }]}>
       <View style={s.topBar}>
         <BackAction
           language={p.language}
@@ -172,7 +245,7 @@ export function LessonOverviewScreen(p: Props) {
             const speaking = row.type === 'speaking';
             const discussion = row.type === 'discussion';
             const locked = speaking && !p.hasMembership;
-            const done = row.complete || (p.complete && !discussion);
+            const done = row.complete;
             const active = !speaking && !discussion && (p.activeType
               ? p.activeType === row.type
               : p.activeIndex !== null && row.index === p.activeIndex);
@@ -200,7 +273,11 @@ export function LessonOverviewScreen(p: Props) {
                   ? p.onDiscussion
                   : row.type === 'listen'
                     ? p.onListen
-                    : () => p.onSection(row.index);
+                    : () => {
+                        if (row.type === 'prepare') dismissPrepareStartHint();
+                        p.onSection(row.index);
+                      };
+            const showStartHint = row.type === 'prepare' && showPrepareStartHint;
             return <View key={row.id} style={s.rowWrap}>
               {previousRow ? (
                 <View
@@ -223,24 +300,31 @@ export function LessonOverviewScreen(p: Props) {
                 />
               ) : null}
               <View style={[s.dot, active && !done && s.activeDot, done && s.doneDot]}>{done && <MaterialIcons name="check" size={12} color="#1E1E1E" />}</View>
-              <Pressable ref={active ? activeRowRef : undefined} onLayout={active ? scrollToActiveRow : undefined}
-                accessibilityRole="button" accessibilityLabel={locked ? `${label}: ${th ? 'อัปเกรดเพื่อปลดล็อก' : 'upgrade to unlock'}` : label} onPress={onPress}
-                accessibilityState={{ selected: active }}
-                accessibilityHint={!locked && done ? (th ? 'เรียนส่วนนี้เสร็จแล้ว' : 'Completed') : undefined}
-                style={[s.row, done && s.doneRow, active && s.activeRow, locked && s.lockedRow, active && s.shadow]}>
-                {speaking ? (
-                  <Image source={locked ? speakingIconGray : speakingIcon} style={s.speakingIcon} contentFit="contain" />
-                ) : (
-                  <MaterialIcons name={icons[row.type] || 'article'} size={19} color={locked ? '#999' : '#222'} />
-                )}
-                <AppText language={p.language} style={[s.rowText, locked && s.muted]}>{label}</AppText>
-                {speaking && <AppText style={s.ai}>AI</AppText>}
-                {locked ? (
-                  <Image source={lockBlackImage} style={s.lockIcon} contentFit="contain" />
-                ) : (
-                  <MaterialIcons name="chevron-right" size={20} color="#222" />
-                )}
-              </Pressable>
+              <Animated.View style={showStartHint ? prepareHintAnimatedStyle : null}>
+                <Pressable ref={active ? activeRowRef : undefined} onLayout={active ? scrollToActiveRow : undefined}
+                  accessibilityRole="button" accessibilityLabel={locked ? `${label}: ${th ? 'อัปเกรดเพื่อปลดล็อก' : 'upgrade to unlock'}` : showStartHint ? `${label}: ${th ? 'เริ่มตรงนี้' : 'Start here'}` : label} onPress={onPress}
+                  accessibilityState={{ selected: active }}
+                  accessibilityHint={!locked && done ? (th ? 'เรียนส่วนนี้เสร็จแล้ว' : 'Completed') : undefined}
+                  style={[s.row, done && s.doneRow, active && s.activeRow, locked && s.lockedRow, active && s.shadow]}>
+                  {speaking ? (
+                    <Image source={locked ? speakingIconGray : speakingIcon} style={s.speakingIcon} contentFit="contain" />
+                  ) : (
+                    <MaterialIcons name={icons[row.type] || 'article'} size={19} color={locked ? '#999' : '#222'} />
+                  )}
+                  <AppText language={p.language} style={[s.rowText, locked && s.muted]}>{label}</AppText>
+                  {showStartHint ? (
+                    <AppText language={p.language} style={[s.startHint, th ? s.startHintThai : null]}>
+                      {th ? 'เริ่มตรงนี้!' : 'START HERE!'}
+                    </AppText>
+                  ) : null}
+                  {speaking && <AppText style={s.ai}>AI</AppText>}
+                  {locked ? (
+                    <Image source={lockBlackImage} style={s.lockIcon} contentFit="contain" />
+                  ) : (
+                    <MaterialIcons name="chevron-right" size={20} color="#222" />
+                  )}
+                </Pressable>
+              </Animated.View>
               {locked && <Pressable accessibilityRole="button" onPress={p.onUpgrade} style={s.upgrade}>
                 <MaterialIcons name="auto-awesome" color="#245BFF" size={20} />
                 <View style={{ flex: 1 }}><AppText language={p.language} style={s.upgradeTitle}>{th ? 'อัปเกรดเพื่อปลดล็อกการฝึกพูด' : 'UPGRADE TO UNLOCK SPEAKING'}</AppText>
@@ -254,10 +338,16 @@ export function LessonOverviewScreen(p: Props) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={p.complete
-          ? (th ? 'เรียนจบแล้ว' : 'Lesson complete')
-          : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as finished')}
+          ? (th ? 'ทำเครื่องหมายว่ายังเรียนไม่จบ' : 'Mark lesson as not completed')
+          : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as completed')}
+        accessibilityState={{ checked: p.complete, disabled: isMarkingFinished }}
+        disabled={isMarkingFinished}
         onPress={() => {
           setFinishError(null);
+          if (p.complete) {
+            void handleSetFinished(false);
+            return;
+          }
           setShowFinishModal(true);
         }}
         style={({ pressed }) => [s.finishControl, pressed ? s.finishControlPressed : null]}>
@@ -267,7 +357,7 @@ export function LessonOverviewScreen(p: Props) {
         <AppText language={p.language} style={s.finishControlText}>
           {p.complete
             ? (th ? 'เรียนจบแล้ว!' : 'Lesson complete!')
-            : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as finished')}
+            : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as completed')}
         </AppText>
       </Pressable>
       </View>
@@ -277,7 +367,7 @@ export function LessonOverviewScreen(p: Props) {
       animationType="fade"
       onRequestClose={closeFinishModal}
       transparent
-      visible={showFinishModal}>
+      visible={showFinishModal && !p.complete}>
       <View style={s.finishModalBackdrop}>
         <View style={s.finishModalCard}>
           <Pressable
@@ -291,9 +381,7 @@ export function LessonOverviewScreen(p: Props) {
             <MaterialIcons name="close" size={28} color="#1E1E1E" />
           </Pressable>
           <AppText language={p.language} style={s.finishModalTitle}>
-            {p.complete
-              ? (th ? 'บทเรียนนี้เรียนจบแล้ว!' : 'This lesson is finished!')
-              : (th ? 'ทำเครื่องหมายบทเรียนนี้ว่าเรียนจบ?' : 'Mark this lesson as finished?')}
+            {th ? 'ทำเครื่องหมายบทเรียนนี้ว่าเรียนจบ?' : 'Mark this lesson as completed?'}
           </AppText>
           <AppText language={p.language} style={s.finishModalBody}>
             {th ? 'คุณสามารถกลับมาทบทวนส่วนที่พลาดไปได้เสมอ' : 'You can always return to review any sections you missed.'}
@@ -302,7 +390,7 @@ export function LessonOverviewScreen(p: Props) {
           <Pressable
             accessibilityRole="button"
             disabled={isMarkingFinished}
-            onPress={() => void handleMarkFinished()}
+            onPress={() => void handleSetFinished(true)}
             style={({ pressed }) => [
               s.finishModalButton,
               s.finishModalPrimary,
@@ -313,9 +401,7 @@ export function LessonOverviewScreen(p: Props) {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <AppText language={p.language} style={s.finishModalPrimaryText}>
-                {p.complete
-                  ? (th ? 'เรียนจบแล้ว\u00A0\u00A0✓' : 'MARKED AS FINISHED\u00A0\u00A0✓')
-                  : (th ? 'ทำเครื่องหมายว่าเรียนจบ\u00A0\u00A0✓' : 'MARK AS FINISHED\u00A0\u00A0✓')}
+                {th ? 'ทำเครื่องหมายว่าเรียนจบ\u00A0\u00A0✓' : 'MARK AS COMPLETED\u00A0\u00A0✓'}
               </AppText>
             )}
           </Pressable>
@@ -358,11 +444,13 @@ const s = StyleSheet.create({
   activeDot: { backgroundColor: '#2860E8', borderColor: '#222' }, doneDot: { backgroundColor: '#B9E679', borderColor: '#222' },
   activeRow: { backgroundColor: '#BDEDFC', borderColor: '#222' }, doneRow: { backgroundColor: '#F3FFDA', borderColor: '#8BBD3F' },
   shadow: { boxShadow: '2px 3px 0px #222' },
+  startHint: { color: '#245BFF', fontSize: 10, lineHeight: 15, fontWeight: '800', letterSpacing: 0.5 },
+  startHintThai: { fontSize: 11, letterSpacing: 0 },
   lockedRow: { backgroundColor: '#F0F0F0' }, muted: { color: '#999' }, ai: { fontSize: 10, color: '#245BFF', backgroundColor: '#EBF2FF', paddingHorizontal: 4 },
   speakingIcon: { width: 20, height: 20 }, lockIcon: { width: 20, height: 20 },
   upgrade: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, marginTop: 4, borderWidth: theme.borderWidths.primaryCard, borderColor: '#245BFF', backgroundColor: '#EBF3FF', borderRadius: 4 },
   upgradeTitle: { color: '#245BFF', fontSize: 9, lineHeight: 14, fontWeight: '700' }, upgradeBody: { fontSize: 10, lineHeight: 15 },
-  finishControl: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 22, paddingHorizontal: 12, paddingVertical: 10 },
+  finishControl: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 4, marginBottom: 22, paddingHorizontal: 12, paddingVertical: 10 },
   finishControlPressed: { opacity: 0.65 },
   finishCheck: { width: 20, height: 20, borderWidth: 1, borderColor: '#1E1E1E', borderRadius: 10, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
   finishCheckComplete: { backgroundColor: '#B9E679' },

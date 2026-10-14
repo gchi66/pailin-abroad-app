@@ -3,7 +3,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { Image } from 'expo-image';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -15,7 +15,10 @@ import { AppText } from '@/src/components/ui/AppText';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
+import { upsertLessonCompletion } from '@/src/api/user';
+import { markGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
 import { freeLibraryIds } from '@/src/lib/library-pathway';
+import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
 
 const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
 
@@ -64,18 +67,49 @@ export function LessonCompletePreviewScreen() {
   }>();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const { hasMembership } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const lessonNumber = typeof params.lesson === 'string' && params.lesson.trim() ? params.lesson : '5.3';
   const lessonId = typeof params.lessonId === 'string' && params.lessonId.trim() ? params.lessonId : null;
   const libraryRoute = typeof params.libraryRoute === 'string' ? params.libraryRoute : null;
   const lessonLanguage = params.language === 'en' || params.language === 'th' ? params.language : uiLanguage;
   const [isNavigating, setIsNavigating] = useState(false);
+  const completionSavePromiseRef = useRef<Promise<void> | null>(null);
   const completionSoundPlayer = useAudioPlayer(lessonCompleteSound, {
     downloadFirst: true,
     keepAudioSessionActive: true,
   });
   const copy = getCopy(lessonLanguage === 'th', lessonNumber);
+
+  const ensureLessonCompleted = useCallback(() => {
+    if (!lessonId) return Promise.resolve();
+    if (completionSavePromiseRef.current) return completionSavePromiseRef.current;
+
+    completionSavePromiseRef.current = (async () => {
+      if (isGuestMode && !hasAccount) {
+        await markGuestLessonCompleted(lessonId);
+      } else {
+        await upsertLessonCompletion({ lessonId, completed: true });
+      }
+      bumpLessonLibraryProgressRefreshToken();
+    })().catch((error) => {
+      completionSavePromiseRef.current = null;
+      throw error;
+    });
+
+    return completionSavePromiseRef.current;
+  }, [hasAccount, isGuestMode, lessonId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void ensureLessonCompleted().catch((error) => {
+        console.warn(
+          '[lesson-complete] Could not ensure lesson completion',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      });
+    }, [ensureLessonCompleted])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -112,7 +146,13 @@ export function LessonCompletePreviewScreen() {
   );
 
   const showPreviewNotice = () => Alert.alert(copy.previewTitle, copy.previewBody);
-  const closeCompletion = () => {
+  const closeCompletion = async () => {
+    try {
+      await ensureLessonCompleted();
+    } catch {
+      // The lesson flow normally saves before opening this screen. Let the
+      // overview refresh its persisted state even if this retry fails.
+    }
     router.back();
   };
   const openDiscussion = () => {
@@ -130,6 +170,8 @@ export function LessonCompletePreviewScreen() {
 
     setIsNavigating(true);
     try {
+      await ensureLessonCompleted();
+
       const lessons = [...await getLessonsIndex()].sort((left, right) => {
         const leftStage = LESSON_STAGE_ORDER.indexOf((left.stage ?? '') as (typeof LESSON_STAGE_ORDER)[number]);
         const rightStage = LESSON_STAGE_ORDER.indexOf((right.stage ?? '') as (typeof LESSON_STAGE_ORDER)[number]);
@@ -151,9 +193,9 @@ export function LessonCompletePreviewScreen() {
         return;
       }
       prefetchResolvedLesson(nextLesson.id, lessonLanguage);
-      router.replace({
-        pathname: '/lessons/[id]',
-        params: { id: nextLesson.id, overview: '1', ...(libraryRoute ? { libraryRoute } : {}) },
+      router.push({
+        pathname: '/lesson-preview/[id]',
+        params: { id: nextLesson.id, ...(libraryRoute ? { libraryRoute } : {}) },
       });
     } catch {
       Alert.alert(copy.title, lessonLanguage === 'th' ? 'ไม่สามารถเปิดบทเรียนถัดไปได้' : 'Could not open the next lesson.');

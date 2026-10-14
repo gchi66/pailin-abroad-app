@@ -82,7 +82,6 @@ import { AppText } from '@/src/components/ui/AppText';
 import { BackAction } from '@/src/components/ui/BackAction';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
-import { KEYBOARD_DISMISS_ACCESSORY_HEIGHT } from '@/src/components/ui/KeyboardDismissAccessory';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
@@ -106,7 +105,7 @@ import {
   parseAppCardKey,
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
-import { markGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
+import { getGuestCompletedLessonIds, markGuestLessonCompleted, unmarkGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
 import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
   getLessonContentLanguage,
@@ -4092,7 +4091,6 @@ export default function LessonDetailShellScreen() {
           windowHeight -
           lessonKeyboardHeight -
           LESSON_INPUT_KEYBOARD_GAP -
-          (Platform.OS === 'ios' ? KEYBOARD_DISMISS_ACCESSORY_HEIGHT : 0) -
           (Platform.OS === 'android' ? ANDROID_LESSON_INPUT_FOCUS_LIFT : 0);
         const overlap = inputBottom - desiredInputBottom;
 
@@ -4176,16 +4174,29 @@ export default function LessonDetailShellScreen() {
     lessonRef.current = lesson;
   }, [lesson]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let isMounted = true;
 
     const run = async () => {
-      if (!user || !lessonId) {
+      if (!lessonId) {
         setIsLessonCompleted(false);
         return;
       }
 
       try {
+        if (isGuestLessonSession) {
+          const completedLessonIds = await getGuestCompletedLessonIds();
+          if (isMounted) {
+            setIsLessonCompleted(completedLessonIds.has(lessonId));
+          }
+          return;
+        }
+
+        if (!user) {
+          setIsLessonCompleted(false);
+          return;
+        }
+
         const completedLessons = await fetchUserCompletedLessons();
         if (!isMounted) {
           return;
@@ -4206,7 +4217,7 @@ export default function LessonDetailShellScreen() {
     return () => {
       isMounted = false;
     };
-  }, [lessonId, user]);
+  }, [isGuestLessonSession, lessonId, user]));
 
   useEffect(() => {
     let isMounted = true;
@@ -6754,22 +6765,28 @@ export default function LessonDetailShellScreen() {
     openLessonCompletePage();
   }, [lessonCover?.id, openLessonCompletePage]);
 
-  const markLessonFinishedFromOverview = useCallback(async () => {
-    if (isLessonCompleted || !lessonCover?.id) return;
+  const setLessonFinishedFromOverview = useCallback(async (completed: boolean) => {
+    if (!lessonCover?.id) return;
 
+    const previousCompleted = isLessonCompleted;
+    setIsLessonCompleted(completed);
     setIsSavingLessonCompletion(true);
     setLessonCompletionError(null);
 
     try {
       await flushPendingLessonPersistence();
       if (isGuestLessonSession) {
-        await markGuestLessonCompleted(lessonCover.id);
+        if (completed) {
+          await markGuestLessonCompleted(lessonCover.id);
+        } else {
+          await unmarkGuestLessonCompleted(lessonCover.id);
+        }
       } else {
-        await upsertLessonCompletion({ lessonId: lessonCover.id, completed: true });
+        await upsertLessonCompletion({ lessonId: lessonCover.id, completed });
       }
       bumpLessonLibraryProgressRefreshToken();
-      setIsLessonCompleted(true);
     } catch (error) {
+      setIsLessonCompleted(previousCompleted);
       const message = error instanceof Error ? error.message : pageCopy.completionSavedError;
       setLessonCompletionError(message);
       throw error;
@@ -14545,6 +14562,7 @@ const mergeAdjacentPracticeRowTokens = (
           isLanguageLoading={isTranslatingContent}
           complete={isLessonCompleted}
           hasAccount={hasAccount}
+          lessonStarted={hasStartedLesson}
           hasMembership={hasMembership}
           activeIndex={hasStartedLesson
             ? activeSectionIndex
@@ -14578,7 +14596,7 @@ const mergeAdjacentPracticeRowTokens = (
           onSpeaking={!isCheckpointCoverLesson ? openSpeakingPractice : undefined}
           onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
           onUpgrade={() => router.push('/(tabs)/account/membership')}
-          onMarkFinished={markLessonFinishedFromOverview}
+          onSetFinished={setLessonFinishedFromOverview}
           tabs={overlayTabItems}
         /> : <PageLoadingState language={uiLanguage} errorBody={errorMessage || undefined} />
       ) : null}

@@ -1,129 +1,115 @@
-import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Animated,
+  GlassView,
+  isGlassEffectAPIAvailable,
+  isLiquidGlassAvailable,
+} from 'expo-glass-effect';
+import { SymbolView } from 'expo-symbols';
+import React from 'react';
+import {
+  InputAccessoryView,
   Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   useColorScheme,
   View,
-  type KeyboardEvent,
 } from 'react-native';
 
-export const KEYBOARD_DISMISS_ACCESSORY_HEIGHT = 44;
+export const KEYBOARD_DISMISS_ACCESSORY_ID = 'keyboard-dismiss-accessory';
 
-export function KeyboardDismissAccessory() {
+const KEYBOARD_DISMISS_ACCESSORY_HEIGHT = 44;
+
+type KeyboardDismissAccessoryProps = {
+  nativeID?: string;
+};
+
+export function KeyboardDismissAccessory({
+  nativeID = KEYBOARD_DISMISS_ACCESSORY_ID,
+}: KeyboardDismissAccessoryProps) {
   const colorScheme = useColorScheme();
-  const translateY = useRef(new Animated.Value(0)).current;
-  const [isVisible, setIsVisible] = useState(false);
-
-  const moveToKeyboard = useCallback((event: KeyboardEvent) => {
-    const keyboardHeight = Math.max(0, event.endCoordinates.height);
-    if (keyboardHeight > 0) {
-      setIsVisible(true);
-    }
-
-    Animated.timing(translateY, {
-      duration: event.duration || 250,
-      toValue: -keyboardHeight,
-      useNativeDriver: true,
-    }).start();
-  }, [translateY]);
-
-  const hideWithKeyboard = useCallback((event: KeyboardEvent) => {
-    Animated.timing(translateY, {
-      duration: event.duration || 250,
-      toValue: 0,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setIsVisible(false);
-    });
-  }, [translateY]);
-
-  const hideImmediately = useCallback(() => {
-    translateY.setValue(0);
-    setIsVisible(false);
-  }, [translateY]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') {
-      return;
-    }
-
-    const willShowSubscription = Keyboard.addListener('keyboardWillShow', moveToKeyboard);
-    const didShowSubscription = Keyboard.addListener('keyboardDidShow', moveToKeyboard);
-    const willHideSubscription = Keyboard.addListener('keyboardWillHide', hideWithKeyboard);
-    const didHideSubscription = Keyboard.addListener('keyboardDidHide', hideImmediately);
-
-    return () => {
-      willShowSubscription.remove();
-      didShowSubscription.remove();
-      willHideSubscription.remove();
-      didHideSubscription.remove();
-    };
-  }, [hideImmediately, hideWithKeyboard, moveToKeyboard]);
 
   if (Platform.OS !== 'ios') {
     return null;
   }
 
   const isDark = colorScheme === 'dark';
+  const supportsLiquidGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
 
   return (
-    <Animated.View
-      pointerEvents={isVisible ? 'auto' : 'none'}
-      style={[
-        styles.overlay,
-        { opacity: isVisible ? 1 : 0, transform: [{ translateY }] },
-      ]}>
-      <View style={[styles.bar, isDark ? styles.barDark : styles.barLight]}>
-        <View style={styles.spacer} />
+    <InputAccessoryView
+      nativeID={nativeID}
+      backgroundColor="transparent">
+      <View style={styles.accessory}>
         <Pressable
           accessibilityLabel="Dismiss keyboard"
           accessibilityRole="button"
           hitSlop={8}
           onPress={Keyboard.dismiss}
           style={styles.button}>
-          <MaterialIcons name="check" size={25} color={isDark ? '#FFFFFF' : '#1A1A1A'} />
+          {supportsLiquidGlass ? (
+            <GlassView
+              glassEffectStyle="regular"
+              isInteractive
+              style={styles.buttonSurface}>
+              <SymbolView
+                name="checkmark"
+                size={19}
+                tintColor={isDark ? '#0A84FF' : '#007AFF'}
+                weight="semibold"
+              />
+            </GlassView>
+          ) : (
+            <View
+              style={[
+                styles.buttonSurface,
+                styles.fallbackSurface,
+                isDark ? styles.fallbackSurfaceDark : styles.fallbackSurfaceLight,
+              ]}>
+              <SymbolView
+                name="checkmark"
+                size={19}
+                tintColor={isDark ? '#0A84FF' : '#007AFF'}
+                weight="semibold"
+              />
+            </View>
+          )}
         </Pressable>
       </View>
-    </Animated.View>
+    </InputAccessoryView>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1000,
-    elevation: 1000,
-  },
-  bar: {
-    height: KEYBOARD_DISMISS_ACCESSORY_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-  },
-  barLight: {
-    borderColor: '#C8C8CC',
-    backgroundColor: '#F2F2F7',
-  },
-  barDark: {
-    borderColor: '#3A3A3C',
-    backgroundColor: '#1C1C1E',
-  },
-  spacer: {
-    flex: 1,
+  accessory: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   button: {
     width: 44,
     height: KEYBOARD_DISMISS_ACCESSORY_HEIGHT,
+    borderRadius: 22,
+  },
+  buttonSurface: {
+    width: 44,
+    height: KEYBOARD_DISMISS_ACCESSORY_HEIGHT,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fallbackSurface: {
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+  },
+  fallbackSurfaceLight: {
+    backgroundColor: 'rgba(242, 242, 247, 0.88)',
+    borderColor: 'rgba(60, 60, 67, 0.18)',
+  },
+  fallbackSurfaceDark: {
+    backgroundColor: 'rgba(44, 44, 46, 0.88)',
+    borderColor: 'rgba(235, 235, 245, 0.22)',
   },
 });

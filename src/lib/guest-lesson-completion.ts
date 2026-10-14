@@ -32,3 +32,15 @@ export async function markGuestLessonCompleted(lessonId: string) {
     JSON.stringify([...completedLessonIds])
   );
 }
+
+export async function unmarkGuestLessonCompleted(lessonId: string) {
+  const normalizedLessonId = lessonId.trim();
+  if (!normalizedLessonId) return;
+
+  const completedLessonIds = await getGuestCompletedLessonIds();
+  completedLessonIds.delete(normalizedLessonId);
+  await AsyncStorage.setItem(
+    GUEST_COMPLETED_LESSONS_STORAGE_KEY,
+    JSON.stringify([...completedLessonIds])
+  );
+}
