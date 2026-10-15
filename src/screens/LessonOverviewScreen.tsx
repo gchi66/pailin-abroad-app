@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/src/components/ui/AppText';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { BackAction } from '@/src/components/ui/BackAction';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { LessonOverviewTabBar } from '@/src/components/navigation/PailinTabBar';
 import { getLessonSectionLabel } from '@/src/copy/lesson-detail';
 import { theme } from '@/src/theme/theme';
@@ -189,7 +190,8 @@ export function LessonOverviewScreen(p: Props) {
         viewportHeightRef.current = event.nativeEvent.layout.height;
         scrollToActiveRow();
       }}>
-      <View ref={contentRef} style={[s.content, { paddingBottom: insets.bottom + 86 }]}>
+      <View ref={contentRef} style={s.contentOuter}>
+      <ResponsivePageShell style={[s.content, { paddingBottom: insets.bottom + 86 }]}>
       <View style={s.topBar}>
         <BackAction
           language={p.language}
@@ -360,6 +362,7 @@ export function LessonOverviewScreen(p: Props) {
             : (th ? 'ทำเครื่องหมายว่าเรียนจบ' : 'Mark lesson as completed')}
         </AppText>
       </Pressable>
+      </ResponsivePageShell>
       </View>
     </ScrollView>
     <LessonOverviewTabBar actions={p.tabs.map(tab => tab.onPress)} />
@@ -418,7 +421,9 @@ export function LessonOverviewScreen(p: Props) {
   </View>;
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F7F9FC' }, content: { paddingHorizontal: 24 },
+  screen: { flex: 1, backgroundColor: '#F7F9FC' },
+  contentOuter: { width: '100%' },
+  content: { paddingHorizontal: 24 },
   topBar: { minHeight: 44, marginBottom: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   back: { flex: 1 },
   translatePill: { minWidth: 48, height: 24, minHeight: 24, borderRadius: 12, borderWidth: 1, borderColor: '#D0D0D0', backgroundColor: theme.colors.surface, paddingHorizontal: 10, paddingVertical: 0, alignItems: 'center', justifyContent: 'center' },

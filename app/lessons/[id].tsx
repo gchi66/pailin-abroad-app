@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import {
   evaluateLessonAnswer,
   fetchPracticeReviewAnswer,
@@ -15790,6 +15791,7 @@ const mergeAdjacentPracticeRowTokens = (
                   {shouldShowBottomPagerDock ? (
                     <View style={[
                       styles.bottomPagerDock,
+                      shouldContainLessonContent ? styles.bottomPagerDockTablet : null,
                       usesDetachedAudioFooter ? { marginBottom: overlayFooterHeight } : null,
                     ]}>
                       {renderRichPagerControls()}
@@ -15821,6 +15823,7 @@ const mergeAdjacentPracticeRowTokens = (
                       pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
                       style={[
                         styles.stickyFooterShell,
+                        shouldContainLessonContent ? styles.stickyFooterShellTablet : null,
                         Platform.OS === 'android' ? styles.stickyFooterShellAndroid : null,
                         usesPrepareFooterLayout ? styles.prepareStickyFooterShell : null,
                         usesDetachedAudioFooter ? styles.detachedAudioActionShell : null,
@@ -15894,6 +15897,7 @@ const mergeAdjacentPracticeRowTokens = (
                       pointerEvents={usesDetachedAudioFooter ? 'box-none' : 'auto'}
                       style={[
                         styles.ctaRow,
+                        shouldContainLessonContent ? styles.ctaRowTablet : null,
                         Platform.OS === 'android' ? styles.ctaRowAndroid : null,
                         usesDetachedAudioFooter ? styles.detachedAudioCtaRow : null,
                         isListenPage ? styles.listenCtaRow : null,
@@ -16346,7 +16350,8 @@ const mergeAdjacentPracticeRowTokens = (
             </Stack>
           </Card>
 
-          <View
+          <View style={styles.menuBottomNavDock}>
+          <ResponsivePageShell
             style={[
               styles.menuBottomNav,
               {
@@ -16379,6 +16384,7 @@ const mergeAdjacentPracticeRowTokens = (
                 </Pressable>
               );
             })}
+          </ResponsivePageShell>
           </View>
         </View>
       </Modal>
@@ -17083,6 +17089,11 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     position: 'relative',
     zIndex: 2,
+  },
+  bottomPagerDockTablet: {
+    width: '100%',
+    maxWidth: LESSON_CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
   },
   richPagerArrowRow: {
     flexDirection: 'row',
@@ -20187,6 +20198,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: 'visible',
   },
+  stickyFooterShellTablet: {
+    width: '100%',
+    maxWidth: LESSON_CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+  },
   stickyFooterShellAndroid: {
     backgroundColor: theme.colors.surface,
     borderWidth: 1.5,
@@ -20441,6 +20457,11 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     paddingBottom: 16,
     backgroundColor: 'transparent',
+  },
+  ctaRowTablet: {
+    width: '100%',
+    maxWidth: LESSON_CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
   },
   prepareCtaRow: {
     paddingBottom: 47,
@@ -20716,11 +20737,13 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     backgroundColor: theme.colors.surface,
   },
-  menuBottomNav: {
+  menuBottomNavDock: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  menuBottomNav: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderTopWidth: 1,

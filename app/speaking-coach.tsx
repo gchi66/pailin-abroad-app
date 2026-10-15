@@ -3098,7 +3098,8 @@ const styles = StyleSheet.create({
   welcomePracticeIcon: { width: 50, height: 50 },
   welcomeActions: {
     width: '100%',
-    marginTop: 62,
+    marginTop: 'auto',
+    paddingTop: 62,
     gap: 24,
   },
   welcomeReminder: {
@@ -3536,7 +3537,12 @@ const styles = StyleSheet.create({
   pronunciationFeedbackTitle: { fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
   pronunciationFeedbackText: { fontSize: 12, lineHeight: 18 },
   pronunciationSkipLabel: { color: '#666666', fontSize: 11, lineHeight: 15, fontWeight: theme.typography.weights.medium, textDecorationLine: 'underline' },
-  speakingAnswerFooter: { marginTop: 'auto' },
+  speakingAnswerFooter: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    marginTop: 'auto',
+  },
   inlineSkipButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 3 },
   pronunciationContinueButton: {
     width: '100%',

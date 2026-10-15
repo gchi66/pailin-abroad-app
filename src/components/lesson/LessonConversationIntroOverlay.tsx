@@ -5,6 +5,7 @@ import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/src/components/ui/AppText';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
@@ -110,6 +111,7 @@ export function LessonConversationIntroOverlay({
 
   return (
     <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: Math.max(insets.bottom, theme.spacing.lg) }]}>
+      <ResponsivePageShell style={styles.overlayContent}>
       <View style={styles.topBar}>
         <View style={styles.backPill}>
           <AppText language={language} variant="caption" style={styles.lessonLabel}>
@@ -288,6 +290,7 @@ export function LessonConversationIntroOverlay({
         </View>
 
       </View>
+      </ResponsivePageShell>
     </View>
   );
 }
@@ -296,6 +299,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  overlayContent: {
+    flex: 1,
     paddingHorizontal: theme.spacing.lg,
   },
   topBar: {

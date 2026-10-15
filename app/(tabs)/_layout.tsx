@@ -122,8 +122,6 @@ export default function TabLayout() {
 
   const tabHistoryGesture = useMemo(
     () => Gesture.Pan()
-      .enabled(Platform.OS === 'ios' && canSwipeThroughTabHistory)
-      .hitSlop({ left: 0, width: TAB_HISTORY_EDGE_WIDTH })
       .activeOffsetX(10)
       .failOffsetY([-18, 18])
       .onEnd((event) => {
@@ -134,69 +132,79 @@ export default function TabLayout() {
           runOnJS(goBackThroughTabHistory)();
         }
       }),
-    [canSwipeThroughTabHistory, goBackThroughTabHistory]
+    [goBackThroughTabHistory]
   );
 
   return (
-    <GestureDetector gesture={tabHistoryGesture}>
-      <View style={styles.container}>
-        <Tabs
-          backBehavior="history"
-          screenOptions={tabsScreenOptions}
-          tabBar={(props) => shouldShowTabBar
-            ? <HistoryAwareTabBar {...props} onHistoryStateChange={handleHistoryStateChange} />
-            : null}>
-          <Tabs.Screen
-            name="index"
-            options={{
-              title: hasAccount || isGuestMode ? text.pathway : text.home,
-            }}
-          />
-          <Tabs.Screen
-            name="exercises"
-            options={{
-              title: text.exercises,
-            }}
-          />
-          <Tabs.Screen
-            name="lessons"
-            options={{
-              title: text.lessons,
-            }}
-          />
-          <Tabs.Screen
-            name="resources"
-            options={{
-              title: text.resources,
-            }}
-          />
-          <Tabs.Screen
-            name="account"
-            options={{
-              title: text.more,
-            }}
-          />
-          <Tabs.Screen
-            name="explore"
-            options={{
-              href: null,
-            }}
-          />
-          <Tabs.Screen
-            name="pathway"
-            options={{
-              href: null,
-            }}
-          />
-        </Tabs>
-      </View>
-    </GestureDetector>
+    <View style={styles.container}>
+      <Tabs
+        backBehavior="history"
+        screenOptions={tabsScreenOptions}
+        tabBar={(props) => shouldShowTabBar
+          ? <HistoryAwareTabBar {...props} onHistoryStateChange={handleHistoryStateChange} />
+          : null}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: hasAccount || isGuestMode ? text.pathway : text.home,
+          }}
+        />
+        <Tabs.Screen
+          name="exercises"
+          options={{
+            title: text.exercises,
+          }}
+        />
+        <Tabs.Screen
+          name="lessons"
+          options={{
+            title: text.lessons,
+          }}
+        />
+        <Tabs.Screen
+          name="resources"
+          options={{
+            title: text.resources,
+          }}
+        />
+        <Tabs.Screen
+          name="account"
+          options={{
+            title: text.more,
+          }}
+        />
+        <Tabs.Screen
+          name="explore"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="pathway"
+          options={{
+            href: null,
+          }}
+        />
+      </Tabs>
+      {Platform.OS === 'ios' && canSwipeThroughTabHistory ? (
+        <GestureDetector gesture={tabHistoryGesture}>
+          <View style={styles.tabHistoryEdgeGesture} />
+        </GestureDetector>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  tabHistoryEdgeGesture: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: TAB_HISTORY_EDGE_WIDTH,
   },
   scene: {
     backgroundColor: theme.colors.background,

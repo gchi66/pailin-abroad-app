@@ -7,6 +7,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
@@ -58,9 +59,10 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
   return (
     <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: bottomBarInset(insets.bottom) }]}>
-      <View style={styles.barShadow}>
-        <View style={styles.bar}>
-          {routes.map((route, visibleIndex) => {
+      <ResponsivePageShell pointerEvents="box-none">
+        <View style={styles.barShadow}>
+          <View style={styles.bar}>
+            {routes.map((route, visibleIndex) => {
             const routeName = route.name as VisibleRoute;
             const routeIndex = state.routes.indexOf(route);
             const isFocused = state.index === routeIndex;
@@ -146,9 +148,10 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
                 </View>
               </Pressable>
             );
-          })}
+            })}
+          </View>
         </View>
-      </View>
+      </ResponsivePageShell>
     </View>
   );
 }
@@ -158,20 +161,22 @@ export function LessonOverviewTabBar({ actions }: { actions: (() => void)[] }) {
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
   return <View pointerEvents="box-none" style={[styles.safeArea, { paddingBottom: bottomBarInset(insets.bottom) }]}>
-    <View style={styles.barShadow}><View style={styles.bar}>
-      {VISIBLE_ROUTES.map((name, index) => {
-        const active = name === 'lessons';
-        const color = active ? '#1F5CFF' : theme.colors.text;
-        return <Pressable key={name} accessibilityRole="button" accessibilityLabel={LABELS[uiLanguage][name]} accessibilityState={{ selected: active }} onPress={actions[index]}
-          style={[styles.item, index > 0 && !active && styles.itemDivider, active && styles.centerItem]}>
-          {active && <View style={styles.starBadge}><MaterialIcons name="star-border" size={20} color={theme.colors.text} style={styles.starOutline} /><MaterialIcons name="star" size={14} color="#B8DD4A" /></View>}
-          <View style={[styles.itemContent, index === 0 && styles.firstItemContent, index === 4 && styles.lastItemContent]}>
-            {name === 'account' ? <View style={[styles.moreIconBox, { borderColor: color }]}><MaterialIcons name="more-horiz" size={22} color={color} /></View> : <MaterialIcons name={ICONS[name][active ? 'active' : 'inactive']} size={active ? 30 : 27} color={color} />}
-            <Text numberOfLines={1} style={[styles.label, uiLanguage === 'th' ? styles.labelThai : styles.labelEnglish, { color }]}>{LABELS[uiLanguage][name]}</Text>
-          </View>
-        </Pressable>;
-      })}
-    </View></View>
+    <ResponsivePageShell pointerEvents="box-none">
+      <View style={styles.barShadow}><View style={styles.bar}>
+        {VISIBLE_ROUTES.map((name, index) => {
+          const active = name === 'lessons';
+          const color = active ? '#1F5CFF' : theme.colors.text;
+          return <Pressable key={name} accessibilityRole="button" accessibilityLabel={LABELS[uiLanguage][name]} accessibilityState={{ selected: active }} onPress={actions[index]}
+            style={[styles.item, index > 0 && !active && styles.itemDivider, active && styles.centerItem]}>
+            {active && <View style={styles.starBadge}><MaterialIcons name="star-border" size={20} color={theme.colors.text} style={styles.starOutline} /><MaterialIcons name="star" size={14} color="#B8DD4A" /></View>}
+            <View style={[styles.itemContent, index === 0 && styles.firstItemContent, index === 4 && styles.lastItemContent]}>
+              {name === 'account' ? <View style={[styles.moreIconBox, { borderColor: color }]}><MaterialIcons name="more-horiz" size={22} color={color} /></View> : <MaterialIcons name={ICONS[name][active ? 'active' : 'inactive']} size={active ? 30 : 27} color={color} />}
+              <Text numberOfLines={1} style={[styles.label, uiLanguage === 'th' ? styles.labelThai : styles.labelEnglish, { color }]}>{LABELS[uiLanguage][name]}</Text>
+            </View>
+          </Pressable>;
+        })}
+      </View></View>
+    </ResponsivePageShell>
   </View>;
 }
 

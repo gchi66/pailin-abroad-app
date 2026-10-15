@@ -30,6 +30,7 @@ import showPasswordImage from '@/assets/images/show-password.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
+import { getResponsivePageMaxWidth } from '@/src/components/ui/ResponsivePageShell';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useOnboarding } from '@/src/context/onboarding-context';
@@ -688,7 +689,11 @@ export function OnboardingScreen() {
       ? availableShellHeight <= 620 || width <= 340 || fontScale >= 1.3
       : height <= 620;
   const shellInnerHorizontalPadding = theme.spacing.sm;
-  const shellInnerWidth = Math.max(width - theme.spacing.md * 2 - shellInnerHorizontalPadding * 2 - 2, 240);
+  const responsivePageWidth = Math.min(
+    width - theme.spacing.md * 2,
+    getResponsivePageMaxWidth(width)
+  );
+  const shellInnerWidth = Math.max(responsivePageWidth - shellInnerHorizontalPadding * 2 - 2, 240);
   const shellMaxHeight = currentStep === 3 ? (compact ? 600 : 650) : (compact ? 540 : 570);
   const shellHeight = Math.max(0, Math.min(shellMaxHeight, availableShellHeight));
 
@@ -1092,7 +1097,7 @@ export function OnboardingScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.contentContainer, { paddingTop: insets.top + theme.spacing.sm }]}>
-        <Stack gap="md" style={styles.onboardingLayout}>
+        <Stack gap="md" style={[styles.onboardingLayout, { maxWidth: responsivePageWidth }]}>
           <View style={styles.onboardingHeader}>
             <Image source={fullLogoImage} style={styles.onboardingLogo} contentFit="contain" />
             <LanguageToggle />
@@ -1194,6 +1199,8 @@ const styles = StyleSheet.create({
   },
   onboardingLayout: {
     flex: 1,
+    width: '100%',
+    alignSelf: 'center',
     justifyContent: 'center',
   },
   onboardingHeader: {

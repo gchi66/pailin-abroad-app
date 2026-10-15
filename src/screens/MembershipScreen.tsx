@@ -779,9 +779,11 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
           setStickyFooterHeight((currentHeight) => currentHeight === nextHeight ? currentHeight : nextHeight);
         }}
         style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        {renderSummary()}
-        {renderPrimaryCta()}
-        {renderRestorePurchases()}
+        <ResponsivePageShell style={styles.stickyFooterContent}>
+          {renderSummary()}
+          {renderPrimaryCta()}
+          {renderRestorePurchases()}
+        </ResponsivePageShell>
       </View>
     </View>
   );
@@ -1063,5 +1065,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#D9DDE2',
     backgroundColor: '#F5F6F8',
+  },
+  stickyFooterContent: {
+    gap: 10,
   },
 });

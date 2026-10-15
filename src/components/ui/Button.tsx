@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Pressable,
   PressableProps,
+  Platform,
   StyleProp,
   StyleSheet,
   TextStyle,
@@ -98,6 +99,41 @@ export function Button({
   const backgroundColor = typeof resolvedBaseStyle.backgroundColor === 'string' ? resolvedBaseStyle.backgroundColor : 'transparent';
   const hasNeoShadow = typeof resolvedBaseStyle.boxShadow === 'string' && resolvedBaseStyle.boxShadow !== 'none';
   const shouldInsetBorder = borderWidth > 0 && (insetBorder ?? hasNeoShadow);
+  const buttonChildren = (
+    <>
+      {shouldInsetBorder ? (
+        <InsetBorderSurface
+          backgroundColor={backgroundColor}
+          borderRadius={borderRadius}
+          borderWidth={borderWidth}
+        />
+      ) : null}
+      {leadingIcon}
+      <AppText language={language} variant="caption" style={[styles.label, textSizeStyles[size], textVariantStyles[variant], textStyle]}>
+        {title}
+      </AppText>
+    </>
+  );
+
+  if (Platform.OS === 'ios' && Platform.isPad) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        disabled={disabled}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        style={({ pressed: isPressed }) => [
+          resolvedBaseStyle,
+          shouldInsetBorder ? { borderWidth: 0, backgroundColor: borderColor } : null,
+          isPressed && !disabled ? [styles.pressed, styles.pressedTransform] : null,
+          disabled ? [styles.disabled, disabledStyle] : null,
+        ]}
+        {...rest}>
+        {buttonChildren}
+      </Pressable>
+    );
+  }
+
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -120,17 +156,7 @@ export function Button({
         pressStyle,
       ]}
       {...rest}>
-      {shouldInsetBorder ? (
-        <InsetBorderSurface
-          backgroundColor={backgroundColor}
-          borderRadius={borderRadius}
-          borderWidth={borderWidth}
-        />
-      ) : null}
-      {leadingIcon}
-      <AppText language={language} variant="caption" style={[styles.label, textSizeStyles[size], textVariantStyles[variant], textStyle]}>
-        {title}
-      </AppText>
+      {buttonChildren}
     </AnimatedPressable>
   );
 }
@@ -153,6 +179,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.9,
+  },
+  pressedTransform: {
+    transform: [{ translateX: 2 }, { translateY: 2 }, { scale: 0.985 }],
   },
   disabled: {
     opacity: 0.6,

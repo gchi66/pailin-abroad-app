@@ -14,6 +14,7 @@ import Animated, {
 
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
@@ -237,7 +238,7 @@ export function LessonRichSectionIntro({
 
   return (
     <Animated.View style={[styles.screen, screenAnimation]}>
-      <View style={[styles.topBar, { paddingTop: topInset + 8 }]}>
+      <ResponsivePageShell style={[styles.topBar, { paddingTop: topInset + 8 }]}>
         <Pressable
           motionDisabled
           accessibilityRole="button"
@@ -248,7 +249,7 @@ export function LessonRichSectionIntro({
           style={styles.closeButton}>
           <MaterialIcons name="close" size={25} color={theme.colors.text} />
         </Pressable>
-      </View>
+      </ResponsivePageShell>
 
       <View style={styles.centerArea}>
         <Animated.View
@@ -328,7 +329,7 @@ export function LessonRichSectionIntro({
       </View>
 
       <View style={styles.footer}>
-        <View
+        <ResponsivePageShell
           style={[
             styles.continueButtonWrap,
             { paddingBottom: audioTray ? theme.spacing.lg : Math.max(bottomInset, 10) + 16 },
@@ -341,7 +342,7 @@ export function LessonRichSectionIntro({
             style={styles.continueButton}
             textStyle={styles.continueButtonText}
           />
-        </View>
+        </ResponsivePageShell>
         {audioTray}
       </View>
     </Animated.View>

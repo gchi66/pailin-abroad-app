@@ -12,6 +12,7 @@ import {
 
 import { AppText } from '@/src/components/ui/AppText';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
+import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { theme } from '@/src/theme/theme';
 import { UiLanguage } from '@/src/types/home';
 
@@ -364,7 +365,8 @@ export function LessonAudioTray({
   );
 
   return (
-    <Animated.View
+    <ResponsivePageShell pointerEvents="box-none">
+      <Animated.View
       style={[
         styles.shell,
         usesFloatingRateMenu ? styles.shellAndroid : null,
@@ -401,7 +403,8 @@ export function LessonAudioTray({
           ))}
         </View>
       ) : null}
-    </Animated.View>
+      </Animated.View>
+    </ResponsivePageShell>
   );
 }
 

@@ -596,7 +596,7 @@ export function PlacementTestScreen() {
 
       {conversation && hasStartedAudio && !isCalculating && resultLevel === null ? (
         <View style={styles.audioTrayRegion}>
-          <View style={[styles.audioTrayDock, { paddingBottom: insets.bottom }]}> 
+          <ResponsivePageShell style={[styles.audioTrayDock, { paddingBottom: insets.bottom }]}>
             <LessonAudioTray
               language={uiLanguage}
               title={uiLanguage === 'en' ? 'Placement Test' : 'แบบทดสอบวัดระดับ'}
@@ -622,7 +622,7 @@ export function PlacementTestScreen() {
                 player.setPlaybackRate(rate, 'medium');
               }}
             />
-          </View>
+          </ResponsivePageShell>
         </View>
       ) : null}
     </View>
