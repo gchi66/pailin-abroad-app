@@ -253,7 +253,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
         {!searching && !freeOnly && story ? <View style={styles.storyShadow}><View style={styles.story}>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: storyOpen }} onPress={() => setStoryOpen((value) => !value)} style={styles.storyHeader}>
             <AppText language={language} variant="caption" style={styles.storyLabel}>{th ? 'เรื่องราวของไพลิน' : "PAILIN’S STORY"}</AppText>
-            <AnimatedPlusMinus expanded={storyOpen} size={19} color={theme.colors.text} />
+            <AnimatedPlusMinus expanded={storyOpen} size={13} color={theme.colors.text} />
           </Pressable>
           {storyOpen ? <DisclosureContent><AppText language={language} variant="muted" style={styles.storyBody}>{story}</AppText></DisclosureContent> : null}
         </View></View> : null}

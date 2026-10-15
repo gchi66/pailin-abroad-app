@@ -7,7 +7,7 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
-import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { theme } from '../../theme/theme';
 import { AppText } from './AppText';
@@ -109,7 +109,7 @@ export function Button({
       }}
       onPressOut={(event) => {
         setPressed(false);
-        pressProgress.value = withSpring(0, { stiffness: 350, damping: 24, reduceMotion: ReduceMotion.System });
+        pressProgress.value = withTiming(0, { duration: 90, reduceMotion: ReduceMotion.System });
         onPressOut?.(event);
       }}
       style={[

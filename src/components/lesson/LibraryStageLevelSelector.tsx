@@ -108,7 +108,7 @@ export function LibraryStageLevelSelector({
                 <View style={styles.stageDot} />
                 <AppText language={language} variant="caption" style={styles.collapsibleStageName}>{stageLabel(stage)}</AppText>
               </View>
-              <AnimatedPlusMinus expanded={stageOpen} size={17} color={theme.colors.text} />
+              <AnimatedPlusMinus expanded={stageOpen} size={11} color={theme.colors.text} />
             </Pressable>
             {stageOpen ? (
               <DisclosureContent>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -31,6 +32,8 @@ type UiLanguage = 'en' | 'th';
 type TopicCollection = ExerciseBankCollectionDefinition & {
   topicCount: number;
 };
+
+const COLLECTION_CARD_RADIUS = 7;
 
 const getCopy = (language: UiLanguage) =>
   language === 'th'
@@ -230,16 +233,25 @@ export function ExerciseBankScreen() {
                         }`}
                         style={styles.collectionCardWrap}
                         onPress={() => handleCollectionPress(collection)}>
-                        <AndroidNeoShadowLayer borderRadius={theme.radii.lg} color={theme.colors.shadow} offset={3} />
+                        <AndroidNeoShadowLayer borderRadius={COLLECTION_CARD_RADIUS} color={theme.colors.shadow} offset={3} />
                         <View style={styles.collectionCard}>
                           <InsetBorderSurface
-                            backgroundColor={collection.slug === 'verbs-and-tenses' ? '#C8F0FF' : theme.colors.surface}
-                            borderRadius={theme.radii.lg}
+                            backgroundColor={theme.colors.surface}
+                            borderRadius={COLLECTION_CARD_RADIUS}
                             borderWidth={theme.borderWidths.primaryCard}
                           />
-                          <AppText language="en" variant="body" style={styles.collectionEmoji}>
-                            {collection.emoji}
-                          </AppText>
+                          {collection.image ? (
+                            <Image
+                              source={collection.image}
+                              contentFit="contain"
+                              style={styles.collectionArtwork}
+                              accessible={false}
+                            />
+                          ) : (
+                            <AppText language="en" variant="body" style={styles.collectionEmoji}>
+                              {collection.emoji}
+                            </AppText>
+                          )}
                           <View style={styles.collectionCopy}>
                             <AppText
                               language={uiLanguage}
@@ -336,11 +348,11 @@ const styles = StyleSheet.create({
   collectionCardWrap: {
     position: 'relative',
     width: '48.5%',
-    minHeight: 116,
+    minHeight: 130,
   },
   collectionCard: {
     flex: 1,
-    borderRadius: theme.radii.lg,
+    borderRadius: COLLECTION_CARD_RADIUS,
     backgroundColor: theme.colors.border,
     padding: 15,
     justifyContent: 'flex-start',
@@ -352,8 +364,12 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     includeFontPadding: true,
   },
+  collectionArtwork: {
+    width: 46,
+    height: 46,
+  },
   collectionCopy: {
-    marginTop: 5,
+    marginTop: 12,
     gap: 2,
   },
   collectionTitle: {

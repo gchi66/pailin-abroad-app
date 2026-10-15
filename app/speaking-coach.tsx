@@ -858,10 +858,9 @@ function SpeakingCoachTestScreen() {
             }
           }
           try {
-            await setIsAudioActiveAsync(false);
-            await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+            await switchAudioSession(false);
           } catch (error) {
-            console.warn('[speaking-capture-cleanup] Could not release audio session', error);
+            console.warn('[speaking-capture-cleanup] Could not restore playback session', error);
           }
         })();
       };
@@ -1275,8 +1274,7 @@ function SpeakingCoachTestScreen() {
       trace.audioSessionMs = Date.now() - audioSessionStarted;
       trace.statusAfterAudioSession = recorderDiagnostic();
       if (!screenFocusedRef.current) {
-        await setIsAudioActiveAsync(false);
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await switchAudioSession(false);
         return;
       }
       // Passing the options forces iOS to create a fresh AVAudioRecorder and
@@ -1287,16 +1285,14 @@ function SpeakingCoachTestScreen() {
       trace.prepareMs = Date.now() - prepareStarted;
       trace.statusAfterPrepare = recorderDiagnostic();
       if (!screenFocusedRef.current) {
-        await setIsAudioActiveAsync(false);
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await switchAudioSession(false);
         return;
       }
       recorder.record();
       trace.statusAfterRecord = recorderDiagnostic();
       if (!screenFocusedRef.current) {
         await recorder.stop();
-        await setIsAudioActiveAsync(false);
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await switchAudioSession(false);
         return;
       }
       captureDiagnostic('started', trace, {
@@ -2107,9 +2103,10 @@ function SpeakingCoachTestScreen() {
         </View>
 
         {renderAttemptPanel()}
+      </ScrollView>
 
-        {showResultFooter ? (
-          <FeedbackEntrance>
+      {showResultFooter ? (
+        <FeedbackEntrance style={styles.conversationResultFooterEntrance}>
           <View
             style={[
               styles.conversationResultFooter,
@@ -2179,9 +2176,8 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
           </View>
-          </FeedbackEntrance>
-        ) : null}
-      </ScrollView>
+        </FeedbackEntrance>
+      ) : null}
       {renderSubmissionFooter()}
       </View>
     );
@@ -2458,9 +2454,10 @@ function SpeakingCoachTestScreen() {
         ) : null}
 
         {renderAttemptPanel()}
+      </ScrollView>
 
-        {showResultFooter ? (
-          <FeedbackEntrance>
+      {showResultFooter ? (
+        <FeedbackEntrance style={styles.conversationResultFooterEntrance}>
           <View
             style={[
               styles.conversationResultFooter,
@@ -2528,9 +2525,8 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
           </View>
-          </FeedbackEntrance>
-        ) : null}
-      </ScrollView>
+        </FeedbackEntrance>
+      ) : null}
       {renderSubmissionFooter()}
       </View>
     );
@@ -2794,9 +2790,10 @@ function SpeakingCoachTestScreen() {
         ) : null}
 
         {renderAttemptPanel()}
+      </ScrollView>
 
-        {showResultFooter ? (
-          <FeedbackEntrance>
+      {showResultFooter ? (
+        <FeedbackEntrance style={styles.conversationResultFooterEntrance}>
           <View
             style={[
               styles.conversationResultFooter,
@@ -2870,9 +2867,8 @@ function SpeakingCoachTestScreen() {
               </Pressable>
             ) : null}
           </View>
-          </FeedbackEntrance>
-        ) : null}
-      </ScrollView>
+        </FeedbackEntrance>
+      ) : null}
       {renderSubmissionFooter()}
       </View>
     );
@@ -3716,10 +3712,13 @@ const styles = StyleSheet.create({
   conversationFeedbackStars: { width: 42, height: 42 },
   conversationFeedbackCopy: { flex: 1, gap: 3 },
   conversationFeedbackText: { color: practiceColors.text, fontSize: 12, lineHeight: 18 },
+  conversationResultFooterEntrance: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
   conversationResultFooter: {
-    width: 'auto',
-    marginTop: 'auto',
-    marginHorizontal: -22,
+    width: '100%',
     borderWidth: 1.5,
     borderBottomWidth: 0,
     borderTopLeftRadius: 28,
@@ -3737,7 +3736,6 @@ const styles = StyleSheet.create({
     backgroundColor: practiceColors.incorrectPanel,
   },
   conversationResultFooterUnclear: {
-    marginHorizontal: -24,
     borderColor: '#F1DB35',
     backgroundColor: '#FFFCE5',
   },

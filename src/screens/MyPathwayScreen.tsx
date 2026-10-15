@@ -953,6 +953,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.shadow,
   },
   resumeLessonButton: {
+    borderWidth: theme.borderWidths.primaryCard,
     boxShadow: 'none',
     elevation: 0,
     shadowColor: 'transparent',

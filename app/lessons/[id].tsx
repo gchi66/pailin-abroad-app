@@ -43,10 +43,12 @@ import {
   prefetchResolvedLesson,
 } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
+import { activatePlaybackAudioSession } from '@/src/lib/audio-session';
 import { fetchAvailableSpeakingCoachLessons } from '@/src/api/speaking-coach';
 import {
   AppLessonProgressDetail,
   fetchAppLessonProgressDetail,
+  touchAppLessonVisit,
   writeAppLessonProgress,
 } from '@/src/api/app-lesson-progress';
 import {
@@ -106,6 +108,7 @@ import {
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { getGuestCompletedLessonIds, markGuestLessonCompleted, unmarkGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
+import { getPhraseDisplayLabels } from '@/src/lib/phrase-display-labels';
 import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
   getLessonContentLanguage,
@@ -2597,17 +2600,25 @@ const normalizeLessonPhrase = (
   index: number,
   contentLang: UiLanguage
 ): NormalizedLessonPhrase | null => {
-  const phraseLabel = String(phrase.phrase ?? '').trim();
+  const storedPhraseLabel = String(phrase.phrase ?? '').trim();
   const rawPhraseLabelTh = String(phrase.phrase_th ?? '').trim();
   // Older lesson records included this definition in the translation field.
-  const phraseLabelTh = phraseLabel.toUpperCase() === 'BY THE WAY' &&
+  const storedPhraseLabelTh = storedPhraseLabel.toUpperCase() === 'BY THE WAY' &&
     rawPhraseLabelTh.startsWith('ว่าแต่ว่า… ใช้เมื่อต้องการเปลี่ยนหัวข้อบทสนทนา')
     ? 'ว่าแต่ว่า…'
     : rawPhraseLabelTh;
   const sourceNodes = getPhraseNodesForLanguage(phrase, contentLang);
   const nodes = contentLang === 'th'
-    ? normalizeLegacyThaiPhraseTargetColors(sourceNodes, phraseLabel, phraseLabelTh)
+    ? normalizeLegacyThaiPhraseTargetColors(sourceNodes, storedPhraseLabel, storedPhraseLabelTh)
     : sourceNodes;
+  const displayLabels = getPhraseDisplayLabels({
+    nodes,
+    language: contentLang,
+    storedPhrase: storedPhraseLabel,
+    storedPhraseTh: storedPhraseLabelTh,
+  });
+  const phraseLabel = displayLabels.phrase;
+  const phraseLabelTh = displayLabels.phraseTh;
   const markdown = String(phrase.content_md ?? phrase.content ?? '').trim();
   const hasRenderableNodes = nodes.some((node) => hasVisibleRichNodeContent(node, contentLang));
 
@@ -4020,6 +4031,7 @@ export default function LessonDetailShellScreen() {
   const lessonRef = useRef<ResolvedLessonPayload | null>(null);
   const audioTrayExpandCounterRef = useRef(0);
   const pendingAppResumeRef = useRef<AppLessonProgressDetail['resume']>(null);
+  const touchedLessonSectionKeysRef = useRef<Set<string>>(new Set());
   const writtenAppProgressUnitKeysRef = useRef<Set<string>>(new Set());
   const pendingLessonPersistenceRef = useRef<Set<Promise<unknown>>>(new Set());
   const hasHydratedLessonAnswerStateRef = useRef(false);
@@ -4140,6 +4152,10 @@ export default function LessonDetailShellScreen() {
       setLessonKeyboardHeight(event.endCoordinates?.height ?? 0);
     };
     const handleKeyboardHide = () => {
+      // Android's back button can hide the keyboard without blurring the
+      // multiline Apply input. Blur it explicitly so its encouragement card
+      // follows the same path as tapping away or submitting.
+      applyInputRef.current?.blur();
       setLessonKeyboardHeight(0);
     };
 
@@ -4579,6 +4595,7 @@ export default function LessonDetailShellScreen() {
     setAppLessonProgressDetail(null);
     setSavedAnswerStateByUnit({});
     pendingAppResumeRef.current = null;
+    touchedLessonSectionKeysRef.current = new Set();
     writtenAppProgressUnitKeysRef.current = new Set();
     hasHydratedLessonAnswerStateRef.current = false;
     hasInteractedWithLessonAnswerStateRef.current = false;
@@ -6111,31 +6128,37 @@ export default function LessonDetailShellScreen() {
 
   const playConversationAudio = async () => {
     const voiceSound = voiceSoundRef.current;
-    if (!voiceSound?.isLoaded || isAudioLoading) {
+    if (!voiceSound || isAudioLoading) {
       return;
     }
 
     unloadSnippetPlayer();
+    await activatePlaybackAudioSession(true);
 
-    const durationMillis = secondsToMillis(voiceSound.duration);
-    const positionMillis = secondsToMillis(voiceSound.currentTime);
-    const shouldRestart = hasAudioFinished || (durationMillis > 0 && positionMillis >= durationMillis - 250);
-    const startPositionMillis = shouldRestart ? 0 : positionMillis;
+    if (voiceSound.isLoaded) {
+      const durationMillis = secondsToMillis(voiceSound.duration);
+      const positionMillis = secondsToMillis(voiceSound.currentTime);
+      const shouldRestart = hasAudioFinished || (durationMillis > 0 && positionMillis >= durationMillis - 250);
+      const startPositionMillis = shouldRestart ? 0 : positionMillis;
 
-    if (shouldRestart) {
-      await seekConversationAudioToMillis(0);
+      if (shouldRestart) {
+        await seekConversationAudioToMillis(0);
+      } else if (startPositionMillis > 0) {
+        await voiceSound.seekTo(millisToSeconds(startPositionMillis));
+      }
     }
 
-    activateConversationLockScreenControls();
-    if (!shouldRestart && startPositionMillis > 0) {
-      await voiceSound.seekTo(millisToSeconds(startPositionMillis));
-    }
     voiceSound.play();
+    // Keep Android's foreground media service out of the critical playback
+    // path until conversation playback has been verified there.
+    if (Platform.OS !== 'android') {
+      activateConversationLockScreenControls();
+    }
   };
 
   const handlePlayFromListenPage = async () => {
     const voiceSound = voiceSoundRef.current;
-    if (!voiceSound?.isLoaded || isAudioLoading) {
+    if (!voiceSound || isAudioLoading) {
       return;
     }
 
@@ -6416,6 +6439,27 @@ export default function LessonDetailShellScreen() {
 
     contentScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [activePracticeCardIndex, activeTab?.id, activeUnderstandGroupIndex, contentLang, isInnerPagerTab]);
+
+  useEffect(() => {
+    if (!user?.id || !lessonId || !shouldShowSectionIntro || !activeSectionIntroKey) {
+      return;
+    }
+
+    const visitKey = `${lessonId}:${activeSectionIntroKey}`;
+    if (touchedLessonSectionKeysRef.current.has(visitKey)) {
+      return;
+    }
+
+    touchedLessonSectionKeysRef.current.add(visitKey);
+    void touchAppLessonVisit(lessonId).catch((error) => {
+      touchedLessonSectionKeysRef.current.delete(visitKey);
+      console.warn('[app-progress] lesson visit write failed', {
+        lessonId,
+        sectionKey: activeSectionIntroKey,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    });
+  }, [activeSectionIntroKey, lessonId, shouldShowSectionIntro, user?.id]);
 
   useEffect(() => {
     if (!hasStartedLesson || isLockedLesson || !activePageKey || isSectionIntroPending) {
@@ -8353,6 +8397,7 @@ export default function LessonDetailShellScreen() {
         existingPlayer.pause();
         setPlayingSnippetKey(null);
       } else {
+        await activatePlaybackAudioSession();
         existingPlayer.play();
         setActiveSnippetKey(audioKey);
         setPlayingSnippetKey(audioKey);
@@ -8412,6 +8457,7 @@ export default function LessonDetailShellScreen() {
       snippetSubscriptionRef.current = subscription;
       setActiveSnippetKey(audioKey);
       setPlayingSnippetKey(audioKey);
+      await activatePlaybackAudioSession();
       player.play();
     } catch {
       unloadSnippetPlayer();
@@ -8422,7 +8468,7 @@ export default function LessonDetailShellScreen() {
 
   const handleToggleAudio = async () => {
     const voiceSound = voiceSoundRef.current;
-    if (!voiceSound || isAudioLoading || !voiceSound.isLoaded) {
+    if (!voiceSound || isAudioLoading) {
       return;
     }
 
@@ -12908,30 +12954,18 @@ const mergeAdjacentPracticeRowTokens = (
                 const sentenceExampleText =
                   item.prompt || item.text || stripInlineMediaTags(textJsonbToString(item.textJsonb)) || item.promptTh || item.textTh;
                 const sentenceExampleCorrection = item.answer || item.keywords || '';
-                const sentenceExampleHasIncorrectLabel = /^\s*incorrect\s*:/i.test(sentenceExampleText);
-                const sentenceExampleHasCorrectLabel = /^\s*correct\s*:/i.test(sentenceExampleText);
-                const sentenceExampleIsCorrect = sentenceExampleHasCorrectLabel ||
-                  (!sentenceExampleHasIncorrectLabel && item.correctTag === 'yes');
-                const sentenceExampleIsIncorrect = sentenceExampleHasIncorrectLabel ||
-                  item.correctTag === 'no' ||
-                  (!sentenceExampleIsCorrect && Boolean(sentenceExampleCorrection));
 
                 return (
                   <SentenceTransformExampleDisclosure
                     key={answerKey}
-                    correctedLabel={!sentenceExampleIsCorrect && sentenceExampleCorrection ? 'CORRECT:' : undefined}
-                    correctedSentence={sentenceExampleIsCorrect ? undefined : sentenceExampleCorrection}
+                    correctedSentence={sentenceExampleCorrection || undefined}
                     expanded={isPracticeExampleExpanded}
+                    isJudgment={isSentenceJudgmentExercise}
                     label={pageLanguage === 'th' ? 'ตัวอย่าง' : 'Example'}
                     language={pageLanguage}
                     sentence={sentenceExampleText}
                     sentenceInlines={item.textJsonb}
-                    sentenceLabel={sentenceExampleIsCorrect
-                      ? 'CORRECT:'
-                      : sentenceExampleIsIncorrect
-                        ? 'INCORRECT:'
-                        : undefined}
-                    sentenceLabelTone={sentenceExampleIsCorrect ? 'correct' : 'incorrect'}
+                    sourceIsCorrect={item.correctTag === 'yes'}
                     onToggle={() => setExpandedPracticeExampleIds((previous) => ({
                       ...previous,
                       [exercise.id]: !previous[exercise.id],
@@ -16821,7 +16855,6 @@ const styles = StyleSheet.create({
     minHeight: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateY: 1 }],
   },
   translatePillText: {
     color: theme.colors.text,

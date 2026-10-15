@@ -243,28 +243,27 @@ export function FillBlankExampleSentence({
 }
 
 export function SentenceTransformExampleDisclosure({
-  correctedLabel,
   correctedSentence,
   expanded,
+  isJudgment = false,
   label,
   language,
   onToggle,
   sentence,
   sentenceInlines,
-  sentenceLabel,
-  sentenceLabelTone = 'incorrect',
+  sourceIsCorrect = false,
 }: {
-  correctedLabel?: string;
   correctedSentence?: string;
   expanded: boolean;
+  isJudgment?: boolean;
   label: string;
   language: PracticeLanguage;
   onToggle: () => void;
   sentence: string;
   sentenceInlines?: { text?: string | null; bold?: boolean | null; underline?: boolean | null }[];
-  sentenceLabel?: string;
-  sentenceLabelTone?: 'correct' | 'incorrect';
+  sourceIsCorrect?: boolean;
 }) {
+  const visibleCorrectedSentence = isJudgment && sourceIsCorrect ? undefined : correctedSentence;
   const visibleSentenceInlines = (sentenceInlines ?? []).filter((inline) => Boolean(inline.text));
   const sentenceParts = splitSentenceTransformLabel(sentence);
   const inlineSentenceText = visibleSentenceInlines.map((inline) => inline.text ?? '').join('');
@@ -279,14 +278,9 @@ export function SentenceTransformExampleDisclosure({
   const hasAuthoredSourceEmphasis = sentenceBodyInlines.some(
     (inline) => inline.bold === true || inline.underline === true
   );
-  const correctionParts = correctedSentence
-    ? splitSentenceTransformLabel(correctedSentence)
-    : { label: '', sentence: '' };
-  const comparisonRuns = correctedSentence
-    ? buildSentenceTransformComparisonRuns(sentence, correctedSentence)
+  const comparisonRuns = visibleCorrectedSentence
+    ? buildSentenceTransformComparisonRuns(sentence, visibleCorrectedSentence)
     : { source: [], correction: [] };
-  const visibleSentenceLabel = sentenceParts.label.trim() || sentenceLabel?.trim() || '';
-  const visibleCorrectedLabel = correctionParts.label.trim() || correctedLabel?.trim() || '';
 
   return (
     <FillBlankExampleDisclosure
@@ -295,48 +289,49 @@ export function SentenceTransformExampleDisclosure({
       language={language}
       onToggle={onToggle}>
       <View style={styles.sentenceExampleContent}>
-        <AppText language="en" variant="caption" style={styles.sentenceExampleText}>
-          {visibleSentenceLabel ? (
-            <Text style={sentenceLabelTone === 'correct' ? styles.sentenceExampleCorrectLabel : styles.sentenceExampleIncorrectLabel}>
-              {visibleSentenceLabel}
-            </Text>
-          ) : null}
-          {hasAuthoredSourceEmphasis
-            ? sentenceBodyInlines.map((inline, index) => (
-                <Text
-                  key={`sentence-example-${index}`}
-                  style={inline.bold || inline.underline ? styles.sentenceExampleEmphasis : undefined}>
-                  {index === 0 && visibleSentenceLabel ? ` ${inline.text?.trimStart() ?? ''}` : inline.text}
-                </Text>
-              ))
-            : comparisonRuns.source.length
-            ? comparisonRuns.source.map((run, index) => (
-                <Text
-                  key={`sentence-source-comparison-${index}`}
-                  style={run.bold ? styles.sentenceExampleEmphasis : undefined}>
-                  {index === 0 && visibleSentenceLabel ? ` ${run.text.trimStart()}` : run.text}
-                </Text>
-              ))
-            : sentenceBodyInlines.length
-            ? sentenceBodyInlines.map((inline, index) => (
-                <Text key={`sentence-example-${index}`}>
-                  {index === 0 && visibleSentenceLabel ? ` ${inline.text?.trimStart() ?? ''}` : inline.text}
-                </Text>
-              ))
-            : visibleSentenceLabel
-              ? ` ${sentenceParts.sentence.trimStart()}`
-              : sentenceParts.sentence}
-        </AppText>
-        {correctedSentence ? (
-          <AppText language="en" variant="caption" style={styles.sentenceExampleCorrectionText}>
-            {visibleCorrectedLabel ? (
-              <Text style={styles.sentenceExampleCorrectLabel}>{visibleCorrectedLabel}</Text>
+        <View style={styles.sentenceExampleSourceRow}>
+          <AppText language="en" variant="caption" style={styles.sentenceExampleText}>
+            {isJudgment ? (
+              <Text style={sourceIsCorrect ? styles.sentenceExampleCorrectLabel : styles.sentenceExampleIncorrectLabel}>
+                {sourceIsCorrect ? 'CORRECT:' : 'INCORRECT:'}
+              </Text>
             ) : null}
+            {hasAuthoredSourceEmphasis
+              ? sentenceBodyInlines.map((inline, index) => (
+                  <Text
+                    key={`sentence-example-${index}`}
+                    style={inline.bold || inline.underline ? styles.sentenceExampleEmphasis : undefined}>
+                    {index === 0 && isJudgment ? ` ${inline.text?.trimStart() ?? ''}` : index === 0 ? inline.text?.trimStart() : inline.text}
+                  </Text>
+                ))
+              : comparisonRuns.source.length
+              ? comparisonRuns.source.map((run, index) => (
+                  <Text
+                    key={`sentence-source-comparison-${index}`}
+                    style={run.bold ? styles.sentenceExampleEmphasis : undefined}>
+                    {index === 0 && isJudgment ? ` ${run.text.trimStart()}` : index === 0 ? run.text.trimStart() : run.text}
+                  </Text>
+                ))
+              : sentenceBodyInlines.length
+              ? sentenceBodyInlines.map((inline, index) => (
+                  <Text key={`sentence-example-${index}`}>
+                    {index === 0 && isJudgment ? ` ${inline.text?.trimStart() ?? ''}` : index === 0 ? inline.text?.trimStart() : inline.text}
+                  </Text>
+                ))
+              : `${isJudgment ? ' ' : ''}${sentenceParts.sentence.trimStart()}`}
+          </AppText>
+          {!isJudgment && visibleCorrectedSentence ? (
+            <MaterialIcons name="arrow-forward" size={14} color={fillBlankColors.text} />
+          ) : null}
+        </View>
+        {visibleCorrectedSentence ? (
+          <AppText language="en" variant="caption" style={styles.sentenceExampleCorrectionText}>
+            {isJudgment ? <Text style={styles.sentenceExampleCorrectLabel}>CORRECT:</Text> : null}
             {comparisonRuns.correction.map((run, index) => (
               <Text
                 key={`sentence-correction-${index}`}
                 style={run.bold ? styles.sentenceExampleEmphasis : undefined}>
-                {index === 0 && visibleCorrectedLabel ? ` ${run.text.trimStart()}` : run.text}
+                {index === 0 && isJudgment ? ` ${run.text.trimStart()}` : index === 0 ? run.text.trimStart() : run.text}
               </Text>
             ))}
           </AppText>
@@ -347,7 +342,7 @@ export function SentenceTransformExampleDisclosure({
 }
 
 const splitSentenceTransformLabel = (value: string) => {
-  const match = value.match(/^(.*?:\s*)(.*)$/s);
+  const match = value.match(/^\s*((?:correct|incorrect|old|new)\s*:\s*)(.*)$/is);
   return match ? { label: match[1], sentence: match[2] } : { label: '', sentence: value };
 };
 
@@ -617,7 +612,8 @@ const styles = StyleSheet.create({
   exampleAnswer: { color: fillBlankColors.text, textDecorationLine: 'underline', fontWeight: theme.typography.weights.bold },
   exampleBracket: { color: '#A7A9AF', fontWeight: theme.typography.weights.semibold },
   sentenceExampleContent: { gap: 8 },
-  sentenceExampleText: { color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.regular },
+  sentenceExampleSourceRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sentenceExampleText: { flexShrink: 1, color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.regular },
   sentenceExampleCorrectionText: { color: fillBlankColors.text, fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.regular },
   sentenceExampleEmphasis: {
     fontFamily: theme.typography.fontFaces.en.bold,

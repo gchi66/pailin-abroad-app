@@ -11,7 +11,6 @@ import Animated, {
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -83,11 +82,7 @@ export const MotionPressable = forwardRef<View, MotionPressableProps>(function M
       onPressOut={(event) => {
         setPressed(false);
         if (shouldAnimate) {
-          progress.value = withSpring(0, {
-            stiffness: 350,
-            damping: 24,
-            reduceMotion: ReduceMotion.System,
-          });
+          progress.value = withTiming(0, { duration: 90, reduceMotion: ReduceMotion.System });
         }
         onPressOut?.(event);
       }}

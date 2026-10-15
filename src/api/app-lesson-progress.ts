@@ -97,6 +97,31 @@ type WriteAppLessonProgressInput = {
   sectionKey?: string | null;
 };
 
+export async function touchAppLessonVisit(lessonId: string) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('You must be signed in to update lesson activity.');
+  }
+
+  const { error } = await supabase.from('user_lesson_progress').upsert(
+    {
+      user_id: user.id,
+      lesson_id: lessonId,
+      last_visited_at: new Date().toISOString(),
+    },
+    {
+      onConflict: 'user_id,lesson_id',
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function writeAppLessonProgress(input: WriteAppLessonProgressInput) {
   const {
     data: { user },

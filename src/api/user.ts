@@ -184,22 +184,48 @@ export async function fetchUserLessonEngagements() {
     throw new Error('You must be signed in to load lesson engagement.');
   }
 
-  const { data, error } = await supabase
-    .from('user_lesson_unit_progress')
-    .select('lesson_id, last_visited_at, unit_key')
-    .eq('user_id', user.id)
-    .like('unit_key', 'app:%')
-    .not('last_visited_at', 'is', null)
-    .order('last_visited_at', { ascending: false });
+  const [lessonVisitsResult, unitVisitsResult] = await Promise.all([
+    supabase
+      .from('user_lesson_progress')
+      .select('lesson_id, last_visited_at')
+      .eq('user_id', user.id)
+      .not('last_visited_at', 'is', null)
+      .order('last_visited_at', { ascending: false }),
+    supabase
+      .from('user_lesson_unit_progress')
+      .select('lesson_id, last_visited_at, unit_key')
+      .eq('user_id', user.id)
+      .like('unit_key', 'app:%')
+      .not('last_visited_at', 'is', null)
+      .order('last_visited_at', { ascending: false }),
+  ]);
 
-  if (error) {
-    throw new Error(error.message);
+  if (lessonVisitsResult.error) {
+    throw new Error(lessonVisitsResult.error.message);
+  }
+  if (unitVisitsResult.error) {
+    throw new Error(unitVisitsResult.error.message);
   }
 
-  return (data ?? []).filter(
-    (entry): entry is LessonEngagementProgress =>
-      typeof entry.lesson_id === 'string' && entry.lesson_id.trim().length > 0
+  const explicitVisits = (lessonVisitsResult.data ?? []).filter(
+    (entry): entry is { lesson_id: string; last_visited_at: string } =>
+      typeof entry.lesson_id === 'string' &&
+      entry.lesson_id.trim().length > 0 &&
+      typeof entry.last_visited_at === 'string' &&
+      entry.last_visited_at.trim().length > 0
   );
+  const explicitlyVisitedLessonIds = new Set(explicitVisits.map((entry) => entry.lesson_id));
+  const legacyUnitVisits = (unitVisitsResult.data ?? []).filter(
+    (entry): entry is LessonEngagementProgress =>
+      typeof entry.lesson_id === 'string' &&
+      entry.lesson_id.trim().length > 0 &&
+      !explicitlyVisitedLessonIds.has(entry.lesson_id)
+  );
+
+  return [
+    ...explicitVisits.map((entry) => ({ ...entry, unit_key: null })),
+    ...legacyUnitVisits,
+  ].sort((left, right) => Date.parse(right.last_visited_at ?? '') - Date.parse(left.last_visited_at ?? ''));
 }
 
 type CancelSubscriptionResponse = {

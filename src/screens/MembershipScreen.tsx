@@ -88,50 +88,52 @@ const normalizeSource = (value: string | string[] | undefined, fallback: Members
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
-      title: 'Take your learning\nto the next level!',
-      subtitle: 'Explore our plans to find the best fit for your learning journey.',
-      lifetimeTitle: 'Lifetime Membership',
-      fullTitle: 'Full Membership',
-      freeTitle: 'Free Account',
-      monthlyToggle: 'Monthly',
-      threeMonthToggle: '3 Months',
-      monthLabel: 'month',
-      joinCta: 'JOIN NOW!',
-      joinLoading: 'PROCESSING...',
-      freeCta: 'CONTINUE WITH FREE ACCOUNT',
+      title: 'ยกระดับการเรียนรู้\nของคุณไปอีกขั้น!',
+      subtitle: 'เลือกแผนที่เหมาะกับเส้นทางการเรียนรู้ของคุณ',
+      lifetimeTitle: 'สมาชิกตลอดชีพ',
+      fullTitle: 'สมาชิกแบบเต็มรูปแบบ',
+      freeTitle: 'บัญชีฟรี',
+      monthlyToggle: 'รายเดือน',
+      threeMonthToggle: '3 เดือน',
+      monthLabel: 'เดือน',
+      joinCta: 'สมัครเลย!',
+      joinLoading: 'กำลังดำเนินการ...',
+      freeCta: 'ใช้งานบัญชีฟรีต่อ',
       loadingErrorTitle: 'เกิดข้อผิดพลาด',
       loadingErrorBody: 'เราไม่สามารถโหลดราคาสมาชิกได้ กรุณาลองใหม่อีกครั้ง',
-      purchaseUnavailableTitle: 'Products unavailable',
-      purchaseUnavailableBody: "We couldn't load the membership products right now. Please try again.",
-      restoreCta: 'Restore Purchases',
-      restoreLoading: 'Restoring...',
-      restoreNoPurchasesTitle: 'No purchases found',
-      restoreNoPurchasesBody: "We couldn't find any previous purchases to restore for this Apple ID.",
-      restoreSuccessTitle: 'Purchases restored',
-      restoreSuccessBody: 'Your membership access has been restored.',
-      alreadyMemberTitle: 'You already have full access',
-      alreadyMemberBody: 'This account is already unlocked.',
-      guaranteeLineOne: "100% money-back guarantee within 30 days of your purchase if you're not completely satisfied with your membership.",
-      guaranteeLineTwo: "But, we're confident you'll love Pailin Abroad!",
+      purchaseUnavailableTitle: 'ยังไม่มีแพ็กเกจสมาชิกให้เลือก',
+      purchaseUnavailableBody: 'ไม่สามารถโหลดแพ็กเกจสมาชิกได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+      restoreCta: 'กู้คืนการซื้อ',
+      restoreLoading: 'กำลังกู้คืน...',
+      restoreNoPurchasesTitle: 'ไม่พบรายการซื้อ',
+      restoreNoPurchasesBody: 'ไม่พบรายการซื้อก่อนหน้าที่สามารถกู้คืนได้สำหรับ Apple ID นี้',
+      restoreSuccessTitle: 'กู้คืนการซื้อสำเร็จ',
+      restoreSuccessBody: 'กู้คืนสิทธิ์การเข้าถึงสมาชิกของคุณแล้ว',
+      alreadyMemberTitle: 'คุณมีสิทธิ์เข้าถึงแบบเต็มรูปแบบแล้ว',
+      alreadyMemberBody: 'บัญชีนี้ปลดล็อกเนื้อหาทั้งหมดแล้ว',
+      termsTitle: 'ข้อกำหนดและเงื่อนไข',
+      privacyTitle: 'นโยบายความเป็นส่วนตัว',
+      guaranteeLineOne: 'รับประกันคืนเงิน 100% ภายใน 30 วันนับจากวันที่ซื้อ หากคุณไม่พอใจกับสมาชิก',
+      guaranteeLineTwo: 'แต่เรามั่นใจว่าคุณจะหลงรัก Pailin Abroad!',
       lifetimeFeatures: [
-        'Pay once, learn forever',
-        'Full membership + all future updates',
-        'One simple payment, no renewals',
+        'ชำระครั้งเดียว เรียนได้ตลอดชีพ',
+        'สมาชิกแบบเต็มรูปแบบ พร้อมการอัปเดตทั้งหมดในอนาคต',
+        'ชำระเพียงครั้งเดียว ไม่มีการต่ออายุ',
       ],
       paidFeatures: [
-        'AI-guided speaking practice',
-        'Access to full lesson library, over 250 lessons!',
-        'Access to full Exercise Bank',
-        'Access to all topics in Topic Library',
-        'Detailed stats on your progress',
+        'ฝึกพูดพร้อมคำแนะนำจาก AI',
+        'เข้าถึงคลังบทเรียนทั้งหมด มากกว่า 250 บทเรียน!',
+        'เข้าถึงแบบฝึกหัดทั้งหมดในคลังแบบฝึกหัด',
+        'เข้าถึงทุกหัวข้อในคลังหัวข้อ',
+        'ดูสถิติความก้าวหน้าของคุณแบบละเอียด',
       ],
       freeFeatures: [
-        'Access to 16 free lessons',
-        'Access to featured exercises in Exercise Bank',
-        'Access to featured topics in Topic Library',
+        'เข้าถึงบทเรียนฟรี 16 บทเรียน',
+        'เข้าถึงแบบฝึกหัดแนะนำในคลังแบบฝึกหัด',
+        'เข้าถึงหัวข้อแนะนำในคลังหัวข้อ',
       ],
-      lifetimeSummary: 'No renewals - Full access for life!',
-      threeMonthSavings: (amount: string) => `You're saving ${amount} total with this plan!`,
+      lifetimeSummary: 'ไม่มีการต่ออายุ – เข้าถึงทุกอย่างได้ตลอดชีพ!',
+      threeMonthSavings: (amount: string) => `แผนนี้ช่วยให้คุณประหยัดรวม ${amount}!`,
     };
   }
 
@@ -159,6 +161,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     restoreSuccessBody: 'Your membership access has been restored.',
     alreadyMemberTitle: 'You already have full access',
     alreadyMemberBody: 'This account is already unlocked.',
+    termsTitle: 'Terms of Use',
+    privacyTitle: 'Privacy Policy',
     guaranteeLineOne: "100% money-back guarantee within 30 days of your purchase if you're not completely satisfied with your membership.",
     guaranteeLineTwo: "But, we're confident you'll love Pailin Abroad!",
     lifetimeFeatures: [
@@ -744,13 +748,27 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
               />
             ) : null}
 
-            <View style={styles.guaranteeBlock}>
-              <AppText language={uiLanguage} variant="caption" style={styles.guaranteeText}>
-                {copy.guaranteeLineOne}
-              </AppText>
-              <AppText language={uiLanguage} variant="caption" style={styles.guaranteeText}>
-                {copy.guaranteeLineTwo}
-              </AppText>
+            <View style={styles.assuranceBlock}>
+              <View style={styles.legalLinks}>
+                <Pressable accessibilityRole="link" onPress={() => router.push('/account/terms')}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.legalLinkText}>
+                    {copy.termsTitle}
+                  </AppText>
+                </Pressable>
+                <Pressable accessibilityRole="link" onPress={() => router.push('/account/privacy')}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.legalLinkText}>
+                    {copy.privacyTitle}
+                  </AppText>
+                </Pressable>
+              </View>
+              <View style={styles.guaranteeBlock}>
+                <AppText language={uiLanguage} variant="caption" style={styles.guaranteeText}>
+                  {copy.guaranteeLineOne}
+                </AppText>
+                <AppText language={uiLanguage} variant="caption" style={styles.guaranteeText}>
+                  {copy.guaranteeLineTwo}
+                </AppText>
+              </View>
             </View>
           </Stack>
         </ResponsivePageShell>
@@ -957,6 +975,22 @@ const styles = StyleSheet.create({
   },
   toggleTextSelected: {
     fontWeight: theme.typography.weights.bold,
+  },
+  assuranceBlock: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
+  },
+  legalLinkText: {
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 16,
+    textDecorationLine: 'underline',
   },
   guaranteeBlock: {
     alignItems: 'center',

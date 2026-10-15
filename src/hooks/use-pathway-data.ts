@@ -416,16 +416,6 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
 
   const completedIds = useMemo(() => new Set(completedLessons.map((lesson) => lesson.id)), [completedLessons]);
 
-  const completedProgressByLessonId = useMemo(
-    () =>
-      new Map(
-        completedProgress
-          .filter((entry) => typeof entry.lesson_id === 'string' && entry.lesson_id.trim().length > 0)
-          .map((entry) => [entry.lesson_id, entry] as const)
-      ),
-    [completedProgress]
-  );
-
   const lessonSequence = useMemo(() => {
     if (allLessons.length > 0) {
       return allLessons;
@@ -486,29 +476,21 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
         continue;
       }
 
-      const completionEntry = completedProgressByLessonId.get(lessonId);
-      if (!completionEntry) {
+      if (row.state === 'available') {
         return row;
       }
 
-      const lastVisitedAt = lessonEngagements[lessonId] ?? '';
-      const lastVisitedTime = Date.parse(lastVisitedAt);
-      const completedAtTime = completionEntry.completed_at ? Date.parse(completionEntry.completed_at) : Number.NaN;
-      const wasCompletedBeforeLatestSession =
-        Number.isFinite(lastVisitedTime) &&
-        Number.isFinite(completedAtTime) &&
-        completedAtTime < lastVisitedTime;
-
-      if (wasCompletedBeforeLatestSession) {
+      if (row.state === 'locked') {
         continue;
       }
 
-      return pathwayRows[rowIndex + 1] ?? null;
+      return pathwayRows.slice(rowIndex + 1).find((candidate) => candidate.state === 'available')
+        ?? pathwayRows.find((candidate) => candidate.state === 'available')
+        ?? null;
     }
 
-    const firstNotCompleted = pathwayRows.find((row) => row.state !== 'completed');
-    return firstNotCompleted ?? pathwayRows[0] ?? null;
-  }, [completedProgressByLessonId, lessonEngagements, pathwayRows]);
+    return pathwayRows.find((row) => row.state === 'available') ?? null;
+  }, [lessonEngagements, pathwayRows]);
 
   const setLessonCompletedOptimistically = async (params: { lesson: LessonListItem; completed: boolean }) => {
     const previousProgress = completedProgress;

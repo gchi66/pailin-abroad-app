@@ -143,11 +143,12 @@ type ExamplePanelProps = {
   example: ExerciseBankV2Example;
   expanded: boolean;
   exerciseType: string;
+  isJudgmentSentenceTransform?: boolean;
   language: UiLanguage;
   onToggle: () => void;
 };
 
-function ExamplePanel({ example, expanded, exerciseType, language, onToggle }: ExamplePanelProps) {
+function ExamplePanel({ example, expanded, exerciseType, isJudgmentSentenceTransform = false, language, onToggle }: ExamplePanelProps) {
   const copy = getCopy(language);
   const content = example.content;
   // Sentence-transform examples stay in English in both UI languages. Merge the
@@ -161,23 +162,19 @@ function ExamplePanel({ example, expanded, exerciseType, language, onToggle }: E
   const answer = content.example_answer ?? '';
   const sentenceAnswer = sentenceContent.example_answer ?? answer;
   const isSentenceTransformExample = exerciseType === 'sentence_transform';
+  const sourceIsCorrect = sentenceContent.example_is_correct === true;
 
   if (isSentenceTransformExample) {
     return (
       <SentenceTransformExampleDisclosure
-        correctedLabel={sentenceContent.example_is_correct === false && sentenceAnswer ? 'CORRECT:' : undefined}
-        correctedSentence={sentenceContent.example_is_correct === true ? undefined : sentenceAnswer}
+        correctedSentence={sentenceAnswer || undefined}
         expanded={expanded}
+        isJudgment={isJudgmentSentenceTransform}
         label={copy.example}
         language={language}
         sentence={sentenceSourceText}
         sentenceInlines={sentenceContent.stem_runs}
-        sentenceLabel={sentenceContent.example_is_correct === true
-          ? 'CORRECT:'
-          : sentenceContent.example_is_correct === false
-            ? 'INCORRECT:'
-            : undefined}
-        sentenceLabelTone={sentenceContent.example_is_correct === true ? 'correct' : 'incorrect'}
+        sourceIsCorrect={sourceIsCorrect}
         onToggle={onToggle}
       />
     );
@@ -979,6 +976,7 @@ export function ExerciseBankSessionScreen() {
                     example={currentQuestion.exercise.examples[0]}
                     expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                     exerciseType={currentQuestion.exercise.exercise_type}
+                    isJudgmentSentenceTransform={isJudgmentQuestion}
                     language={uiLanguage}
                     onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                   />
@@ -1024,6 +1022,7 @@ export function ExerciseBankSessionScreen() {
                         example={currentQuestion.exercise.examples[0]}
                         expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         exerciseType={currentQuestion.exercise.exercise_type}
+                        isJudgmentSentenceTransform={isJudgmentQuestion}
                         language={uiLanguage}
                         onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />
@@ -1095,6 +1094,7 @@ export function ExerciseBankSessionScreen() {
                         example={currentQuestion.exercise.examples[0]}
                         expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         exerciseType={currentQuestion.exercise.exercise_type}
+                        isJudgmentSentenceTransform={isJudgmentQuestion}
                         language={uiLanguage}
                         onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />
@@ -1133,6 +1133,7 @@ export function ExerciseBankSessionScreen() {
                         example={currentQuestion.exercise.examples[0]}
                         expanded={Boolean(expandedExampleIds[currentQuestion.exercise.examples[0].id])}
                         exerciseType={currentQuestion.exercise.exercise_type}
+                        isJudgmentSentenceTransform={isJudgmentQuestion}
                         language={uiLanguage}
                         onToggle={() => handleToggleExample(currentQuestion.exercise.examples[0].id)}
                       />

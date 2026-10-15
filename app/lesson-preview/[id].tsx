@@ -3,7 +3,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, BackHandler, PanResponder, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, BackHandler, PanResponder, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import fallbackImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
@@ -200,7 +200,15 @@ export default function LessonPreviewScreen() {
           )}
         </ScrollView>
         {lesson ? (
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View
+            style={[
+              styles.footer,
+              {
+                paddingBottom: Platform.OS === 'android'
+                  ? insets.bottom + 16
+                  : Math.max(insets.bottom, 16),
+              },
+            ]}>
             <Button language={uiLanguage} title={locked ? copy.upgrade : copy.start}
               style={[styles.startButton, locked ? styles.upgradeButton : null]}
               textStyle={[styles.buttonText, locked ? styles.upgradeText : null]}
@@ -244,7 +252,7 @@ const styles = StyleSheet.create({
   storyText: { fontSize: 11, lineHeight: 17, color: '#333333' },
   measurement: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
   footer: { paddingTop: 10, paddingHorizontal: 20, backgroundColor: '#FFFFFF' },
-  startButton: { minHeight: 44, backgroundColor: '#2860E8', boxShadow: '2px 3px 0px #1E1E1E' },
+  startButton: { minHeight: 44, borderWidth: theme.borderWidths.primaryCard, backgroundColor: '#2860E8', boxShadow: '2px 3px 0px #1E1E1E' },
   upgradeButton: { backgroundColor: '#F9DA60' },
   buttonText: { fontSize: 12, lineHeight: 18, textTransform: 'uppercase' },
   upgradeText: { color: '#1E1E1E' },

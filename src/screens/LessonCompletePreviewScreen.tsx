@@ -1,6 +1,6 @@
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer } from 'expo-audio';
 import { Image } from 'expo-image';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
@@ -19,6 +19,7 @@ import { upsertLessonCompletion } from '@/src/api/user';
 import { markGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
 import { freeLibraryIds } from '@/src/lib/library-pathway';
 import { bumpLessonLibraryProgressRefreshToken } from '@/src/lib/lesson-library-selection';
+import { activatePlaybackAudioSession } from '@/src/lib/audio-session';
 
 const LESSON_STAGE_ORDER = ['Beginner', 'Intermediate', 'Advanced', 'Expert'] as const;
 
@@ -117,7 +118,7 @@ export function LessonCompletePreviewScreen() {
 
       const playCompletionSound = async () => {
         try {
-          await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+          await activatePlaybackAudioSession();
           const loadStartedAt = Date.now();
           while (isActive && !completionSoundPlayer.isLoaded && Date.now() - loadStartedAt < 1500) {
             await new Promise((resolve) => setTimeout(resolve, 25));
@@ -153,7 +154,18 @@ export function LessonCompletePreviewScreen() {
       // The lesson flow normally saves before opening this screen. Let the
       // overview refresh its persisted state even if this retry fails.
     }
-    router.back();
+    if (!lessonId) {
+      router.back();
+      return;
+    }
+    router.dismissTo({
+      pathname: '/lessons/[id]',
+      params: {
+        id: lessonId,
+        overview: '1',
+        ...(libraryRoute ? { libraryRoute } : {}),
+      },
+    });
   };
   const openDiscussion = () => {
     if (!lessonId) {

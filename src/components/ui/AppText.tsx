@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
+import { Platform, StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { theme } from '../../theme/theme';
@@ -68,6 +68,8 @@ export function AppText({
   });
   const resolvedFontFamily = getSegmentFontFamily(resolvedLanguage);
   const sanitizedStyle = stripFontSynthesis(flattenedStyle ?? undefined);
+  const keepAndroidUnderlineInSingleFontRun =
+    Platform.OS === 'android' && flattenedStyle?.textDecorationLine?.includes('underline');
 
   const renderStringWithBlankRuns = (
     value: string,
@@ -85,6 +87,13 @@ export function AppText({
             {'\u00A0'.repeat(12)}
           </Text>
         );
+      }
+
+      // Android positions text decorations independently for nested font
+      // spans. Keeping underlined labels in the parent run prevents neutral
+      // symbols such as ‹, +, and → from receiving a mismatched underline.
+      if (keepAndroidUnderlineInSingleFontRun) {
+        return part;
       }
 
       return splitTextByScript(part).map((segment, segmentIndex) => (

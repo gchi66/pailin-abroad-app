@@ -57,9 +57,9 @@ export function AuthScreen() {
     () =>
       uiLanguage === 'th'
         ? {
-            signUpTitle: 'สมัคร Pailin Abroad',
+            signUpTitle: 'สมัคร',
             signUpSubtitle: 'อังกฤษติดปาก',
-            signInTitle: 'เข้าสู่ระบบ Pailin Abroad',
+            signInTitle: 'เข้าสู่ระบบ',
             signInSubtitle: 'อังกฤษติดปาก',
             apple: 'ดำเนินการต่อด้วย Apple',
             appleLoading: 'กำลังเชื่อมต่อ Apple...',
@@ -801,44 +801,44 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   headlineLine: {
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: 30,
+    lineHeight: 38,
     fontWeight: '900',
     color: '#1A2332',
   },
   headlineLineCompact: {
-    fontSize: 24,
-    lineHeight: 31,
+    fontSize: 26,
+    lineHeight: 33,
   },
   headlineLineTablet: {
-    fontSize: 40,
-    lineHeight: 50,
+    fontSize: 42,
+    lineHeight: 52,
   },
   headlineLineLargeTablet: {
-    fontSize: 52,
-    lineHeight: 64,
+    fontSize: 54,
+    lineHeight: 66,
   },
   subtitle: {
     marginTop: 8,
     color: '#5A6A7E',
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '600',
   },
   subtitleCompact: {
     marginTop: 6,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 15,
+    lineHeight: 20,
   },
   subtitleTablet: {
     marginTop: 10,
-    fontSize: 19,
-    lineHeight: 26,
+    fontSize: 20,
+    lineHeight: 27,
   },
   subtitleLargeTablet: {
     marginTop: 12,
-    fontSize: 22,
-    lineHeight: 30,
+    fontSize: 23,
+    lineHeight: 31,
   },
   formShell: {
     gap: 14,

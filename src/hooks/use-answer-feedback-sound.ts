@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer } from 'expo-audio';
 
 import correctFeedbackSound from '@/assets/audio/correct-sound-effect.mp3';
 import incorrectFeedbackSound from '@/assets/audio/wrong-sound-effect.mp3';
+import { activatePlaybackAudioSession } from '@/src/lib/audio-session';
 
 export function useAnswerFeedbackSound() {
   const correctPlayer = useAudioPlayer(correctFeedbackSound, {
@@ -17,7 +18,7 @@ export function useAnswerFeedbackSound() {
   return useCallback(async (isCorrect: boolean) => {
     const player = isCorrect ? correctPlayer : incorrectPlayer;
     try {
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      await activatePlaybackAudioSession();
       const loadStartedAt = Date.now();
       while (!player.isLoaded && Date.now() - loadStartedAt < 1500) {
         await new Promise((resolve) => setTimeout(resolve, 25));

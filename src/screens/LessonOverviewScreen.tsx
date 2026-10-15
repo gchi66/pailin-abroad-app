@@ -423,7 +423,7 @@ const s = StyleSheet.create({
   back: { flex: 1 },
   translatePill: { minWidth: 48, height: 24, minHeight: 24, borderRadius: 12, borderWidth: 1, borderColor: '#D0D0D0', backgroundColor: theme.colors.surface, paddingHorizontal: 10, paddingVertical: 0, alignItems: 'center', justifyContent: 'center' },
   translatePillDisabled: { opacity: 0.7 },
-  translatePillLabel: { minWidth: 22, minHeight: 14, alignItems: 'center', justifyContent: 'center', transform: [{ translateY: 1 }] },
+  translatePillLabel: { minWidth: 22, minHeight: 14, alignItems: 'center', justifyContent: 'center' },
   translatePillText: { color: theme.colors.text, fontSize: 11, lineHeight: 14, fontFamily: theme.typography.fontFaces.en.medium, fontWeight: theme.typography.weights.medium, includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
   avatarCircle: { position: 'absolute', right: -8, bottom: -8, width: 48, height: 48, overflow: 'hidden', borderWidth: 1, borderColor: '#222', borderRadius: 24, backgroundColor: '#BDEDFC', alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 38, height: 38, transform: [{ scaleX: -1 }] },
