@@ -120,6 +120,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       membershipPreviewOnboarding: 'เปิด Membership แบบ Onboarding',
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
+      openingPreview: 'เปิดตัวอย่างหน้าเปิดแอป',
       avatarLabel: 'PP',
       setPassword: 'รีเซ็ตรหัสผ่าน',
       subtitle: 'จัดการข้อมูลบัญชีของคุณ', password: 'รหัสผ่าน', changePassword: 'รีเซ็ตรหัสผ่าน', currentPassword: 'รหัสผ่านปัจจุบัน', newPassword: 'รหัสผ่านใหม่', confirmPassword: 'ยืนยันรหัสผ่านใหม่', savePassword: 'บันทึกรหัสผ่าน', passwordSaved: 'รีเซ็ตรหัสผ่านแล้ว', passwordMismatch: 'รหัสผ่านใหม่ไม่ตรงกัน', passwordRules: 'กรุณาตั้งรหัสผ่านให้ตรงตามเงื่อนไขทั้งหมด', passwordRule1: 'อย่างน้อย 8 ตัวอักษร', passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว', passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว', saveAvatar: 'บันทึกรูปโปรไฟล์',
@@ -153,6 +154,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     membershipPreviewOnboarding: 'Open membership page / onboarding',
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
+    openingPreview: 'Open app opening preview',
     avatarLabel: 'PP',
     setPassword: 'Reset Password',
     subtitle: 'Manage your account information.', password: 'Password', changePassword: 'Reset Password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', savePassword: 'Save Password', passwordSaved: 'Password reset.', passwordMismatch: 'New passwords do not match.', passwordRules: 'Please meet all password requirements.', passwordRule1: 'At least 8 characters', passwordRule2: 'At least 1 number and 1 special character', passwordRule3: 'At least 1 uppercase and 1 lowercase letter', saveAvatar: 'Save Avatar',
@@ -443,6 +445,7 @@ export function ProfileScreen() {
               </Pressable>
             </View>
             {profile?.is_admin === true ? <Stack gap="sm" style={styles.adminLinks}>
+              <Button title={copy.openingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/opening?preview=1')} />
               <Button title={copy.onboardingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/onboarding?devtools=1')} />
               <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
               <Button title={copy.membershipPreviewGuest} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=guest'); }} />

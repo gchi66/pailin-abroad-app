@@ -16,6 +16,7 @@ import { DailyReminderManager } from '@/src/components/DailyReminderManager';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { AppSessionProvider, useAppSession } from '@/src/context/app-session-context';
 import { OnboardingProvider } from '@/src/context/onboarding-context';
+import { OpeningScreenProvider, useOpeningScreen } from '@/src/context/opening-screen-context';
 import { UiLanguageProvider } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
@@ -46,8 +47,9 @@ void SplashScreen.preventAutoHideAsync();
 function AppRouteGate() {
   const router = useRouter();
   const pathname = usePathname();
-  const params = useGlobalSearchParams<{ devtools?: string }>();
+  const params = useGlobalSearchParams<{ devtools?: string; preview?: string }>();
   const { authError, hasAccount, hasCompletedOnboarding, isGuestMode, isLoading, profile } = useAppSession();
+  const { hasSeenOpeningScreen, isOpeningScreenStateReady } = useOpeningScreen();
   const previousPathname = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -60,16 +62,28 @@ function AppRouteGate() {
   }, [pathname]);
 
   const isOnOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
+  const isOnOpeningRoute = pathname === '/opening';
   const isOnMembershipRoute = pathname === '/membership';
   const isOnAuthRoute = pathname === '/account/auth';
   const isOnAuthCallbackRoute = pathname === '/auth/callback';
   const isOnProtectedAccountRoute = pathname === '/account' || (pathname.startsWith('/account/') && pathname !== '/account/auth');
   const isOnboardingDevtoolsMode =
     isOnOnboardingRoute && params.devtools === '1' && profile?.is_admin === true;
+  const shouldRedirectToOpening =
+    !isLoading && isOpeningScreenStateReady && !hasSeenOpeningScreen && !isOnOpeningRoute;
+  const shouldRedirectAwayFromOpening =
+    !isLoading &&
+    isOpeningScreenStateReady &&
+    hasSeenOpeningScreen &&
+    isOnOpeningRoute &&
+    params.preview !== '1';
   const shouldRedirectToOnboarding =
     !isLoading &&
+    isOpeningScreenStateReady &&
+    hasSeenOpeningScreen &&
     hasAccount &&
     !hasCompletedOnboarding &&
+    !isOnOpeningRoute &&
     !isOnOnboardingRoute &&
     !isOnMembershipRoute &&
     !(isOnAuthCallbackRoute && authError);
@@ -89,7 +103,17 @@ function AppRouteGate() {
   }, [authError, hasAccount, hasCompletedOnboarding, isGuestMode, isLoading, pathname]);
 
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || !isOpeningScreenStateReady) {
+      return;
+    }
+
+    if (shouldRedirectToOpening) {
+      router.replace('/opening');
+      return;
+    }
+
+    if (shouldRedirectAwayFromOpening) {
+      router.replace('/(tabs)');
       return;
     }
 
@@ -116,14 +140,17 @@ function AppRouteGate() {
     hasCompletedOnboarding,
     isGuestMode,
     isLoading,
+    isOpeningScreenStateReady,
     router,
     shouldRedirectAuthenticatedAuthRoute,
+    shouldRedirectAwayFromOpening,
     shouldRedirectSignedOutUser,
+    shouldRedirectToOpening,
     shouldRedirectToApp,
     shouldRedirectToOnboarding,
   ]);
 
-  if (shouldRedirectSignedOutUser || shouldRedirectAuthenticatedAuthRoute || shouldRedirectToOnboarding || shouldRedirectToApp) {
+  if (!isOpeningScreenStateReady || shouldRedirectToOpening || shouldRedirectAwayFromOpening || shouldRedirectSignedOutUser || shouldRedirectAuthenticatedAuthRoute || shouldRedirectToOnboarding || shouldRedirectToApp) {
     return (
       <View pointerEvents="none" style={styles.routeGateOverlay}>
         <PageLoadingState />
@@ -136,13 +163,14 @@ function AppRouteGate() {
 
 function SplashVisibilityGate({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { isLoading } = useAppSession();
+  const { isOpeningScreenStateReady } = useOpeningScreen();
 
   useEffect(() => {
-    if (fontsLoaded && !isLoading) {
+    if (fontsLoaded && !isLoading && isOpeningScreenStateReady) {
       logBootstrap('splash hidden');
       void SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, isLoading]);
+  }, [fontsLoaded, isLoading, isOpeningScreenStateReady]);
 
   return null;
 }
@@ -200,9 +228,10 @@ export default function RootLayout() {
           propsToCapture: ['testID'],
         }}
       >
-      <AppSessionProvider>
-        <OnboardingProvider>
-          <UiLanguageProvider>
+      <OpeningScreenProvider>
+        <AppSessionProvider>
+          <OnboardingProvider>
+            <UiLanguageProvider>
             <DailyReminderManager />
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <SplashVisibilityGate fontsLoaded={fontsLoaded} />
@@ -235,9 +264,10 @@ export default function RootLayout() {
               </Stack>
               <StatusBar style="dark" />
             </ThemeProvider>
-          </UiLanguageProvider>
-        </OnboardingProvider>
-      </AppSessionProvider>
+            </UiLanguageProvider>
+          </OnboardingProvider>
+        </AppSessionProvider>
+      </OpeningScreenProvider>
       </PostHogProvider>
     </GestureHandlerRootView>
   );
