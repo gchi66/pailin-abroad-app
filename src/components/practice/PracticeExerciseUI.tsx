@@ -290,10 +290,12 @@ export function SentenceTransformExampleDisclosure({
       onToggle={onToggle}>
       <View style={styles.sentenceExampleContent}>
         <View style={styles.sentenceExampleSourceRow}>
-          <AppText language="en" variant="caption" style={styles.sentenceExampleText}>
+          <AppText language={language} variant="caption" style={styles.sentenceExampleText}>
             {isJudgment ? (
               <Text style={sourceIsCorrect ? styles.sentenceExampleCorrectLabel : styles.sentenceExampleIncorrectLabel}>
-                {sourceIsCorrect ? 'CORRECT:' : 'INCORRECT:'}
+                {sourceIsCorrect
+                  ? (language === 'th' ? 'ถูกต้อง:' : 'CORRECT:')
+                  : (language === 'th' ? 'ไม่ถูกต้อง:' : 'INCORRECT:')}
               </Text>
             ) : null}
             {hasAuthoredSourceEmphasis

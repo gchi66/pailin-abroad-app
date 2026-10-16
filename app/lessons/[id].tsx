@@ -12915,8 +12915,10 @@ const mergeAdjacentPracticeRowTokens = (
                         displayMarkState === value ? styles.practiceSentenceToggleFocusedActive : null,
                         displayMarkState === value ? styles.practiceSentenceToggleExampleActive : null,
                       ]}>
-                      <AppText language="en" variant="caption" style={styles.practiceSentenceToggleText}>
-                        {value ? 'CORRECT ✓' : 'INCORRECT X'}
+                      <AppText language={pageLanguage} variant="caption" style={styles.practiceSentenceToggleText}>
+                        {value
+                          ? (pageLanguage === 'th' ? 'ถูกต้อง ✓' : 'CORRECT ✓')
+                          : (pageLanguage === 'th' ? 'ไม่ถูกต้อง X' : 'INCORRECT X')}
                       </AppText>
                     </Pressable>
                   ))}
@@ -13221,8 +13223,10 @@ const mergeAdjacentPracticeRowTokens = (
                       ]}>
                       {(isOpenExercise || isSentenceTransformExercise) && isFocusedPracticeSession ? null : renderFocusedPromptLabel(
                           isSentenceTransformExercise
-                            ? showMarkButtons ? 'CORRECT OR INCORRECT?' : 'REWRITE THIS'
-                            : 'RESPOND TO THE PROMPT',
+                            ? showMarkButtons
+                              ? (pageLanguage === 'th' ? 'ถูกหรือผิด?' : 'CORRECT OR INCORRECT?')
+                              : (pageLanguage === 'th' ? 'เขียนประโยคใหม่' : 'REWRITE THIS')
+                            : (pageLanguage === 'th' ? 'ตอบคำถาม' : 'RESPOND TO THE PROMPT'),
                           isSentenceTransformExercise && showMarkButtons ? '✅❌' : '✏️',
                           isImageOnlyOpenPrompt
                         )}
@@ -13300,9 +13304,9 @@ const mergeAdjacentPracticeRowTokens = (
 
                   {showMarkButtons ? isFocusedPracticeSession ? (
                     <PracticeJudgmentButtons
-                      correctLabel="IT’S CORRECT"
-                      incorrectLabel="IT’S INCORRECT"
-                      language="en"
+                      correctLabel={pageLanguage === 'th' ? 'ถูกต้อง' : 'IT’S CORRECT'}
+                      incorrectLabel={pageLanguage === 'th' ? 'ไม่ถูกต้อง' : 'IT’S INCORRECT'}
+                      language={pageLanguage}
                       value={displayMarkState ?? undefined}
                       onChange={(value) => handlePracticeSentenceCorrectToggle(exercise.id, item.key, value, item.text)}
                     />

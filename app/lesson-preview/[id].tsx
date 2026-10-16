@@ -12,6 +12,7 @@ import {
   lessonHeaderBlueBlob,
   resolveLocalLessonHeaderImage,
 } from '@/src/assets/lesson-header-images';
+import { fetchAppLessonProgressDetail } from '@/src/api/app-lesson-progress';
 import { getLessonsIndex, prefetchResolvedLesson } from '@/src/api/lessons';
 import { prefetchPricing } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
@@ -34,10 +35,10 @@ function headerImageUrl(raw: string | null) {
 }
 
 export default function LessonPreviewScreen() {
-  const params = useLocalSearchParams<{ id: string; libraryRoute?: string }>();
+  const params = useLocalSearchParams<{ id: string; libraryRoute?: string; started?: string }>();
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasMembership } = useAppSession();
+  const { hasAccount, hasMembership } = useAppSession();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const [lesson, setLesson] = useState<LessonListItem | null>(null);
@@ -47,16 +48,17 @@ export default function LessonPreviewScreen() {
   const [imageFailed, setImageFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
+  const [hasStarted, setHasStarted] = useState(params.started === '1');
   const translateY = useRef(new Animated.Value(height)).current;
   const closing = useRef(false);
   const libraryRoute = params.libraryRoute === 'free-library' ? 'free-library' : 'library';
   const locked = !hasMembership && !isFree;
   const copy = uiLanguage === 'th' ? {
-    lesson: 'บทเรียน', backstory: 'เรื่องราวเบื้องหลัง', start: 'เริ่มบทเรียน', upgrade: 'อัปเกรดเพื่อปลดล็อก!',
+    lesson: 'บทเรียน', backstory: 'เรื่องราวเบื้องหลัง', start: 'เริ่มบทเรียน', continue: 'เรียนต่อ', upgrade: 'อัปเกรดเพื่อปลดล็อก!',
     dismiss: 'ปิดตัวอย่างบทเรียน', expand: 'อ่านเรื่องราวเพิ่มเติม', collapse: 'ย่อเรื่องราว',
     error: 'โหลดตัวอย่างบทเรียนไม่สำเร็จ', retry: 'ลองอีกครั้ง', untitled: 'ไม่มีชื่อบทเรียน',
   } : {
-    lesson: 'Lesson', backstory: 'Backstory', start: 'Start lesson', upgrade: 'Upgrade to unlock!',
+    lesson: 'Lesson', backstory: 'Backstory', start: 'Start lesson', continue: 'Continue lesson', upgrade: 'Upgrade to unlock!',
     dismiss: 'Dismiss lesson preview', expand: 'Read full backstory', collapse: 'Collapse backstory',
     error: 'Could not load this lesson preview.', retry: 'Try again', untitled: 'Untitled lesson',
   };
@@ -72,6 +74,7 @@ export default function LessonPreviewScreen() {
 
   useEffect(() => {
     let active = true;
+    setHasStarted(params.started === '1');
     setLesson(null);
     setLoadError(false);
     setImageFailed(false);
@@ -89,7 +92,28 @@ export default function LessonPreviewScreen() {
       if (hasMembership || free) prefetchResolvedLesson(selected.id, 'en');
     }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
-  }, [params.id, retry, hasMembership]);
+  }, [params.id, params.started, retry, hasMembership]);
+
+  useEffect(() => {
+    if (!hasAccount || !lesson?.id) {
+      return;
+    }
+
+    let active = true;
+    void fetchAppLessonProgressDetail(lesson.id)
+      .then((progress) => {
+        if (active) {
+          setHasStarted(progress.has_started);
+        }
+      })
+      .catch(() => {
+        // Keep the navigation hint when progress cannot be refreshed.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasAccount, lesson?.id]);
 
   useEffect(() => {
     Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 24, stiffness: 220, mass: 1 }).start();
@@ -209,7 +233,7 @@ export default function LessonPreviewScreen() {
                   : Math.max(insets.bottom, 16),
               },
             ]}>
-            <Button language={uiLanguage} title={locked ? copy.upgrade : copy.start}
+            <Button language={uiLanguage} title={locked ? copy.upgrade : hasStarted ? copy.continue : copy.start}
               style={[styles.startButton, locked ? styles.upgradeButton : null]}
               textStyle={[styles.buttonText, locked ? styles.upgradeText : null]}
               onPress={() => {

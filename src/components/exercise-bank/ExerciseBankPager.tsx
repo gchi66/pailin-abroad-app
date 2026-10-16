@@ -1437,10 +1437,10 @@ function renderExerciseBody(params: {
                   ) : null}
                   {showMarkButtons ? (
                     <PracticeJudgmentButtons
-                      correctLabel="IT’S CORRECT"
+                      correctLabel={contentLang === 'th' ? 'ถูกต้อง' : 'IT’S CORRECT'}
                       disabled={item.isExample}
-                      incorrectLabel="IT’S INCORRECT"
-                      language="en"
+                      incorrectLabel={contentLang === 'th' ? 'ไม่ถูกต้อง' : 'IT’S INCORRECT'}
+                      language={contentLang}
                       value={displayMarkState ?? undefined}
                       onChange={(value) => onSentenceCorrectToggle(exercise.id, item.key, value, item.text)}
                     />

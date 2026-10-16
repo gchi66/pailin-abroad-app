@@ -129,6 +129,7 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
   const [allLessons, setAllLessons] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
   const [isCompletedProgressLoading, setIsCompletedProgressLoading] = useState(enabled);
+  const [isLessonEngagementsLoading, setIsLessonEngagementsLoading] = useState(enabled);
   const [isLessonIndexLoading, setIsLessonIndexLoading] = useState(enabled);
   const [isStatsLoading, setIsStatsLoading] = useState(enabled);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -137,6 +138,7 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
     if (!enabled) {
       setIsLoading(false);
       setIsCompletedProgressLoading(false);
+      setIsLessonEngagementsLoading(false);
       setIsLessonIndexLoading(false);
       setIsStatsLoading(false);
       return;
@@ -262,6 +264,7 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
     };
 
     const loadLessonEngagements = async () => {
+      setIsLessonEngagementsLoading(true);
       console.info(PATHWAY_TIMING_LABEL, 'lesson engagements started');
       try {
         const engagementResult = await withRequestTiming(
@@ -289,6 +292,10 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
         setLessonEngagements(latestByLessonId);
       } catch {
         // Timing helper already logs the request failure; keep the main pathway usable.
+      } finally {
+        if (isMounted) {
+          setIsLessonEngagementsLoading(false);
+        }
       }
     };
 
@@ -415,6 +422,7 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
   );
 
   const completedIds = useMemo(() => new Set(completedLessons.map((lesson) => lesson.id)), [completedLessons]);
+  const startedLessonIds = useMemo(() => new Set(Object.keys(lessonEngagements)), [lessonEngagements]);
 
   const lessonSequence = useMemo(() => {
     if (allLessons.length > 0) {
@@ -531,9 +539,11 @@ export function usePathwayData({ enabled = true, hasMembership, userId = null }:
     allLessons,
     isLoading,
     isCompletedProgressLoading,
+    isLessonEngagementsLoading,
     isLessonIndexLoading,
     isStatsLoading,
     errorMessage,
+    startedLessonIds,
     setLessonCompletedOptimistically,
   };
 }

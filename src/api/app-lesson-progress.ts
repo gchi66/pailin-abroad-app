@@ -169,6 +169,7 @@ export async function writeAppLessonProgress(input: WriteAppLessonProgressInput)
       .from('user_lesson_progress')
       .update({
         started_at: existingProgress.started_at ?? now,
+        last_visited_at: now,
         last_unit_type: input.unitType,
         last_unit_key: input.unitKey,
         is_completed: existingProgress.is_completed ?? false,
@@ -188,6 +189,7 @@ export async function writeAppLessonProgress(input: WriteAppLessonProgressInput)
     user_id: user.id,
     lesson_id: input.lessonId,
     started_at: now,
+    last_visited_at: now,
     last_unit_type: input.unitType,
     last_unit_key: input.unitKey,
     is_completed: false,

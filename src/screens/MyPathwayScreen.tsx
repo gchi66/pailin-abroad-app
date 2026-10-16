@@ -128,6 +128,7 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   levelShort: 'เลเวล',
   continueLearning: 'เรียนต่อ',
   openLesson: 'เริ่มบทเรียน',
+  continueLesson: 'เรียนต่อ',
   lesson: 'บทเรียน',
   becomeMember: 'อัปเกรดเพื่อเรียนต่อ →',
   browseFreeLibrary: 'เปิดคลังบทเรียนฟรี →',
@@ -161,6 +162,7 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   levelShort: 'Level',
   continueLearning: 'Continue learning',
   openLesson: 'Start lesson',
+  continueLesson: 'Continue lesson',
   lesson: 'Lesson',
   becomeMember: 'Upgrade to continue →',
   browseFreeLibrary: 'Browse the free lesson library →',
@@ -319,6 +321,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     completedLessons,
     errorMessage,
     isCompletedProgressLoading,
+    isLessonEngagementsLoading,
     isLessonIndexLoading,
     isLoading,
     isStatsLoading,
@@ -326,6 +329,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     resumeRow: defaultResumeRow,
     freeLessonIds,
     stats,
+    startedLessonIds,
   } = usePathwayData({
     enabled: hasAccount,
     hasMembership,
@@ -411,7 +415,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
     void AsyncStorage.setItem(getNoNameWelcomeSeenKey(user.id), 'true').catch(() => { });
   }, [shouldShowFirstNoNameWelcome, user?.id]);
 
-  const isPathwayLoading = isLoading || isCompletedProgressLoading || isLessonIndexLoading || isStatsLoading;
+  const isPathwayLoading = isLoading || isCompletedProgressLoading || isLessonEngagementsLoading || isLessonIndexLoading || isStatsLoading;
 
   useEffect(() => {
     if (!isPathwayLoading) {
@@ -448,6 +452,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
       params: {
         id: lessonId,
         libraryRoute: hasMembership ? 'library' : 'free-library',
+        started: startedLessonIds.has(lessonId) ? '1' : '0',
       },
     });
   };
@@ -608,7 +613,11 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                         </View>
                         <View style={styles.resumeLessonButtonWrap}>
                           <View pointerEvents="none" style={styles.resumeLessonButtonShadow} />
-                          <Button insetBorder language={uiLanguage} title={resumeRow.state === 'locked' ? copy.becomeMember : copy.openLesson}
+                          <Button insetBorder language={uiLanguage} title={resumeRow.state === 'locked'
+                            ? copy.becomeMember
+                            : startedLessonIds.has(resumeRow.lesson.id)
+                              ? copy.continueLesson
+                              : copy.openLesson}
                             leadingIcon={resumeRow.state === 'locked' ? <Image source={lockWhiteImage} style={styles.buttonLockIcon} resizeMode="contain" accessible={false} /> : undefined}
                             onPress={() => resumeRow.state === 'locked' ? handleUpgrade() : handleOpenLesson(resumeRow.lesson)}
                             style={[styles.resumeButton, styles.resumeLessonButton]} textStyle={styles.ctaText} />
