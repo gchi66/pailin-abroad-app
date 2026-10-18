@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "icon": "./assets/images/app-logo-pailin-abroad.icon",
       "supportsTablet": true,
       "bundleIdentifier": "com.pailinabroad.app",
       "associatedDomains": [
