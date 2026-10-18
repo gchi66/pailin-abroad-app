@@ -61,6 +61,7 @@ import {
 } from '@/src/api/lesson-answer-state';
 import { checkInDailyStreak, fetchUserCompletedLessons, upsertLessonCompletion } from '@/src/api/user';
 import { LessonAudioTray } from '@/src/components/lesson/LessonAudioTray';
+import { GuestSpeakingPromptModal } from '@/src/components/lesson/GuestSpeakingPromptModal';
 import { LessonListenPage } from '@/src/components/lesson/LessonListenPage';
 import {
   LessonRichSectionIntro,
@@ -109,6 +110,7 @@ import {
 } from '@/src/lib/app-lesson-progress';
 import { bumpLessonLibraryProgressRefreshToken, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { getGuestCompletedLessonIds, markGuestLessonCompleted, unmarkGuestLessonCompleted } from '@/src/lib/guest-lesson-completion';
+import { savePendingLessonReturn } from '@/src/lib/pending-lesson-return';
 import { getPhraseDisplayLabels } from '@/src/lib/phrase-display-labels';
 import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
@@ -3996,6 +3998,9 @@ export default function LessonDetailShellScreen() {
   const [completionModalState, setCompletionModalState] = useState<
     'success' | 'skip_warning' | 'skip_success' | null
   >(null);
+  const [guestSpeakingPromptState, setGuestSpeakingPromptState] = useState<
+    'navigation' | 'completion' | null
+  >(null);
   const [streakCelebration, setStreakCelebration] = useState<StreakCelebrationState | null>(null);
   const [nextSectionHintMessage, setNextSectionHintMessage] = useState<string | null>(null);
   const [audioTrayAutoExpandSignal, setAudioTrayAutoExpandSignal] = useState<string | null>(null);
@@ -6545,7 +6550,14 @@ export default function LessonDetailShellScreen() {
     router.push('/(tabs)/exercises');
   }, [flushPendingLessonPersistence, router]);
 
-  const openSpeakingPractice = useCallback(async (requiredPracticeComplete = allPracticeExercisesChecked) => {
+  const openSpeakingPractice = useCallback(async (
+    requiredPracticeComplete = allPracticeExercisesChecked,
+    guestPromptState: 'navigation' | 'completion' = 'navigation'
+  ) => {
+    if (isGuestLessonSession) {
+      setGuestSpeakingPromptState(guestPromptState);
+      return;
+    }
     if (!hasMembership) {
       router.push('/(tabs)/account/membership');
       return;
@@ -6564,7 +6576,7 @@ export default function LessonDetailShellScreen() {
         ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
       },
     });
-  }, [activeLessonNumber, allPracticeExercisesChecked, contentLang, flushPendingLessonPersistence, hasMembership, lessonCover?.id, libraryRouteParam, router, sectionIntroTotal]);
+  }, [activeLessonNumber, allPracticeExercisesChecked, contentLang, flushPendingLessonPersistence, hasMembership, isGuestLessonSession, lessonCover?.id, libraryRouteParam, router, sectionIntroTotal]);
 
   const openLessonCompletePage = useCallback(() => {
     if (!lessonCover?.id) return;
@@ -6809,6 +6821,43 @@ export default function LessonDetailShellScreen() {
     setIsLessonCompleted(true);
     openLessonCompletePage();
   }, [lessonCover?.id, openLessonCompletePage]);
+
+  const closeGuestSpeakingPrompt = useCallback(() => {
+    const shouldReturnToOverview = guestSpeakingPromptState === 'completion';
+    setGuestSpeakingPromptState(null);
+    if (shouldReturnToOverview) {
+      pauseConversationAudio();
+      snippetSoundRef.current?.pause();
+      setPlayingSnippetKey(null);
+      setShowOverview(true);
+    }
+  }, [guestSpeakingPromptState]);
+
+  const handleGuestCreateAccount = useCallback(async () => {
+    if (!lessonCover?.id) return;
+
+    try {
+      await flushPendingLessonPersistence();
+      await savePendingLessonReturn({
+        lessonId: lessonCover.id,
+        ...(libraryRouteParam ? { libraryRoute: libraryRouteParam } : {}),
+      });
+      setGuestSpeakingPromptState(null);
+      router.push('/account/auth');
+    } catch {
+      Alert.alert(
+        pageLanguage === 'th' ? 'ไม่สามารถดำเนินการต่อได้' : 'Unable to continue',
+        pageLanguage === 'th'
+          ? 'โปรดลองอีกครั้งเพื่อสร้างบัญชีของคุณ'
+          : 'Please try again to create your account.'
+      );
+    }
+  }, [flushPendingLessonPersistence, lessonCover?.id, libraryRouteParam, pageLanguage, router]);
+
+  const handleGuestSkipAndFinish = useCallback(async () => {
+    setGuestSpeakingPromptState(null);
+    await completeGuestLesson();
+  }, [completeGuestLesson]);
 
   const setLessonFinishedFromOverview = useCallback(async (completed: boolean) => {
     if (!lessonCover?.id) return;
@@ -11826,7 +11875,7 @@ const mergeAdjacentPracticeRowTokens = (
       if (isCheckpointCoverLesson) {
         void handleFinishLessonPress();
       } else {
-        void openSpeakingPractice(true);
+        void openSpeakingPractice(true, 'completion');
       }
       return;
     }
@@ -11844,7 +11893,7 @@ const mergeAdjacentPracticeRowTokens = (
     } else if (isCheckpointCoverLesson) {
       void handleFinishLessonPress();
     } else if (isLastSection) {
-      void openSpeakingPractice(true);
+      void openSpeakingPractice(true, 'completion');
     } else {
       navigateToSectionWithConversationGate(Math.min(activeSectionIndex + 1, sectionCount - 1));
     }
@@ -14483,6 +14532,20 @@ const mergeAdjacentPracticeRowTokens = (
         </View>
       </Modal>
 
+      <GuestSpeakingPromptModal
+        language={pageLanguage}
+        visible={guestSpeakingPromptState !== null}
+        allowSkipAndFinish={guestSpeakingPromptState === 'completion'}
+        isFinishing={isSavingLessonCompletion}
+        onClose={closeGuestSpeakingPrompt}
+        onCreateAccount={() => {
+          void handleGuestCreateAccount();
+        }}
+        onSkipAndFinish={() => {
+          void handleGuestSkipAndFinish();
+        }}
+      />
+
       <Modal
         animationType="fade"
         onRequestClose={closePracticeImagePreview}
@@ -14634,7 +14697,13 @@ const mergeAdjacentPracticeRowTokens = (
           speakingComplete={completedSpeakingLessonIds.has(activeLessonNumber)}
           onSpeaking={!isCheckpointCoverLesson ? openSpeakingPractice : undefined}
           onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
-          onUpgrade={() => router.push('/(tabs)/account/membership')}
+          onUpgrade={() => {
+            if (isGuestLessonSession) {
+              void openSpeakingPractice();
+              return;
+            }
+            router.push('/(tabs)/account/membership');
+          }}
           onSetFinished={setLessonFinishedFromOverview}
           tabs={overlayTabItems}
         /> : <PageLoadingState language={uiLanguage} errorBody={errorMessage || undefined} />
@@ -16173,7 +16242,7 @@ const mergeAdjacentPracticeRowTokens = (
                                 ? showPracticeSetResults
                                   ? extraPracticeOrder !== null && extraPracticeBatchIndex < extraPracticeBatchCount - 1
                                     ? continueButtonLabel
-                                    : isCheckpointCoverLesson || (isGuestLessonSession && isLastSection)
+                                    : isCheckpointCoverLesson
                                       ? pageCopy.finishLesson
                                       : nextSectionButtonLabel
                                 : isCurrentPracticeChecking

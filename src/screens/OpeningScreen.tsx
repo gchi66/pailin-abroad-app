@@ -14,10 +14,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
 import airplaneImage from '@/assets/images/app-opening/app-download-airplane.png';
-import backgroundImage from '@/assets/images/app-opening/app-download-page.webp';
-import palmsForegroundImage from '@/assets/images/app-opening/app-download-palms-foreground.png';
+import backgroundArtworkImage from '@/assets/images/app-opening/app-download-page-background.webp';
+import pailinForegroundImage from '@/assets/images/app-opening/app-download-page-pailin.webp';
 import fullLogoImage from '@/assets/images/pailin-abroad-full-logo.png';
 import { AppText } from '@/src/components/ui/AppText';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
@@ -95,9 +96,22 @@ export function OpeningScreen({ preview = false }: OpeningScreenProps) {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" backgroundColor="#ADEFFF" />
+      <StatusBar style="dark" backgroundColor="#BCECFF" />
       <View style={[styles.page, { width: contentWidth }]}>
-        <Image source={backgroundImage} contentFit="fill" style={StyleSheet.absoluteFill} />
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.flight, { top: contentHeight * (compact ? 0.255 : 0.28) }, flightStyle]}>
+          <View style={styles.airplaneCrop}>
+            <Image source={airplaneImage} contentFit="contain" style={styles.airplane} />
+          </View>
+        </Animated.View>
+
+        <Image
+          pointerEvents="none"
+          source={backgroundArtworkImage}
+          contentFit="fill"
+          style={StyleSheet.absoluteFill}
+        />
 
         <Image
           source={fullLogoImage}
@@ -117,20 +131,25 @@ export function OpeningScreen({ preview = false }: OpeningScreenProps) {
           </AppText>
         </View>
 
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.flight, { top: contentHeight * (compact ? 0.255 : 0.28) }, flightStyle]}>
-          <View style={styles.airplaneCrop}>
-            <Image source={airplaneImage} contentFit="contain" style={styles.airplane} />
-          </View>
-        </Animated.View>
-
         <Image
           pointerEvents="none"
-          source={palmsForegroundImage}
+          source={pailinForegroundImage}
           contentFit="fill"
           style={StyleSheet.absoluteFill}
         />
+
+        <View pointerEvents="none" style={[styles.bottomGradient, { height: contentHeight * 0.24 }]}>
+          <Svg width="100%" height="100%" preserveAspectRatio="none">
+            <Defs>
+              <SvgLinearGradient id="openingBottomFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#EFF5F8" stopOpacity="0" />
+                <Stop offset="0.42" stopColor="#EFF5F8" stopOpacity="0.72" />
+                <Stop offset="1" stopColor="#EFF5F8" stopOpacity="0.98" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#openingBottomFade)" />
+          </Svg>
+        </View>
 
         <Pressable
           accessibilityRole="button"
@@ -151,12 +170,12 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#ADEFFF',
+    backgroundColor: '#BCECFF',
   },
   page: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: '#ADEFFF',
+    backgroundColor: '#BCECFF',
   },
   logo: {
     position: 'absolute',
@@ -207,6 +226,12 @@ const styles = StyleSheet.create({
     right: 0,
     width: 145,
     height: 48,
+  },
+  bottomGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   continueButton: {
     position: 'absolute',

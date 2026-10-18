@@ -18,6 +18,7 @@ import { AppSessionProvider, useAppSession } from '@/src/context/app-session-con
 import { OnboardingProvider } from '@/src/context/onboarding-context';
 import { OpeningScreenProvider, useOpeningScreen } from '@/src/context/opening-screen-context';
 import { UiLanguageProvider } from '@/src/context/ui-language-context';
+import { takePendingLessonReturn } from '@/src/lib/pending-lesson-return';
 import { theme } from '@/src/theme/theme';
 
 export const unstable_settings = {
@@ -66,6 +67,7 @@ function AppRouteGate() {
   const isOnMembershipRoute = pathname === '/membership';
   const isOnAuthRoute = pathname === '/account/auth';
   const isOnAuthCallbackRoute = pathname === '/auth/callback';
+  const isOnEmailConfirmationRoute = pathname === '/email-confirmation';
   const isOnProtectedAccountRoute = pathname === '/account' || (pathname.startsWith('/account/') && pathname !== '/account/auth');
   const isOnboardingDevtoolsMode =
     isOnOnboardingRoute && params.devtools === '1' && profile?.is_admin === true;
@@ -88,7 +90,11 @@ function AppRouteGate() {
     !isOnMembershipRoute &&
     !(isOnAuthCallbackRoute && authError);
   const shouldRedirectToApp = !isLoading && hasAccount && hasCompletedOnboarding && isOnOnboardingRoute && !isOnboardingDevtoolsMode;
-  const shouldRedirectAuthenticatedAuthRoute = !isLoading && hasAccount && isOnAuthRoute;
+  const shouldResolveAuthenticatedEntryRoute =
+    !isLoading &&
+    hasAccount &&
+    hasCompletedOnboarding &&
+    (isOnAuthRoute || isOnAuthCallbackRoute || isOnEmailConfirmationRoute);
   const shouldRedirectSignedOutUser =
     !isLoading && !hasAccount && !isGuestMode && (isOnProtectedAccountRoute || isOnOnboardingRoute);
 
@@ -122,9 +128,30 @@ function AppRouteGate() {
       return;
     }
 
-    if (shouldRedirectAuthenticatedAuthRoute) {
-      router.replace(hasCompletedOnboarding ? '/(tabs)' : '/onboarding');
-      return;
+    if (shouldResolveAuthenticatedEntryRoute) {
+      let isActive = true;
+      void takePendingLessonReturn()
+        .then((destination) => {
+          if (!isActive) return;
+          if (destination) {
+            router.replace({
+              pathname: '/lessons/[id]',
+              params: {
+                id: destination.lessonId,
+                overview: '1',
+                ...(destination.libraryRoute ? { libraryRoute: destination.libraryRoute } : {}),
+              },
+            });
+            return;
+          }
+          router.replace('/(tabs)');
+        })
+        .catch(() => {
+          if (isActive) router.replace('/(tabs)');
+        });
+      return () => {
+        isActive = false;
+      };
     }
 
     if (shouldRedirectToOnboarding) {
@@ -142,7 +169,7 @@ function AppRouteGate() {
     isLoading,
     isOpeningScreenStateReady,
     router,
-    shouldRedirectAuthenticatedAuthRoute,
+    shouldResolveAuthenticatedEntryRoute,
     shouldRedirectAwayFromOpening,
     shouldRedirectSignedOutUser,
     shouldRedirectToOpening,
@@ -150,7 +177,7 @@ function AppRouteGate() {
     shouldRedirectToOnboarding,
   ]);
 
-  if (!isOpeningScreenStateReady || shouldRedirectToOpening || shouldRedirectAwayFromOpening || shouldRedirectSignedOutUser || shouldRedirectAuthenticatedAuthRoute || shouldRedirectToOnboarding || shouldRedirectToApp) {
+  if (!isOpeningScreenStateReady || shouldRedirectToOpening || shouldRedirectAwayFromOpening || shouldRedirectSignedOutUser || shouldResolveAuthenticatedEntryRoute || shouldRedirectToOnboarding || shouldRedirectToApp) {
     return (
       <View pointerEvents="none" style={styles.routeGateOverlay}>
         <PageLoadingState />

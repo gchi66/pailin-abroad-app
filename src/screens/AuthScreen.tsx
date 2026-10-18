@@ -300,7 +300,7 @@ export function AuthScreen() {
         }}
         scrollEventThrottle={16}
         bounces={false}>
-        <Pressable onPress={collapseSignUpFields}>
+        <Pressable motionDisabled onPress={collapseSignUpFields}>
           <View
             style={[
               styles.topRow,

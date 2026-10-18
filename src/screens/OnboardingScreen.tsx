@@ -36,6 +36,7 @@ import { useAppSession } from '@/src/context/app-session-context';
 import { useOnboarding } from '@/src/context/onboarding-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { getPlanPackageMap, getRevenueCatOffering, isRevenueCatAvailable } from '@/src/lib/revenuecat';
+import { takePendingLessonReturn } from '@/src/lib/pending-lesson-return';
 import { theme } from '@/src/theme/theme';
 import { usePostHog } from 'posthog-react-native';
 
@@ -932,7 +933,19 @@ export function OnboardingScreen() {
         skipped_password_step: skipPasswordStep,
         skipped_benefits_step: skipBenefitsStep,
       });
-      router.replace('/placement-entry');
+      const lessonReturn = await takePendingLessonReturn().catch(() => null);
+      if (lessonReturn) {
+        router.replace({
+          pathname: '/lessons/[id]',
+          params: {
+            id: lessonReturn.lessonId,
+            overview: '1',
+            ...(lessonReturn.libraryRoute ? { libraryRoute: lessonReturn.libraryRoute } : {}),
+          },
+        });
+      } else {
+        router.replace('/placement-entry');
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to complete onboarding.');
     } finally {
