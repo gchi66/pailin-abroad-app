@@ -3,16 +3,19 @@ import { UiLanguage } from '@/src/types/home';
 const SECTION_TYPE_LABELS: Record<string, { en: string; th: string }> = {
   prepare: { en: 'Prepare', th: 'เตรียมตัว' },
   listen: { en: 'Listen', th: 'ฟัง' },
-  comprehension: { en: 'Check', th: 'ความเข้าใจ' },
-  transcript: { en: 'Transcript', th: 'สคริปต์บท' },
+  comprehension: { en: 'Check', th: 'เช็กความเข้าใจ' },
+  transcript: { en: 'Transcript', th: 'บทสนทนา' },
   conversation: { en: 'Conversation', th: 'บทสนทนา' },
-  apply: { en: 'Apply', th: 'การนำไปใช้' },
-  understand: { en: 'Understand', th: 'การทำความเข้าใจ' },
-  extra_tip: { en: 'Extra Tips', th: 'เคล็ดลับเพิ่มเติม' },
-  common_mistake: { en: 'Common Mistakes', th: 'ข้อผิดพลาดที่พบบ่อย' },
-  phrases_verbs: { en: 'Phrases & Verbs', th: 'วลีและคำกริยา' },
-  culture_note: { en: 'Culture Note', th: 'เกร็ดความรู้ทางวัฒนธรรม' },
+  apply: { en: 'Apply', th: 'ลองใช้' },
+  understand: { en: 'Understand', th: 'เรียนรู้' },
+  extra_tip: { en: 'Extra Tips', th: 'เคล็ดลับ' },
+  common_mistake: { en: 'Common Mistakes', th: 'จุดที่มักผิด' },
+  phrases_verbs: { en: 'Phrases & Verbs', th: 'วลีและกริยา' },
+  culture_note: { en: 'Culture Note', th: 'เกร็ดวัฒนธรรม' },
   practice: { en: 'Practice', th: 'แบบฝึกหัด' },
+  speaking_practice: { en: 'Speaking Practice', th: 'ฝึกพูด' },
+  speaking: { en: 'Speaking Practice', th: 'ฝึกพูด' },
+  discussion: { en: 'Discussion', th: 'แสดงความคิดเห็น' },
 };
 
 export const getLessonSectionLabel = (language: UiLanguage, sectionType: string | null | undefined) => {

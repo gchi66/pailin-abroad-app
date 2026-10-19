@@ -87,7 +87,7 @@ const introCopy = {
       body: 'Check what you understood from the conversation!',
     },
     th: {
-      title: 'ตรวจสอบ',
+      title: 'เช็กความเข้าใจ',
       body: 'ตรวจสอบว่าคุณเข้าใจบทสนทนามากน้อยแค่ไหน',
     },
     artwork: require('@/assets/images/lesson-intros/3-check.webp'),
@@ -99,7 +99,7 @@ const introCopy = {
       body: 'Read along and explore the conversation line by line!',
     },
     th: {
-      title: 'สคริปต์บท',
+      title: 'บทสนทนา',
       body: 'อ่านตามและสำรวจบทสนทนาทีละบรรทัด',
     },
     artwork: require('@/assets/images/lesson-intros/4-transcript.webp'),
@@ -111,7 +111,7 @@ const introCopy = {
       body: 'Put the conversation language to work in a situation of your own!',
     },
     th: {
-      title: 'นำไปใช้',
+      title: 'ลองใช้',
       body: 'ลองนำภาษาจากบทสนทนาไปใช้ในสถานการณ์ของคุณเอง',
     },
     artwork: require('@/assets/images/lesson-intros/5-apply.webp'),
@@ -123,7 +123,7 @@ const introCopy = {
       body: 'Dive deeper into the lesson focus with examples from the conversation!',
     },
     th: {
-      title: 'ทำความเข้าใจ',
+      title: 'เรียนรู้',
       body: 'เจาะลึกเนื้อหาหลักของบทเรียน พร้อมตัวอย่างจากบทสนทนา',
     },
     artwork: require('@/assets/images/lesson-intros/6-understand.webp'),
@@ -135,7 +135,7 @@ const introCopy = {
       body: 'Pick up a few useful details that go beyond the lesson focus!',
     },
     th: {
-      title: 'เคล็ดลับเพิ่มเติม',
+      title: 'เคล็ดลับ',
       body: 'เรียนรู้รายละเอียดที่มีประโยชน์เพิ่มเติมจากหัวข้อหลักของบทเรียน',
     },
     artwork: require('@/assets/images/lesson-intros/7-extra-tips.webp'),
@@ -147,7 +147,7 @@ const introCopy = {
       body: 'Common mistakes that Thai people often make when learning this concept!',
     },
     th: {
-      title: 'ข้อผิดพลาดที่พบบ่อย',
+      title: 'จุดที่มักผิด',
       body: 'ดูข้อผิดพลาดที่คนไทยมักเจอเมื่อเรียนหัวข้อนี้',
     },
     artwork: require('@/assets/images/lesson-intros/8-common-mistakes.webp'),
@@ -171,7 +171,7 @@ const introCopy = {
       body: 'Explore useful phrases and phrasal verbs from the conversation, with examples you can use every day.',
     },
     th: {
-      title: 'วลีและคำกริยา',
+      title: 'วลีและกริยา',
       body: 'เรียนรู้วลีและ phrasal verbs ที่ใช้ในบทสนทนา พร้อมตัวอย่างที่นำไปใช้ได้ในชีวิตประจำวัน',
     },
     artwork: require('@/assets/images/lesson-intros/10-phrases-verbs.webp'),
@@ -183,7 +183,7 @@ const introCopy = {
       body: 'Put what you learned into practice!',
     },
     th: {
-      title: 'ฝึกฝน',
+      title: 'แบบฝึกหัด',
       body: 'นำสิ่งที่คุณได้เรียนรู้มาฝึกใช้จริง',
     },
     artwork: require('@/assets/images/lesson-intros/11-practice.webp'),

@@ -265,7 +265,7 @@ export function LessonOverviewScreen(p: Props) {
               : speaking
                 ? (th ? 'ฝึกพูด' : 'Speaking')
                 : discussion
-                  ? (th ? 'การพูดคุย' : 'Discussion')
+                  ? (th ? 'แสดงความคิดเห็น' : 'Discussion')
                   : getLessonSectionLabel(p.language, row.type);
             const onPress = locked
               ? p.onUpgrade
