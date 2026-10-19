@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressTrackBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: theme.colors.accentMuted,
   },
   progressFill: {

@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 5 }],
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.shadow,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   buttonShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 4 }, { translateY: 5 }],
     borderRadius: theme.radii.xl,
     backgroundColor: theme.colors.shadow,

@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -12 }],
   },
   cardShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 5 }],
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.shadow,

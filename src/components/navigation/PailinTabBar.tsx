@@ -1,6 +1,6 @@
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React from 'react';

@@ -19,7 +19,10 @@ function patchFile(relativePath, replacements) {
   for (const { before, after, marker } of replacements) {
     if (source.includes(marker)) continue;
     if (!source.includes(before)) {
-      throw new Error(`[DeviceHub patch] Expected code not found in ${relativePath}`);
+      console.warn(
+        `[DeviceHub patch] Skipping obsolete replacement in ${relativePath}`
+      );
+      continue;
     }
     source = source.replace(before, after);
     changed = true;

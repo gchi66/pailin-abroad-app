@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     borderColor: '#1E1E1E',
     overflow: 'hidden',
   },
-  progressBase: { ...StyleSheet.absoluteFillObject, backgroundColor: '#EBF5FF' },
+  progressBase: { ...StyleSheet.absoluteFill, backgroundColor: '#EBF5FF' },
   progressFill: { height: '100%', borderRadius: 10, backgroundColor: theme.colors.audioProgress },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
   time: { color: '#3F3F3F', fontSize: 11, lineHeight: 15 },

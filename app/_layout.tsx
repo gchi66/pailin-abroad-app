@@ -1,7 +1,7 @@
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useEffect, useRef } from 'react';
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeGateOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 999,
     alignItems: 'center',
     justifyContent: 'center',

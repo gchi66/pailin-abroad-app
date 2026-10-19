@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   loading: { minHeight: 220, justifyContent: 'center', alignItems: 'center', gap: 16 },
   artworkArea: { position: 'relative', paddingHorizontal: 16 },
   artworkComposition: { position: 'relative', width: '100%' },
-  artworkLayer: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  artworkLayer: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
   lock: { position: 'absolute', top: 0, left: 8, width: 30, height: 30 },
   lessonCopy: { gap: 6, paddingHorizontal: 12 },
   eyebrow: { fontSize: 10, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' },

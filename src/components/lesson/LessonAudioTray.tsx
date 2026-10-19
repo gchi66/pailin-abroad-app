@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   progressTrackBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: theme.colors.accentMuted,
   },
   progressFill: {

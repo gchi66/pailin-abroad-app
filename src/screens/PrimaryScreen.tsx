@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: theme.colors.background,
   },
 });

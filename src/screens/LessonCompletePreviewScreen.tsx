@@ -219,7 +219,7 @@ export function LessonCompletePreviewScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar style="dark" backgroundColor="#FFFDEB" />
+      <StatusBar style="dark" />
       <Image source={confettiImage} contentFit="fill" style={styles.confetti} pointerEvents="none" />
       <View style={[styles.statusStrip, { height: insets.top }]} />
       <ScrollView
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     paddingBottom: 64,
   },
-  confetti: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  confetti: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
   completionPanel: { width: '100%', maxWidth: 330, paddingTop: 222, alignItems: 'center' },
   pailin: {
     position: 'absolute',

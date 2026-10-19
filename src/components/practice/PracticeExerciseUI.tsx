@@ -281,6 +281,8 @@ export function SentenceTransformExampleDisclosure({
   const comparisonRuns = visibleCorrectedSentence
     ? buildSentenceTransformComparisonRuns(sentence, visibleCorrectedSentence)
     : { source: [], correction: [] };
+  const correctLabel = language === 'th' ? 'ถูกต้อง:' : 'CORRECT:';
+  const incorrectLabel = language === 'th' ? 'ไม่ถูกต้อง:' : 'INCORRECT:';
 
   return (
     <FillBlankExampleDisclosure
@@ -293,9 +295,7 @@ export function SentenceTransformExampleDisclosure({
           <AppText language={language} variant="caption" style={styles.sentenceExampleText}>
             {isJudgment ? (
               <Text style={sourceIsCorrect ? styles.sentenceExampleCorrectLabel : styles.sentenceExampleIncorrectLabel}>
-                {sourceIsCorrect
-                  ? (language === 'th' ? 'ถูกต้อง:' : 'CORRECT:')
-                  : (language === 'th' ? 'ไม่ถูกต้อง:' : 'INCORRECT:')}
+                {sourceIsCorrect ? correctLabel : incorrectLabel}
               </Text>
             ) : null}
             {hasAuthoredSourceEmphasis
@@ -328,7 +328,7 @@ export function SentenceTransformExampleDisclosure({
         </View>
         {visibleCorrectedSentence ? (
           <AppText language="en" variant="caption" style={styles.sentenceExampleCorrectionText}>
-            {isJudgment ? <Text style={styles.sentenceExampleCorrectLabel}>CORRECT:</Text> : null}
+            {isJudgment ? <Text style={styles.sentenceExampleCorrectLabel}>{correctLabel}</Text> : null}
             {comparisonRuns.correction.map((run, index) => (
               <Text
                 key={`sentence-correction-${index}`}

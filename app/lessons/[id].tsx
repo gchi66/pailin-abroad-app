@@ -11627,7 +11627,7 @@ const mergeAdjacentPracticeRowTokens = (
       next?.type === 'text' &&
       (next.style ?? null)?.underline === true &&
       inlineFormattingKey(previousStyle as LessonRichInline) ===
-        inlineFormattingKey(((next.style ?? null) as LessonRichInline) ?? {})
+        inlineFormattingKey((next.style ?? {}) as LessonRichInline)
     ) {
       previous.text += token.text;
       return;
@@ -16513,10 +16513,10 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -20 }],
   },
   coverFallbackArt: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   coverFallbackFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#DCEEFF',
   },
   coverArtCircleLarge: {
@@ -16554,7 +16554,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   coverOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(12, 21, 31, 0.34)',
   },
   coverContent: {
@@ -16734,7 +16734,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   conversationIntroOverlayWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 40,
   },
   conversationIntroModalRoot: {
@@ -20424,7 +20424,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   richLinkBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(18, 22, 28, 0.28)',
   },
   richLinkSheetWrap: {
@@ -20790,7 +20790,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   menuOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     paddingTop: theme.spacing.lg,
   },
@@ -20800,7 +20800,7 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
   },
   menuBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(30, 30, 30, 0.18)',
   },
   menuSheet: {

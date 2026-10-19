@@ -351,7 +351,7 @@ export function LessonRichSectionIntro({
 
 const styles = StyleSheet.create({
   screen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
     backgroundColor: theme.colors.background,
   },

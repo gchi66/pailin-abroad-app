@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   outcomeCardShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 6 }],
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.shadow,
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   resultPrimer: { marginTop: 22, fontSize: 14, lineHeight: 21, textAlign: 'center' },
   resultButtonWrap: { width: '100%', marginTop: 26, position: 'relative' },
   resultButtonShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 4 }, { translateY: 5 }],
     borderRadius: theme.radii.xl,
     backgroundColor: theme.colors.shadow,
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   audioCardShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 5 }],
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.shadow,
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     overflow: 'hidden',
   },
-  introProgressBase: { ...StyleSheet.absoluteFillObject, backgroundColor: placementColors.track },
+  introProgressBase: { ...StyleSheet.absoluteFill, backgroundColor: placementColors.track },
   introProgressFill: { height: '100%', borderRadius: 999, backgroundColor: placementColors.cyan },
   timeRow: {
     width: '100%',
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   questionCardShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 6 }],
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.shadow,

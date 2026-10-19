@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 6 }, { translateY: -21 }],
   },
   bubbleShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 5 }],
     borderRadius: theme.radii.lg,
     borderBottomLeftRadius: 0,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   optionShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     transform: [{ translateX: 5 }, { translateY: 6 }],
     borderRadius: 17,
     backgroundColor: theme.colors.shadow,

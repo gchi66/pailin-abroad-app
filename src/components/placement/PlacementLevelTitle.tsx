@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   layer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   outline: {
     color: theme.colors.shadow,

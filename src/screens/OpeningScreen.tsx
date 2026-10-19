@@ -96,7 +96,7 @@ export function OpeningScreen({ preview = false }: OpeningScreenProps) {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" backgroundColor="#BCECFF" />
+      <StatusBar style="dark" />
       <View style={[styles.page, { width: contentWidth }]}>
         <Animated.View
           pointerEvents="none"

@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   replyButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   replyText: { color: theme.colors.mutedText, fontSize: 10, lineHeight: 15 },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
+  modalBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.42)' },
   composerSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1.5, borderBottomWidth: 0, borderColor: theme.colors.border, backgroundColor: '#FFFFFF', padding: 18, gap: 14 },
   composerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   composerTitle: { flex: 1, fontSize: 18, lineHeight: 25, fontWeight: '700' },

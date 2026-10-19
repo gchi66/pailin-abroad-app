@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   scoreLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   scoreOutline: {
     color: theme.colors.text,

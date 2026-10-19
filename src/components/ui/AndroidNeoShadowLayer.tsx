@@ -32,7 +32,7 @@ export function AndroidNeoShadowLayer({
 
 const styles = StyleSheet.create({
   base: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
   },
 });
