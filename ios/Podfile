@@ -61,5 +61,15 @@ target 'PailinAbroad' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    # Recent Xcode versions reject pod resource bundles whose podspecs still
+    # declare deployment targets older than the SDK supports. Keep every
+    # generated pod target aligned with the app's deployment target.
+    deployment_target = podfile_properties['ios.deploymentTarget'] || '15.1'
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_configuration|
+        build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = deployment_target
+      end
+    end
   end
 end

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "postinstall": "node ./scripts/patch-expo-cli-devicehub.mjs",
     "start:ios:logs": "node ./scripts/start-ios-with-speaking-logs.mjs",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",

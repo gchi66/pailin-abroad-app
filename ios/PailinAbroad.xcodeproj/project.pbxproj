@@ -12,9 +12,9 @@
 		53460DF6D6D887EA37855F9A /* libPods-PailinAbroad.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4E4EFF8A361BB1BF625E983D /* libPods-PailinAbroad.a */; };
 		585818D03E1679880221DE08 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B505C1890A4C15B9AC3042FB /* ExpoModulesProvider.swift */; };
 		5E21BB662CC0E8A662CB33EB /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A63FE612FC9A19384D142FEA /* PrivacyInfo.xcprivacy */; };
+		8F45C6F1A1F74D7D855AF87E /* app-logo-pailin-abroad.icon in Resources */ = {isa = PBXBuildFile; fileRef = 87D1BF5CB5CC4EE6A3D8A6DC /* app-logo-pailin-abroad.icon */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		8F45C6F1A1F74D7D855AF87E /* app-logo-pailin-abroad.icon in Resources */ = {isa = PBXBuildFile; fileRef = 87D1BF5CB5CC4EE6A3D8A6DC /* app-logo-pailin-abroad.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +23,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PailinAbroad/Info.plist; sourceTree = "<group>"; };
 		363A80B4577CCFDB43F1C2D7 /* Pods-PailinAbroad.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PailinAbroad.release.xcconfig"; path = "Target Support Files/Pods-PailinAbroad/Pods-PailinAbroad.release.xcconfig"; sourceTree = "<group>"; };
 		4E4EFF8A361BB1BF625E983D /* libPods-PailinAbroad.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PailinAbroad.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		87D1BF5CB5CC4EE6A3D8A6DC /* app-logo-pailin-abroad.icon */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 505639276633; includeInIndex = 0; lastKnownFileType = unknown; name = "app-logo-pailin-abroad.icon"; path = "PailinAbroad/app-logo-pailin-abroad.icon"; sourceTree = "<group>"; };
 		A63FE612FC9A19384D142FEA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = PailinAbroad/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = PailinAbroad/SplashScreen.storyboard; sourceTree = "<group>"; };
 		B505C1890A4C15B9AC3042FB /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-PailinAbroad/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
@@ -31,7 +32,6 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PailinAbroad/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* PailinAbroad-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "PailinAbroad-Bridging-Header.h"; path = "PailinAbroad/PailinAbroad-Bridging-Header.h"; sourceTree = "<group>"; };
-		87D1BF5CB5CC4EE6A3D8A6DC /* app-logo-pailin-abroad.icon */ = {isa = PBXFileReference; name = "app-logo-pailin-abroad.icon"; path = "PailinAbroad/app-logo-pailin-abroad.icon"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -372,12 +372,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BA55ECB33E0A150B9438F6FE /* Pods-PailinAbroad.debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = app-logo-pailin-abroad;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "app-logo-pailin-abroad";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PailinAbroad/PailinAbroad.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 50;
+				CURRENT_PROJECT_VERSION = 51;
 				DEVELOPMENT_TEAM = H7W3TQ8F6S;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -413,12 +413,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 363A80B4577CCFDB43F1C2D7 /* Pods-PailinAbroad.release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = app-logo-pailin-abroad;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "app-logo-pailin-abroad";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PailinAbroad/PailinAbroad.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 50;
+				CURRENT_PROJECT_VERSION = 51;
 				DEVELOPMENT_TEAM = H7W3TQ8F6S;
 				INFOPLIST_FILE = PailinAbroad/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Pailin Abroad";
@@ -448,6 +448,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "app-logo-pailin-abroad";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -504,7 +505,6 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
-				ASSETCATALOG_COMPILER_APPICON_NAME = app-logo-pailin-abroad;
 			};
 			name = Debug;
 		};
@@ -512,6 +512,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "app-logo-pailin-abroad";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -560,7 +561,6 @@
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
-				ASSETCATALOG_COMPILER_APPICON_NAME = app-logo-pailin-abroad;
 			};
 			name = Release;
 		};
