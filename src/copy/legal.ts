@@ -10,12 +10,12 @@ const TERMS_EN = {
   title: 'Terms & Conditions',
   paragraphs: [
     'Pailin Abroad - Terms & Conditions',
-    'Last Updated: November 28, 2025',
+    'Last Updated: October 19, 2026',
     'These Terms & Conditions ("Terms") are a contract between you and Pailin Abroad LLC ("Pailin Abroad", "Company", "we", "us", or "our"). They govern your access to and use of the Pailin Abroad website, related domains, and any products, services, content, features, or applications we make available through the Service.',
     'By accessing or using the Service, creating an account, or making a purchase, you agree to be bound by these Terms. If you do not agree, you must not use the Service.',
     'Pailin Abroad grants you a revocable, non-exclusive, non-transferable, limited license to access the Service for your personal, non-commercial use. You may not share your account or allow others to use your login credentials.',
     'You agree not to sell, rent, or commercially exploit the Service, reverse engineer or modify it, remove copyright or trademark notices, harass or harm others, upload malware, impersonate others, or use robots, crawlers, scrapers, or automated tools without written permission.',
-    'Subscription plans include monthly, 3-month, and 6-month options. Subscriptions renew automatically unless canceled. You may cancel through your account settings. We offer a 30-day money-back guarantee for eligible purchases, while renewals and partially used terms are generally non-refundable unless required by law.',
+    'Subscription plans include monthly and 3-month options. Subscriptions renew automatically unless canceled. You may cancel through your account settings. We offer a 30-day money-back guarantee for eligible purchases, while renewals and partially used terms are generally non-refundable unless required by law.',
     'All content, software, text, graphics, logos, and media are owned by Pailin Abroad or its licensors. Unauthorized copying, modification, distribution, or reproduction is prohibited.',
     'The Service is provided "AS IS" and "AS AVAILABLE" without warranties of any kind. Pailin Abroad is not liable for indirect, incidental, special, or consequential damages, and total liability will not exceed the amount paid in the past 12 months.',
     'We may suspend or terminate accounts for violations. Disputes are subject to binding arbitration except where intellectual property matters apply. These Terms are governed by Texas law.',
@@ -40,7 +40,18 @@ const PRIVACY_EN = {
 
 const TERMS_TH = {
   title: 'ข้อกำหนดและเงื่อนไข',
-  paragraphs: TERMS_EN.paragraphs,
+  paragraphs: [
+    'Pailin Abroad - ข้อกำหนดและเงื่อนไข',
+    'ปรับปรุงล่าสุด: 19 ตุลาคม 2026',
+    'ข้อกำหนดและเงื่อนไขเหล่านี้ ("ข้อกำหนด") เป็นสัญญาระหว่างคุณกับ Pailin Abroad LLC ("Pailin Abroad", "บริษัท", "เรา" หรือ "ของเรา") โดยครอบคลุมการเข้าถึงและการใช้งานเว็บไซต์ Pailin Abroad โดเมนที่เกี่ยวข้อง รวมถึงผลิตภัณฑ์ บริการ เนื้อหา ฟีเจอร์ หรือแอปพลิเคชันใดๆ ที่เราจัดให้ผ่านบริการ',
+    'เมื่อคุณเข้าถึงหรือใช้บริการ สร้างบัญชี หรือทำการซื้อ ถือว่าคุณตกลงที่จะผูกพันตามข้อกำหนดเหล่านี้ หากคุณไม่ยอมรับ คุณต้องไม่ใช้บริการ',
+    'Pailin Abroad ให้สิทธิอนุญาตแก่คุณแบบเพิกถอนได้ ไม่ผูกขาด ไม่สามารถโอนได้ และมีขอบเขตจำกัด เพื่อเข้าถึงบริการสำหรับการใช้งานส่วนบุคคลที่ไม่ใช่เชิงพาณิชย์ คุณต้องไม่แบ่งปันบัญชีหรืออนุญาตให้ผู้อื่นใช้ข้อมูลเข้าสู่ระบบของคุณ',
+    'คุณตกลงว่าจะไม่ขาย ให้เช่า หรือหาประโยชน์เชิงพาณิชย์จากบริการ ทำวิศวกรรมย้อนกลับหรือดัดแปลงบริการ ลบประกาศลิขสิทธิ์หรือเครื่องหมายการค้า คุกคามหรือทำร้ายผู้อื่น อัปโหลดมัลแวร์ ปลอมตัวเป็นบุคคลอื่น หรือใช้บอต โปรแกรมรวบรวมข้อมูล หรือเครื่องมืออัตโนมัติโดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร',
+    'แผนการสมัครสมาชิกมีแบบรายเดือนและราย 3 เดือน การสมัครสมาชิกจะต่ออายุโดยอัตโนมัติเว้นแต่จะยกเลิก คุณสามารถยกเลิกผ่านการตั้งค่าบัญชี เรามีการรับประกันคืนเงินภายใน 30 วันสำหรับการซื้อที่เข้าเงื่อนไข โดยทั่วไปค่าต่ออายุและรอบการสมัครสมาชิกที่ใช้ไปแล้วบางส่วนจะไม่สามารถขอคืนเงินได้ เว้นแต่กฎหมายกำหนด',
+    'เนื้อหา ซอฟต์แวร์ ข้อความ กราฟิก โลโก้ และสื่อทั้งหมดเป็นกรรมสิทธิ์ของ Pailin Abroad หรือผู้อนุญาตของเรา ห้ามคัดลอก ดัดแปลง เผยแพร่ หรือทำซ้ำโดยไม่ได้รับอนุญาต',
+    'บริการนี้จัดให้ตามสภาพที่เป็นอยู่ ("AS IS") และตามที่มีให้บริการ ("AS AVAILABLE") โดยปราศจากการรับประกันใดๆ Pailin Abroad ไม่รับผิดต่อความเสียหายทางอ้อม ที่เกิดขึ้นโดยบังเอิญ พิเศษ หรือที่เป็นผลสืบเนื่อง และความรับผิดรวมจะไม่เกินจำนวนเงินที่คุณชำระภายในระยะเวลา 12 เดือนที่ผ่านมา',
+    'เราอาจระงับหรือยกเลิกบัญชีที่ละเมิดข้อกำหนด ข้อพิพาทจะอยู่ภายใต้การอนุญาโตตุลาการที่มีผลผูกพัน ยกเว้นกรณีที่เกี่ยวกับทรัพย์สินทางปัญญา และข้อกำหนดเหล่านี้อยู่ภายใต้กฎหมายของรัฐเท็กซัส',
+  ],
 } satisfies LegalDocumentCopy;
 
 const PRIVACY_TH = {
