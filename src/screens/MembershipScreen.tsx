@@ -113,8 +113,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
       alreadyMemberBody: 'บัญชีนี้ปลดล็อกเนื้อหาทั้งหมดแล้ว',
       termsTitle: 'ข้อกำหนดและเงื่อนไข',
       privacyTitle: 'นโยบายความเป็นส่วนตัว',
-      guaranteeLineOne: 'รับประกันคืนเงิน 100% ภายใน 30 วันนับจากวันที่ซื้อ หากคุณไม่พอใจกับสมาชิก',
-      guaranteeLineTwo: 'แต่เรามั่นใจว่าคุณจะหลงรัก Pailin Abroad!',
+      guaranteeLineOne: 'รับประกันคืนเงิน 100% ภายใน 30 วันนับจากวันที่ซื้อ หากคุณไม่พอใจกับการเป็นสมาชิกของคุณ',
+      monthlyBilling: 'เรียกเก็บเงินรายเดือน และต่ออายุโดยอัตโนมัติจนกว่าจะยกเลิก',
+      threeMonthBilling: 'เรียกเก็บเงินทุก 3 เดือน และต่ออายุโดยอัตโนมัติจนกว่าจะยกเลิก',
+      lifetimeBilling: 'ชำระเงินครั้งเดียว ไม่มีการสมัครสมาชิกหรือการต่ออายุอัตโนมัติ',
+      cancelAppStore: 'ยกเลิกได้ทุกเมื่อใน App Store',
+      cancelGooglePlay: 'ยกเลิกได้ทุกเมื่อผ่าน Google Play',
       lifetimeFeatures: [
         'ชำระครั้งเดียว เรียนได้ตลอดชีพ',
         'สมาชิกแบบเต็มรูปแบบ พร้อมการอัปเดตทั้งหมดในอนาคต',
@@ -164,7 +168,11 @@ const getCopy = (uiLanguage: UiLanguage) => {
     termsTitle: 'Terms of Use',
     privacyTitle: 'Privacy Policy',
     guaranteeLineOne: "100% money-back guarantee within 30 days of your purchase if you're not completely satisfied with your membership.",
-    guaranteeLineTwo: "But, we're confident you'll love Pailin Abroad!",
+    monthlyBilling: 'Billed monthly. Automatically renews until canceled.',
+    threeMonthBilling: 'Billed every 3 months. Automatically renews until canceled.',
+    lifetimeBilling: 'One-time payment. No subscription or automatic renewal.',
+    cancelAppStore: 'Cancel anytime in the App Store.',
+    cancelGooglePlay: 'Cancel anytime through Google Play.',
     lifetimeFeatures: [
       'Pay once, learn forever',
       'Full membership + all future updates',
@@ -595,10 +603,19 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   const summaryOriginalPrice = selectedPaidPlan?.originalTotalPrice
     ? buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice)
     : null;
-  const summaryHintText = selectedPaidPlan
+  const billingDisclosureText = selectedPaidPlan
     ? selectedPaidPlan.id === 'lifetime'
-      ? copy.lifetimeSummary
-      : selectedPaidPlan.savingsSummary ?? ''
+      ? copy.lifetimeBilling
+      : selectedPaidPlan.id === '3-month'
+        ? copy.threeMonthBilling
+        : copy.monthlyBilling
+    : '';
+  const cancellationText = selectedPaidPlan?.id === 'monthly' || selectedPaidPlan?.id === '3-month'
+    ? Platform.OS === 'ios'
+      ? copy.cancelAppStore
+      : Platform.OS === 'android'
+        ? copy.cancelGooglePlay
+        : ''
     : '';
   const recurringOriginalPrice = recurringPlan.originalMonthlyPrice
     ? buildPriceWithSymbol(recurringPlan.billingCurrency, recurringPlan.originalMonthlyPrice)
@@ -614,10 +631,17 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
         <AppText language={uiLanguage} variant="title" style={styles.summaryPrice}>
           {selectedPaidPlan.summaryPrice}
         </AppText>
-        {summaryHintText ? (
-          <AppText language={uiLanguage} variant="caption" style={styles.summaryHint}>
-            {summaryHintText}
-          </AppText>
+        {billingDisclosureText ? (
+          <View style={styles.billingDisclosureBlock}>
+            <AppText language={uiLanguage} variant="caption" style={styles.billingDisclosureText}>
+              {billingDisclosureText}
+            </AppText>
+            {cancellationText ? (
+              <AppText language={uiLanguage} variant="caption" style={styles.billingDisclosureText}>
+                {cancellationText}
+              </AppText>
+            ) : null}
+          </View>
         ) : null}
       </View>
     ) : null;
@@ -750,11 +774,20 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
 
             <View style={styles.assuranceBlock}>
               <View style={styles.legalLinks}>
+                {renderRestorePurchases()}
+                {isNativeApp ? (
+                  <AppText language={uiLanguage} variant="caption" style={styles.legalSeparator}>
+                    ·
+                  </AppText>
+                ) : null}
                 <Pressable accessibilityRole="link" onPress={() => router.push('/account/terms')}>
                   <AppText language={uiLanguage} variant="caption" style={styles.legalLinkText}>
                     {copy.termsTitle}
                   </AppText>
                 </Pressable>
+                <AppText language={uiLanguage} variant="caption" style={styles.legalSeparator}>
+                  ·
+                </AppText>
                 <Pressable accessibilityRole="link" onPress={() => router.push('/account/privacy')}>
                   <AppText language={uiLanguage} variant="caption" style={styles.legalLinkText}>
                     {copy.privacyTitle}
@@ -764,9 +797,6 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
               <View style={styles.guaranteeBlock}>
                 <AppText language={uiLanguage} variant="caption" style={styles.guaranteeText}>
                   {copy.guaranteeLineOne}
-                </AppText>
-                <AppText language={uiLanguage} variant="caption" style={styles.guaranteeText}>
-                  {copy.guaranteeLineTwo}
                 </AppText>
               </View>
             </View>
@@ -782,7 +812,6 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
         <ResponsivePageShell style={styles.stickyFooterContent}>
           {renderSummary()}
           {renderPrimaryCta()}
-          {renderRestorePurchases()}
         </ResponsivePageShell>
       </View>
     </View>
@@ -984,9 +1013,15 @@ const styles = StyleSheet.create({
   },
   legalLinks: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 18,
+    gap: 8,
+  },
+  legalSeparator: {
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 16,
   },
   legalLinkText: {
     color: theme.colors.text,
@@ -1030,8 +1065,14 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: theme.typography.weights.bold,
   },
-  summaryHint: {
-    color: '#A0A5AA',
+  billingDisclosureBlock: {
+    alignItems: 'center',
+    gap: 1,
+    marginTop: 1,
+    paddingHorizontal: 8,
+  },
+  billingDisclosureText: {
+    color: theme.colors.text,
     textAlign: 'center',
     fontSize: 11,
     lineHeight: 15,
@@ -1046,12 +1087,11 @@ const styles = StyleSheet.create({
   },
   restoreButton: {
     alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   restoreText: {
-    color: '#2D66E8',
-    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 16,
     textDecorationLine: 'underline',
   },
   stickyFooter: {
@@ -1067,6 +1107,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6F8',
   },
   stickyFooterContent: {
-    gap: 10,
+    gap: 12,
   },
 });

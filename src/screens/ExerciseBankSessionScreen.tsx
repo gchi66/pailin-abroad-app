@@ -79,6 +79,20 @@ const extractThaiTranslation = (value: string | null | undefined) =>
     .filter((line) => line && THAI_TEXT_RE.test(line))
     .join('\n');
 
+const stripMultipleChoiceOptionLabel = (
+  answer: string,
+  options: Array<{ label: string }> | undefined
+) => {
+  const trimmedAnswer = answer.trim();
+  const matchingOption = options?.find((option) => {
+    const escapedLabel = option.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${escapedLabel}\\s*[.)]\\s*`, 'i').test(trimmedAnswer);
+  });
+  if (!matchingOption) return trimmedAnswer;
+  const escapedLabel = matchingOption.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return trimmedAnswer.replace(new RegExp(`^${escapedLabel}\\s*[.)]\\s*`, 'i'), '');
+};
+
 const renderMultipleChoiceTextWithBlankRuns = (text: string, keyPrefix: string) =>
   String(text ?? '')
     .split(/(_{2,})/g)
@@ -95,17 +109,17 @@ const renderMultipleChoiceTextWithBlankRuns = (text: string, keyPrefix: string) 
     });
 
 const getCopy = (language: UiLanguage) => language === 'th' ? {
-  back: 'กลับ', set: 'ชุดที่', question: 'คำถาม', of: 'จาก', check: 'ตรวจคำตอบ', checking: 'กำลังตรวจ…',
+  back: 'กลับ', set: 'ชุดที่', question: 'คำถาม', check: 'ตรวจคำตอบ', checking: 'กำลังตรวจ…',
   continue: 'ถัดไป', answerTryAgain: 'ลองอีกครั้ง', correct: 'ถูกต้อง!', incorrect: 'ลองอีกครั้ง', skip: 'ข้าม', retry: 'ลองคำถามที่พลาดอีกครั้ง',
-  backToTopics: 'กลับไปที่หัวข้อ', setFinished: 'จบชุดแบบฝึกหัด', mastered: 'ทำสำเร็จ', chooseSet: 'เลือกชุดแบบฝึกหัด',
+  backToTopics: 'กลับไปที่หัวข้อ', setFinished: 'จบชุดแบบฝึกหัด', mastered: 'ทำสำเร็จ', completed: 'เสร็จสมบูรณ์', chooseSet: 'เลือกชุดแบบฝึกหัด',
   typeAnswer: 'พิมพ์คำตอบ', rewrite: 'เขียนประโยคใหม่', sentenceCorrect: 'ประโยคนี้ถูกต้อง',
   sentenceIncorrect: 'ประโยคนี้ไม่ถูกต้อง', loadError: 'ไม่สามารถโหลดแบบฝึกหัดได้', tryAgain: 'ลองอีกครั้ง',
   example: 'ตัวอย่าง', answer: 'คำตอบ', exampleCorrect: 'ถูกต้อง', exampleIncorrect: 'ไม่ถูกต้อง', showAnswer: 'ดูคำตอบ', hideAnswer: 'ซ่อนคำตอบ', answerUnavailable: 'ยังไม่สามารถแสดงคำตอบได้',
   greatWork: 'เยี่ยมมาก!', greatProgress: 'พัฒนาได้ดีมาก!', keepPracticing: 'ฝึกต่อไป!', gotCorrect: 'คุณตอบถูก', perfectBody: 'คุณตอบถูกทุกข้อ! พร้อมสำหรับความท้าทายต่อไปแล้ว', progressBody: 'ใกล้เข้าใจหัวข้อนี้แล้ว ลองอีกครั้งหรือฝึกต่อไป', practiceBody: 'ไวยากรณ์ต้องใช้เวลา ทบทวนแบบฝึกหัดแล้วลองอีกครั้ง คุณทำได้!', goNextSet: 'ไปชุดถัดไป', chooseNewTopic: 'เลือกหัวข้อใหม่', backToBank: 'กลับคลังแบบฝึกหัด',
 } : {
-  back: 'Back', set: 'Set', question: 'Question', of: 'of', check: 'CHECK ANSWER', checking: 'CHECKING…',
+  back: 'Back', set: 'Set', question: 'Question', check: 'CHECK ANSWER', checking: 'CHECKING…',
   continue: 'NEXT', answerTryAgain: 'Try again', correct: 'Correct!', incorrect: 'Try again', skip: 'Skip', retry: 'Retry missed questions',
-  backToTopics: 'Back to topics', setFinished: 'Set finished', mastered: 'mastered', chooseSet: 'Choose a set',
+  backToTopics: 'Back to topics', setFinished: 'Set finished', mastered: 'mastered', completed: 'completed', chooseSet: 'Choose a set',
   typeAnswer: 'Type your answer', rewrite: 'Rewrite the sentence', sentenceCorrect: 'The sentence is correct',
   sentenceIncorrect: 'The sentence is incorrect', loadError: 'Unable to load this exercise.', tryAgain: 'Try again',
   example: 'Example', answer: 'Answer', exampleCorrect: 'Correct', exampleIncorrect: 'Incorrect', showAnswer: 'Show Answer', hideAnswer: 'Hide Answer', answerUnavailable: 'The answer is not available yet.',
@@ -802,10 +816,7 @@ export function ExerciseBankSessionScreen() {
       <ScrollView style={styles.screen} contentContainerStyle={styles.contentContainer}>
         <ResponsivePageShell>
           <View style={styles.exerciseHeader}>
-            <View style={styles.exerciseHeaderCopy}>
-              <AppText language={uiLanguage} variant="title" style={styles.topicDisplayTitle}>{localizedTopic?.display_title}</AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
-            </View>
+            <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
             <View style={styles.headerActions}>
               <LanguageToggle />
               <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
@@ -814,7 +825,7 @@ export function ExerciseBankSessionScreen() {
             </View>
           </View>
           <View style={styles.sessionContent}>
-            <AppText language={uiLanguage} variant="body" style={styles.setLabel}>{copy.set} {setData.set_number} {copy.of} {topicDetail?.sets.length ?? setData.set_number}</AppText>
+            <AppText language={uiLanguage} variant="body" style={styles.setLabel}>{copy.set} {setData.set_number}</AppText>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: '100%' }]} /></View>
             <View style={styles.questionSectionDivider} />
             <View style={styles.completionResult}>
@@ -880,6 +891,10 @@ export function ExerciseBankSessionScreen() {
   const usesSharedAnswerFooter = isFillBlankQuestion || isOpenQuestion || isMultipleChoiceQuestion || isJudgmentQuestion || isRewriteQuestion;
   const extendsFeedbackThroughSafeArea = Boolean(currentResult && usesSharedAnswerFooter);
   const feedback = uiLanguage === 'th' ? currentResult?.feedback_th : currentResult?.feedback_en;
+  const reviewAnswer = currentResult?.review_answer || copy.answerUnavailable;
+  const displayedReviewAnswer = isMultipleChoiceQuestion && currentResult?.review_answer
+    ? stripMultipleChoiceOptionLabel(currentResult.review_answer, englishContent.options)
+    : reviewAnswer;
   const QuestionFooterContainer = currentResult ? FeedbackEntrance : View;
   return (
     <KeyboardAvoidingView
@@ -894,10 +909,7 @@ export function ExerciseBankSessionScreen() {
         ]}>
         <ResponsivePageShell style={styles.exerciseShell}>
           <View style={styles.exerciseHeader}>
-            <View style={styles.exerciseHeaderCopy}>
-              <AppText language={uiLanguage} variant="title" style={styles.topicDisplayTitle}>{localizedTopic?.display_title}</AppText>
-              <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
-            </View>
+            <AppText language={uiLanguage} variant="body" style={styles.topicTechnicalName}>{localizedTopic?.topic}</AppText>
             <View style={styles.headerActions}>
               <LanguageToggle />
               <Pressable motionDisabled accessibilityRole="button" accessibilityLabel={copy.backToTopics} hitSlop={10} style={styles.closeButton} onPress={handleExitToBank}>
@@ -908,17 +920,25 @@ export function ExerciseBankSessionScreen() {
           <View style={[styles.sessionContent, styles.questionSessionContent]}>
             <View style={styles.setSelectorWrap}>
               <Pressable accessibilityRole="button" accessibilityState={{ expanded: isSetNavigatorOpen }} style={styles.setSelector} onPress={() => setIsSetNavigatorOpen((open) => !open)}>
-                <AppText language={uiLanguage} variant="body" style={styles.setLabel}>{copy.set} {setData.set_number} {copy.of} {topicDetail?.sets.length ?? setData.set_number} ▾</AppText>
+                <AppText language={uiLanguage} variant="body" style={styles.setLabel}>{copy.set} {setData.set_number} ▾</AppText>
               </Pressable>
               {isSetNavigatorOpen ? (
                 <View style={styles.setNavigatorMenu}>
                   <ScrollView nestedScrollEnabled style={styles.setNavigatorScroll}>
                     {topicDetail?.sets.map((set) => (
-                      <Pressable key={set.set_number} accessibilityRole="button" style={styles.setNavigatorItem} onPress={() => {
-                        setIsSetNavigatorOpen(false);
-                        router.setParams({ setNumber: String(set.set_number) });
-                      }}>
+                      <Pressable
+                        key={set.set_number}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${copy.set} ${set.set_number}${set.is_complete ? `, ${copy.completed}` : ''}`}
+                        style={styles.setNavigatorItem}
+                        onPress={() => {
+                          setIsSetNavigatorOpen(false);
+                          router.setParams({ setNumber: String(set.set_number) });
+                        }}>
                         <AppText language={uiLanguage} variant="caption">{copy.set} {set.set_number}</AppText>
+                        {set.is_complete ? (
+                          <MaterialIcons name="check" size={18} color="#2F80D5" />
+                        ) : null}
                       </Pressable>
                     ))}
                   </ScrollView>
@@ -1249,7 +1269,7 @@ export function ExerciseBankSessionScreen() {
                   (isMultipleChoiceQuestion || isRewriteQuestion || (isJudgmentQuestion && isJudgmentRewriteStage)) &&
                   currentResult && !currentResult.correct
                     ? {
-                        answer: currentResult.review_answer || copy.answerUnavailable,
+                        answer: displayedReviewAnswer,
                         expanded: Boolean(revealedAnswerIds[currentQuestion.id]),
                         hideLabel: copy.hideAnswer,
                         showLabel: copy.showAnswer,
@@ -1350,23 +1370,21 @@ const styles = StyleSheet.create({
   feedbackSafeAreaIncorrect: { backgroundColor: practiceColors.incorrectPanel },
   exerciseShell: { flexGrow: 1 },
   exerciseHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: '#9A9A9A', paddingHorizontal: theme.spacing.md, paddingVertical: 10 },
-  exerciseHeaderCopy: { flex: 1, gap: 3 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  sessionContent: { paddingHorizontal: theme.spacing.md, paddingTop: 18, gap: 15 },
+  sessionContent: { paddingHorizontal: theme.spacing.md, paddingTop: 12, gap: 15 },
   questionSessionContent: { flexGrow: 1, paddingBottom: theme.spacing.md },
   setSelectorWrap: { position: 'relative', zIndex: 20 },
   setSelector: { alignSelf: 'flex-start', minHeight: 30, justifyContent: 'center' },
   setLabel: { color: theme.colors.text, fontSize: 18, lineHeight: 23, fontWeight: theme.typography.weights.semibold },
   setNavigatorMenu: { position: 'absolute', top: 30, left: 0, zIndex: 30, minWidth: 150, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.sm, backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
   setNavigatorScroll: { maxHeight: 240 },
-  setNavigatorItem: { minHeight: 38, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D5D9DE', paddingHorizontal: theme.spacing.md },
+  setNavigatorItem: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D5D9DE', paddingHorizontal: theme.spacing.md },
   setHeaderTitle: { fontSize: 26, lineHeight: 31 },
   sessionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.md },
   topicHeadingCopy: { flex: 1, gap: 2 },
-  topicDisplayTitle: { color: theme.colors.text, fontSize: 22, lineHeight: 28, fontWeight: theme.typography.weights.bold },
-  topicTechnicalName: { color: theme.colors.text, fontSize: 13, lineHeight: 18, fontWeight: theme.typography.weights.semibold },
-  progressRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, zIndex: 10 },
+  topicTechnicalName: { flex: 1, color: theme.colors.text, fontSize: 18, lineHeight: 24, fontWeight: theme.typography.weights.semibold },
+  progressRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginTop: -10, zIndex: 10 },
   progressTrack: { width: '100%', height: 6, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radii.xl, backgroundColor: '#E8E8E8' },
   progressFill: { height: '100%', backgroundColor: '#B9E671' },
   questionSectionDivider: { height: 1, marginVertical: theme.spacing.xs, backgroundColor: '#C9CDD2' },
