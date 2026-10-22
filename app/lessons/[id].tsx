@@ -120,6 +120,7 @@ import {
 } from '@/src/lib/lesson-content-language';
 import { containsThaiGlyphs, ScriptLanguage, splitTextByScript } from '@/src/lib/script-aware-text';
 import { isStandaloneTranscriptCue } from '@/src/lib/transcript';
+import { TranscriptEnglishText } from '@/src/components/lesson/TranscriptEnglishText';
 import { theme } from '@/src/theme/theme';
 import { resolveTranscriptCharacterBlueCircle, resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import { resolveLocalLessonHeaderImage } from '@/src/assets/lesson-header-images';
@@ -1512,11 +1513,11 @@ const cleanPracticeOptionInlines = (label: string, value: unknown) =>
       typeof inline?.text === 'string'
         ? {
             ...inline,
-            text: stripInlineMediaTags(inline.text),
+            text: stripInlineMediaTagsFromRun(inline.text),
           }
         : inline
     )
-    .filter((inline) => (typeof inline?.text === 'string' ? inline.text.trim().length > 0 : true));
+    .filter((inline) => (typeof inline?.text === 'string' ? inline.text.length > 0 : true));
 
 const splitThaiText = (value: string) => {
   const thaiRegex = /[\u0E00-\u0E7F]/;
@@ -1851,12 +1852,14 @@ const textJsonbToString = (inlines: LessonRichInline[]) => inlines.map((inline) 
 const INLINE_AUDIO_TAG_RE = /\[audio:([^\]]+)\]/i;
 const INLINE_IMAGE_TAG_RE = /\[img:([^\]]+)\]/i;
 
-const stripInlineMediaTags = (value: string) =>
+// Formatted runs may carry the only space between words. Trim whole text only.
+const stripInlineMediaTagsFromRun = (value: string) =>
   value
     .replace(/\[audio:[^\]]+\]/gi, ' ')
     .replace(/\[img:[^\]]+\]/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\s+/g, ' ');
+
+const stripInlineMediaTags = (value: string) => stripInlineMediaTagsFromRun(value).trim();
 
 const stripInlineMediaTagsPreserveLineBreaks = (value: string) =>
   String(value ?? '')
@@ -3312,6 +3315,17 @@ const getCultureNoteLeadHeadingExceptionKey = (
 ) => `${lessonNumber}|${contentLanguage}|${normalizeCultureNoteLeadHeadingExceptionText(text)}`;
 
 const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
+  getCultureNoteLeadHeadingExceptionKey('15.11', 'th', 'ก่อนคริสตกาล (BC)'),
+  getCultureNoteLeadHeadingExceptionKey(
+    '16.5',
+    'th',
+    'NIMBY ย่อมาจาก Not In My Backyard คนจำนวนมากในแอลเอสนับสนุนศูนย์พักพิงและที่อยู่อาศัยขนาดเล็กฟรีหรือราคาจับต้องได้ แต่เมื่อเมืองจะสร้างในย่านของคนกลุ่มนี้ พวกเขากลับประท้วงเพราะกังวลว่าราคาบ้านจะลดหรือย่านจะไม่ปลอดภัย'
+  ),
+  getCultureNoteLeadHeadingExceptionKey(
+    '16.7',
+    'th',
+    '-สนับสนุนสิทธิของชุมชน LGBTQ+ เช่น การแต่งงานของคู่รักเพศเดียวกันในอดีต'
+  ),
   getCultureNoteLeadHeadingExceptionKey(
     '4.14',
     'th',
@@ -3377,6 +3391,33 @@ const CULTURE_NOTE_LEAD_HEADING_EXCEPTIONS = new Set([
     '12.chp',
     'th',
     'ในวัฒนธรรมการเดทปัจจุบัน คุณอาจได้ยินคำย่อว่า DTR ซึ่งหมายถึง ‘การกำหนดความสัมพันธ์’ ซึ่งนี่หมายถึงบทสนทนาเฉพาะ ที่คนสองคนที่กำลังคบกัน ตัดสินใจพูดคุยอย่างชัดเจนว่าพวกเขาเป็นอะไรกันแน่'
+  ),
+]);
+
+const normalizeRichSectionHeadingPageExceptionText = (value: string) =>
+  cleanAudioTags(value).replace(/\s+/g, ' ').trim();
+
+const getRichSectionHeadingPageExceptionKey = (
+  lessonNumber: string,
+  contentLanguage: UiLanguage,
+  text: string
+) => `${lessonNumber}|${contentLanguage}|${normalizeRichSectionHeadingPageExceptionText(text)}`;
+
+// These are inline teaching labels in the source document. They should retain
+// their heading styling without becoming standalone pager sections.
+const RICH_SECTION_HEADING_PAGE_EXCEPTIONS = new Set([
+  getRichSectionHeadingPageExceptionKey(
+    '14.1',
+    'th',
+    'I see\nใช้แสดงว่าคุณเข้าใจแล้ว โดยเฉพาะเมื่อเพิ่งมีคนอธิบายข้อมูลใหม่ให้ฟัง'
+  ),
+  getRichSectionHeadingPageExceptionKey('14.11', 'th', 'I think\nฉันคิดว่า'),
+  getRichSectionHeadingPageExceptionKey('14.11', 'th', 'I hope\nฉันหวังว่า'),
+  getRichSectionHeadingPageExceptionKey('14.11', 'th', 'I guess\nฉันว่า, ฉันเดาว่า'),
+  getRichSectionHeadingPageExceptionKey(
+    '15.1',
+    'th',
+    'I wonder…\nใช้เมื่อคิดออกมาดัง ๆ หรือแสดงความอยากรู้'
   ),
 ]);
 
@@ -3533,14 +3574,21 @@ const groupRichSectionNodes = (nodes: LessonRichNode[], contentLang: UiLanguage)
   let current: RichSectionGroup | null = null;
 
   nodes.forEach((node, index) => {
-    if (node.kind === 'heading') {
+    const headingText = node.kind === 'heading' ? getNodeHeadingText(node, contentLang) : '';
+    const lessonKey = typeof node.lesson_key === 'string' ? node.lesson_key : '';
+    const isInlineHeadingPageException =
+      node.kind === 'heading' &&
+      RICH_SECTION_HEADING_PAGE_EXCEPTIONS.has(
+        getRichSectionHeadingPageExceptionKey(lessonKey, contentLang, headingText)
+      );
+
+    if (node.kind === 'heading' && !isInlineHeadingPageException) {
       if (current) {
         groups.push(current);
       }
 
-      const headingText = getNodeHeadingText(node, contentLang) || `Section ${index + 1}`;
       current = {
-        key: `${headingText}-${index}`,
+        key: `${headingText || `Section ${index + 1}`}-${index}`,
         heading: node,
         body: [],
       };
@@ -9904,7 +9952,7 @@ export default function LessonDetailShellScreen() {
       phraseShowDivider?: boolean;
       phraseIsLeadAudio?: boolean;
       compactBody?: boolean;
-      isUnderstandSection?: boolean;
+      separateTrailingAudioNote?: boolean;
       mistakeMarker?: CommonMistakeMarker;
     }
   ) => {
@@ -9978,7 +10026,7 @@ export default function LessonDetailShellScreen() {
 
     const mistakeColors = options?.mistakeMarker ? COMMON_MISTAKE_CARD_COLORS[options.mistakeMarker] : null;
     const sourceInlines = mistakeColors ? stripCommonMistakeMarkers(node.inlines, contentLang) : node.inlines;
-    const { dialogueInlines, noteInlines } = options?.isUnderstandSection || mistakeColors
+    const { dialogueInlines, noteInlines } = options?.separateTrailingAudioNote || mistakeColors
       ? splitTrailingItalicAudioNote(sourceInlines, contentLang)
       : { dialogueInlines: sourceInlines ?? [], noteInlines: [] as LessonRichInline[] };
     const translationKey = `${activeTab?.id ?? 'section'}:${nodeKey}`;
@@ -10588,7 +10636,7 @@ export default function LessonDetailShellScreen() {
       forceSubheader?: boolean;
       compactBody?: boolean;
       preserveNumberedItems?: boolean;
-      isUnderstandSection?: boolean;
+      separateTrailingAudioNote?: boolean;
       isCommonMistakeSection?: boolean;
       isAudioLeadIn?: boolean;
     }
@@ -10993,7 +11041,7 @@ export default function LessonDetailShellScreen() {
         keyPrefix: 'understand-node',
         enableHighlights: true,
         compactBody: true,
-        isUnderstandSection: true,
+        separateTrailingAudioNote: true,
         isAudioLeadIn,
         numberedLabel: node.kind === 'numbered_item' ? getUnderstandNumberedLabel(node) : undefined,
       });
@@ -11135,6 +11183,7 @@ export default function LessonDetailShellScreen() {
             return renderRichNode(node, nodeIndex, {
               keyPrefix: 'extra-tip-node',
               enableHighlights: true,
+              separateTrailingAudioNote: true,
               numberedLabel: `${numberedIndex}.`,
             });
           }
@@ -11142,6 +11191,7 @@ export default function LessonDetailShellScreen() {
           return renderRichNode(node, nodeIndex, {
             keyPrefix: 'extra-tip-node',
             enableHighlights: true,
+            separateTrailingAudioNote: true,
           });
         })}
       </View>
@@ -11215,6 +11265,15 @@ export default function LessonDetailShellScreen() {
         return false;
       }
 
+      const firstThaiIndex = text.search(/[\u0E00-\u0E7F]/);
+      const firstLatinIndex = text.search(/[A-Za-z]/);
+      if (firstThaiIndex >= 0 && (firstLatinIndex < 0 || firstThaiIndex < firstLatinIndex)) {
+        // A Thai heading/body line can contain an uppercase Latin acronym such
+        // as NIMBY. Do not let that acronym turn the whole line into the
+        // Culture Note's inferred English lead heading.
+        return false;
+      }
+
       const lettersOnly = text.replace(/[^A-Za-z]/g, '');
       if (!lettersOnly) {
         return false;
@@ -11242,6 +11301,7 @@ export default function LessonDetailShellScreen() {
           }
 
           if (isCultureNoteLeadHeading(node)) {
+            const shouldRenderCategoryPill = !renderedCategoryPill;
             renderedLeadHeading = true;
             renderedCategoryPill = true;
             resetNumberedCounters();
@@ -11250,7 +11310,7 @@ export default function LessonDetailShellScreen() {
                 <AppText language={contentLang} variant="body" style={styles.cultureNoteLeadHeading}>
                   {getCultureNoteLeadText(node)}
                 </AppText>
-                {categoryPill}
+                {shouldRenderCategoryPill ? categoryPill : null}
               </View>
             );
           }
@@ -13329,7 +13389,9 @@ const mergeAdjacentPracticeRowTokens = (
                             isFocusedPracticeSession ? styles.practiceFocusedPromptText : null,
                             isInlineQuickPractice ? styles.practiceQuestionTextCompact : null,
                           ]}>
-                          {item.textJsonb.length ? renderRichInlines(item.textJsonb, `${answerKey}-stem`) : item.prompt || item.text}
+                          {item.textJsonb.length
+                            ? renderRichInlines(item.textJsonb, `${answerKey}-stem`, focusedEnglishQuestionSize)
+                            : item.prompt || item.text}
                         </AppText>
                       ) : null}
                       {!item.orderedContent && contentLang === 'th' && !abPromptLayout && (item.promptTh || item.textTh || (isSentenceTransformExercise && item.textJsonbTh.length)) ? (
@@ -14696,7 +14758,10 @@ const mergeAdjacentPracticeRowTokens = (
           listenComplete={hasAudioFinished || writtenAppProgressUnitKeysRef.current.has(buildAppPageKey('listen'))}
           speakingComplete={completedSpeakingLessonIds.has(activeLessonNumber)}
           onSpeaking={!isCheckpointCoverLesson ? openSpeakingPractice : undefined}
-          onDiscussion={() => router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } })}
+          onDiscussion={() => router.push({
+            pathname: '/lesson-discussion/[id]',
+            params: { id: lessonId, language: contentLang },
+          })}
           onUpgrade={() => {
             if (isGuestLessonSession) {
               void openSpeakingPractice();
@@ -15331,9 +15396,9 @@ const mergeAdjacentPracticeRowTokens = (
                                   isLeft ? styles.transcriptBubbleLeft : styles.transcriptBubbleRight,
                                 ]}>
                                 {line.englishLine ? (
-                                  <AppText language="en" style={styles.transcriptText}>
+                                  <TranscriptEnglishText style={styles.transcriptText}>
                                     {line.englishLine}
-                                  </AppText>
+                                  </TranscriptEnglishText>
                                 ) : null}
                                 {contentLang === 'th' && line.thaiLine ? (
                                   <AppText language="th" style={styles.transcriptTextThai}>
@@ -16194,7 +16259,8 @@ const mergeAdjacentPracticeRowTokens = (
                           isCurrentComprehensionChecked && !isCurrentComprehensionCorrect
                             ? styles.comprehensionTryAgainButton
                             : null,
-                          isPracticeFooterActive && isCurrentPracticeChecked && !isCurrentPracticeCorrect
+                          isPracticeFooterActive && !showPracticeSetResults &&
+                          isCurrentPracticeChecked && !isCurrentPracticeCorrect
                             ? styles.comprehensionTryAgainButton
                             : null,
                           isFooterPrimaryVisuallyDisabled ? styles.ctaButtonDisabled : null,
@@ -18355,6 +18421,8 @@ const styles = StyleSheet.create({
   },
   transcriptBubble: {
     width: '100%',
+    minWidth: 0,
+    maxWidth: '100%',
     gap: 5,
     borderWidth: 1.2,
     borderColor: '#1E1E1E',
@@ -18384,12 +18452,18 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   transcriptText: {
+    width: '100%',
+    minWidth: 0,
+    flexShrink: 1,
     color: theme.colors.text,
     fontFamily: theme.typography.fontFaces.en.regular,
     fontSize: 14,
     lineHeight: 21,
   },
   transcriptTextThai: {
+    width: '100%',
+    minWidth: 0,
+    flexShrink: 1,
     color: theme.colors.mutedText,
     fontFamily: theme.typography.fontFaces.th.regular,
     fontSize: 13,

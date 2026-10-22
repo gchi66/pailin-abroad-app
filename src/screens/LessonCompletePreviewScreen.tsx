@@ -172,7 +172,10 @@ export function LessonCompletePreviewScreen() {
       showPreviewNotice();
       return;
     }
-    router.push({ pathname: '/lesson-discussion/[id]', params: { id: lessonId } });
+    router.push({
+      pathname: '/lesson-discussion/[id]',
+      params: { id: lessonId, language: lessonLanguage },
+    });
   };
   const openNextLesson = async () => {
     if (!lessonId) {

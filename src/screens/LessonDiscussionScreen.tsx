@@ -37,6 +37,7 @@ import type { LessonListItem } from '@/src/types/lesson';
 
 type Props = {
   lessonId: string;
+  language?: 'en' | 'th';
 };
 
 type ComposerTarget = {
@@ -47,6 +48,7 @@ const getCopy = (language: 'en' | 'th') =>
   language === 'th'
     ? {
         discussion: 'การพูดคุย',
+        lesson: 'บทเรียน',
         discussionPrompt: 'หัวข้อสนทนา',
         addComment: 'เพิ่มความคิดเห็น',
         comments: 'ความคิดเห็น',
@@ -77,6 +79,7 @@ const getCopy = (language: 'en' | 'th') =>
       }
     : {
         discussion: 'Discussion',
+        lesson: 'Lesson',
         discussionPrompt: 'Discussion prompt',
         addComment: 'Add a comment',
         comments: 'Comments',
@@ -106,13 +109,13 @@ const getCopy = (language: 'en' | 'th') =>
         close: 'Close discussion',
       };
 
-const formatCommentDate = (value: string) => {
+const formatCommentDate = (value: string, language: 'en' | 'th') => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return '';
   }
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(language === 'th' ? 'th-TH-u-ca-gregory' : 'en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
@@ -163,6 +166,7 @@ type CommentCardProps = {
   anonymous: string;
   replyLabel: string;
   actionsLabel: string;
+  language: 'en' | 'th';
   onReply: (comment: LessonComment) => void;
   onActions: (comment: LessonComment) => void;
 };
@@ -174,6 +178,7 @@ function CommentCard({
   anonymous,
   replyLabel,
   actionsLabel,
+  language,
   onReply,
   onActions,
 }: CommentCardProps) {
@@ -191,7 +196,7 @@ function CommentCard({
             </AppText>
           </View>
           <AppText numberOfLines={1} style={styles.commentDate}>
-            {formatCommentDate(comment.created_at)}
+            {formatCommentDate(comment.created_at, language)}
           </AppText>
           {isAdmin ? (
             <Pressable
@@ -205,16 +210,7 @@ function CommentCard({
           ) : null}
         </View>
 
-        {comment.body ? (
-          <AppText language="en" style={styles.commentBody}>
-            {comment.body}
-          </AppText>
-        ) : null}
-        {comment.body_th ? (
-          <AppText language="th" style={[styles.commentBody, styles.commentBodyThai]}>
-            {comment.body_th}
-          </AppText>
-        ) : null}
+        {comment.body ? <AppText style={styles.commentBody}>{comment.body}</AppText> : null}
 
         {isAdmin ? (
           <Pressable
@@ -236,6 +232,7 @@ function CommentCard({
           comment={reply}
           depth={depth + 1}
           isAdmin={isAdmin}
+          language={language}
           onActions={onActions}
           onReply={onReply}
           replyLabel={replyLabel}
@@ -245,12 +242,13 @@ function CommentCard({
   );
 }
 
-export function LessonDiscussionScreen({ lessonId }: Props) {
+export function LessonDiscussionScreen({ lessonId, language }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { uiLanguage } = useUiLanguage();
+  const discussionLanguage = language ?? uiLanguage;
   const { hasAccount, profile, user } = useAppSession();
-  const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
+  const copy = useMemo(() => getCopy(discussionLanguage), [discussionLanguage]);
   const [lesson, setLesson] = useState<LessonListItem | null>(null);
   const [comments, setComments] = useState<LessonComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -307,6 +305,8 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
   const commentCount = useMemo(() => countNestedComments(discussionRoots), [discussionRoots]);
   const isAdmin = Boolean(profile?.is_admin);
   const lessonNumber = lesson?.level && lesson?.lesson_order ? `${lesson.level}.${lesson.lesson_order}` : '';
+  const promptBodyEn = promptComment?.body?.trim() || '';
+  const promptBodyTh = promptComment?.body_th?.trim() || '';
 
   const requestComposer = (parent: LessonComment | null) => {
     if (!hasAccount || !user) {
@@ -432,10 +432,10 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
         <View style={styles.pageShell}>
           <View style={styles.topRow}>
             <View style={styles.titleGroup}>
-              {lessonNumber ? <AppText style={styles.lessonLabel}>{`LESSON ${lessonNumber}`}</AppText> : null}
+              {lessonNumber ? <AppText language={discussionLanguage} style={styles.lessonLabel}>{`${copy.lesson.toUpperCase()} ${lessonNumber}`}</AppText> : null}
               <View style={styles.titleRow}>
                 <MaterialIcons name="forum" size={23} color={theme.colors.text} />
-                <AppText language={uiLanguage} style={styles.title}>
+                <AppText language={discussionLanguage} style={styles.title}>
                   {copy.discussion}
                 </AppText>
               </View>
@@ -454,13 +454,13 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
           {isLoading ? (
             <View style={styles.stateCard}>
               <ActivityIndicator color={theme.colors.accent} />
-              <AppText language={uiLanguage} style={styles.stateText}>{copy.loading}</AppText>
+              <AppText language={discussionLanguage} style={styles.stateText}>{copy.loading}</AppText>
             </View>
           ) : loadError ? (
             <View style={styles.stateCard}>
-              <AppText language={uiLanguage} style={styles.stateText}>{loadError}</AppText>
+              <AppText language={discussionLanguage} style={styles.stateText}>{loadError}</AppText>
               <Pressable accessibilityRole="button" onPress={() => void loadDiscussion()} style={styles.retryButton}>
-                <AppText language={uiLanguage} style={styles.retryText}>{copy.retry}</AppText>
+                <AppText language={discussionLanguage} style={styles.retryText}>{copy.retry}</AppText>
               </Pressable>
             </View>
           ) : (
@@ -472,11 +472,19 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
                     <AppText style={styles.promptAuthor}>
                       {getDisplayName(promptComment, copy.anonymous).toUpperCase()}
                     </AppText>
-                    <AppText language={uiLanguage} style={styles.promptBadge}>{copy.discussionPrompt.toUpperCase()}</AppText>
+                    <AppText language={discussionLanguage} style={styles.promptBadge}>{copy.discussionPrompt.toUpperCase()}</AppText>
                     <Image source={require('@/assets/images/discussion-pin.png')} contentFit="contain" style={styles.pinIcon} />
                   </View>
-                  {promptComment.body ? <AppText language="en" style={styles.promptBody}>{promptComment.body}</AppText> : null}
-                  {promptComment.body_th ? <AppText language="th" style={styles.promptThai}>{promptComment.body_th}</AppText> : null}
+                  {promptBodyEn ? (
+                    <AppText language="en" style={styles.promptBody}>
+                      {promptBodyEn}
+                    </AppText>
+                  ) : null}
+                  {promptBodyTh ? (
+                    <AppText language="th" style={styles.promptThai}>
+                      {promptBodyTh}
+                    </AppText>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -484,16 +492,16 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
                 accessibilityRole="button"
                 onPress={() => requestComposer(null)}
                 style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}>
-                <AppText language={uiLanguage} style={styles.addButtonText}>{`+ ${copy.addComment.toUpperCase()}`}</AppText>
+                <AppText language={discussionLanguage} style={styles.addButtonText}>{`+ ${copy.addComment.toUpperCase()}`}</AppText>
               </NeoShadowPressable>
 
-              <AppText language={uiLanguage} style={styles.commentsTitle}>
+              <AppText language={discussionLanguage} style={styles.commentsTitle}>
                 {`${copy.comments} (${commentCount})`}
               </AppText>
 
               {commentCount === 0 ? (
                 <View style={styles.emptyCard}>
-                  <AppText language={uiLanguage} style={styles.emptyText}>{copy.empty}</AppText>
+                  <AppText language={discussionLanguage} style={styles.emptyText}>{copy.empty}</AppText>
                 </View>
               ) : (
                 <View style={styles.commentsList}>
@@ -505,6 +513,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
                       comment={comment}
                       depth={0}
                       isAdmin={isAdmin}
+                      language={discussionLanguage}
                       onActions={showCommentActions}
                       onReply={(target) => requestComposer(target)}
                       replyLabel={copy.reply}
@@ -525,7 +534,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
           <Pressable motionDisabled accessibilityRole="button" onPress={closeComposer} style={styles.modalBackdrop} />
           <View style={[styles.composerSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.composerHeader}>
-              <AppText language={uiLanguage} style={styles.composerTitle}>{composerTitle}</AppText>
+              <AppText language={discussionLanguage} style={styles.composerTitle}>{composerTitle}</AppText>
               <Pressable motionDisabled accessibilityLabel={copy.cancel} accessibilityRole="button" hitSlop={8} onPress={closeComposer}>
                 <MaterialIcons name="close" size={24} color={theme.colors.text} />
               </Pressable>
@@ -538,7 +547,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
               onChangeText={setDraft}
               placeholder={copy.placeholder}
               placeholderTextColor="#777777"
-              style={[styles.composerInput, uiLanguage === 'th' ? styles.thaiInput : styles.englishInput]}
+              style={[styles.composerInput, discussionLanguage === 'th' ? styles.thaiInput : styles.englishInput]}
               textAlignVertical="top"
               value={draft}
             />
@@ -548,7 +557,7 @@ export function LessonDiscussionScreen({ lessonId }: Props) {
               onPress={() => void submitComment()}
               style={[styles.postButton, isPosting || !draft.trim() ? styles.postButtonDisabled : null]}>
               {isPosting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
-              <AppText language={uiLanguage} style={styles.postButtonText}>{isPosting ? copy.posting : copy.post}</AppText>
+              <AppText language={discussionLanguage} style={styles.postButtonText}>{isPosting ? copy.posting : copy.post}</AppText>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -598,7 +607,6 @@ const styles = StyleSheet.create({
   commentDate: { maxWidth: 118, color: '#777777', fontSize: 9, lineHeight: 13 },
   moreButton: { width: 22, height: 30, alignItems: 'center', justifyContent: 'center' },
   commentBody: { fontSize: 13, lineHeight: 20 },
-  commentBodyThai: { color: '#5F5F5F' },
   replyButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   replyText: { color: theme.colors.mutedText, fontSize: 10, lineHeight: 15 },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pailin Abroad",
     "slug": "pailin-abroad-mobile",
-    "version": "2.1.0",
+    "version": "2.1.2",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo-pailin-abroad-smile.png",
     "scheme": "pailinabroadmobile",
@@ -11,7 +11,7 @@
       "icon": "./assets/images/app-logo-pailin-abroad.icon",
       "supportsTablet": true,
       "bundleIdentifier": "com.pailinabroad.app",
-      "buildNumber": "52",
+      "buildNumber": "56",
       "appleTeamId": "H7W3TQ8F6S",
       "associatedDomains": [
         "applinks:www.pailinabroad.com"

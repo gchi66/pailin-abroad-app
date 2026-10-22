@@ -7,6 +7,7 @@ import transcriptLeftAvatar from '@/assets/images/characters/pailin-blue-right.p
 import transcriptRightAvatar from '@/assets/images/characters/chloe-friend-blue-left.png';
 import { resolveTranscriptCharacterHead } from '@/src/assets/transcript-character-heads';
 import { AppText } from '@/src/components/ui/AppText';
+import { TranscriptEnglishText } from '@/src/components/lesson/TranscriptEnglishText';
 import { isStandaloneTranscriptCue } from '@/src/lib/transcript';
 import { theme } from '@/src/theme/theme';
 import type { ResolvedLessonTranscriptLine } from '@/src/types/lesson';
@@ -90,7 +91,7 @@ export function LessonTranscriptPage({ language, lessonExternalId, lines }: Prop
             {isLeft && avatar ? <Image source={avatar} contentFit="contain" style={styles.avatar} /> : null}
             <View style={[styles.bubbleColumn, !isLeft ? styles.bubbleColumnRight : null]}>
               <View style={[styles.bubble, isLeft ? styles.bubbleLeft : styles.bubbleRight]}>
-                {line.englishLine ? <AppText language="en" style={styles.text}>{line.englishLine}</AppText> : null}
+                {line.englishLine ? <TranscriptEnglishText style={styles.text}>{line.englishLine}</TranscriptEnglishText> : null}
                 {language === 'th' && line.thaiLine ? <AppText language="th" style={styles.textThai}>{line.thaiLine}</AppText> : null}
               </View>
               {speaker ? (
@@ -121,12 +122,12 @@ const styles = StyleSheet.create({
   avatarMirrored: { transform: [{ scaleX: -1 }] },
   bubbleColumn: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
   bubbleColumnRight: { alignItems: 'flex-end' },
-  bubble: { width: '100%', gap: 5, borderWidth: 1.2, borderColor: '#1E1E1E', borderRadius: 11, backgroundColor: theme.colors.surface, paddingHorizontal: 14, paddingVertical: 12 },
+  bubble: { width: '100%', minWidth: 0, maxWidth: '100%', gap: 5, borderWidth: 1.2, borderColor: '#1E1E1E', borderRadius: 11, backgroundColor: theme.colors.surface, paddingHorizontal: 14, paddingVertical: 12 },
   bubbleLeft: { borderBottomLeftRadius: 0 },
   bubbleRight: { borderBottomRightRadius: 0 },
   speaker: { color: theme.colors.text, fontSize: 9, lineHeight: 14, fontFamily: theme.typography.fontFaces.en.medium, letterSpacing: 0.7, marginTop: 1 },
   speakerThai: { fontFamily: theme.typography.fontFaces.th.medium },
   speakerRight: { textAlign: 'right' },
-  text: { color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.regular, fontSize: 14, lineHeight: 21 },
-  textThai: { color: theme.colors.mutedText, fontFamily: theme.typography.fontFaces.th.regular, fontSize: 13, lineHeight: 20 },
+  text: { width: '100%', minWidth: 0, flexShrink: 1, color: theme.colors.text, fontFamily: theme.typography.fontFaces.en.regular, fontSize: 14, lineHeight: 21 },
+  textThai: { width: '100%', minWidth: 0, flexShrink: 1, color: theme.colors.mutedText, fontFamily: theme.typography.fontFaces.th.regular, fontSize: 13, lineHeight: 20 },
 });
