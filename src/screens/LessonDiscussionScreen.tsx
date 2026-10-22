@@ -47,7 +47,7 @@ type ComposerTarget = {
 const getCopy = (language: 'en' | 'th') =>
   language === 'th'
     ? {
-        discussion: 'การพูดคุย',
+        discussion: 'แสดงความคิดเห็น',
         lesson: 'บทเรียน',
         discussionPrompt: 'หัวข้อสนทนา',
         addComment: 'เพิ่มความคิดเห็น',
