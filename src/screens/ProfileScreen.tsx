@@ -121,6 +121,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
       openingPreview: 'เปิดตัวอย่างหน้าเปิดแอป',
+      freeUserPreview: 'ดูแอปในมุมมองผู้ใช้ฟรี',
+      exitFreeUserPreview: 'ออกจากมุมมองผู้ใช้ฟรี',
       avatarLabel: 'PP',
       setPassword: 'รีเซ็ตรหัสผ่าน',
       subtitle: 'จัดการข้อมูลบัญชีของคุณ', password: 'รหัสผ่าน', changePassword: 'รีเซ็ตรหัสผ่าน', currentPassword: 'รหัสผ่านปัจจุบัน', newPassword: 'รหัสผ่านใหม่', confirmPassword: 'ยืนยันรหัสผ่านใหม่', savePassword: 'บันทึกรหัสผ่าน', passwordSaved: 'รีเซ็ตรหัสผ่านแล้ว', passwordMismatch: 'รหัสผ่านใหม่ไม่ตรงกัน', passwordRules: 'กรุณาตั้งรหัสผ่านให้ตรงตามเงื่อนไขทั้งหมด', passwordRule1: 'อย่างน้อย 8 ตัวอักษร', passwordRule2: 'มีตัวเลขและอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว', passwordRule3: 'มีตัวอักษรพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อยอย่างละ 1 ตัว', saveAvatar: 'บันทึกรูปโปรไฟล์',
@@ -155,6 +157,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
     openingPreview: 'Open app opening preview',
+    freeUserPreview: 'Preview app as a free user',
+    exitFreeUserPreview: 'Exit free-user preview',
     avatarLabel: 'PP',
     setPassword: 'Reset Password',
     subtitle: 'Manage your account information.', password: 'Password', changePassword: 'Reset Password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', savePassword: 'Save Password', passwordSaved: 'Password reset.', passwordMismatch: 'New passwords do not match.', passwordRules: 'Please meet all password requirements.', passwordRule1: 'At least 8 characters', passwordRule2: 'At least 1 number and 1 special character', passwordRule3: 'At least 1 uppercase and 1 lowercase letter', saveAvatar: 'Save Avatar',
@@ -164,7 +168,17 @@ const getCopy = (uiLanguage: UiLanguage) => {
 export function ProfileScreen() {
   const router = useRouter();
   const { uiLanguage } = useUiLanguage();
-  const { hasAccount, hasMembership, isGuestMode, profile, refreshProfile, signOut, user } = useAppSession();
+  const {
+    hasAccount,
+    hasMembership,
+    isFreeUserPreview,
+    isGuestMode,
+    profile,
+    refreshProfile,
+    setFreeUserPreview,
+    signOut,
+    user,
+  } = useAppSession();
   const copy = getCopy(uiLanguage);
   const [isEditing, setIsEditing] = useState(false);
   const [draftUsername, setDraftUsername] = useState('');
@@ -445,6 +459,16 @@ export function ProfileScreen() {
               </Pressable>
             </View>
             {profile?.is_admin === true ? <Stack gap="sm" style={styles.adminLinks}>
+              <Button
+                title={isFreeUserPreview ? copy.exitFreeUserPreview : copy.freeUserPreview}
+                language={uiLanguage}
+                variant={isFreeUserPreview ? 'primary' : 'outline'}
+                style={isFreeUserPreview ? styles.freeUserPreviewActive : undefined}
+                onPress={() => {
+                  setFreeUserPreview(!isFreeUserPreview);
+                  router.replace('/(tabs)');
+                }}
+              />
               <Button title={copy.openingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/opening?preview=1')} />
               <Button title={copy.onboardingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/onboarding?devtools=1')} />
               <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
@@ -666,6 +690,9 @@ const styles = StyleSheet.create({
   },
   passwordDots: { fontWeight: theme.typography.weights.bold },
   adminLinks: { marginTop: 22 },
+  freeUserPreviewActive: {
+    backgroundColor: '#FF57A3',
+  },
   linkRow: {
     minHeight: 52,
     flexDirection: 'row',

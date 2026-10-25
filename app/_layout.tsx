@@ -5,19 +5,21 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-naviga
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PostHogProvider } from 'posthog-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { posthog } from '@/src/config/posthog';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DailyReminderManager } from '@/src/components/DailyReminderManager';
+import { AppText } from '@/src/components/ui/AppText';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { AppSessionProvider, useAppSession } from '@/src/context/app-session-context';
 import { OnboardingProvider } from '@/src/context/onboarding-context';
 import { OpeningScreenProvider, useOpeningScreen } from '@/src/context/opening-screen-context';
-import { UiLanguageProvider } from '@/src/context/ui-language-context';
+import { UiLanguageProvider, useUiLanguage } from '@/src/context/ui-language-context';
 import { takePendingLessonReturn } from '@/src/lib/pending-lesson-return';
 import { theme } from '@/src/theme/theme';
 
@@ -202,6 +204,30 @@ function SplashVisibilityGate({ fontsLoaded }: { fontsLoaded: boolean }) {
   return null;
 }
 
+function FreeUserPreviewBanner() {
+  const insets = useSafeAreaInsets();
+  const { isFreeUserPreview, setFreeUserPreview } = useAppSession();
+  const { uiLanguage } = useUiLanguage();
+
+  if (!isFreeUserPreview) {
+    return null;
+  }
+
+  return (
+    <View pointerEvents="box-none" style={[styles.previewBannerPosition, { top: insets.top + 5 }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={uiLanguage === 'th' ? 'ออกจากมุมมองผู้ใช้ฟรี' : 'Exit free-user preview'}
+        onPress={() => setFreeUserPreview(false)}
+        style={styles.previewBanner}>
+        <AppText language={uiLanguage} variant="caption" style={styles.previewBannerText}>
+          {uiLanguage === 'th' ? 'มุมมองผู้ใช้ฟรี · ออก' : 'FREE-USER PREVIEW · EXIT'}
+        </AppText>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
@@ -289,6 +315,7 @@ export default function RootLayout() {
                   }}
                 />
               </Stack>
+              <FreeUserPreviewBanner />
               <StatusBar style="dark" />
             </ThemeProvider>
             </UiLanguageProvider>
@@ -314,5 +341,30 @@ const styles = StyleSheet.create({
   fontsLoadingScreen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  previewBannerPosition: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    alignItems: 'center',
+  },
+  previewBanner: {
+    minHeight: 28,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    backgroundColor: '#FF57A3',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    boxShadow: `2px 2px 0px ${theme.colors.shadow}`,
+  },
+  previewBannerText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.4,
   },
 });

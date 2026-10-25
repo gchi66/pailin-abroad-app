@@ -237,7 +237,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
         ) : <AppText language={language} variant="caption" style={styles.resultsLabel}>{th ? `พบ ${lessons.length} บทเรียน` : `${lessons.length} lessons found`}</AppText>}
 
         {!hasMembership && !searching ? <View style={styles.upgrade}>
-          <UnlockArtwork style={styles.upgradeArtwork} />
+          <UnlockArtwork accentColor="#FF57A3" keyholeColor="#FFFFFF" showBackdrop={false} style={styles.upgradeArtwork} />
           <View style={styles.upgradeContent}>
             <AppText language={language} variant="title" style={styles.upgradeTitle}>{th ? 'ปลดล็อกคอร์สทั้งหมด' : 'UNLOCK THE FULL COURSE'}</AppText>
             <AppText language={language} variant="muted" style={styles.upgradeBody}>
@@ -351,11 +351,11 @@ const styles = StyleSheet.create({
   selectedMarker: { backgroundColor: '#3CA0FE', borderColor: '#222222' }, completeMarker: { backgroundColor: '#BCE574', borderColor: '#222222' },
   progressMarker: { position: 'absolute', width: 20, height: 22, left: -10, top: '50%', marginTop: -14, alignItems: 'center' },
   resultsLabel: { marginBottom: 18, color: '#666666' }, searchContext: { fontSize: 10, lineHeight: 16, color: '#777777' }, empty: { paddingVertical: 24, textAlign: 'center', gap: 12 },
-  upgrade: { flexDirection: 'row', alignItems: 'center', borderWidth: theme.borderWidths.primaryCard, borderColor: '#EDC743', borderRadius: 10, backgroundColor: '#FFFCE5', padding: 12, gap: 12, marginBottom: 24 },
+  upgrade: { flexDirection: 'row', alignItems: 'center', borderWidth: theme.borderWidths.emphasized, borderColor: theme.colors.border, borderRadius: 14, backgroundColor: '#F4FF57', padding: 12, gap: 12, marginBottom: 24 },
   upgradeArtwork: { width: 96, height: 96, flexShrink: 0 },
   upgradeContent: { flex: 1, minWidth: 0, gap: 4 },
   upgradeTitle: { fontSize: 13, lineHeight: 19, fontWeight: theme.typography.weights.bold },
-  upgradeBody: { fontSize: 11, lineHeight: 16, color: '#666666' },
-  upgradeButton: { backgroundColor: '#F9DA60', alignSelf: 'flex-start', minHeight: 32, marginTop: 3, paddingHorizontal: 24 },
-  upgradeButtonText: { fontSize: 11, lineHeight: 17, color: '#222222' },
+  upgradeBody: { fontSize: 12, lineHeight: 18, color: theme.colors.text },
+  upgradeButton: { backgroundColor: '#FF57A3', alignSelf: 'flex-start', minHeight: 32, marginTop: 3, paddingHorizontal: 24, borderWidth: theme.borderWidths.primaryCard, borderColor: theme.colors.border },
+  upgradeButtonText: { fontSize: 11, lineHeight: 17, color: '#FFFFFF' },
 });

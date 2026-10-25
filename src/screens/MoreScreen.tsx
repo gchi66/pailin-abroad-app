@@ -102,7 +102,7 @@ export function MoreScreen() {
                   });
                 }}
                 style={({ pressed }) => [styles.membershipCard, pressed ? styles.cardPressed : null]}>
-                <UnlockArtwork style={styles.membershipArtwork} />
+                <UnlockArtwork accentColor="#FF57A3" keyholeColor="#FFFFFF" showBackdrop={false} style={styles.membershipArtwork} />
                 <View style={styles.membershipCopy}>
                   <AppText language={uiLanguage} variant="body" style={styles.membershipTitle}>
                     {copy.membershipTitle.toLocaleUpperCase(uiLanguage === 'th' ? 'th' : 'en')}
@@ -111,7 +111,7 @@ export function MoreScreen() {
                     {copy.membershipBody}
                   </AppText>
                 </View>
-                <MaterialIcons name="chevron-right" size={24} color={theme.colors.text} />
+                <MaterialIcons name="chevron-right" size={24} color="#FF57A3" />
               </Pressable>
             ) : null}
             {copy.actions.map((action) => {
@@ -168,10 +168,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: '#EDC743',
-    borderRadius: 10,
-    backgroundColor: '#FFFCE5',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderRadius: 14,
+    backgroundColor: '#F4FF57',
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -192,9 +192,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   membershipBody: {
-    color: '#666666',
-    fontSize: 11,
-    lineHeight: 17,
+    color: theme.colors.text,
+    fontSize: 12,
+    lineHeight: 18,
   },
   cardPressed: {
     opacity: 0.65,

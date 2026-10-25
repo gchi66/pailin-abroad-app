@@ -136,7 +136,7 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   noResumeLesson: 'ยังไม่มีบทเรียนถัดไปในตอนนี้',
   upgradeTitle: 'ปลดล็อกคอร์สทั้งหมด',
   upgradeCta: 'ดูแพ็กเกจ →',
-  upgradeBody: (total: number) => `คุณสามารถเรียนฟรีได้ ${total} บทเรียน อัปเกรดเพื่อปลดล็อกคลังบทเรียนทั้งหมด!`,
+  upgradeBody: (total: number) => `คุณมีบทเรียนฟรี ${total} บทให้ลองเรียน อัปเกรดเพื่อปลดล็อกทุกบทเรียนและพัฒนาต่อไป!`,
   allFreeComplete: 'คุณเรียนครบทุกบทเรียนฟรีแล้ว!',
   allFreeCompleteBody: 'เรียนต่อด้วยคอร์สเต็ม และพัฒนาทักษะของคุณต่อไป',
   progressSummary: (done: number, total: number, free: boolean) => `เรียนจบ ${done} จาก ${total} ${free ? 'บทเรียนฟรี' : 'บทเรียน'}`,
@@ -170,7 +170,7 @@ const getCopy = (uiLanguage: UiLanguage) => uiLanguage === 'th' ? {
   noResumeLesson: 'There is no next lesson right now.',
   upgradeTitle: 'Unlock the full course',
   upgradeCta: 'View plans →',
-  upgradeBody: (total: number) => `You have access to ${total} free lessons. Upgrade to unlock the full lesson library!`,
+  upgradeBody: (total: number) => `You’ve got ${total} free lessons to explore. Upgrade to unlock every lesson and keep making progress!`,
   allFreeComplete: 'You’ve finished all your free lessons!',
   allFreeCompleteBody: 'Keep learning with the full course and build on your progress.',
   progressSummary: (done: number, total: number, free: boolean) => `${done} of ${total} ${free ? 'free lessons completed' : 'lessons complete'}`,
@@ -645,6 +645,8 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                     title={copy.guestProgressTitle}
                     body={copy.guestProgressBody}
                     buttonLabel={copy.guestProgressCta}
+                    appearance="guestProgress"
+                    accentColor="#FF57A3"
                     onPress={() => router.push('/account/auth')}
                   />
                 </View>
@@ -709,11 +711,22 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                 <Card style={styles.upgradeCard}>
                   {!freeCourseComplete ? (
                     <View style={styles.upgradeMain}>
-                      <UnlockArtwork style={styles.upgradeArtwork} />
+                      <UnlockArtwork
+                        accentColor="#FF57A3"
+                        keyholeColor="#FFFFFF"
+                        showBackdrop={false}
+                        style={styles.upgradeArtwork}
+                      />
                       <View style={styles.upgradeCopy}>
                         <AppText language={uiLanguage} variant="title" style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.upgradeTitle}</AppText>
                         <AppText language={uiLanguage} variant="muted" style={styles.upgradeBody}>{copy.upgradeBody(freePathway.totalCount)}</AppText>
-                        <Button language={uiLanguage} title={copy.upgradeCta} onPress={handleUpgrade} style={styles.upgradeButton} textStyle={styles.smallCtaText} />
+                        <Button
+                          language={uiLanguage}
+                          title={copy.upgradeCta}
+                          onPress={handleUpgrade}
+                          style={styles.upgradeButton}
+                          textStyle={[styles.smallCtaText, styles.upgradeButtonText]}
+                        />
                       </View>
                     </View>
                   ) : null}
@@ -867,7 +880,7 @@ const styles = StyleSheet.create({
     color: '#666666'
   },
   resumeCard: {
-    backgroundColor: '#EAF4FF',
+    backgroundColor: '#BCECFF',
     borderWidth: theme.borderWidths.primaryCard,
     borderRadius: 5,
     padding: 18,
@@ -1059,11 +1072,12 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline'
   },
   upgradeCard: {
-    backgroundColor: '#FFFBE5',
-    borderWidth: theme.borderWidths.primaryCard,
-    borderColor: '#EDC743',
-    borderRadius: 10,
-    padding: 14
+    backgroundColor: '#F4FF57',
+    borderWidth: theme.borderWidths.emphasized,
+    borderColor: theme.colors.border,
+    borderRadius: 14,
+    padding: 14,
+    paddingBottom: 8
   },
   upgradeMain: {
     flexDirection: 'row',
@@ -1088,16 +1102,21 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFaces.en.bold
   },
   upgradeBody: {
-    fontSize: 11,
-    lineHeight: 17,
-    color: '#666666'
+    fontSize: 12,
+    lineHeight: 18,
+    color: theme.colors.text
   },
   upgradeButton: {
     alignSelf: 'flex-start',
-    minHeight: 32,
-    backgroundColor: '#F9DA60',
+    minHeight: 36,
+    borderWidth: theme.borderWidths.primaryCard,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FF57A3',
     paddingHorizontal: 28,
     paddingVertical: 5
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
   },
   smallCtaText: {
     color: theme.colors.text,
@@ -1107,21 +1126,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3
   },
   libraryTouch: {
-    minHeight: 36,
+    minHeight: 28,
     justifyContent: 'center'
   },
   libraryDivider: {
     borderTopWidth: theme.borderWidths.standard,
-    borderColor: '#CCC7AC',
+    borderColor: theme.colors.border,
     borderStyle: 'dashed',
-    marginTop: 18,
-    paddingTop: 12
+    marginTop: 12,
+    paddingTop: 8
   },
   libraryLink: {
     fontSize: 10,
     lineHeight: 16,
-    color: '#1F5CFF',
-    textTransform: 'uppercase'
+    color: '#2860E8',
+    textTransform: 'uppercase',
+    fontWeight: theme.typography.weights.bold,
   },
   practiceCard: {
     flexDirection: 'row',

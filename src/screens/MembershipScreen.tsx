@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CustomerInfo, PurchasesPackage, PURCHASES_ERROR_CODE, PurchasesError } from 'react-native-purchases';
@@ -7,6 +7,7 @@ import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 
+import pailinThumbsUpHead from '@/assets/images/characters/pailin_thumbs_up_head.webp';
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -30,7 +31,6 @@ import { theme } from '@/src/theme/theme';
 type UiLanguage = 'en' | 'th';
 type MembershipSource = 'onboarding' | 'free-account' | 'guest';
 type PaidPlanId = 'lifetime' | 'monthly' | '3-month';
-type SelectionId = PaidPlanId | 'free';
 type PlanId = 'monthly' | '3-month' | '6-month' | 'lifetime';
 
 type PricingState = {
@@ -52,6 +52,11 @@ type PaidPlan = {
   billingCurrency: string;
   periodLabel?: string;
   savingsSummary?: string | null;
+};
+
+type PlanCardCopy = {
+  subtitle: string;
+  details: string[];
 };
 
 const INITIAL_PRICING_STATE: PricingState = {
@@ -88,17 +93,39 @@ const normalizeSource = (value: string | string[] | undefined, fallback: Members
 const getCopy = (uiLanguage: UiLanguage) => {
   if (uiLanguage === 'th') {
     return {
-      title: 'ยกระดับการเรียนรู้\nของคุณไปอีกขั้น!',
-      subtitle: 'เลือกแผนที่เหมาะกับเส้นทางการเรียนรู้ของคุณ',
-      lifetimeTitle: 'สมาชิกตลอดชีพ',
-      fullTitle: 'สมาชิกแบบเต็มรูปแบบ',
-      freeTitle: 'บัญชีฟรี',
-      monthlyToggle: 'รายเดือน',
-      threeMonthToggle: '3 เดือน',
+      title: 'พร้อมพูดภาษาอังกฤษ\nอย่างมั่นใจหรือยัง?',
+      subtitle: 'เรียนภาษาอังกฤษที่ใช้ได้จริง ผ่านเรื่องราวของไพลินในลอสแอนเจลิส',
+      promoEyebrow: 'สมาชิก PAILIN ABROAD',
+      promoTitle: 'สมาชิกเดียว เรียนได้ทุกบท',
+      promoBody: 'เรียนตามจังหวะของคุณ พร้อมเข้าถึงเนื้อหาทั้งหมดใน Pailin Abroad',
+      lifetimeTitle: 'ตลอดชีพ',
+      threeMonthTitle: '3 เดือน',
+      monthlyTitle: '1 เดือน',
       monthLabel: 'เดือน',
-      joinCta: 'สมัครเลย!',
+      joinCta: 'เลือกแพ็กเกจนี้',
       joinLoading: 'กำลังดำเนินการ...',
       freeCta: 'ใช้งานบัญชีฟรีต่อ',
+      guestFreeCta: 'สร้างบัญชีฟรีแทน →',
+      existingFreeCta: 'เรียนบทเรียนฟรีต่อ →',
+      planCta: (planId: PaidPlanId) => planId === 'lifetime'
+        ? 'รับสิทธิ์ตลอดชีพ'
+        : planId === '3-month'
+          ? 'เลือกแพ็กเกจ 3 เดือน'
+          : 'เลือกแพ็กเกจ 1 เดือน',
+      savePercent: (percent: number) => `ประหยัด ${percent}%`,
+      threeMonthTotal: (price: string) => `${price} ต่อ 3 เดือน`,
+      lifetimeCard: {
+        subtitle: 'รวมอัปเดตทั้งหมดในอนาคต',
+        details: ['ชำระครั้งเดียว', 'ไม่มีการต่ออายุ'],
+      } satisfies PlanCardCopy,
+      threeMonthCard: {
+        subtitle: 'เพื่อสร้างความมั่นใจอย่างต่อเนื่อง',
+        details: ['ยกเลิกได้ทุกเมื่อ'],
+      } satisfies PlanCardCopy,
+      monthlyCard: {
+        subtitle: 'สำหรับการเรียนที่ยืดหยุ่น',
+        details: ['เรียกเก็บเงินทุกเดือน', 'ยกเลิกได้ทุกเมื่อ'],
+      } satisfies PlanCardCopy,
       loadingErrorTitle: 'เกิดข้อผิดพลาด',
       loadingErrorBody: 'เราไม่สามารถโหลดราคาสมาชิกได้ กรุณาลองใหม่อีกครั้ง',
       purchaseUnavailableTitle: 'ยังไม่มีแพ็กเกจสมาชิกให้เลือก',
@@ -129,7 +156,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
         'เข้าถึงคลังบทเรียนทั้งหมด มากกว่า 250 บทเรียน!',
         'เข้าถึงแบบฝึกหัดทั้งหมดในคลังแบบฝึกหัด',
         'เข้าถึงทุกหัวข้อในคลังหัวข้อ',
-        'ดูสถิติความก้าวหน้าของคุณแบบละเอียด',
+        'ดูข้อมูลความก้าวหน้าในการเรียนแบบละเอียด',
       ],
       freeFeatures: [
         'เข้าถึงบทเรียนฟรี 16 บทเรียน',
@@ -142,17 +169,39 @@ const getCopy = (uiLanguage: UiLanguage) => {
   }
 
   return {
-    title: 'Take your learning\nto the next level!',
-    subtitle: 'Explore our plans to find the best fit for your learning journey.',
-    lifetimeTitle: 'Lifetime Membership',
-    fullTitle: 'Full Membership',
-    freeTitle: 'Free Account',
-    monthlyToggle: 'Monthly',
-    threeMonthToggle: '3 Months',
+    title: 'Ready to speak English\nwith confidence?',
+    subtitle: "Learn real English through Pailin’s journeys in L.A.",
+    promoEyebrow: 'PAILIN ABROAD MEMBERSHIP',
+    promoTitle: 'One membership. Every lesson.',
+    promoBody: 'Learn at your own pace with full access to Pailin Abroad.',
+    lifetimeTitle: 'Lifetime',
+    threeMonthTitle: '3 Months',
+    monthlyTitle: '1 Month',
     monthLabel: 'month',
-    joinCta: 'JOIN NOW!',
+    joinCta: 'CHOOSE THIS PLAN',
     joinLoading: 'PROCESSING...',
     freeCta: 'CONTINUE WITH FREE ACCOUNT',
+    guestFreeCta: 'CREATE A FREE ACCOUNT INSTEAD →',
+    existingFreeCta: 'CONTINUE WITH FREE LESSONS →',
+    planCta: (planId: PaidPlanId) => planId === 'lifetime'
+      ? 'GET LIFETIME ACCESS'
+      : planId === '3-month'
+        ? 'GET 3-MONTH PLAN'
+        : 'GET 1-MONTH PLAN',
+    savePercent: (percent: number) => `SAVE ${percent}%`,
+    threeMonthTotal: (price: string) => `${price} every 3 months`,
+    lifetimeCard: {
+      subtitle: 'All future updates included',
+      details: ['One-time purchase', 'No renewals'],
+    } satisfies PlanCardCopy,
+    threeMonthCard: {
+      subtitle: 'For building confidence',
+      details: ['Cancel anytime'],
+    } satisfies PlanCardCopy,
+    monthlyCard: {
+      subtitle: 'For flexible learning',
+      details: ['Billed every month', 'Cancel anytime'],
+    } satisfies PlanCardCopy,
     loadingErrorTitle: 'Something went wrong',
     loadingErrorBody: "We couldn't load membership pricing. Please try again.",
     purchaseUnavailableTitle: 'Products unavailable',
@@ -274,7 +323,7 @@ const buildPaidPlans = (
     },
     monthly: {
       id: 'monthly',
-      title: copy.fullTitle,
+      title: copy.monthlyTitle,
       price: monthlyPackage?.product.priceString ?? buildPriceWithSymbol(monthlyCurrency, monthlyTotal),
       summaryPrice: monthlyPackage?.product.priceString ?? buildPriceWithSymbol(monthlyCurrency, monthlyTotal),
       totalPrice: monthlyTotal,
@@ -285,7 +334,7 @@ const buildPaidPlans = (
     },
     '3-month': {
       id: '3-month',
-      title: copy.fullTitle,
+      title: copy.threeMonthTitle,
       price: buildPriceWithSymbol(threeMonthCurrency, threeMonthMonthly),
       summaryPrice: buildPriceWithSymbol(threeMonthCurrency, threeMonthTotal),
       totalPrice: threeMonthTotal,
@@ -298,89 +347,99 @@ const buildPaidPlans = (
   };
 };
 
-function RadioDot({ selected }: { selected: boolean }) {
-  return (
-    <View style={[styles.radioOuter, selected ? styles.radioOuterSelected : null]}>
-      {selected ? <View style={styles.radioInner} /> : null}
-    </View>
-  );
-}
-
-function FeatureRow({ children, muted, uiLanguage }: { children: string; muted?: boolean; uiLanguage: UiLanguage }) {
+function FeatureRow({ children, uiLanguage }: { children: string; uiLanguage: UiLanguage }) {
   return (
     <View style={styles.featureRow}>
-      <MaterialIcons name="check" size={15} color={muted ? '#AEB4B8' : '#8CC63E'} />
-      <AppText language={uiLanguage} variant="caption" style={[styles.featureText, muted ? styles.featureTextMuted : null]}>
+      <MaterialIcons name="check" size={20} color="#2860E8" />
+      <AppText language={uiLanguage} variant="caption" style={styles.featureText}>
         {children}
       </AppText>
     </View>
   );
 }
 
-type PlanCardProps = {
-  selected: boolean;
-  onPress: () => void;
-  title: string;
-  price?: string;
-  originalPrice?: string | null;
-  periodLabel?: string;
-  features: string[];
-  uiLanguage: UiLanguage;
-  tone: 'lifetime' | 'paid' | 'free';
+const getSavingsPercent = (plan: PaidPlan) => {
+  if (!plan.originalTotalPrice || plan.originalTotalPrice <= plan.totalPrice) {
+    return null;
+  }
+
+  return Math.round((1 - plan.totalPrice / plan.originalTotalPrice) * 100);
 };
 
-function PlanCard({ selected, onPress, title, price, originalPrice, periodLabel, features, uiLanguage, tone }: PlanCardProps) {
+type PricingPlanCardProps = {
+  plan: PaidPlan;
+  selected: boolean;
+  onPress: () => void;
+  copy: PlanCardCopy;
+  savingsLabel?: string | null;
+  totalLine?: string | null;
+  uiLanguage: UiLanguage;
+};
+
+function PricingPlanCard({
+  plan,
+  selected,
+  onPress,
+  copy,
+  savingsLabel,
+  totalLine,
+  uiLanguage,
+}: PricingPlanCardProps) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={[
-        styles.planCard,
-        tone === 'lifetime' ? styles.lifetimeCard : null,
-        tone === 'paid' ? styles.paidCard : null,
-        tone === 'free' ? styles.freeCard : null,
-        selected ? styles.selectedPlanCard : null,
-      ]}>
-      <View
-        style={[
-          styles.planCardHeader,
-          tone === 'lifetime' ? styles.lifetimeHeader : null,
-          tone === 'paid' ? styles.paidHeader : null,
-          tone === 'free' ? styles.freeHeader : null,
-        ]}>
-        <View style={styles.cardTitleRow}>
-          <RadioDot selected={selected} />
-          <AppText language={uiLanguage} variant="body" style={styles.cardTitle}>
-            {title}
+    <View style={[styles.planCardWrap, savingsLabel ? styles.planCardWrapWithBadge : null]}>
+      {savingsLabel ? (
+        <View pointerEvents="none" style={styles.savingsPill}>
+          <AppText language={uiLanguage} variant="caption" numberOfLines={1} style={styles.savingsPillText}>
+            {savingsLabel}
           </AppText>
         </View>
-        {price ? (
-          <View style={styles.cardPriceRow}>
-            {originalPrice ? (
-              <AppText language={uiLanguage} variant="caption" style={styles.cardOriginalPrice}>
-                {originalPrice}
+      ) : null}
+      <View pointerEvents="none" style={[styles.planCardShadow, selected ? styles.planCardShadowSelected : null]} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        onPress={onPress}
+        style={[
+          styles.planCard,
+          selected ? styles.selectedPlanCard : null,
+        ]}>
+        <View style={styles.planCopyColumn}>
+          <AppText language={uiLanguage} variant="title" style={styles.planTitle}>
+            {plan.title}
+          </AppText>
+          <AppText language={uiLanguage} variant="caption" style={styles.planSubtitle}>
+            {copy.subtitle}
+          </AppText>
+          <View style={styles.planDetails}>
+            {totalLine ? (
+              <AppText language={uiLanguage} variant="caption" style={styles.planDetailText}>
+                {totalLine}
               </AppText>
             ) : null}
-            <AppText language={uiLanguage} variant="body" style={styles.cardPrice}>
-              {price}
-            </AppText>
-            {periodLabel ? (
-              <AppText language={uiLanguage} variant="caption" style={styles.cardPeriod}>
-                / {periodLabel}
+            {copy.details.map((detail) => (
+              <AppText key={detail} language={uiLanguage} variant="caption" style={styles.planDetailText}>
+                {detail}
               </AppText>
-            ) : null}
+            ))}
           </View>
-        ) : null}
-      </View>
-      <View style={styles.planCardBody}>
-        {features.map((feature) => (
-          <FeatureRow key={feature} muted={tone === 'free'} uiLanguage={uiLanguage}>
-            {feature}
-          </FeatureRow>
-        ))}
-      </View>
-    </Pressable>
+        </View>
+        <View style={styles.planPriceColumn}>
+          {plan.originalMonthlyPrice ? (
+            <AppText language={uiLanguage} variant="caption" style={styles.planOriginalPrice}>
+              {buildPriceWithSymbol(plan.billingCurrency, plan.originalMonthlyPrice)}
+            </AppText>
+          ) : null}
+          <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
+            {plan.price}
+          </AppText>
+          {plan.periodLabel ? (
+            <AppText language={uiLanguage} variant="caption" style={styles.planPeriod}>
+              / {plan.periodLabel}
+            </AppText>
+          ) : null}
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -400,11 +459,9 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   const fallbackSource: MembershipSource = isGuestMode && !hasAccount ? 'guest' : 'free-account';
   const source = sourceOverride ?? normalizeSource(params.source, fallbackSource);
   const showCloseButton = source !== 'onboarding';
-  const showFreeAccountOption = source === 'onboarding' || source === 'guest';
   const successRoute = source === 'free-account' ? '/(tabs)' : '/placement-entry';
   const closeRoute = '/(tabs)/account';
-  const [selectedOption, setSelectedOption] = useState<SelectionId>('lifetime');
-  const [recurringPeriod, setRecurringPeriod] = useState<'monthly' | '3-month'>('monthly');
+  const [selectedOption, setSelectedOption] = useState<PaidPlanId>('3-month');
   const [pricingState, setPricingState] = useState<PricingState>(INITIAL_PRICING_STATE);
   const [availablePackages, setAvailablePackages] = useState<Partial<Record<PlanId, PurchasesPackage>>>({});
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
@@ -471,27 +528,18 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     };
   }, []);
 
-  useEffect(() => {
-    if (!showFreeAccountOption && selectedOption === 'free') {
-      setSelectedOption('lifetime');
-    }
-  }, [selectedOption, showFreeAccountOption]);
-
   const paidPlans = useMemo(
     () => buildPaidPlans(copy, pricingState, availablePackages),
     [availablePackages, copy, pricingState]
   );
-  const selectedPaidPlanId: PaidPlanId | null =
-    selectedOption === 'free' ? null : selectedOption === 'lifetime' ? 'lifetime' : recurringPeriod;
-  const selectedPaidPlan = selectedPaidPlanId ? paidPlans[selectedPaidPlanId] : null;
+  const selectedPaidPlan = paidPlans[selectedOption];
   const selectedPackage = selectedPaidPlan ? availablePackages[selectedPaidPlan.id] ?? null : null;
   const alreadyHasRevenueCatAccess = hasMembership || hasRevenueCatFullAccess(customerInfo);
 
-  const handleSelectRecurringPeriod = (period: 'monthly' | '3-month') => {
-    setRecurringPeriod(period);
-    setSelectedOption(period);
+  const handleSelectPlan = (planId: PaidPlanId) => {
+    setSelectedOption(planId);
     posthog.capture('membership_plan_selected', {
-      plan_id: period,
+      plan_id: planId,
       source,
     });
   };
@@ -501,12 +549,17 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     router.replace(successRoute as never);
   };
 
-  const handleJoinPress = async () => {
-    if (!selectedPaidPlan) {
-      handleContinueFree();
+  const handleSecondaryAction = () => {
+    if (source === 'guest') {
+      posthog.capture('membership_free_account_selected', { source });
+      router.push('/account/auth');
       return;
     }
 
+    handleContinueFree();
+  };
+
+  const handleJoinPress = async () => {
     if (alreadyHasRevenueCatAccess) {
       Alert.alert(copy.alreadyMemberTitle, copy.alreadyMemberBody);
       return;
@@ -598,8 +651,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     return <PageLoadingState language={uiLanguage} errorTitle={copy.loadingErrorTitle} errorBody={copy.loadingErrorBody} />;
   }
 
-  const recurringPlan = paidPlans[recurringPeriod];
-  const ctaTitle = selectedOption === 'free' ? copy.freeCta : purchaseInProgress ? copy.joinLoading : copy.joinCta;
+  const ctaTitle = purchaseInProgress ? copy.joinLoading : copy.planCta(selectedOption);
   const summaryOriginalPrice = selectedPaidPlan?.originalTotalPrice
     ? buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice)
     : null;
@@ -617,11 +669,14 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
         ? copy.cancelGooglePlay
         : ''
     : '';
-  const recurringOriginalPrice = recurringPlan.originalMonthlyPrice
-    ? buildPriceWithSymbol(recurringPlan.billingCurrency, recurringPlan.originalMonthlyPrice)
-    : null;
+  const threeMonthSavingsPercent = getSavingsPercent(paidPlans['3-month']);
+  const secondaryCta = source === 'guest'
+    ? copy.guestFreeCta
+    : source === 'free-account'
+      ? copy.existingFreeCta
+      : copy.freeCta;
   const renderSummary = () =>
-    selectedOption !== 'free' && selectedPaidPlan ? (
+    selectedPaidPlan ? (
       <View style={[styles.summaryBlock, styles.stickySummaryBlock]}>
         {summaryOriginalPrice ? (
           <AppText language={uiLanguage} variant="caption" style={styles.summaryOriginalPrice}>
@@ -648,7 +703,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   const renderPrimaryCta = () => (
     <Button
       language={uiLanguage}
-      onPress={selectedOption === 'free' ? handleContinueFree : handleJoinPress}
+      onPress={handleJoinPress}
       disabled={purchaseInProgress}
       style={styles.primaryCta}
       title={ctaTitle}
@@ -700,77 +755,61 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
               </AppText>
             </View>
 
-            <PlanCard
-              selected={selectedOption === 'lifetime'}
-              onPress={() => {
-                setSelectedOption('lifetime');
-                posthog.capture('membership_plan_selected', { plan_id: 'lifetime', source });
-              }}
-              title={copy.lifetimeTitle}
-              price={paidPlans.lifetime.price}
-              features={copy.lifetimeFeatures}
-              uiLanguage={uiLanguage}
-              tone="lifetime"
-            />
-
-            <View style={styles.toggleWrap}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: recurringPeriod === 'monthly' }}
-                onPress={() => handleSelectRecurringPeriod('monthly')}
-                style={[
-                  styles.toggleOption,
-                  recurringPeriod === 'monthly' ? [styles.toggleOptionSelected, styles.toggleOptionSelectedMonthly] : null,
-                ]}>
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[styles.toggleText, recurringPeriod === 'monthly' ? styles.toggleTextSelected : null]}>
-                  {copy.monthlyToggle}
+            <View style={styles.membershipBanner}>
+              <Image source={pailinThumbsUpHead} style={styles.membershipBannerArtwork} resizeMode="contain" accessible={false} />
+              <View style={styles.membershipBannerCopy}>
+                <View style={styles.membershipBannerEyebrowRow}>
+                  <AppText language={uiLanguage} variant="caption" style={styles.membershipBannerEyebrow}>
+                    {copy.promoEyebrow}
+                  </AppText>
+                  <AppText language="en" variant="caption" style={styles.membershipBannerStar}>✦</AppText>
+                </View>
+                <AppText language={uiLanguage} variant="title" style={styles.membershipBannerTitle}>
+                  {copy.promoTitle}
                 </AppText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: recurringPeriod === '3-month' }}
-                onPress={() => handleSelectRecurringPeriod('3-month')}
-                style={[
-                  styles.toggleOption,
-                  recurringPeriod === '3-month' ? [styles.toggleOptionSelected, styles.toggleOptionSelectedThreeMonth] : null,
-                ]}>
-                <AppText
-                  language={uiLanguage}
-                  variant="caption"
-                  style={[styles.toggleText, recurringPeriod === '3-month' ? styles.toggleTextSelected : null]}>
-                  {copy.threeMonthToggle}
+                <AppText language={uiLanguage} variant="caption" style={styles.membershipBannerBody}>
+                  {copy.promoBody}
                 </AppText>
-              </Pressable>
+              </View>
             </View>
 
-            <PlanCard
-              selected={selectedOption === 'monthly' || selectedOption === '3-month'}
-              onPress={() => {
-                setSelectedOption(recurringPeriod);
-                posthog.capture('membership_plan_selected', { plan_id: recurringPeriod, source });
-              }}
-              title={copy.fullTitle}
-              price={recurringPlan.price}
-              originalPrice={recurringOriginalPrice}
-              periodLabel={copy.monthLabel}
-              features={copy.paidFeatures}
-              uiLanguage={uiLanguage}
-              tone="paid"
-            />
+            <View style={styles.benefitsList}>
+              {copy.paidFeatures.map((feature) => (
+                <FeatureRow key={feature} uiLanguage={uiLanguage}>{feature}</FeatureRow>
+              ))}
+            </View>
 
-            {showFreeAccountOption ? (
-              <PlanCard
-                selected={selectedOption === 'free'}
-                onPress={() => setSelectedOption('free')}
-                title={copy.freeTitle}
-                features={copy.freeFeatures}
+            <View style={styles.planList}>
+              <PricingPlanCard
+                plan={paidPlans.lifetime}
+                selected={selectedOption === 'lifetime'}
+                onPress={() => handleSelectPlan('lifetime')}
+                copy={copy.lifetimeCard}
                 uiLanguage={uiLanguage}
-                tone="free"
               />
-            ) : null}
+              <PricingPlanCard
+                plan={paidPlans['3-month']}
+                selected={selectedOption === '3-month'}
+                onPress={() => handleSelectPlan('3-month')}
+                copy={copy.threeMonthCard}
+                savingsLabel={threeMonthSavingsPercent ? copy.savePercent(threeMonthSavingsPercent) : null}
+                totalLine={copy.threeMonthTotal(paidPlans['3-month'].summaryPrice)}
+                uiLanguage={uiLanguage}
+              />
+              <PricingPlanCard
+                plan={paidPlans.monthly}
+                selected={selectedOption === 'monthly'}
+                onPress={() => handleSelectPlan('monthly')}
+                copy={copy.monthlyCard}
+                uiLanguage={uiLanguage}
+              />
+            </View>
+
+            <Pressable accessibilityRole="link" onPress={handleSecondaryAction} style={styles.secondaryAction}>
+              <AppText language={uiLanguage} variant="body" style={styles.secondaryActionText}>
+                {secondaryCta}
+              </AppText>
+            </Pressable>
 
             <View style={styles.assuranceBlock}>
               <View style={styles.legalLinks}>
@@ -855,157 +894,197 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  membershipBanner: {
+    minHeight: 126,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderRadius: 14,
+    backgroundColor: '#F4FF57',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  membershipBannerArtwork: {
+    width: 92,
+    height: 98,
+    flexShrink: 0,
+  },
+  membershipBannerCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  membershipBannerEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  membershipBannerEyebrow: {
+    flexShrink: 1,
+    color: theme.colors.text,
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: theme.typography.weights.semibold,
+    letterSpacing: 0.7,
+  },
+  membershipBannerStar: {
+    color: '#FF57A3',
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  membershipBannerTitle: {
+    color: theme.colors.text,
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: theme.typography.weights.bold,
+  },
+  membershipBannerBody: {
+    color: theme.colors.text,
+    fontSize: 10,
+    lineHeight: 15,
+  },
+  benefitsList: {
+    gap: 9,
+    paddingHorizontal: 18,
+    paddingVertical: 4,
+  },
+  planList: {
+    gap: 18,
+  },
+  planCardWrap: {
+    position: 'relative',
+  },
+  planCardWrapWithBadge: {
+    marginTop: 14,
+  },
+  planCardShadow: {
+    position: 'absolute',
+    top: 4,
+    right: -4,
+    bottom: -4,
+    left: 4,
+    borderRadius: 13,
+    backgroundColor: 'transparent',
+  },
+  planCardShadowSelected: {
+    backgroundColor: '#2860E8',
+  },
   planCard: {
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-  },
-  selectedPlanCard: {
-    borderColor: '#E5B40B',
-    boxShadow: '0px 0px 12px #F6D867',
-  },
-  lifetimeCard: {
-    borderColor: '#E6B600',
-  },
-  paidCard: {
-    borderColor: theme.colors.border,
-  },
-  freeCard: {
-    borderColor: theme.colors.border,
-  },
-  planCardHeader: {
-    minHeight: 50,
+    minHeight: 122,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#D8D8D8',
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  lifetimeHeader: {
-    backgroundColor: '#FFE997',
+  selectedPlanCard: {
+    borderColor: '#2860E8',
+    backgroundColor: '#BCECFF',
   },
-  paidHeader: {
-    backgroundColor: '#B5E6F7',
-  },
-  freeHeader: {
-    backgroundColor: '#DEDEDE',
-  },
-  cardTitleRow: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    color: theme.colors.text,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: theme.typography.weights.bold,
-  },
-  radioOuter: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#4F8BEF',
+  savingsPill: {
+    position: 'absolute',
+    zIndex: 3,
+    elevation: 4,
+    top: -14,
+    right: 14,
+    minWidth: 126,
+    minHeight: 31,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  radioOuterSelected: {
-    borderColor: '#1F64FF',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
+    borderWidth: 1,
+    borderColor: '#D8D8D8',
     borderRadius: 999,
-    backgroundColor: '#1F64FF',
+    backgroundColor: '#F4FF57',
+    paddingHorizontal: 18,
+    paddingVertical: 5,
   },
-  cardPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'flex-end',
-    gap: 5,
+  savingsPillText: {
+    color: '#FF57A3',
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.5,
   },
-  cardOriginalPrice: {
-    color: '#7E858C',
-    textDecorationLine: 'line-through',
-    fontSize: 11,
-    lineHeight: 14,
+  planCopyColumn: {
+    flex: 1,
+    minWidth: 0,
   },
-  cardPrice: {
+  planTitle: {
     color: theme.colors.text,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 25,
+    lineHeight: 30,
     fontWeight: theme.typography.weights.bold,
   },
-  cardPeriod: {
+  planSubtitle: {
+    color: theme.colors.text,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  planDetails: {
+    gap: 1,
+    marginTop: 10,
+  },
+  planDetailText: {
     color: theme.colors.text,
     fontSize: 10,
-    lineHeight: 13,
+    lineHeight: 15,
   },
-  planCardBody: {
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 17,
+  planPriceColumn: {
+    width: 96,
+    alignItems: 'flex-end',
+    flexShrink: 0,
+  },
+  planOriginalPrice: {
+    color: '#8A8A8A',
+    textDecorationLine: 'line-through',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  planPrice: {
+    color: theme.colors.text,
+    fontSize: 25,
+    lineHeight: 29,
+    fontWeight: theme.typography.weights.bold,
+  },
+  planPeriod: {
+    color: theme.colors.text,
+    fontSize: 10,
+    lineHeight: 14,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 9,
   },
   featureText: {
     flex: 1,
     color: theme.colors.text,
     fontSize: 12,
-    lineHeight: 16,
-  },
-  featureTextMuted: {
-    color: '#2F3438',
-  },
-  toggleWrap: {
-    alignSelf: 'center',
-    width: 250,
-    height: 34,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    marginVertical: 10,
-  },
-  toggleOption: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleOptionSelected: {
-    backgroundColor: '#FFFCEB',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 999,
-    marginVertical: -1,
-  },
-  toggleOptionSelectedMonthly: {
-    marginLeft: -1,
-  },
-  toggleOptionSelectedThreeMonth: {
-    marginRight: -1,
-  },
-  toggleText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 18,
     fontWeight: theme.typography.weights.regular,
   },
-  toggleTextSelected: {
-    fontWeight: theme.typography.weights.bold,
+  secondaryAction: {
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  secondaryActionText: {
+    color: theme.colors.text,
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 19,
+    textDecorationLine: 'underline',
+    fontWeight: theme.typography.weights.medium,
   },
   assuranceBlock: {
     alignItems: 'center',
@@ -1082,7 +1161,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 999,
     borderColor: theme.colors.border,
-    backgroundColor: '#2D66E8',
+    backgroundColor: '#2860E8',
     boxShadow: '4px 4px 0px #1E1E1E',
   },
   restoreButton: {
@@ -1100,10 +1179,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     gap: 10,
-    paddingTop: 12,
+    paddingTop: 16,
     paddingHorizontal: 20,
     borderTopWidth: 1,
-    borderTopColor: '#D9DDE2',
+    borderTopColor: theme.colors.border,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     backgroundColor: '#F5F6F8',
   },
   stickyFooterContent: {

@@ -171,6 +171,7 @@ type AppSessionContextValue = {
   isGuestMode: boolean;
   isGuestConversionPending: boolean;
   hasMembership: boolean;
+  isFreeUserPreview: boolean;
   hasCompletedOnboarding: boolean;
   signIn: (params: { email: string; password: string }) => Promise<{ error: string | null }>;
   signUp: (params: { email: string }) => Promise<{ error: string | null }>;
@@ -182,6 +183,7 @@ type AppSessionContextValue = {
   signOut: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
   refreshMembershipAccess: () => Promise<void>;
+  setFreeUserPreview: (enabled: boolean) => void;
 };
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
@@ -213,6 +215,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [isFreeUserPreview, setIsFreeUserPreviewState] = useState(false);
   const [guestRevenueCatUserId, setGuestRevenueCatUserId] = useState<string | null>(null);
   const [isGuestConversionPending, setIsGuestConversionPending] = useState(false);
   const hasIgnoredInitialSession = useRef(false);
@@ -1186,6 +1189,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     guestConversionPendingRef.current = false;
     guestConversionShouldCarryMembershipRef.current = false;
     setIsGuestConversionPending(false);
+    setIsFreeUserPreviewState(false);
     const { error } = await supabase.auth.signOut();
     if (error) {
       setAuthError(error.message);
@@ -1444,8 +1448,17 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
   const user = session?.user ?? null;
   const hasAccount = user !== null;
-  const hasMembership = profile?.is_paid === true || hasRevenueCatFullAccess(revenueCatCustomerInfo);
+  const isAdminFreeUserPreview = isFreeUserPreview && profile?.is_admin === true;
+  const hasMembership = !isAdminFreeUserPreview && (
+    profile?.is_paid === true || hasRevenueCatFullAccess(revenueCatCustomerInfo)
+  );
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
+  const setFreeUserPreview = useCallback((enabled: boolean) => {
+    const nextEnabled = enabled && profile?.is_admin === true;
+    setIsFreeUserPreviewState(nextEnabled);
+    clearResolvedLessonCache();
+    clearPathwayDataPrefetch();
+  }, [profile?.is_admin]);
 
   const value = {
     session,
@@ -1457,6 +1470,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     isGuestMode,
     isGuestConversionPending,
     hasMembership,
+    isFreeUserPreview: isAdminFreeUserPreview,
     hasCompletedOnboarding,
     signIn,
     signUp,
@@ -1468,6 +1482,7 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
     signOut,
     refreshProfile,
     refreshMembershipAccess,
+    setFreeUserPreview,
   };
 
   return <AppSessionContext.Provider value={value}>{children}</AppSessionContext.Provider>;
