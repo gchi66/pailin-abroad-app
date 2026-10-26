@@ -28,6 +28,7 @@ import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { getMembershipPromotionCopy, MEMBERSHIP_PROMOTION } from '@/src/config/membership-promotion';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
@@ -316,6 +317,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
   const copy = getCopy(uiLanguage);
+  const promotionCopy = getMembershipPromotionCopy(uiLanguage);
   const {
     allLessons,
     completedLessons,
@@ -718,8 +720,12 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
                         style={styles.upgradeArtwork}
                       />
                       <View style={styles.upgradeCopy}>
-                        <AppText language={uiLanguage} variant="title" style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>{copy.upgradeTitle}</AppText>
-                        <AppText language={uiLanguage} variant="muted" style={styles.upgradeBody}>{copy.upgradeBody(freePathway.totalCount)}</AppText>
+                        <AppText language={uiLanguage} variant="title" style={[styles.bannerTitle, uiLanguage === 'th' ? { fontFamily: theme.typography.fontFaces.th.bold } : null]}>
+                          {MEMBERSHIP_PROMOTION.enabled ? promotionCopy.eyebrow : copy.upgradeTitle}
+                        </AppText>
+                        <AppText language={uiLanguage} variant="muted" style={styles.upgradeBody}>
+                          {MEMBERSHIP_PROMOTION.enabled ? promotionCopy.compactBody : copy.upgradeBody(freePathway.totalCount)}
+                        </AppText>
                         <Button
                           language={uiLanguage}
                           title={copy.upgradeCta}

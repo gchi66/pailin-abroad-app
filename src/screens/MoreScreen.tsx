@@ -15,6 +15,7 @@ import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { PageHeader } from '@/src/components/ui/PageHeader';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
+import { getMembershipPromotionCopy, MEMBERSHIP_PROMOTION } from '@/src/config/membership-promotion';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { resolveAvatarSource } from '@/src/lib/avatar';
@@ -39,14 +40,15 @@ export function MoreScreen() {
   const membershipSource = isGuestMode && !hasAccount ? 'guest' : 'free-account';
   const metadataAvatar = typeof user?.user_metadata?.avatar_image === 'string' ? user.user_metadata.avatar_image : null;
   const avatarSource = resolveAvatarSource(profile?.avatar_image || metadataAvatar);
+  const promotionCopy = getMembershipPromotionCopy(uiLanguage);
 
   const copy =
     uiLanguage === 'th'
       ? {
           title: 'เพิ่มเติม',
           subtitle: 'จัดการบัญชี การตั้งค่า และข้อมูลเพิ่มเติม',
-          membershipTitle: 'ดูแพ็กเกจสมาชิก',
-          membershipBody: 'ปลดล็อกทุกเนื้อหาของ Pailin Abroad!',
+          membershipTitle: MEMBERSHIP_PROMOTION.enabled ? promotionCopy.eyebrow : 'ดูแพ็กเกจสมาชิก',
+          membershipBody: MEMBERSHIP_PROMOTION.enabled ? promotionCopy.compactBody : 'ปลดล็อกทุกเนื้อหาของ Pailin Abroad!',
           actions: [
             { key: 'profile', label: 'โปรไฟล์ของฉัน', description: 'ดูบัญชี เปลี่ยนรหัสผ่าน และรูปโปรไฟล์', href: '/(tabs)/account/profile' },
             ...(hasAccount ? ([{ key: 'comments', label: 'ความคิดเห็นของฉัน', description: 'ดูความคิดเห็นที่คุณโพสต์', href: '/(tabs)/account/comments' }] as const) : []),
@@ -58,8 +60,8 @@ export function MoreScreen() {
       : {
           title: 'More',
           subtitle: 'Manage your account, preferences, and more',
-          membershipTitle: 'View Membership Plans',
-          membershipBody: 'Get full access to Pailin Abroad!',
+          membershipTitle: MEMBERSHIP_PROMOTION.enabled ? promotionCopy.eyebrow : 'View Membership Plans',
+          membershipBody: MEMBERSHIP_PROMOTION.enabled ? promotionCopy.compactBody : 'Get full access to Pailin Abroad!',
           actions: [
             { key: 'profile', label: 'My Profile', description: 'View account, update password, change avatar', href: '/(tabs)/account/profile' },
             ...(hasAccount ? ([{ key: 'comments', label: 'My Comments', description: 'See your posted comments', href: '/(tabs)/account/comments' }] as const) : []),

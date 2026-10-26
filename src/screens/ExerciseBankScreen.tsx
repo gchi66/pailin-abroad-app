@@ -168,6 +168,7 @@ export function ExerciseBankScreen() {
               {!hasMembership ? (
                 <ResourceUnlockCard
                   language={uiLanguage}
+                  promoteMembership
                   title={copy.unlockTitle}
                   body={copy.unlockBody}
                   italicWord={uiLanguage === 'en' ? 'full' : undefined}

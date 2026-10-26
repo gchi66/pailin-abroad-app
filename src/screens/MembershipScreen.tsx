@@ -1,13 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CustomerInfo, PurchasesPackage, PURCHASES_ERROR_CODE, PurchasesError } from 'react-native-purchases';
+import {
+  CustomerInfo,
+  INTRO_ELIGIBILITY_STATUS,
+  IntroEligibility,
+  PurchasesPackage,
+  PURCHASES_ERROR_CODE,
+  PurchasesError,
+} from 'react-native-purchases';
 import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 
 import pailinThumbsUpHead from '@/assets/images/characters/pailin_thumbs_up_head.webp';
+import pailinLessonFinished from '@/assets/images/speaking-coach/pailin-lesson-finished.webp';
 import { getPricing, PricingPlan } from '@/src/api/pricing';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
@@ -17,8 +25,13 @@ import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import {
+  getMembershipPromotionCopy,
+  MEMBERSHIP_PROMOTION,
+} from '@/src/config/membership-promotion';
+import {
   getPlanPackageMap,
   getRevenueCatCustomerInfo,
+  getRevenueCatIntroEligibility,
   getRevenueCatOffering,
   hasRevenueCatFullAccess,
   initializeRevenueCat,
@@ -31,7 +44,7 @@ import { theme } from '@/src/theme/theme';
 type UiLanguage = 'en' | 'th';
 type MembershipSource = 'onboarding' | 'free-account' | 'guest';
 type PaidPlanId = 'lifetime' | 'monthly' | '3-month';
-type PlanId = 'monthly' | '3-month' | '6-month' | 'lifetime';
+type PlanId = 'monthly' | '3-month' | '6-month' | 'lifetime' | 'lifetime-promo';
 
 type PricingState = {
   loading: boolean;
@@ -43,15 +56,25 @@ type PricingState = {
 
 type PaidPlan = {
   id: PaidPlanId;
+  packageId: PlanId;
   title: string;
   price: string;
   summaryPrice: string;
   totalPrice: number;
   originalTotalPrice: number | null;
   originalMonthlyPrice: number | null;
+  originalPriceLabel?: string | null;
   billingCurrency: string;
   periodLabel?: string;
   savingsSummary?: string | null;
+  introOffer?: IntroOfferInfo | null;
+};
+
+type IntroOfferInfo = {
+  billingCycleCount: number;
+  billingPeriodMonths: number;
+  price: number;
+  priceString: string;
 };
 
 type PlanCardCopy = {
@@ -65,18 +88,6 @@ const INITIAL_PRICING_STATE: PricingState = {
   regionKey: null,
   currency: null,
   plans: [],
-};
-
-const THB_FALLBACKS = {
-  lifetime: 4999,
-  monthly: 450,
-  threeMonthMonthly: 350,
-};
-
-const USD_FALLBACKS = {
-  lifetime: 149,
-  monthly: 14.99,
-  threeMonthMonthly: 11.99,
 };
 
 const normalizeSource = (value: string | string[] | undefined, fallback: MembershipSource): MembershipSource => {
@@ -95,9 +106,6 @@ const getCopy = (uiLanguage: UiLanguage) => {
     return {
       title: 'พร้อมพูดภาษาอังกฤษ\nอย่างมั่นใจหรือยัง?',
       subtitle: 'เรียนภาษาอังกฤษที่ใช้ได้จริง ผ่านเรื่องราวของไพลินในลอสแอนเจลิส',
-      promoEyebrow: 'สมาชิก PAILIN ABROAD',
-      promoTitle: 'สมาชิกเดียว เรียนได้ทุกบท',
-      promoBody: 'เรียนตามจังหวะของคุณ พร้อมเข้าถึงเนื้อหาทั้งหมดใน Pailin Abroad',
       lifetimeTitle: 'ตลอดชีพ',
       threeMonthTitle: '3 เดือน',
       monthlyTitle: '1 เดือน',
@@ -114,6 +122,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
           : 'เลือกแพ็กเกจ 1 เดือน',
       savePercent: (percent: number) => `ประหยัด ${percent}%`,
       threeMonthTotal: (price: string) => `${price} ต่อ 3 เดือน`,
+      introBilling: (price: string, billingMonths: number, totalMonths: number) =>
+        billingMonths === 1
+          ? `${price} ทุกเดือนใน ${totalMonths} เดือนแรก`
+          : `${price} ทุก ${billingMonths} เดือนใน ${totalMonths} เดือนแรก`,
+      thenBilling: (price: string, billingMonths: number) =>
+        billingMonths === 1 ? `จากนั้น ${price} ทุกเดือน` : `จากนั้น ${price} ทุก ${billingMonths} เดือน`,
       lifetimeCard: {
         subtitle: 'รวมอัปเดตทั้งหมดในอนาคต',
         details: ['ชำระครั้งเดียว', 'ไม่มีการต่ออายุ'],
@@ -171,9 +185,6 @@ const getCopy = (uiLanguage: UiLanguage) => {
   return {
     title: 'Ready to speak English\nwith confidence?',
     subtitle: "Learn real English through Pailin’s journeys in L.A.",
-    promoEyebrow: 'PAILIN ABROAD MEMBERSHIP',
-    promoTitle: 'One membership. Every lesson.',
-    promoBody: 'Learn at your own pace with full access to Pailin Abroad.',
     lifetimeTitle: 'Lifetime',
     threeMonthTitle: '3 Months',
     monthlyTitle: '1 Month',
@@ -190,6 +201,12 @@ const getCopy = (uiLanguage: UiLanguage) => {
         : 'GET 1-MONTH PLAN',
     savePercent: (percent: number) => `SAVE ${percent}%`,
     threeMonthTotal: (price: string) => `${price} every 3 months`,
+    introBilling: (price: string, billingMonths: number, totalMonths: number) =>
+      billingMonths === 1
+        ? `${price} every month for the first ${totalMonths} months`
+        : `${price} every ${billingMonths} months for the first ${totalMonths} months`,
+    thenBilling: (price: string, billingMonths: number) =>
+      billingMonths === 1 ? `Then ${price} every month` : `Then ${price} every ${billingMonths} months`,
     lifetimeCard: {
       subtitle: 'All future updates included',
       details: ['One-time purchase', 'No renewals'],
@@ -274,75 +291,161 @@ const buildPriceWithSymbol = (
   return `฿${formatAmount(value, 0)}`;
 };
 
-const getFallbacks = (currency: string | null) => currency === 'USD' ? USD_FALLBACKS : THB_FALLBACKS;
-
-const findPricingPlan = (plans: PricingPlan[], id: 'monthly' | '3-month') =>
+const findPricingPlan = (plans: PricingPlan[], id: PaidPlanId) =>
   plans.find((plan) => plan.billing_period === id) ?? null;
+
+const getPeriodMonths = (unit: string | undefined, value: number | undefined, fallback: number) =>
+  unit?.toUpperCase() === 'MONTH' && value ? value : fallback;
+
+const getIntroOffer = (
+  pkg: PurchasesPackage | undefined,
+  eligibility: Record<string, IntroEligibility>
+): IntroOfferInfo | null => {
+  if (!pkg || !MEMBERSHIP_PROMOTION.enabled) return null;
+
+  if (Platform.OS === 'ios') {
+    const intro = pkg.product.introPrice;
+    const status = eligibility[pkg.product.identifier]?.status;
+    if (!intro || status !== INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE) return null;
+    return {
+      billingCycleCount: intro.cycles,
+      billingPeriodMonths: getPeriodMonths(intro.periodUnit, intro.periodNumberOfUnits, 1),
+      price: intro.price,
+      priceString: intro.priceString,
+    };
+  }
+
+  if (Platform.OS === 'android') {
+    const intro = pkg.product.defaultOption?.introPhase;
+    if (!intro) return null;
+    return {
+      billingCycleCount: intro.billingCycleCount ?? 1,
+      billingPeriodMonths: getPeriodMonths(
+        String(intro.billingPeriod.unit),
+        intro.billingPeriod.value,
+        pkg.packageType === 'THREE_MONTH' ? 3 : 1
+      ),
+      price: intro.price.amountMicros / 1_000_000,
+      priceString: intro.price.formatted,
+    };
+  }
+
+  return null;
+};
+
+const getRegularPackagePrice = (pkg: PurchasesPackage | undefined) => {
+  if (!pkg) return null;
+  const androidFullPrice = Platform.OS === 'android' ? pkg.product.defaultOption?.fullPricePhase?.price : null;
+  return {
+    currency: androidFullPrice?.currencyCode ?? pkg.product.currencyCode,
+    price: androidFullPrice ? androidFullPrice.amountMicros / 1_000_000 : pkg.product.price,
+    priceString: androidFullPrice?.formatted ?? pkg.product.priceString,
+  };
+};
 
 const buildPaidPlans = (
   copy: ReturnType<typeof getCopy>,
   pricingState: PricingState,
-  availablePackages: Partial<Record<PlanId, PurchasesPackage>>
-): Record<PaidPlanId, PaidPlan> => {
-  const currency = pricingState.currency ?? 'THB';
-  const fallbacks = getFallbacks(currency);
+  availablePackages: Partial<Record<PlanId, PurchasesPackage>>,
+  introEligibility: Record<string, IntroEligibility>
+): Record<PaidPlanId, PaidPlan> | null => {
   const lifetimePackage = availablePackages.lifetime;
+  const lifetimePromoPackage = MEMBERSHIP_PROMOTION.enabled
+    ? availablePackages['lifetime-promo']
+    : undefined;
+  const lifetimePurchasePackage = lifetimePromoPackage ?? lifetimePackage;
   const monthlyPackage = availablePackages.monthly;
   const threeMonthPackage = availablePackages['3-month'];
+  const lifetimeStorePrice = getRegularPackagePrice(lifetimePurchasePackage);
+  const lifetimeComparisonStorePrice = lifetimePromoPackage
+    ? getRegularPackagePrice(lifetimePackage)
+    : null;
+  const monthlyStorePrice = getRegularPackagePrice(monthlyPackage);
+  const threeMonthStorePrice = getRegularPackagePrice(threeMonthPackage);
+  const lifetimePricing = findPricingPlan(pricingState.plans, 'lifetime');
   const monthlyPricing = findPricingPlan(pricingState.plans, 'monthly');
   const threeMonthPricing = findPricingPlan(pricingState.plans, '3-month');
-  const lifetimeCurrency = lifetimePackage?.product.currencyCode ?? currency;
-  const monthlyCurrency = monthlyPackage?.product.currencyCode ?? currency;
-  const threeMonthCurrency = threeMonthPackage?.product.currencyCode ?? currency;
-  const lifetimeTotal = lifetimePackage?.product.price ?? fallbacks.lifetime;
-  const monthlyTotal = monthlyPackage?.product.price ?? Number(monthlyPricing?.amount_total ?? monthlyPricing?.amount_per_month ?? fallbacks.monthly);
-  const threeMonthTotal =
-    threeMonthPackage?.product.price ??
-    Number(threeMonthPricing?.amount_total ?? (threeMonthPricing?.amount_per_month ? Number(threeMonthPricing.amount_per_month) * 3 : fallbacks.threeMonthMonthly * 3));
-  const threeMonthMonthly = threeMonthTotal / 3;
+  const fallbackCurrency = pricingState.currency;
+  const webPrice = (plan: PricingPlan | null) => plan && fallbackCurrency
+    ? {
+        currency: fallbackCurrency,
+        price: Number(plan.amount_total ?? plan.amount_per_month),
+        priceString: buildPriceWithSymbol(fallbackCurrency, Number(plan.amount_total ?? plan.amount_per_month)),
+      }
+    : null;
+  const lifetimeRegular = lifetimeStorePrice ?? (Platform.OS === 'web' ? webPrice(lifetimePricing) : null);
+  const monthlyRegular = monthlyStorePrice ?? (Platform.OS === 'web' ? webPrice(monthlyPricing) : null);
+  const threeMonthRegular = threeMonthStorePrice ?? (Platform.OS === 'web' ? webPrice(threeMonthPricing) : null);
+
+  if (!lifetimeRegular || !monthlyRegular || !threeMonthRegular) return null;
+
+  const monthlyIntro = getIntroOffer(monthlyPackage, introEligibility);
+  const threeMonthIntro = getIntroOffer(threeMonthPackage, introEligibility);
+  const monthlyShown = monthlyIntro ?? monthlyRegular;
+  const threeMonthShown = threeMonthIntro ?? threeMonthRegular;
+  const threeMonthMonthly = threeMonthShown.price / 3;
+  const lifetimeTotal = lifetimeRegular.price;
+  const monthlyTotal = monthlyShown.price;
+  const threeMonthTotal = threeMonthShown.price;
+  const lifetimeCurrency = lifetimeRegular.currency;
+  const monthlyCurrency = monthlyRegular.currency;
+  const threeMonthCurrency = threeMonthRegular.currency;
   const canCompareRecurringPrices = monthlyCurrency === threeMonthCurrency;
-  const comparisonTotal = canCompareRecurringPrices ? monthlyTotal * 3 : null;
-  const threeMonthSavingsAmount = comparisonTotal === null ? null : comparisonTotal - threeMonthTotal;
+  const comparisonTotal = canCompareRecurringPrices ? monthlyRegular.price * 3 : null;
+  const threeMonthSavingsAmount = comparisonTotal === null ? null : comparisonTotal - threeMonthRegular.price;
   const hasThreeMonthSavings = threeMonthSavingsAmount !== null && threeMonthSavingsAmount > 0;
-  const threeMonthOriginalMonthly = hasThreeMonthSavings ? monthlyTotal : null;
+  const threeMonthOriginalMonthly = threeMonthIntro
+    ? threeMonthRegular.price / 3
+    : hasThreeMonthSavings ? monthlyRegular.price : null;
   const threeMonthOriginalTotal = hasThreeMonthSavings ? comparisonTotal : null;
   const threeMonthSavingsSummary = threeMonthSavingsAmount !== null && threeMonthSavingsAmount > 0
     ? copy.threeMonthSavings(buildPriceWithSymbol(threeMonthCurrency, threeMonthSavingsAmount))
     : null;
-
   return {
     lifetime: {
       id: 'lifetime',
+      packageId: lifetimePromoPackage ? 'lifetime-promo' : 'lifetime',
       title: copy.lifetimeTitle,
-      price: lifetimePackage?.product.priceString ?? buildPriceWithSymbol(lifetimeCurrency, lifetimeTotal),
-      summaryPrice: lifetimePackage?.product.priceString ?? buildPriceWithSymbol(lifetimeCurrency, lifetimeTotal),
+      price: lifetimeRegular.priceString,
+      summaryPrice: lifetimeRegular.priceString,
       totalPrice: lifetimeTotal,
-      originalTotalPrice: null,
+      originalTotalPrice: lifetimeComparisonStorePrice?.price ?? null,
       originalMonthlyPrice: null,
+      originalPriceLabel: MEMBERSHIP_PROMOTION.enabled
+        ? lifetimeComparisonStorePrice?.priceString ?? '—'
+        : null,
       billingCurrency: lifetimeCurrency,
     },
     monthly: {
       id: 'monthly',
+      packageId: 'monthly',
       title: copy.monthlyTitle,
-      price: monthlyPackage?.product.priceString ?? buildPriceWithSymbol(monthlyCurrency, monthlyTotal),
-      summaryPrice: monthlyPackage?.product.priceString ?? buildPriceWithSymbol(monthlyCurrency, monthlyTotal),
+      price: MEMBERSHIP_PROMOTION.enabled && !monthlyIntro ? '—' : monthlyShown.priceString,
+      summaryPrice: MEMBERSHIP_PROMOTION.enabled && !monthlyIntro ? '—' : monthlyShown.priceString,
       totalPrice: monthlyTotal,
-      originalTotalPrice: null,
-      originalMonthlyPrice: null,
+      originalTotalPrice: MEMBERSHIP_PROMOTION.enabled ? monthlyRegular.price : null,
+      originalMonthlyPrice: MEMBERSHIP_PROMOTION.enabled ? monthlyRegular.price : null,
       billingCurrency: monthlyCurrency,
       periodLabel: copy.monthLabel,
+      introOffer: monthlyIntro,
     },
     '3-month': {
       id: '3-month',
+      packageId: '3-month',
       title: copy.threeMonthTitle,
-      price: buildPriceWithSymbol(threeMonthCurrency, threeMonthMonthly),
-      summaryPrice: buildPriceWithSymbol(threeMonthCurrency, threeMonthTotal),
+      price: MEMBERSHIP_PROMOTION.enabled && !threeMonthIntro
+        ? '—'
+        : buildPriceWithSymbol(threeMonthCurrency, threeMonthMonthly),
+      summaryPrice: MEMBERSHIP_PROMOTION.enabled && !threeMonthIntro
+        ? '—'
+        : buildPriceWithSymbol(threeMonthCurrency, threeMonthTotal),
       totalPrice: threeMonthTotal,
-      originalTotalPrice: threeMonthOriginalTotal,
-      originalMonthlyPrice: threeMonthOriginalMonthly,
+      originalTotalPrice: MEMBERSHIP_PROMOTION.enabled ? threeMonthRegular.price : threeMonthOriginalTotal,
+      originalMonthlyPrice: MEMBERSHIP_PROMOTION.enabled ? threeMonthRegular.price / 3 : threeMonthOriginalMonthly,
       billingCurrency: threeMonthCurrency,
       periodLabel: copy.monthLabel,
       savingsSummary: threeMonthSavingsSummary,
+      introOffer: threeMonthIntro,
     },
   };
 };
@@ -354,6 +457,30 @@ function FeatureRow({ children, uiLanguage }: { children: string; uiLanguage: Ui
       <AppText language={uiLanguage} variant="caption" style={styles.featureText}>
         {children}
       </AppText>
+    </View>
+  );
+}
+
+function MembershipPromotionBanner({ uiLanguage }: { uiLanguage: UiLanguage }) {
+  const promotionCopy = getMembershipPromotionCopy(uiLanguage);
+  return (
+    <View style={styles.membershipBanner}>
+      <Image source={pailinThumbsUpHead} style={styles.membershipBannerArtwork} resizeMode="contain" accessible={false} />
+      <View style={styles.membershipBannerCopy}>
+        <View style={styles.membershipBannerEyebrowRow}>
+          <AppText language={uiLanguage} variant="caption" style={styles.membershipBannerEyebrow}>
+            {promotionCopy.eyebrow}
+          </AppText>
+          <AppText language="en" variant="caption" style={styles.membershipBannerStar}>🎉</AppText>
+        </View>
+        <AppText language={uiLanguage} variant="title" style={styles.membershipBannerTitle}>
+          {promotionCopy.headlinePrefix}
+          <Text style={styles.membershipBannerHighlight}>{promotionCopy.headlineHighlight}</Text>
+        </AppText>
+        <AppText language={uiLanguage} variant="caption" style={styles.membershipBannerBody}>
+          {promotionCopy.detail}
+        </AppText>
+      </View>
     </View>
   );
 }
@@ -424,9 +551,10 @@ function PricingPlanCard({
           </View>
         </View>
         <View style={styles.planPriceColumn}>
-          {plan.originalMonthlyPrice ? (
+          {plan.originalPriceLabel || plan.originalMonthlyPrice || (plan.id === 'lifetime' && plan.originalTotalPrice) ? (
             <AppText language={uiLanguage} variant="caption" style={styles.planOriginalPrice}>
-              {buildPriceWithSymbol(plan.billingCurrency, plan.originalMonthlyPrice)}
+              {plan.originalPriceLabel
+                ?? buildPriceWithSymbol(plan.billingCurrency, plan.originalMonthlyPrice ?? plan.originalTotalPrice ?? 0)}
             </AppText>
           ) : null}
           <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
@@ -462,8 +590,12 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   const successRoute = source === 'free-account' ? '/(tabs)' : '/placement-entry';
   const closeRoute = '/(tabs)/account';
   const [selectedOption, setSelectedOption] = useState<PaidPlanId>('3-month');
-  const [pricingState, setPricingState] = useState<PricingState>(INITIAL_PRICING_STATE);
+  const [pricingState, setPricingState] = useState<PricingState>(
+    isNativeApp ? { ...INITIAL_PRICING_STATE, loading: false } : INITIAL_PRICING_STATE
+  );
   const [availablePackages, setAvailablePackages] = useState<Partial<Record<PlanId, PurchasesPackage>>>({});
+  const [introEligibility, setIntroEligibility] = useState<Record<string, IntroEligibility>>({});
+  const [storeProductsLoading, setStoreProductsLoading] = useState(isNativeApp);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [purchaseInProgress, setPurchaseInProgress] = useState(false);
   const [restoreInProgress, setRestoreInProgress] = useState(false);
@@ -473,6 +605,11 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     let cancelled = false;
 
     const loadPricing = async () => {
+      // Native storefronts are the sole source of truth for native prices.
+      // The API remains a web-only fallback because RevenueCat is unavailable there.
+      if (isNativeApp) {
+        return;
+      }
       try {
         const data = await getPricing();
         if (cancelled) return;
@@ -500,13 +637,14 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isNativeApp]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadRevenueCatProducts = async () => {
       if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !isRevenueCatAvailable()) {
+        if (!cancelled) setStoreProductsLoading(false);
         return;
       }
 
@@ -514,10 +652,20 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
         await initializeRevenueCat();
         const [offering, nextCustomerInfo] = await Promise.all([getRevenueCatOffering(), getRevenueCatCustomerInfo()]);
         if (cancelled) return;
-        setAvailablePackages(getPlanPackageMap(offering));
+        const packages = getPlanPackageMap(offering);
+        setAvailablePackages(packages);
         setCustomerInfo(nextCustomerInfo);
+        if (Platform.OS === 'ios') {
+          const productIds = [packages.monthly, packages['3-month']]
+            .filter((pkg): pkg is PurchasesPackage => Boolean(pkg))
+            .map((pkg) => pkg.product.identifier);
+          const eligibility = await getRevenueCatIntroEligibility(productIds);
+          if (!cancelled) setIntroEligibility(eligibility);
+        }
       } catch (error) {
         console.warn('[revenuecat] failed to load products', error);
+      } finally {
+        if (!cancelled) setStoreProductsLoading(false);
       }
     };
 
@@ -529,12 +677,19 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   }, []);
 
   const paidPlans = useMemo(
-    () => buildPaidPlans(copy, pricingState, availablePackages),
-    [availablePackages, copy, pricingState]
+    () => buildPaidPlans(copy, pricingState, availablePackages, introEligibility),
+    [availablePackages, copy, introEligibility, pricingState]
   );
-  const selectedPaidPlan = paidPlans[selectedOption];
-  const selectedPackage = selectedPaidPlan ? availablePackages[selectedPaidPlan.id] ?? null : null;
+  const selectedPaidPlan = paidPlans?.[selectedOption] ?? null;
+  const selectedPackage = selectedPaidPlan ? availablePackages[selectedPaidPlan.packageId] ?? null : null;
   const alreadyHasRevenueCatAccess = hasMembership || hasRevenueCatFullAccess(customerInfo);
+  const showPromotion = MEMBERSHIP_PROMOTION.enabled;
+  const selectedIntroPriceUnavailable = Boolean(
+    showPromotion
+      && selectedPaidPlan
+      && selectedPaidPlan.id !== 'lifetime'
+      && !selectedPaidPlan.introOffer
+  );
 
   const handleSelectPlan = (planId: PaidPlanId) => {
     setSelectedOption(planId);
@@ -565,7 +720,12 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
       return;
     }
 
-    if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !selectedPackage) {
+    if (
+      (Platform.OS !== 'ios' && Platform.OS !== 'android')
+      || !selectedPackage
+      || !selectedPaidPlan
+      || selectedIntroPriceUnavailable
+    ) {
       Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
       return;
     }
@@ -643,20 +803,34 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     }
   };
 
-  if (pricingState.loading) {
+  if (storeProductsLoading || (!isNativeApp && pricingState.loading)) {
     return <PageLoadingState language={uiLanguage} />;
   }
 
-  if (pricingState.error) {
+  if ((!isNativeApp && pricingState.error) || !paidPlans) {
     return <PageLoadingState language={uiLanguage} errorTitle={copy.loadingErrorTitle} errorBody={copy.loadingErrorBody} />;
   }
 
   const ctaTitle = purchaseInProgress ? copy.joinLoading : copy.planCta(selectedOption);
-  const summaryOriginalPrice = selectedPaidPlan?.originalTotalPrice
-    ? buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice)
-    : null;
-  const billingDisclosureText = selectedPaidPlan
+  const summaryOriginalPrice = showPromotion && selectedPaidPlan
     ? selectedPaidPlan.id === 'lifetime'
+      ? selectedPaidPlan.originalPriceLabel ?? null
+      : selectedPaidPlan.originalTotalPrice
+        ? buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice)
+        : null
+    : null;
+  const recurringBillingMonths = selectedPaidPlan?.id === '3-month' ? 3 : 1;
+  const billingDisclosureText = selectedPaidPlan
+    ? selectedPaidPlan.introOffer && selectedPaidPlan.originalTotalPrice
+      ? `${copy.introBilling(
+          selectedPaidPlan.introOffer.priceString,
+          selectedPaidPlan.introOffer.billingPeriodMonths,
+          selectedPaidPlan.introOffer.billingCycleCount * selectedPaidPlan.introOffer.billingPeriodMonths
+        )}. ${copy.thenBilling(
+          buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice),
+          recurringBillingMonths
+        )}.`
+      : selectedPaidPlan.id === 'lifetime'
       ? copy.lifetimeBilling
       : selectedPaidPlan.id === '3-month'
         ? copy.threeMonthBilling
@@ -670,6 +844,20 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
         : ''
     : '';
   const threeMonthSavingsPercent = getSavingsPercent(paidPlans['3-month']);
+  const recurringCardCopy = (plan: PaidPlan, baseCopy: PlanCardCopy, billingMonths: number): PlanCardCopy => {
+    if (!plan.introOffer || !plan.originalTotalPrice) return baseCopy;
+    return {
+      subtitle: baseCopy.subtitle,
+      details: [
+        copy.introBilling(
+          plan.introOffer.priceString,
+          plan.introOffer.billingPeriodMonths,
+          plan.introOffer.billingCycleCount * plan.introOffer.billingPeriodMonths
+        ),
+        copy.thenBilling(buildPriceWithSymbol(plan.billingCurrency, plan.originalTotalPrice), billingMonths),
+      ],
+    };
+  };
   const secondaryCta = source === 'guest'
     ? copy.guestFreeCta
     : source === 'free-account'
@@ -704,7 +892,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     <Button
       language={uiLanguage}
       onPress={handleJoinPress}
-      disabled={purchaseInProgress}
+      disabled={purchaseInProgress || selectedIntroPriceUnavailable}
       style={styles.primaryCta}
       title={ctaTitle}
     />
@@ -755,28 +943,17 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
               </AppText>
             </View>
 
-            <View style={styles.membershipBanner}>
-              <Image source={pailinThumbsUpHead} style={styles.membershipBannerArtwork} resizeMode="contain" accessible={false} />
-              <View style={styles.membershipBannerCopy}>
-                <View style={styles.membershipBannerEyebrowRow}>
-                  <AppText language={uiLanguage} variant="caption" style={styles.membershipBannerEyebrow}>
-                    {copy.promoEyebrow}
-                  </AppText>
-                  <AppText language="en" variant="caption" style={styles.membershipBannerStar}>✦</AppText>
-                </View>
-                <AppText language={uiLanguage} variant="title" style={styles.membershipBannerTitle}>
-                  {copy.promoTitle}
-                </AppText>
-                <AppText language={uiLanguage} variant="caption" style={styles.membershipBannerBody}>
-                  {copy.promoBody}
-                </AppText>
-              </View>
-            </View>
+            {showPromotion ? <MembershipPromotionBanner uiLanguage={uiLanguage} /> : null}
 
-            <View style={styles.benefitsList}>
-              {copy.paidFeatures.map((feature) => (
-                <FeatureRow key={feature} uiLanguage={uiLanguage}>{feature}</FeatureRow>
-              ))}
+            <View style={[styles.benefitsSection, !showPromotion ? styles.standardBenefitsSection : null]}>
+              <View style={[styles.benefitsList, !showPromotion ? styles.standardBenefitsList : null]}>
+                {copy.paidFeatures.map((feature) => (
+                  <FeatureRow key={feature} uiLanguage={uiLanguage}>{feature}</FeatureRow>
+                ))}
+              </View>
+              {!showPromotion ? (
+                <Image source={pailinLessonFinished} style={styles.standardBenefitsArtwork} resizeMode="contain" accessible={false} />
+              ) : null}
             </View>
 
             <View style={styles.planList}>
@@ -785,22 +962,26 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
                 selected={selectedOption === 'lifetime'}
                 onPress={() => handleSelectPlan('lifetime')}
                 copy={copy.lifetimeCard}
+                savingsLabel={showPromotion ? copy.savePercent(MEMBERSHIP_PROMOTION.discounts.lifetime) : null}
                 uiLanguage={uiLanguage}
               />
               <PricingPlanCard
                 plan={paidPlans['3-month']}
                 selected={selectedOption === '3-month'}
                 onPress={() => handleSelectPlan('3-month')}
-                copy={copy.threeMonthCard}
-                savingsLabel={threeMonthSavingsPercent ? copy.savePercent(threeMonthSavingsPercent) : null}
-                totalLine={copy.threeMonthTotal(paidPlans['3-month'].summaryPrice)}
+                copy={recurringCardCopy(paidPlans['3-month'], copy.threeMonthCard, 3)}
+                savingsLabel={showPromotion
+                  ? copy.savePercent(MEMBERSHIP_PROMOTION.discounts['3-month'])
+                  : threeMonthSavingsPercent ? copy.savePercent(threeMonthSavingsPercent) : null}
+                totalLine={showPromotion ? null : copy.threeMonthTotal(paidPlans['3-month'].summaryPrice)}
                 uiLanguage={uiLanguage}
               />
               <PricingPlanCard
                 plan={paidPlans.monthly}
                 selected={selectedOption === 'monthly'}
                 onPress={() => handleSelectPlan('monthly')}
-                copy={copy.monthlyCard}
+                copy={recurringCardCopy(paidPlans.monthly, copy.monthlyCard, 1)}
+                savingsLabel={showPromotion ? copy.savePercent(MEMBERSHIP_PROMOTION.discounts.monthly) : null}
                 uiLanguage={uiLanguage}
               />
             </View>
@@ -940,18 +1121,42 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     fontWeight: theme.typography.weights.bold,
   },
+  membershipBannerHighlight: {
+    color: '#FF3F91',
+  },
   membershipBannerBody: {
     color: theme.colors.text,
     fontSize: 10,
     lineHeight: 15,
+  },
+  benefitsSection: {
+    position: 'relative',
+  },
+  standardBenefitsSection: {
+    minHeight: 132,
+    justifyContent: 'center',
   },
   benefitsList: {
     gap: 9,
     paddingHorizontal: 18,
     paddingVertical: 4,
   },
+  standardBenefitsList: {
+    paddingRight: 112,
+    zIndex: 1,
+  },
+  standardBenefitsArtwork: {
+    position: 'absolute',
+    right: -12,
+    bottom: -52,
+    width: 140,
+    height: 140,
+    transform: [{ scaleX: -1 }],
+    zIndex: 0,
+  },
   planList: {
     gap: 18,
+    zIndex: 2,
   },
   planCardWrap: {
     position: 'relative',

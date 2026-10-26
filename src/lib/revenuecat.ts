@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import Purchases, {
   CustomerInfo,
   CustomerInfoUpdateListener,
+  IntroEligibility,
   LOG_LEVEL,
   PurchasesOffering,
   PurchasesPackage,
@@ -162,6 +163,20 @@ export async function getRevenueCatCustomerInfo() {
   }
 }
 
+export async function getRevenueCatIntroEligibility(productIdentifiers: string[]) {
+  const isReady = await initializeRevenueCat();
+  if (!isReady || Platform.OS !== 'ios' || productIdentifiers.length === 0) {
+    return {} as Record<string, IntroEligibility>;
+  }
+
+  try {
+    return await Purchases.checkTrialOrIntroductoryPriceEligibility(productIdentifiers);
+  } catch (error) {
+    console.warn('[revenuecat] failed to check introductory-offer eligibility', error);
+    return {} as Record<string, IntroEligibility>;
+  }
+}
+
 export async function invalidateRevenueCatCustomerInfoCache() {
   const isReady = await initializeRevenueCat();
   if (!isReady) {
@@ -244,12 +259,12 @@ export function hasRevenueCatFullAccess(customerInfo: CustomerInfo | null | unde
   return typeof customerInfo.entitlements.active[REVENUECAT_ENTITLEMENT_ID] !== 'undefined';
 }
 
-export function getPlanPackageMap(offering: PurchasesOffering | null): Partial<Record<'monthly' | '3-month' | '6-month' | 'lifetime', PurchasesPackage>> {
+export function getPlanPackageMap(offering: PurchasesOffering | null): Partial<Record<'monthly' | '3-month' | '6-month' | 'lifetime' | 'lifetime-promo', PurchasesPackage>> {
   if (!offering) {
     return {};
   }
 
-  const mapped: Partial<Record<'monthly' | '3-month' | '6-month' | 'lifetime', PurchasesPackage>> = {};
+  const mapped: Partial<Record<'monthly' | '3-month' | '6-month' | 'lifetime' | 'lifetime-promo', PurchasesPackage>> = {};
 
   if (offering.monthly) {
     mapped.monthly = offering.monthly;
@@ -266,7 +281,10 @@ export function getPlanPackageMap(offering: PurchasesOffering | null): Partial<R
 
   for (const pkg of offering.availablePackages) {
     const productId = pkg.product.identifier;
-    if (!mapped.monthly && productId.includes('.1month')) {
+    const normalizedPackageId = pkg.identifier.toLowerCase().replace(/-/g, '_');
+    if (normalizedPackageId === 'lifetime_promo') {
+      mapped['lifetime-promo'] = pkg;
+    } else if (!mapped.monthly && productId.includes('.1month')) {
       mapped.monthly = pkg;
     } else if (!mapped['3-month'] && productId.includes('.3month')) {
       mapped['3-month'] = pkg;
@@ -282,6 +300,7 @@ export function getPlanPackageMap(offering: PurchasesOffering | null): Partial<R
     threeMonth: mapped['3-month']?.product.identifier ?? null,
     sixMonth: mapped['6-month']?.product.identifier ?? null,
     lifetime: mapped.lifetime?.product.identifier ?? null,
+    lifetimePromo: mapped['lifetime-promo']?.product.identifier ?? null,
   });
 
   return mapped;

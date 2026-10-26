@@ -26,6 +26,7 @@ import { getLevelBackstory } from '@/src/content/level-backstories';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { clearLessonLibraryAnchor, getLessonLibrarySelection, hydrateLessonLibrarySelection, setLessonLibrarySelection, takeLessonLibraryPreview } from '@/src/lib/lesson-library-selection';
+import { getMembershipPromotionCopy, MEMBERSHIP_PROMOTION } from '@/src/config/membership-promotion';
 import { loadLessonProgressSummariesProgressively } from '@/src/lib/lesson-library-progress';
 import { freeLibraryIds, LIBRARY_STAGES, LibraryStage, lessonMarker, lessonNumber, lessonTitle, matchesLessonSearch, shortLessonFocus } from '@/src/lib/library-pathway';
 import { getGuestCompletedLessonIds } from '@/src/lib/guest-lesson-completion';
@@ -66,6 +67,7 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
   const searching = query.trim().length > 0;
   const libraryRoute = freeOnly ? 'free-library' : 'library';
   const th = language === 'th';
+  const promotionCopy = getMembershipPromotionCopy(language);
   const stageLabel = (value: LibraryStage) => th ? ({ Beginner: 'เริ่มต้น', Intermediate: 'ระดับกลาง', Advanced: 'ขั้นสูง', Expert: 'เชี่ยวชาญ' }[value]) : value.toUpperCase();
 
   useEffect(() => {
@@ -239,9 +241,13 @@ export function LibraryPathwayScreen({ freeOnly = false }: { freeOnly?: boolean 
         {!hasMembership && !searching ? <View style={styles.upgrade}>
           <UnlockArtwork accentColor="#FF57A3" keyholeColor="#FFFFFF" showBackdrop={false} style={styles.upgradeArtwork} />
           <View style={styles.upgradeContent}>
-            <AppText language={language} variant="title" style={styles.upgradeTitle}>{th ? 'ปลดล็อกคอร์สทั้งหมด' : 'UNLOCK THE FULL COURSE'}</AppText>
+            <AppText language={language} variant="title" style={styles.upgradeTitle}>
+              {MEMBERSHIP_PROMOTION.enabled ? promotionCopy.eyebrow : th ? 'ปลดล็อกคอร์สทั้งหมด' : 'UNLOCK THE FULL COURSE'}
+            </AppText>
             <AppText language={language} variant="muted" style={styles.upgradeBody}>
-              {th
+              {MEMBERSHIP_PROMOTION.enabled
+                ? promotionCopy.compactBody
+                : th
                 ? `คุณสามารถเรียนฟรีได้ ${freeIds.size} บทเรียน\nอัปเกรดเพื่อปลดล็อกคลังบทเรียนทั้งหมด!`
                 : `You have access to ${freeIds.size} free lessons.\nUpgrade to unlock the full lesson library!`}
             </AppText>

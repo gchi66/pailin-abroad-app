@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { AppText } from '@/src/components/ui/AppText';
 import { Button } from '@/src/components/ui/Button';
+import { getMembershipPromotionCopy, MEMBERSHIP_PROMOTION } from '@/src/config/membership-promotion';
 import { theme } from '@/src/theme/theme';
 
 type ResourceUnlockCardProps = {
@@ -15,6 +16,7 @@ type ResourceUnlockCardProps = {
   onPress: () => void;
   appearance?: 'default' | 'guestProgress';
   accentColor?: string;
+  promoteMembership?: boolean;
 };
 
 export function ResourceUnlockCard({
@@ -26,10 +28,15 @@ export function ResourceUnlockCard({
   onPress,
   appearance = 'default',
   accentColor,
+  promoteMembership = false,
 }: ResourceUnlockCardProps) {
   const italicIndex = italicWord ? body.indexOf(italicWord) : -1;
   const isGuestProgress = appearance === 'guestProgress';
   const resolvedAccentColor = accentColor ?? '#FF57A3';
+  const promotionCopy = getMembershipPromotionCopy(language);
+  const resolvedTitle = promoteMembership && MEMBERSHIP_PROMOTION.enabled ? promotionCopy.eyebrow : title;
+  const resolvedBody = promoteMembership && MEMBERSHIP_PROMOTION.enabled ? promotionCopy.compactBody : body;
+  const resolvedItalicWord = promoteMembership && MEMBERSHIP_PROMOTION.enabled ? undefined : italicWord;
 
   return (
     <View style={[styles.card, isGuestProgress ? styles.guestProgressCard : null]}>
@@ -40,15 +47,15 @@ export function ResourceUnlockCard({
         style={[styles.artwork, isGuestProgress ? styles.guestProgressArtwork : null]}
       />
       <View style={[styles.copy, isGuestProgress ? styles.guestProgressCopy : null]}>
-        <AppText language={language} variant="title" style={[styles.title, isGuestProgress ? styles.guestProgressTitle : null]}>{title}</AppText>
+        <AppText language={language} variant="title" style={[styles.title, isGuestProgress ? styles.guestProgressTitle : null]}>{resolvedTitle}</AppText>
         <AppText language={language} variant="muted" style={[styles.body, isGuestProgress ? styles.guestProgressBody : null]}>
-          {italicIndex >= 0 && italicWord ? (
+          {italicIndex >= 0 && resolvedItalicWord ? (
             <>
-              {body.slice(0, italicIndex)}
-              <Text style={styles.italic}>{italicWord}</Text>
-              {body.slice(italicIndex + italicWord.length)}
+              {resolvedBody.slice(0, italicIndex)}
+              <Text style={styles.italic}>{resolvedItalicWord}</Text>
+              {resolvedBody.slice(italicIndex + resolvedItalicWord.length)}
             </>
-          ) : body}
+          ) : resolvedBody}
         </AppText>
         <Button
           language={language}

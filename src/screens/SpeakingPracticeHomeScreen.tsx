@@ -131,6 +131,7 @@ export function SpeakingPracticeHomeScreen() {
             <View style={styles.unlockWrap}>
               <ResourceUnlockCard
                 language={uiLanguage}
+                promoteMembership
                 title={uiLanguage === 'th' ? 'ปลดล็อกหน้านี้' : 'UNLOCK THIS PAGE'}
                 body={uiLanguage === 'th'
                   ? 'อัปเกรดเพื่อฝึกการออกเสียงและทักษะการพูดของคุณ!'
