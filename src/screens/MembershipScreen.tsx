@@ -113,8 +113,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
       joinCta: 'เลือกแพ็กเกจนี้',
       joinLoading: 'กำลังดำเนินการ...',
       freeCta: 'ใช้งานบัญชีฟรีต่อ',
-      guestFreeCta: 'สร้างบัญชีฟรีแทน →',
-      existingFreeCta: 'เรียนบทเรียนฟรีต่อ →',
+      guestFreeCta: 'สร้างบัญชีฟรี →',
+      existingFreeCta: 'ใช้บัญชีฟรีต่อ →',
       planCta: (planId: PaidPlanId) => planId === 'lifetime'
         ? 'รับสิทธิ์ตลอดชีพ'
         : planId === '3-month'
@@ -192,8 +192,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     joinCta: 'CHOOSE THIS PLAN',
     joinLoading: 'PROCESSING...',
     freeCta: 'CONTINUE WITH FREE ACCOUNT',
-    guestFreeCta: 'CREATE A FREE ACCOUNT INSTEAD →',
-    existingFreeCta: 'CONTINUE WITH FREE LESSONS →',
+    guestFreeCta: 'Make a free account →',
+    existingFreeCta: 'Continue with free account →',
     planCta: (planId: PaidPlanId) => planId === 'lifetime'
       ? 'GET LIFETIME ACCESS'
       : planId === '3-month'
@@ -299,9 +299,10 @@ const getPeriodMonths = (unit: string | undefined, value: number | undefined, fa
 
 const getIntroOffer = (
   pkg: PurchasesPackage | undefined,
-  eligibility: Record<string, IntroEligibility>
+  eligibility: Record<string, IntroEligibility>,
+  promotionEnabled: boolean
 ): IntroOfferInfo | null => {
-  if (!pkg || !MEMBERSHIP_PROMOTION.enabled) return null;
+  if (!pkg || !promotionEnabled) return null;
 
   if (Platform.OS === 'ios') {
     const intro = pkg.product.introPrice;
@@ -347,17 +348,18 @@ const buildPaidPlans = (
   copy: ReturnType<typeof getCopy>,
   pricingState: PricingState,
   availablePackages: Partial<Record<PlanId, PurchasesPackage>>,
-  introEligibility: Record<string, IntroEligibility>
+  introEligibility: Record<string, IntroEligibility>,
+  promotionEnabled: boolean
 ): Record<PaidPlanId, PaidPlan> | null => {
   const lifetimePackage = availablePackages.lifetime;
-  const lifetimePromoPackage = MEMBERSHIP_PROMOTION.enabled
+  const lifetimePromoPackage = promotionEnabled
     ? availablePackages['lifetime-promo']
     : undefined;
   const lifetimePurchasePackage = lifetimePromoPackage ?? lifetimePackage;
   const monthlyPackage = availablePackages.monthly;
   const threeMonthPackage = availablePackages['3-month'];
   const lifetimeStorePrice = getRegularPackagePrice(lifetimePurchasePackage);
-  const lifetimeComparisonStorePrice = lifetimePromoPackage
+  const lifetimeComparisonStorePrice = promotionEnabled
     ? getRegularPackagePrice(lifetimePackage)
     : null;
   const monthlyStorePrice = getRegularPackagePrice(monthlyPackage);
@@ -379,8 +381,8 @@ const buildPaidPlans = (
 
   if (!lifetimeRegular || !monthlyRegular || !threeMonthRegular) return null;
 
-  const monthlyIntro = getIntroOffer(monthlyPackage, introEligibility);
-  const threeMonthIntro = getIntroOffer(threeMonthPackage, introEligibility);
+  const monthlyIntro = getIntroOffer(monthlyPackage, introEligibility, promotionEnabled);
+  const threeMonthIntro = getIntroOffer(threeMonthPackage, introEligibility, promotionEnabled);
   const monthlyShown = monthlyIntro ?? monthlyRegular;
   const threeMonthShown = threeMonthIntro ?? threeMonthRegular;
   const threeMonthMonthly = threeMonthShown.price / 3;
@@ -406,12 +408,12 @@ const buildPaidPlans = (
       id: 'lifetime',
       packageId: lifetimePromoPackage ? 'lifetime-promo' : 'lifetime',
       title: copy.lifetimeTitle,
-      price: lifetimeRegular.priceString,
-      summaryPrice: lifetimeRegular.priceString,
+      price: promotionEnabled && !lifetimePromoPackage ? '—' : lifetimeRegular.priceString,
+      summaryPrice: promotionEnabled && !lifetimePromoPackage ? '—' : lifetimeRegular.priceString,
       totalPrice: lifetimeTotal,
       originalTotalPrice: lifetimeComparisonStorePrice?.price ?? null,
       originalMonthlyPrice: null,
-      originalPriceLabel: MEMBERSHIP_PROMOTION.enabled
+      originalPriceLabel: promotionEnabled
         ? lifetimeComparisonStorePrice?.priceString ?? '—'
         : null,
       billingCurrency: lifetimeCurrency,
@@ -420,11 +422,11 @@ const buildPaidPlans = (
       id: 'monthly',
       packageId: 'monthly',
       title: copy.monthlyTitle,
-      price: MEMBERSHIP_PROMOTION.enabled && !monthlyIntro ? '—' : monthlyShown.priceString,
-      summaryPrice: MEMBERSHIP_PROMOTION.enabled && !monthlyIntro ? '—' : monthlyShown.priceString,
+      price: promotionEnabled && !monthlyIntro ? '—' : monthlyShown.priceString,
+      summaryPrice: promotionEnabled && !monthlyIntro ? '—' : monthlyShown.priceString,
       totalPrice: monthlyTotal,
-      originalTotalPrice: MEMBERSHIP_PROMOTION.enabled ? monthlyRegular.price : null,
-      originalMonthlyPrice: MEMBERSHIP_PROMOTION.enabled ? monthlyRegular.price : null,
+      originalTotalPrice: promotionEnabled ? monthlyRegular.price : null,
+      originalMonthlyPrice: promotionEnabled ? monthlyRegular.price : null,
       billingCurrency: monthlyCurrency,
       periodLabel: copy.monthLabel,
       introOffer: monthlyIntro,
@@ -433,15 +435,15 @@ const buildPaidPlans = (
       id: '3-month',
       packageId: '3-month',
       title: copy.threeMonthTitle,
-      price: MEMBERSHIP_PROMOTION.enabled && !threeMonthIntro
+      price: promotionEnabled && !threeMonthIntro
         ? '—'
         : buildPriceWithSymbol(threeMonthCurrency, threeMonthMonthly),
-      summaryPrice: MEMBERSHIP_PROMOTION.enabled && !threeMonthIntro
+      summaryPrice: promotionEnabled && !threeMonthIntro
         ? '—'
         : buildPriceWithSymbol(threeMonthCurrency, threeMonthTotal),
       totalPrice: threeMonthTotal,
-      originalTotalPrice: MEMBERSHIP_PROMOTION.enabled ? threeMonthRegular.price : threeMonthOriginalTotal,
-      originalMonthlyPrice: MEMBERSHIP_PROMOTION.enabled ? threeMonthRegular.price / 3 : threeMonthOriginalMonthly,
+      originalTotalPrice: promotionEnabled ? threeMonthRegular.price : threeMonthOriginalTotal,
+      originalMonthlyPrice: promotionEnabled ? threeMonthRegular.price / 3 : threeMonthOriginalMonthly,
       billingCurrency: threeMonthCurrency,
       periodLabel: copy.monthLabel,
       savingsSummary: threeMonthSavingsSummary,
@@ -515,7 +517,7 @@ function PricingPlanCard({
   return (
     <View style={[styles.planCardWrap, savingsLabel ? styles.planCardWrapWithBadge : null]}>
       {savingsLabel ? (
-        <View pointerEvents="none" style={styles.savingsPill}>
+        <View pointerEvents="none" style={[styles.savingsPill, selected ? styles.selectedSavingsPill : null]}>
           <AppText language={uiLanguage} variant="caption" numberOfLines={1} style={styles.savingsPillText}>
             {savingsLabel}
           </AppText>
@@ -577,15 +579,21 @@ type MembershipScreenProps = {
 
 export function MembershipScreen({ source: sourceOverride }: MembershipScreenProps = {}) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ source?: string }>();
+  const params = useLocalSearchParams<{ preview?: string; source?: string }>();
   const insets = useSafeAreaInsets();
-  const { hasAccount, hasMembership, isGuestMode, refreshMembershipAccess } = useAppSession();
+  const { hasAccount, hasMembership, isGuestMode, profile, refreshMembershipAccess } = useAppSession();
   const { uiLanguage } = useUiLanguage();
   const copy = useMemo(() => getCopy(uiLanguage), [uiLanguage]);
   const posthog = usePostHog();
   const isNativeApp = Platform.OS !== 'web';
   const fallbackSource: MembershipSource = isGuestMode && !hasAccount ? 'guest' : 'free-account';
   const source = sourceOverride ?? normalizeSource(params.source, fallbackSource);
+  const requestedPreview = profile?.is_admin === true ? params.preview : undefined;
+  const promotionEnabled = requestedPreview === 'promo'
+    ? true
+    : requestedPreview === 'regular'
+      ? false
+      : MEMBERSHIP_PROMOTION.enabled;
   const showCloseButton = source !== 'onboarding';
   const successRoute = source === 'free-account' ? '/(tabs)' : '/placement-entry';
   const closeRoute = '/(tabs)/account';
@@ -677,18 +685,19 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   }, []);
 
   const paidPlans = useMemo(
-    () => buildPaidPlans(copy, pricingState, availablePackages, introEligibility),
-    [availablePackages, copy, introEligibility, pricingState]
+    () => buildPaidPlans(copy, pricingState, availablePackages, introEligibility, promotionEnabled),
+    [availablePackages, copy, introEligibility, pricingState, promotionEnabled]
   );
   const selectedPaidPlan = paidPlans?.[selectedOption] ?? null;
   const selectedPackage = selectedPaidPlan ? availablePackages[selectedPaidPlan.packageId] ?? null : null;
   const alreadyHasRevenueCatAccess = hasMembership || hasRevenueCatFullAccess(customerInfo);
-  const showPromotion = MEMBERSHIP_PROMOTION.enabled;
-  const selectedIntroPriceUnavailable = Boolean(
+  const showPromotion = promotionEnabled;
+  const selectedPromoPriceUnavailable = Boolean(
     showPromotion
       && selectedPaidPlan
-      && selectedPaidPlan.id !== 'lifetime'
-      && !selectedPaidPlan.introOffer
+      && (selectedPaidPlan.id === 'lifetime'
+        ? selectedPaidPlan.packageId !== 'lifetime-promo'
+        : !selectedPaidPlan.introOffer)
   );
 
   const handleSelectPlan = (planId: PaidPlanId) => {
@@ -707,7 +716,13 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
   const handleSecondaryAction = () => {
     if (source === 'guest') {
       posthog.capture('membership_free_account_selected', { source });
-      router.push('/account/auth');
+      router.replace('/account/auth');
+      return;
+    }
+
+    if (source === 'free-account') {
+      posthog.capture('membership_free_account_selected', { source });
+      router.replace('/(tabs)/lessons/free-library');
       return;
     }
 
@@ -724,7 +739,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
       (Platform.OS !== 'ios' && Platform.OS !== 'android')
       || !selectedPackage
       || !selectedPaidPlan
-      || selectedIntroPriceUnavailable
+      || selectedPromoPriceUnavailable
     ) {
       Alert.alert(copy.purchaseUnavailableTitle, copy.purchaseUnavailableBody);
       return;
@@ -819,17 +834,11 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
         ? buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice)
         : null
     : null;
-  const recurringBillingMonths = selectedPaidPlan?.id === '3-month' ? 3 : 1;
   const billingDisclosureText = selectedPaidPlan
     ? selectedPaidPlan.introOffer && selectedPaidPlan.originalTotalPrice
-      ? `${copy.introBilling(
-          selectedPaidPlan.introOffer.priceString,
-          selectedPaidPlan.introOffer.billingPeriodMonths,
-          selectedPaidPlan.introOffer.billingCycleCount * selectedPaidPlan.introOffer.billingPeriodMonths
-        )}. ${copy.thenBilling(
-          buildPriceWithSymbol(selectedPaidPlan.billingCurrency, selectedPaidPlan.originalTotalPrice),
-          recurringBillingMonths
-        )}.`
+      ? selectedPaidPlan.id === '3-month'
+        ? copy.threeMonthBilling
+        : copy.monthlyBilling
       : selectedPaidPlan.id === 'lifetime'
       ? copy.lifetimeBilling
       : selectedPaidPlan.id === '3-month'
@@ -892,7 +901,7 @@ export function MembershipScreen({ source: sourceOverride }: MembershipScreenPro
     <Button
       language={uiLanguage}
       onPress={handleJoinPress}
-      disabled={purchaseInProgress || selectedIntroPriceUnavailable}
+      disabled={purchaseInProgress || selectedPromoPriceUnavailable}
       style={styles.primaryCta}
       title={ctaTitle}
     />
@@ -1210,6 +1219,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 5,
   },
+  selectedSavingsPill: {
+    borderWidth: 2,
+    borderColor: '#2860E8',
+  },
   savingsPillText: {
     color: '#FF57A3',
     textAlign: 'center',
@@ -1380,19 +1393,20 @@ const styles = StyleSheet.create({
   },
   stickyFooter: {
     position: 'absolute',
-    right: 0,
+    right: -3,
     bottom: 0,
-    left: 0,
-    gap: 10,
+    left: -3,
     paddingTop: 16,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: theme.colors.border,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     backgroundColor: '#F5F6F8',
+    overflow: 'visible',
   },
   stickyFooterContent: {
     gap: 12,
+    paddingHorizontal: 20,
   },
 });

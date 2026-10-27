@@ -1,6 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export const lessonHeaderBlueBlob = require('@/assets/images/lesson-headers/blue-blob-header.webp') as ImageSourcePropType;
+export const lessonHeaderGrayBlob = require('@/assets/images/lesson-headers-grayscale/blue-blob-header.png') as ImageSourcePropType;
 
 const lessonHeaderImages = {
   chloe_sebastian: require('@/assets/images/lesson-headers/chloe_sebastian.webp'),
@@ -55,6 +56,59 @@ const lessonHeaderImages = {
   pailin_woman2: require('@/assets/images/lesson-headers/pailin_woman2.webp'),
 } satisfies Record<string, ImageSourcePropType>;
 
+const grayscaleLessonHeaderImages = {
+  chloe_sebastian: require('@/assets/images/lesson-headers-grayscale/chloe_sebastian.png'),
+  luke_emily: require('@/assets/images/lesson-headers-grayscale/luke_emily.png'),
+  luke_emily_mark: require('@/assets/images/lesson-headers-grayscale/luke_emily_mark.png'),
+  luke_emily_sylvie: require('@/assets/images/lesson-headers-grayscale/luke_emily_sylvie.png'),
+  luke_mark: require('@/assets/images/lesson-headers-grayscale/luke_mark.png'),
+  pailin_2_strangers: require('@/assets/images/lesson-headers-grayscale/pailin_2_strangers.png'),
+  pailin_4_family: require('@/assets/images/lesson-headers-grayscale/pailin_4_family.png'),
+  pailin_chai: require('@/assets/images/lesson-headers-grayscale/pailin_chai.png'),
+  pailin_chai_lek: require('@/assets/images/lesson-headers-grayscale/pailin_chai_lek.png'),
+  pailin_chloe: require('@/assets/images/lesson-headers-grayscale/pailin_chloe.png'),
+  pailin_chloe_anthony: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_anthony.png'),
+  pailin_chloe_anthony_ice_cream: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_anthony_ice_cream.png'),
+  pailin_chloe_emma: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_lily.png'),
+  pailin_chloe_frank: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_frank.png'),
+  pailin_chloe_lily: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_lily.png'),
+  pailin_chloe_luke: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_luke.png'),
+  pailin_chloe_steven: require('@/assets/images/lesson-headers-grayscale/pailin_chloe_steven.png'),
+  pailin_daniel_chloe_luke: require('@/assets/images/lesson-headers-grayscale/pailin_daniel_chloe_luke.png'),
+  pailin_dara: require('@/assets/images/lesson-headers-grayscale/pailin_dara.png'),
+  pailin_emily: require('@/assets/images/lesson-headers-grayscale/pailin_emily.png'),
+  pailin_emily_luke_mark: require('@/assets/images/lesson-headers-grayscale/pailin_emily_luke_mark.png'),
+  pailin_emily_mark: require('@/assets/images/lesson-headers-grayscale/pailin_emily_mark.png'),
+  pailin_emily_sylvie_mark: require('@/assets/images/lesson-headers-grayscale/pailin_emily_sylvie_mark.png'),
+  pailin_enzo: require('@/assets/images/lesson-headers-grayscale/pailin_enzo.png'),
+  pailin_jerald: require('@/assets/images/lesson-headers-grayscale/pailin_jerald.png'),
+  pailin_lek: require('@/assets/images/lesson-headers-grayscale/pailin_lek.png'),
+  pailin_little_girl: require('@/assets/images/lesson-headers-grayscale/pailin_little_girl.png'),
+  pailin_lola_bill: require('@/assets/images/lesson-headers-grayscale/pailin_lola_bill.png'),
+  pailin_luke: require('@/assets/images/lesson-headers-grayscale/pailin_luke.png'),
+  pailin_man1: require('@/assets/images/lesson-headers-grayscale/pailin_man1.png'),
+  pailin_man2: require('@/assets/images/lesson-headers-grayscale/pailin_man2.png'),
+  pailin_man3: require('@/assets/images/lesson-headers-grayscale/pailin_man3.png'),
+  pailin_man4: require('@/assets/images/lesson-headers-grayscale/pailin_man4.png'),
+  pailin_marcus: require('@/assets/images/lesson-headers-grayscale/pailin_marcus.png'),
+  pailin_marcy_luke: require('@/assets/images/lesson-headers-grayscale/pailin_marcy_luke.png'),
+  pailin_mark: require('@/assets/images/lesson-headers-grayscale/pailin_mark.png'),
+  pailin_mark_luke: require('@/assets/images/lesson-headers-grayscale/pailin_mark_luke.png'),
+  pailin_old_man: require('@/assets/images/lesson-headers-grayscale/pailin_old_man.png'),
+  pailin_pete: require('@/assets/images/lesson-headers-grayscale/pailin_pete.png'),
+  pailin_sebastian: require('@/assets/images/lesson-headers-grayscale/pailin_sebastian.png'),
+  pailin_server_luke: require('@/assets/images/lesson-headers-grayscale/pailin_server_luke.png'),
+  pailin_shelby_jerald: require('@/assets/images/lesson-headers-grayscale/pailin_shelby_jerald.png'),
+  pailin_sophia: require('@/assets/images/lesson-headers-grayscale/pailin_sophia.png'),
+  pailin_sophia_marcus_professor: require('@/assets/images/lesson-headers-grayscale/pailin_sophia_marcus_professor.png'),
+  pailin_superbowl: require('@/assets/images/lesson-headers-grayscale/pailin_superbowl.png'),
+  pailin_sylvie: require('@/assets/images/lesson-headers-grayscale/pailin_sylvie.png'),
+  pailin_sylvie_flower: require('@/assets/images/lesson-headers-grayscale/pailin_sylvie_flower.png'),
+  pailin_tyler: require('@/assets/images/lesson-headers-grayscale/pailin_tyler.png'),
+  pailin_woman1: require('@/assets/images/lesson-headers-grayscale/pailin_woman1.png'),
+  pailin_woman2: require('@/assets/images/lesson-headers-grayscale/pailin_woman2.png'),
+} satisfies Record<string, ImageSourcePropType>;
+
 const getLessonHeaderKey = (rawValue: string | null | undefined): string | null => {
   const normalized = rawValue?.trim().split(/[?#]/)[0].replace(/\\/g, '/');
   if (!normalized) {
@@ -74,4 +128,15 @@ export const resolveLocalLessonHeaderImage = (
   }
 
   return lessonHeaderImages[key as keyof typeof lessonHeaderImages] ?? null;
+};
+
+export const resolveGrayscaleLessonHeaderImage = (
+  rawValue: string | null | undefined
+): ImageSourcePropType | null => {
+  const key = getLessonHeaderKey(rawValue);
+  if (!key) {
+    return null;
+  }
+
+  return grayscaleLessonHeaderImages[key as keyof typeof grayscaleLessonHeaderImages] ?? null;
 };

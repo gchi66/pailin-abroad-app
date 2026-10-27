@@ -7,9 +7,12 @@ import { ActivityIndicator, Animated, BackHandler, PanResponder, Platform, Scrol
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import fallbackImage from '@/assets/images/characters/pailin_blue_circle_right.webp';
+import fallbackGrayscaleImage from '@/assets/images/characters/pailin_blue_circle_right_grayscale.png';
 import lockBlackImage from '@/assets/images/lock-black.png';
 import {
   lessonHeaderBlueBlob,
+  lessonHeaderGrayBlob,
+  resolveGrayscaleLessonHeaderImage,
   resolveLocalLessonHeaderImage,
 } from '@/src/assets/lesson-header-images';
 import { fetchAppLessonProgressDetail } from '@/src/api/app-lesson-progress';
@@ -68,6 +71,7 @@ export default function LessonPreviewScreen() {
   const focus = lesson ? localized(lesson.focus, lesson.focus_th) : '';
   const backstory = lesson ? localized(lesson.backstory, lesson.backstory_th) : '';
   const localHeaderImage = resolveLocalLessonHeaderImage(lesson?.header_img);
+  const grayscaleHeaderImage = resolveGrayscaleLessonHeaderImage(lesson?.header_img);
   const imageUrl = headerImageUrl(lesson?.header_img ?? null);
   const checkpoint = [lesson?.title, lesson?.title_th].some((value) => value?.toLowerCase().includes('checkpoint'));
   const number = lesson?.level != null ? `${lesson.level}.${checkpoint ? 'chp' : lesson.lesson_order ?? '–'}` : '–';
@@ -182,14 +186,18 @@ export default function LessonPreviewScreen() {
                 <View style={[styles.artworkComposition, { height: Math.min(190, height * 0.23, width * 0.48) }]}>
                   {localHeaderImage ? (
                     <Image
-                      source={lessonHeaderBlueBlob}
+                      source={locked ? lessonHeaderGrayBlob : lessonHeaderBlueBlob}
                       contentFit="contain"
                       style={styles.artworkLayer}
                       accessible={false}
                     />
                   ) : null}
                   <Image
-                    source={imageFailed ? fallbackImage : localHeaderImage ?? (imageUrl ? { uri: imageUrl } : fallbackImage)}
+                    source={imageFailed
+                      ? locked ? fallbackGrayscaleImage : fallbackImage
+                      : locked
+                        ? grayscaleHeaderImage ?? fallbackGrayscaleImage
+                        : localHeaderImage ?? (imageUrl ? { uri: imageUrl } : fallbackImage)}
                     contentFit="contain"
                     onError={() => setImageFailed(true)}
                     style={styles.artworkLayer}
@@ -277,7 +285,7 @@ const styles = StyleSheet.create({
   measurement: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
   footer: { paddingTop: 10, paddingHorizontal: 20, backgroundColor: '#FFFFFF' },
   startButton: { minHeight: 44, borderWidth: theme.borderWidths.primaryCard, backgroundColor: '#2860E8', boxShadow: '2px 3px 0px #1E1E1E' },
-  upgradeButton: { backgroundColor: '#F9DA60' },
+  upgradeButton: { backgroundColor: '#FF57A3' },
   buttonText: { fontSize: 12, lineHeight: 18, textTransform: 'uppercase' },
-  upgradeText: { color: '#1E1E1E' },
+  upgradeText: { color: '#FFFFFF' },
 });

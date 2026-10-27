@@ -3,7 +3,7 @@ export type MembershipPromotionLanguage = 'en' | 'th';
 // This is intentionally a build-time switch. Flip it and ship a new build when
 // the Pailin's Debut campaign starts or ends. Prices always come from the store.
 export const MEMBERSHIP_PROMOTION = {
-  enabled: false,
+  enabled: true,
   discounts: {
     lifetime: 30,
     monthly: 50,

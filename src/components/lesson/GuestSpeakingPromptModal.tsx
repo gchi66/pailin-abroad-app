@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import React from 'react';
 import { ActivityIndicator, Modal, StyleSheet, View } from 'react-native';
 
-import speakingImage from '@/assets/images/lesson-intros/12-speaking.webp';
+import speakingImage from '@/assets/images/speaking-coach/pailin-time-to-speak.webp';
 import { AppText } from '@/src/components/ui/AppText';
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { createNeoShadow } from '@/src/theme/shadows';
@@ -13,7 +13,6 @@ import type { UiLanguage } from '@/src/types/home';
 type Props = {
   language: UiLanguage;
   visible: boolean;
-  allowSkipAndFinish: boolean;
   isFinishing?: boolean;
   onClose: () => void;
   onCreateAccount: () => void;
@@ -23,7 +22,6 @@ type Props = {
 export function GuestSpeakingPromptModal({
   language,
   visible,
-  allowSkipAndFinish,
   isFinishing = false,
   onClose,
   onCreateAccount,
@@ -58,7 +56,7 @@ export function GuestSpeakingPromptModal({
           <AppText language={language} style={styles.body}>
             {th
               ? 'พัฒนาการออกเสียงและทักษะการพูด พร้อมรับคำแนะนำจาก AI ทันที'
-              : 'Improve your pronunciation and\nspeaking skills with instant AI feedback'}
+              : 'Improve your pronunciation and\nspeaking skills with instant AI feedback!'}
           </AppText>
 
           <Pressable
@@ -75,21 +73,19 @@ export function GuestSpeakingPromptModal({
             </AppText>
           </Pressable>
 
-          {allowSkipAndFinish ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={isFinishing}
-              onPress={onSkipAndFinish}
-              style={({ pressed }) => [styles.skipButton, pressed ? styles.pressed : null]}>
-              {isFinishing ? (
-                <ActivityIndicator color={theme.colors.text} size="small" />
-              ) : (
-                <AppText language={language} style={styles.skipText}>
-                  {th ? 'ข้ามและจบบทเรียน' : 'Skip & finish lesson'}
-                </AppText>
-              )}
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            disabled={isFinishing}
+            onPress={onSkipAndFinish}
+            style={({ pressed }) => [styles.skipButton, pressed ? styles.pressed : null]}>
+            {isFinishing ? (
+              <ActivityIndicator color={theme.colors.text} size="small" />
+            ) : (
+              <AppText language={language} style={styles.skipText}>
+                {th ? 'ข้ามและจบบทเรียน' : 'Skip & finish lesson'}
+              </AppText>
+            )}
+          </Pressable>
         </View>
       </View>
     </Modal>

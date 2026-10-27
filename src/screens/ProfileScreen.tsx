@@ -115,9 +115,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
       signOutSuccess: 'ออกจากระบบแล้ว',
       onboardingPreview: 'เปิดตัวอย่างการเริ่มต้นใช้งาน',
       placementPreview: 'ทำแบบประเมินระดับ',
-      membershipPreviewGuest: 'เปิด Membership แบบ Guest',
-      membershipPreviewFree: 'เปิด Membership แบบ Free Account',
-      membershipPreviewOnboarding: 'เปิด Membership แบบ Onboarding',
+      membershipPreviewPromo: 'หน้าสมาชิก - โปรโมชั่น',
+      membershipPreviewRegular: 'หน้าสมาชิก - ราคาปกติ',
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
       openingPreview: 'เปิดตัวอย่างหน้าเปิดแอป',
@@ -151,9 +150,8 @@ const getCopy = (uiLanguage: UiLanguage) => {
     signOutSuccess: 'Signed out successfully.',
     onboardingPreview: 'Open onboarding preview',
     placementPreview: 'Take placement test',
-    membershipPreviewGuest: 'Open membership page / guest mode',
-    membershipPreviewFree: 'Open membership page / free account',
-    membershipPreviewOnboarding: 'Open membership page / onboarding',
+    membershipPreviewPromo: 'Membership Page - Promo',
+    membershipPreviewRegular: 'Membership Page - Regular',
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
     openingPreview: 'Open app opening preview',
@@ -472,9 +470,8 @@ export function ProfileScreen() {
               <Button title={copy.openingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/opening?preview=1')} />
               <Button title={copy.onboardingPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/onboarding?devtools=1')} />
               <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
-              <Button title={copy.membershipPreviewGuest} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=guest'); }} />
-              <Button title={copy.membershipPreviewFree} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=free-account'); }} />
-              <Button title={copy.membershipPreviewOnboarding} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=onboarding'); }} />
+              <Button title={copy.membershipPreviewPromo} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=free-account&preview=promo'); }} />
+              <Button title={copy.membershipPreviewRegular} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=free-account&preview=regular'); }} />
               <Button title={copy.speakingCoachPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/speaking-coach?lesson=4.1')} />
               <Button title={copy.lessonCompletePreview} language={uiLanguage} variant="outline" onPress={() => router.push('/lesson-complete-preview')} />
             </Stack> : null}

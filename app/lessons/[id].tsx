@@ -6939,7 +6939,7 @@ export default function LessonDetailShellScreen() {
 
   const handleFinishLessonPress = useCallback(async () => {
     if (isGuestLessonSession) {
-      await completeGuestLesson();
+      setGuestSpeakingPromptState('completion');
       return;
     }
 
@@ -6969,7 +6969,6 @@ export default function LessonDetailShellScreen() {
     activeLessonNumber,
     allPracticeExercisesChecked,
     completeLesson,
-    completeGuestLesson,
     completedSpeakingLessonIds,
     flushPendingLessonPersistence,
     isGuestLessonSession,
@@ -14597,7 +14596,6 @@ const mergeAdjacentPracticeRowTokens = (
       <GuestSpeakingPromptModal
         language={pageLanguage}
         visible={guestSpeakingPromptState !== null}
-        allowSkipAndFinish={guestSpeakingPromptState === 'completion'}
         isFinishing={isSavingLessonCompletion}
         onClose={closeGuestSpeakingPrompt}
         onCreateAccount={() => {
