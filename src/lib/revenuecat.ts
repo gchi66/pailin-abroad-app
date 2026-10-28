@@ -13,6 +13,11 @@ import { env } from '@/src/config/env';
 export const REVENUECAT_ENTITLEMENT_ID = 'full_access';
 export const REVENUECAT_OFFERING_ID = 'default';
 
+const LIFETIME_PROMO_PRODUCT_IDS = new Set([
+  'com.pailinabroad.membership.lifetime.promo',
+  'lifetime_promo',
+]);
+
 const isSupportedPlatform = Platform.OS === 'ios' || Platform.OS === 'android';
 const shouldLogAndroidRevenueCatDebug = __DEV__ && Platform.OS === 'android';
 
@@ -281,8 +286,18 @@ export function getPlanPackageMap(offering: PurchasesOffering | null): Partial<R
 
   for (const pkg of offering.availablePackages) {
     const productId = pkg.product.identifier;
-    const normalizedPackageId = pkg.identifier.toLowerCase().replace(/-/g, '_');
-    if (normalizedPackageId === 'lifetime_promo') {
+    // RevenueCat returns the custom package identifier exactly as configured.
+    // Normalize separators so identifiers such as `Lifetime - Promo` and
+    // `lifetime_promo` resolve to the same app plan, and use the store product
+    // IDs as a fallback in case the custom package is renamed.
+    const normalizedPackageId = pkg.identifier
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const isLifetimePromo = normalizedPackageId === 'lifetime_promo'
+      || LIFETIME_PROMO_PRODUCT_IDS.has(productId);
+    if (isLifetimePromo) {
       mapped['lifetime-promo'] = pkg;
     } else if (!mapped.monthly && productId.includes('.1month')) {
       mapped.monthly = pkg;

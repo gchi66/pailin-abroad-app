@@ -437,7 +437,12 @@ const buildPaidPlans = (
       title: copy.threeMonthTitle,
       price: promotionEnabled && !threeMonthIntro
         ? '—'
-        : buildPriceWithSymbol(threeMonthCurrency, threeMonthMonthly),
+        : buildPriceWithSymbol(
+            threeMonthCurrency,
+            threeMonthMonthly,
+            2,
+            threeMonthCurrency === 'USD' ? 2 : 0
+          ),
       summaryPrice: promotionEnabled && !threeMonthIntro
         ? '—'
         : buildPriceWithSymbol(threeMonthCurrency, threeMonthTotal),
@@ -559,7 +564,13 @@ function PricingPlanCard({
                 ?? buildPriceWithSymbol(plan.billingCurrency, plan.originalMonthlyPrice ?? plan.originalTotalPrice ?? 0)}
             </AppText>
           ) : null}
-          <AppText language={uiLanguage} variant="title" style={styles.planPrice}>
+          <AppText
+            language={uiLanguage}
+            variant="title"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            style={styles.planPrice}>
             {plan.price}
           </AppText>
           {plan.periodLabel ? (
