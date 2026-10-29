@@ -17,6 +17,7 @@ import { DailyReminderManager } from '@/src/components/DailyReminderManager';
 import { AppText } from '@/src/components/ui/AppText';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { AppSessionProvider, useAppSession } from '@/src/context/app-session-context';
+import { DebutPromoCampaignProvider } from '@/src/context/debut-promo-campaign-context';
 import { OnboardingProvider } from '@/src/context/onboarding-context';
 import { OpeningScreenProvider, useOpeningScreen } from '@/src/context/opening-screen-context';
 import { UiLanguageProvider, useUiLanguage } from '@/src/context/ui-language-context';
@@ -285,39 +286,41 @@ export default function RootLayout() {
         <AppSessionProvider>
           <OnboardingProvider>
             <UiLanguageProvider>
-            <DailyReminderManager />
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <SplashVisibilityGate fontsLoaded={fontsLoaded} />
-              <AppRouteGate />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  animation: 'none',
-                  presentation: 'card',
-                }}>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="lesson-preview/[id]"
-                  options={{
-                    presentation: 'transparentModal',
-                    animation: 'none',
-                    contentStyle: { backgroundColor: 'transparent' },
-                    gestureEnabled: false,
-                  }}
-                />
-                <Stack.Screen name="onboarding/index" />
-                <Stack.Screen
-                  name="modal"
-                  options={{
-                    animation: 'none',
-                    presentation: 'card',
-                    title: 'Modal',
-                  }}
-                />
-              </Stack>
-              <FreeUserPreviewBanner />
-              <StatusBar style="dark" />
-            </ThemeProvider>
+                <DebutPromoCampaignProvider>
+                  <DailyReminderManager />
+                  <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                    <SplashVisibilityGate fontsLoaded={fontsLoaded} />
+                    <AppRouteGate />
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        animation: 'none',
+                        presentation: 'card',
+                      }}>
+                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                      <Stack.Screen
+                        name="lesson-preview/[id]"
+                        options={{
+                          presentation: 'transparentModal',
+                          animation: 'none',
+                          contentStyle: { backgroundColor: 'transparent' },
+                          gestureEnabled: false,
+                        }}
+                      />
+                      <Stack.Screen name="onboarding/index" />
+                      <Stack.Screen
+                        name="modal"
+                        options={{
+                          animation: 'none',
+                          presentation: 'card',
+                          title: 'Modal',
+                        }}
+                      />
+                    </Stack>
+                    <FreeUserPreviewBanner />
+                    <StatusBar style="dark" />
+                  </ThemeProvider>
+                </DebutPromoCampaignProvider>
             </UiLanguageProvider>
           </OnboardingProvider>
         </AppSessionProvider>

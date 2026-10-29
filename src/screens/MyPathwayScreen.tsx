@@ -27,6 +27,7 @@ import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigatio
 import { UnlockArtwork } from '@/src/components/lesson/UnlockArtwork';
 import { ResourceUnlockCard } from '@/src/components/resources/ResourceUnlockCard';
 import { useAppSession } from '@/src/context/app-session-context';
+import { useDebutPromoCampaign } from '@/src/context/debut-promo-campaign-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { getMembershipPromotionCopy, MEMBERSHIP_PROMOTION } from '@/src/config/membership-promotion';
 import { PathwayLessonRow, usePathwayData } from '@/src/hooks/use-pathway-data';
@@ -313,6 +314,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { uiLanguage } = useUiLanguage();
+  const { notifyMeaningfulInteraction } = useDebutPromoCampaign();
   const { hasAccount, hasMembership, isGuestMode, profile, user } = useAppSession();
   const isTabletScreen = width >= 768;
   const isLargeTabletScreen = width >= 1024;
@@ -434,6 +436,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   }
 
   const handleOpenLesson = (lesson: LessonListItem | null) => {
+    notifyMeaningfulInteraction();
     const lessonId = lesson?.id ?? null;
     if (!lessonId) {
       return;
@@ -473,6 +476,7 @@ export function MyPathwayScreen({ deferLoadingState = false, onReady }: MyPathwa
   return (
     <View style={styles.screen}>
       <ScrollView
+        onScrollBeginDrag={notifyMeaningfulInteraction}
         style={styles.screen}
         contentContainerStyle={[
           styles.contentContainer,

@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
+import { useDebutPromoCampaign } from '@/src/context/debut-promo-campaign-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { theme } from '@/src/theme/theme';
 
@@ -50,6 +51,7 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { hasAccount, hasMembership, isGuestMode } = useAppSession();
+  const { notifyMeaningfulInteraction } = useDebutPromoCampaign();
   const { uiLanguage } = useUiLanguage();
   const labels = LABELS[uiLanguage];
 
@@ -72,6 +74,7 @@ export function PailinTabBar({ state, descriptors, navigation }: BottomTabBarPro
             const options = descriptors[route.key]?.options;
 
             const onPress = () => {
+              notifyMeaningfulInteraction();
               if (Platform.OS === 'ios') {
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { useAppSession } from '@/src/context/app-session-context';
+import { useDebutPromoCampaign } from '@/src/context/debut-promo-campaign-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
 import { usePathwayData } from '@/src/hooks/use-pathway-data';
 import type { DailyReminderLesson } from '@/src/lib/daily-reminder';
@@ -32,6 +33,7 @@ export function DailyReminderManager() {
     isLoading,
     user,
   } = useAppSession();
+  const { beginBlockingPrompt } = useDebutPromoCampaign();
   const { uiLanguage } = useUiLanguage();
   const { resumeRow, isLoading: isPathwayLoading } = usePathwayData({
     enabled: hasAccount,
@@ -156,7 +158,12 @@ export function DailyReminderManager() {
       }
 
       promptStarted.current = true;
-      await requestDailyReminderPermission(uiLanguage, reminderLesson);
+      const releaseBlockingPrompt = beginBlockingPrompt();
+      try {
+        await requestDailyReminderPermission(uiLanguage, reminderLesson);
+      } finally {
+        releaseBlockingPrompt();
+      }
     })().catch((error) => {
       console.warn('[daily-reminder] failed to initialize reminder', error);
     });
@@ -165,6 +172,7 @@ export function DailyReminderManager() {
       isCancelled = true;
     };
   }, [
+    beginBlockingPrompt,
     hasAccount,
     hasCompletedOnboarding,
     isGuestMode,

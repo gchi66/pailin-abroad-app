@@ -7,6 +7,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { AppText } from '@/src/components/ui/AppText';
 import { AccountPageHeader } from '@/src/components/ui/AccountPageHeader';
+import { DebutPromoModal } from '@/src/components/promo/DebutPromoModal';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
@@ -117,6 +118,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
       placementPreview: 'ทำแบบประเมินระดับ',
       membershipPreviewPromo: 'หน้าสมาชิก - โปรโมชั่น',
       membershipPreviewRegular: 'หน้าสมาชิก - ราคาปกติ',
+      debutPromoPreview: 'เปิดตัวอย่างป๊อปอัปโปรโมชั่นเปิดตัว',
       speakingCoachPreview: 'เปิดตัวอย่าง Speaking Coach',
       lessonCompletePreview: 'เปิดตัวอย่างหน้าเรียนจบบทเรียน',
       openingPreview: 'เปิดตัวอย่างหน้าเปิดแอป',
@@ -152,6 +154,7 @@ const getCopy = (uiLanguage: UiLanguage) => {
     placementPreview: 'Take placement test',
     membershipPreviewPromo: 'Membership Page - Promo',
     membershipPreviewRegular: 'Membership Page - Regular',
+    debutPromoPreview: 'Preview debut promo popup',
     speakingCoachPreview: 'Open speaking coach preview',
     lessonCompletePreview: 'Open lesson complete preview',
     openingPreview: 'Open app opening preview',
@@ -191,6 +194,7 @@ export function ProfileScreen() {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordMode, setPasswordMode] = useState<boolean | null>(null);
   const [isOpeningPassword, setIsOpeningPassword] = useState(false);
+  const [isDebutPromoPreviewVisible, setIsDebutPromoPreviewVisible] = useState(false);
   const displayName =
     (!isEmailLike(profile?.name) ? profile?.name?.trim() || '' : '') ||
     (!isEmailLike(profile?.username) ? profile?.username?.trim() || '' : '') ||
@@ -472,6 +476,7 @@ export function ProfileScreen() {
               <Button title={copy.placementPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/placement-entry')} />
               <Button title={copy.membershipPreviewPromo} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=free-account&preview=promo'); }} />
               <Button title={copy.membershipPreviewRegular} language={uiLanguage} variant="outline" onPress={() => { prefetchPricing(); router.push('/membership?source=free-account&preview=regular'); }} />
+              <Button title={copy.debutPromoPreview} language={uiLanguage} variant="outline" onPress={() => setIsDebutPromoPreviewVisible(true)} />
               <Button title={copy.speakingCoachPreview} language={uiLanguage} variant="outline" onPress={() => router.push('/speaking-coach?lesson=4.1')} />
               <Button title={copy.lessonCompletePreview} language={uiLanguage} variant="outline" onPress={() => router.push('/lesson-complete-preview')} />
             </Stack> : null}
@@ -498,6 +503,16 @@ export function ProfileScreen() {
           </View>
         </View>
       </Modal>
+      <DebutPromoModal
+        language={uiLanguage}
+        onClose={() => setIsDebutPromoPreviewVisible(false)}
+        onViewPlans={() => {
+          setIsDebutPromoPreviewVisible(false);
+          prefetchPricing();
+          router.push('/membership?source=free-account&preview=promo');
+        }}
+        visible={isDebutPromoPreviewVisible}
+      />
     </ScrollView>
   );
 }
