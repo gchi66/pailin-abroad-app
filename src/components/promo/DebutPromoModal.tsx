@@ -169,14 +169,14 @@ export function DebutPromoModal({
             allowFontScaling={false}
             language={language}
             style={[styles.headline, {
-              fontSize: scaled(language === 'th' ? 22 : 23),
-              lineHeight: scaled(32),
+              fontSize: scaled(language === 'th' ? 24 : 26),
+              lineHeight: scaled(35),
               top: scaled(135),
             }]}>
             {text.headline}
           </AppText>
 
-          <View style={[styles.discountWrap, { height: scaled(108), top: scaled(172) }]}>
+          <View style={[styles.discountWrap, { height: scaled(114), top: scaled(172) }]}>
             <Image
               accessible={false}
               contentFit="contain"
@@ -190,10 +190,10 @@ export function DebutPromoModal({
               importantForAccessibility="no-hide-descendants"
               language="en"
               style={[styles.discount, styles.discountShadow, {
-                fontSize: scaled(88),
-                lineHeight: scaled(108),
+                fontSize: scaled(96),
+                lineHeight: scaled(114),
                 transform: [{ translateX: scaled(4) }, { translateY: scaled(5) }],
-                width: scaled(280),
+                width: scaled(300),
               }]}>
               50%
             </AppText>
@@ -205,10 +205,10 @@ export function DebutPromoModal({
                 key={`${x}-${y}`}
                 language="en"
                 style={[styles.discount, styles.discountOutline, {
-                  fontSize: scaled(88),
-                  lineHeight: scaled(108),
+                  fontSize: scaled(96),
+                  lineHeight: scaled(114),
                   transform: [{ translateX: scaled(x) }, { translateY: scaled(y) }],
-                  width: scaled(280),
+                  width: scaled(300),
                 }]}>
                 50%
               </AppText>
@@ -218,9 +218,9 @@ export function DebutPromoModal({
               allowFontScaling={false}
               language="en"
               style={[styles.discount, {
-                fontSize: scaled(88),
-                lineHeight: scaled(108),
-                width: scaled(280),
+                fontSize: scaled(96),
+                lineHeight: scaled(114),
+                width: scaled(300),
               }]}>
               50%
             </AppText>
@@ -237,9 +237,9 @@ export function DebutPromoModal({
             allowFontScaling={false}
             language={language}
             style={[styles.body, {
-              fontSize: scaled(language === 'th' ? 14 : 15),
-              lineHeight: scaled(24),
-              top: scaled(282),
+              fontSize: scaled(language === 'th' ? 16 : 17),
+              lineHeight: scaled(27),
+              top: scaled(288),
             }]}>
             {text.body}
           </AppText>
@@ -260,7 +260,7 @@ export function DebutPromoModal({
             <AppText
               allowFontScaling={false}
               language={language}
-              style={[styles.ctaText, { fontSize: scaled(13), lineHeight: scaled(19) }]}>
+              style={[styles.ctaText, { fontSize: scaled(15), lineHeight: scaled(21) }]}>
               {text.cta}
             </AppText>
           </Pressable>
@@ -269,8 +269,8 @@ export function DebutPromoModal({
             allowFontScaling={false}
             language={language}
             style={[styles.deadline, {
-              fontSize: scaled(14),
-              lineHeight: scaled(20),
+              fontSize: scaled(16),
+              lineHeight: scaled(23),
               top: scaled(425),
             }]}>
             {text.deadline}

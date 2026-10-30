@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pailin Abroad",
     "slug": "pailin-abroad-mobile",
-    "version": "2.1.3",
+    "version": "2.1.4",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo-pailin-abroad-smile.png",
     "scheme": "pailinabroadmobile",
