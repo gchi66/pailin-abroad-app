@@ -1,5 +1,6 @@
 import { env } from '@/src/config/env';
 import { supabase } from '@/src/lib/supabase';
+import { File } from 'expo-file-system';
 import {
   SpeakingCoachLesson,
   SpeakingCoachLessonSummary,
@@ -165,14 +166,8 @@ export async function evaluateSpeakingRecording(input: {
   form.append('client_submission_id', input.clientSubmissionId);
   form.append('instructional_attempt_number', String(input.instructionalAttemptNumber));
   if (input.previousAttemptId) form.append('previous_attempt_id', input.previousAttemptId);
-  form.append(
-    'audio',
-    {
-      uri: input.uri,
-      name: input.fileName ?? 'speaking-recording.m4a',
-      type: input.mimeType ?? 'audio/mp4',
-    } as unknown as Blob
-  );
+  const audioFile = new File(input.uri);
+  form.append('audio', audioFile, input.fileName ?? 'speaking-recording.m4a');
 
   const response = await timedFetch('evaluation upload + response', `${baseUrl}/api/speaking/evaluate`, {
     method: 'POST',

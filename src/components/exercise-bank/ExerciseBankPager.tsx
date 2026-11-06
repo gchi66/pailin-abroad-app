@@ -849,6 +849,7 @@ export function ExerciseBankPager({
     item: NormalizedItem;
     userAnswer: string;
     exerciseType: 'fill_blank' | 'open' | 'sentence_transform';
+    originalMarkedIncorrect?: boolean;
   }) => {
     const answerKey = getItemStateKey(params.exercise.id, params.item.key);
     setEvaluations((previous) => ({
@@ -873,6 +874,12 @@ export function ExerciseBankPager({
         questionNumber: params.item.numberLabel,
         instruction: params.exercise.prompt || params.exercise.paragraph || '',
         questionPrompt: params.item.prompt || params.item.text,
+        extra: {
+          ...(params.originalMarkedIncorrect ? { original_marked_incorrect: true } : {}),
+          ...(params.exerciseType === 'fill_blank'
+            ? { accepted_answers_v2: params.item.answersV2 }
+            : {}),
+        },
       });
 
       setEvaluations((previous) => ({
@@ -947,6 +954,8 @@ export function ExerciseBankPager({
             exercise.kind === 'fill_blank' || exercise.kind === 'sentence_transform'
               ? exercise.kind
               : 'open',
+          originalMarkedIncorrect:
+            exercise.kind === 'sentence_transform' && markState === false,
         });
       })
     );

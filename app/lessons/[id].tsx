@@ -7840,7 +7840,11 @@ export default function LessonDetailShellScreen() {
               extra:
                 exercise.kind === 'open' && item.keywords
                   ? { question_keywords: item.keywords }
-                  : undefined,
+                  : exercise.kind === 'fill_blank'
+                    ? { accepted_answers_v2: item.answersV2 }
+                  : exercise.kind === 'sentence_transform' && markedAsCorrect === false
+                    ? { original_marked_incorrect: true }
+                    : undefined,
             });
 
             nextEvaluationByItemKey[answerKey] = {
