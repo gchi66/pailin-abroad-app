@@ -26,9 +26,10 @@ export const posthog = new PostHog(projectToken || 'placeholder_key', {
   },
   enableSessionReplay: true,
   sessionReplayConfig: {
-    // Keep learner content private while preserving navigation and interaction context.
-    maskAllTextInputs: true,
-    maskAllImages: true,
+    // Reveal product-owned copy; every shared TextInput is explicitly masked instead.
+    maskAllTextInputs: false,
+    // App artwork and UI icons are useful replay context. User-entered text remains masked.
+    maskAllImages: false,
     maskAllSandboxedViews: true,
     // Native logs can contain user IDs and speaking-coach diagnostics.
     captureLog: false,

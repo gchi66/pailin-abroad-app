@@ -52,6 +52,13 @@ Build these insights in order:
 7. **How much practice was completed?** — Trends with two series: `exercise_bank_set_completed` and `speaking_recording_evaluated`; total events; weekly bar chart.
 8. **Are free users becoming members?** — Funnel; `membership_plan_selected` to `membership_purchased`; unique users; conversion window 7 days.
 
+Add two backend-owned business tiles:
+
+- **How many people signed up?** — `sign_up_completed`; unique users. This event is emitted after an authenticated profile is created, and historical users have been backfilled with their original signup timestamps.
+- **What changed with memberships?** — `membership_status_changed`; break down by `membership_event_type`, `subscription_status`, `source`, and `plan_id`. RevenueCat and Stripe webhooks emit this event and update the person's current `is_paid`, plan, provider, renewal/cancellation, and expiry properties even when the app is closed.
+
+For a current paid-member snapshot, count persons where the person property `is_paid` is `true`, excluding `is_admin = true` and sandbox membership events. Do not calculate the current total by summing purchase events because cancellations and expirations change the answer.
+
 Put retention and diagnostics on separate dashboards so the weekly founder view stays readable:
 
 - **Learning Retention** — weekly retention where the start and return action is the combined active-learning action.
@@ -59,7 +66,7 @@ Put retention and diagnostics on separate dashboards so the weekly founder view 
 
 ## When each metric can show data
 
-The app already generated `$screen`, application lifecycle, authentication, onboarding, and membership events before the replay release. Those insights can show historical data immediately.
+The app already generated `$screen`, application lifecycle, authentication, onboarding, and membership events before the replay release. Those insights can show historical data immediately. Existing signup dates and current membership properties were backfilled from Supabase on November 16, 2026.
 
 The following learning events were added with app version 2.1.7 and will remain at zero until that build (or a compatible EAS update) is installed and someone performs the action:
 

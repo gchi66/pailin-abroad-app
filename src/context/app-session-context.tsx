@@ -230,12 +230,22 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
 
     posthog.identify(profile.id, {
       $set: {
+        email: profile.email,
+        username: profile.username,
         is_admin: profile.is_admin === true,
         is_paid: profile.is_paid === true,
         onboarding_completed: profile.onboarding_completed === true,
+        subscription_status: profile.subscription_status,
+        billing_provider: profile.billing_provider,
+        membership_source: profile.membership_source,
+        current_period_end: profile.current_period_end,
+        cancel_at_period_end: profile.cancel_at_period_end,
       },
+      ...(session?.user.created_at
+        ? { $set_once: { signed_up_at: session.user.created_at } }
+        : {}),
     });
-  }, [profile]);
+  }, [profile, session?.user.created_at]);
 
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',

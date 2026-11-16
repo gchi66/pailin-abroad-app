@@ -19,6 +19,7 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
     returnKeyType,
     submitBehavior,
     multiline,
+    testID,
     ...props
   },
   ref
@@ -52,6 +53,7 @@ export const ScriptAwareTextInput = forwardRef<TextInput, TextInputProps>(functi
         value={value}
         defaultValue={defaultValue}
         placeholder={placeholder}
+        testID={[testID, 'ph-no-capture'].filter(Boolean).join(' ')}
         inputAccessoryViewID={resolvedAccessoryID}
         enterKeyHint={resolvedEnterKeyHint}
         returnKeyType={returnKeyType ?? (multiline ? 'default' : 'done')}
