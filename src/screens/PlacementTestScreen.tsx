@@ -41,6 +41,7 @@ import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { Stack } from '@/src/components/ui/Stack';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { posthog } from '@/src/config/posthog';
 import { queueLessonLibraryPreview, setLessonLibrarySelection } from '@/src/lib/lesson-library-selection';
 import { placementColors } from '@/src/theme/placement';
 import { theme } from '@/src/theme/theme';
@@ -119,6 +120,12 @@ export function PlacementTestScreen() {
   const player = useAudioPlayer(audioUrl, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
   const closePreview = async () => {
+    posthog.capture('placement_test_exited', {
+      conversation_order: conversationOrder,
+      question_number: questionIndex + 1,
+      audio_started: hasStartedAudio,
+      completed: resultLevel !== null,
+    });
     if (delayedPlaybackRef.current) {
       clearTimeout(delayedPlaybackRef.current);
       delayedPlaybackRef.current = null;
@@ -247,6 +254,14 @@ export function PlacementTestScreen() {
       return;
     }
 
+    posthog.capture('placement_test_section_completed', {
+      conversation_order: conversation.conversation_order,
+      correct_count: correctCount,
+      question_count: conversation.questions.length,
+      continues_to_section: outcome.nextConversation ?? null,
+      result_level: outcome.level ?? null,
+    });
+
     player.pause();
     if (typeof outcome.nextConversation === 'number') {
       setConversationOrder(outcome.nextConversation);
@@ -256,6 +271,7 @@ export function PlacementTestScreen() {
     }
     if (typeof outcome.level === 'number') {
       const level = outcome.level;
+      posthog.capture('placement_test_completed', { result_level: level });
       setIsCalculating(true);
       setIsResultLessonLoading(true);
       setResultLessonId(null);

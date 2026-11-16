@@ -930,6 +930,12 @@ function SpeakingCoachTestScreen() {
     ])
       .then(async ([firstLesson, nextSession]) => {
         if (!cancelled) {
+          posthog.capture('speaking_session_opened', {
+            lesson_external_id: lessonId,
+            session_id: nextSession.id,
+            lesson_mode: lessonMode,
+            guided_mode: guidedMode,
+          });
           const fullLessonPromise = lessonMode
             ? fetchSpeakingCoachLesson(lessonId, { includeTestAnswers: false })
             : null;
@@ -1050,6 +1056,12 @@ function SpeakingCoachTestScreen() {
       }
 
       await upsertLessonCompletion({ lessonId: lessonRecordId, completed: true });
+      posthog.capture('lesson_completed', {
+        lesson_id: lessonRecordId,
+        lesson_external_id: lessonId,
+        is_guest: false,
+        source: 'speaking_coach',
+      });
       bumpLessonLibraryProgressRefreshToken();
       router.replace({
         pathname: '/lesson-complete-preview',
@@ -1123,6 +1135,12 @@ function SpeakingCoachTestScreen() {
         await switchAudioSession(false);
       }
       const nextSession = await skipSpeakingCoachQuestion(session.id, activeQuestion.question.id);
+      posthog.capture('speaking_question_skipped', {
+        lesson_external_id: lessonId,
+        session_id: session.id,
+        question_id: activeQuestion.question.id,
+        practice_type: activeQuestion.practiceSet.practice_type,
+      });
       setSession(nextSession);
       resetQuestion();
       const nextIndex = questions.findIndex(
@@ -1148,6 +1166,11 @@ function SpeakingCoachTestScreen() {
     try {
       setLoading(true);
       const nextSession = await createOrResumeSpeakingSession(lessonId, { forceNew: true });
+      posthog.capture('speaking_session_started', {
+        lesson_external_id: lessonId,
+        session_id: nextSession.id,
+        source: 'retest',
+      });
       resetQuestion();
       setCompletedPracticeSetId(null);
       setLocallyCorrectQuestionIds([]);
@@ -1170,6 +1193,11 @@ function SpeakingCoachTestScreen() {
     try {
       setLoading(true);
       const nextSession = await createOrResumeSpeakingSession(lessonId, { forceNew: true });
+      posthog.capture('speaking_session_started', {
+        lesson_external_id: lessonId,
+        session_id: nextSession.id,
+        source: 'welcome',
+      });
       resetQuestion();
       setCompletedPracticeSetId(null);
       setLocallyCorrectQuestionIds([]);
@@ -1421,6 +1449,15 @@ function SpeakingCoachTestScreen() {
         })}`);
       }
       const nextEvaluation = response.attempt.evaluation;
+      posthog.capture('speaking_recording_evaluated', {
+        lesson_external_id: lessonId,
+        session_id: session.id,
+        question_id: activeQuestion.question.id,
+        practice_type: activeQuestion.practiceSet.practice_type,
+        status: nextEvaluation.status,
+        instructional_attempt_number: instructionalAttemptNumber,
+        client_latency_ms: Date.now() - evaluationStarted,
+      });
       setSession(response.session);
       setEvaluation(nextEvaluation);
       if (nextEvaluation.status === 'pass') {

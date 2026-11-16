@@ -1,5 +1,6 @@
 import { MotionPressable as Pressable } from '@/src/components/ui/MotionPressable';
 import { ScriptAwareTextInput } from '@/src/components/ui/ScriptAwareTextInput';
+import { FontAwesome6 } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,7 +24,14 @@ import { Stack } from '@/src/components/ui/Stack';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { FLOATING_TAB_BAR_PAGE_BOTTOM_PADDING } from '@/src/components/navigation/layout';
 import { useUiLanguage } from '@/src/context/ui-language-context';
-import { FACEBOOK_URL, INSTAGRAM_URL, LINE_URL } from '@/src/config/social';
+import {
+  FACEBOOK_URL,
+  INSTAGRAM_URL,
+  LINE_URL,
+  TIKTOK_URL,
+  YOUTUBE_URL,
+} from '@/src/config/social';
+import { posthog } from '@/src/config/posthog';
 import { theme } from '@/src/theme/theme';
 
 type ContactFormState = {
@@ -58,6 +66,18 @@ const SOCIAL_LINKS = [
     label: 'Facebook',
     url: FACEBOOK_URL,
     icon: require('@/assets/images/facebook_icon.png'),
+  },
+  {
+    key: 'youtube',
+    label: 'YouTube',
+    url: YOUTUBE_URL,
+    vectorIcon: 'youtube',
+  },
+  {
+    key: 'tiktok',
+    label: 'TikTok',
+    url: TIKTOK_URL,
+    vectorIcon: 'tiktok',
   },
 ] as const;
 
@@ -151,6 +171,7 @@ export function ContactScreen() {
       setFormData(INITIAL_FORM_STATE);
       setStatus('success');
       setFeedback(copy.success);
+      posthog.capture('contact_message_sent');
     } catch (error) {
       const messageText = error instanceof Error && error.message ? error.message : copy.failedMessage;
       setStatus('error');
@@ -184,7 +205,16 @@ export function ContactScreen() {
                 accessibilityLabel={link.label}
                 style={styles.socialIconButton}
                 onPress={() => openSocialLink(link.url)}>
-                <Image source={link.icon} style={styles.socialIconImage} resizeMode="contain" />
+                {'icon' in link ? (
+                  <Image source={link.icon} style={styles.socialIconImage} resizeMode="contain" />
+                ) : (
+                  <FontAwesome6
+                    name={link.vectorIcon}
+                    size={link.key === 'youtube' ? 46 : 43}
+                    color={theme.colors.text}
+                    iconStyle="brands"
+                  />
+                )}
               </Pressable>
             ))}
           </View>
@@ -301,10 +331,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 24,
+    gap: 8,
   },
   socialIconButton: {
-    width: 56,
+    width: 48,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',

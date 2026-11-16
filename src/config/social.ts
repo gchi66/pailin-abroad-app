@@ -3,3 +3,5 @@ export const FACEBOOK_URL =
 export const INSTAGRAM_URL =
   'https://www.instagram.com/pailinabroad?igsh=MWRvMTdpcGI4aXYzOA%3D%3D&utm_source=qr';
 export const LINE_URL = 'https://line.me/R/ti/p/@084jscit';
+export const TIKTOK_URL = 'https://www.tiktok.com/@pailinabroad';
+export const YOUTUBE_URL = 'https://www.youtube.com/@pailinabroad';

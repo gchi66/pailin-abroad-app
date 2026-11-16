@@ -42,6 +42,7 @@ import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { ResourcePageHeader } from '@/src/components/resources/ResourcePageHeader';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { posthog } from '@/src/config/posthog';
 import { useAnswerFeedbackSound } from '@/src/hooks/use-answer-feedback-sound';
 import {
   localizeExerciseBankQuestion,
@@ -482,6 +483,8 @@ export function ExerciseBankSessionScreen() {
   const [judgmentRewriteQuestionIds, setJudgmentRewriteQuestionIds] = useState<Record<number, boolean>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isMountedRef = useRef(true);
+  const startedSetKeysRef = useRef(new Set<string>());
+  const completedSetKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -522,6 +525,18 @@ export function ExerciseBankSessionScreen() {
       );
       const detail = response.topic;
       const resolvedSetNumber = response.set?.set_number ?? detail.next_incomplete_set;
+      if (response.set) {
+        const setKey = `${response.topic.id}:${response.set.set_number}`;
+        if (!startedSetKeysRef.current.has(setKey)) {
+          startedSetKeysRef.current.add(setKey);
+          posthog.capture('exercise_bank_set_started', {
+            topic_id: response.topic.id,
+            set_number: response.set.set_number,
+            question_count: response.set.questions.length,
+            resumed: response.set.questions.some((question) => question.progress.latest_user_answer != null),
+          });
+        }
+      }
       setTopicDetail(detail);
       setTopic(detail);
       setSetData(response.set);
@@ -623,6 +638,15 @@ export function ExerciseBankSessionScreen() {
     setErrorMessage(null);
     try {
       const result = await submitExerciseBankV2Answer(currentQuestion.id, answers[currentQuestion.id]);
+      posthog.capture('exercise_bank_answer_submitted', {
+        topic_id: topic?.id ?? topicId,
+        set_number: setData?.set_number ?? null,
+        question_id: currentQuestion.id,
+        exercise_type: currentQuestion.exercise.exercise_type,
+        correct: result.requires_rewrite ? null : result.correct,
+        requires_rewrite: Boolean(result.requires_rewrite),
+        grading_method: result.grading_method,
+      });
       if (result.requires_rewrite) {
         setJudgmentRewriteQuestionIds((current) => ({ ...current, [currentQuestion.id]: true }));
         return;
@@ -664,11 +688,28 @@ export function ExerciseBankSessionScreen() {
     } else {
       setIsFinished(true);
       persistCursor(queue.length, 'results');
+      const setKey = `${topic?.id ?? topicId}:${setData?.set_number ?? 'unknown'}`;
+      if (!completedSetKeysRef.current.has(setKey)) {
+        completedSetKeysRef.current.add(setKey);
+        posthog.capture('exercise_bank_set_completed', {
+          topic_id: topic?.id ?? topicId,
+          set_number: setData?.set_number ?? null,
+          question_count: queue.length,
+          correct_count: latestCorrectCount,
+          skipped_count: Object.keys(skippedIds).length,
+        });
+      }
     }
   };
 
   const skipCurrentQuestion = () => {
     if (!currentQuestion) return;
+    posthog.capture('exercise_bank_question_skipped', {
+      topic_id: topic?.id ?? topicId,
+      set_number: setData?.set_number ?? null,
+      question_id: currentQuestion.id,
+      exercise_type: currentQuestion.exercise.exercise_type,
+    });
     const nextSkippedIds = { ...skippedIds, [currentQuestion.id]: true };
     setSkippedIds(nextSkippedIds);
     if (queueIndex < queue.length - 1) {

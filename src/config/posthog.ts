@@ -17,6 +17,25 @@ export const posthog = new PostHog(projectToken || 'placeholder_key', {
   host,
   disabled: !isPostHogConfigured,
   captureAppLifecycleEvents: true,
+  errorTracking: {
+    autocapture: {
+      uncaughtExceptions: true,
+      unhandledRejections: true,
+      nativeCrashes: true,
+    },
+  },
+  enableSessionReplay: true,
+  sessionReplayConfig: {
+    // Keep learner content private while preserving navigation and interaction context.
+    maskAllTextInputs: true,
+    maskAllImages: true,
+    maskAllSandboxedViews: true,
+    // Native logs can contain user IDs and speaking-coach diagnostics.
+    captureLog: false,
+    // PostHog records timings/status codes only, never request or response bodies.
+    captureNetworkTelemetry: true,
+    throttleDelayMs: 1000,
+  },
   flushAt: 20,
   flushInterval: 10000,
   maxBatchSize: 100,

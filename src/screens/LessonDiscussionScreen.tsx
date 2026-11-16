@@ -30,6 +30,7 @@ import { NeoShadowPressable } from '@/src/components/ui/NeoShadowPressable';
 import { NeoShadowView } from '@/src/components/ui/NeoShadowView';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { posthog } from '@/src/config/posthog';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
 import type { LessonComment, NestedLessonComment } from '@/src/types/discussion';
@@ -342,6 +343,10 @@ export function LessonDiscussionScreen({ lessonId, language }: Props) {
       const isTopLevel = !composerTarget.parent;
       setComposerTarget(null);
       setDraft('');
+      posthog.capture('lesson_comment_posted', {
+        lesson_id: lessonId,
+        is_reply: !isTopLevel,
+      });
 
       if (isTopLevel && !isAdmin) {
         void notifyNewLessonComment(created.id).catch((error) =>

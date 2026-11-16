@@ -10,6 +10,7 @@ import { LanguageToggle } from '@/src/components/ui/LanguageToggle';
 import { ResponsivePageShell } from '@/src/components/ui/ResponsivePageShell';
 import { useAppSession } from '@/src/context/app-session-context';
 import { useUiLanguage } from '@/src/context/ui-language-context';
+import { posthog } from '@/src/config/posthog';
 import { resolveAvatarSource } from '@/src/lib/avatar';
 import { theme } from '@/src/theme/theme';
 
@@ -75,9 +76,18 @@ export function PlacementEntryScreen() {
         <ResponsivePageShell style={styles.cardShell}>
           <PlacementTestIntroCard
             language={uiLanguage}
-            onChooseManually={() => router.push('/choose-level')}
+            onChooseManually={() => {
+              posthog.capture('placement_level_choice_started', { source: source ?? 'unknown' });
+              router.push('/choose-level');
+            }}
             onClose={isGuestEntry ? () => void returnToPathway() : undefined}
-            onStart={() => router.push('/placement-test')}
+            onStart={() => {
+              posthog.capture('placement_test_started', {
+                source: source ?? 'unknown',
+                is_guest: isGuestEntry,
+              });
+              router.push('/placement-test');
+            }}
           />
         </ResponsivePageShell>
       </ScrollView>

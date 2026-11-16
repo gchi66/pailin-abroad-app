@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pailin Abroad",
     "slug": "pailin-abroad-mobile",
-    "version": "2.1.5",
+    "version": "2.1.7",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo-pailin-abroad-smile.png",
     "scheme": "pailinabroadmobile",
@@ -104,6 +104,7 @@
         "expo-build-properties",
         {
           "android": {
+            "minSdkVersion": 26,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true
           },
@@ -133,6 +134,7 @@
       ],
       "expo-secure-store",
       "expo-audio",
+      "expo-localization",
       [
         "expo-notifications",
         {
@@ -151,6 +153,10 @@
         "projectId": "b8952909-9d18-4f83-945c-967226b3efd5"
       }
     },
-    "owner": "pailin-abroad"
+    "owner": "pailin-abroad",
+    "runtimeVersion": "2.1.7",
+    "updates": {
+      "url": "https://u.expo.dev/b8952909-9d18-4f83-945c-967226b3efd5"
+    }
   }
 }

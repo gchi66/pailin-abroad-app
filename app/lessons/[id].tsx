@@ -91,6 +91,7 @@ import { InsetBorderSurface } from '@/src/components/ui/InsetBorderSurface';
 import { PageLoadingState } from '@/src/components/ui/PageLoadingState';
 import { Stack } from '@/src/components/ui/Stack';
 import { env } from '@/src/config/env';
+import { posthog } from '@/src/config/posthog';
 import {
   getLessonDetailCopy,
   getLessonSectionLabel,
@@ -3976,6 +3977,7 @@ export default function LessonDetailShellScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasStartedLesson, setHasStartedLesson] = useState(false);
   const previewStartedLessonRef = useRef<string | null>(null);
+  const analyticsStartedLessonRef = useRef<string | null>(null);
   const [contentLang, setContentLang] = useState<UiLanguage>(getLessonContentLanguage);
   const [hasHydratedContentLang, setHasHydratedContentLang] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
@@ -4669,6 +4671,18 @@ export default function LessonDetailShellScreen() {
   }, []);
 
   const lessonCover = lesson ?? coverLesson;
+
+  useEffect(() => {
+    if (!hasStartedLesson || !lessonCover?.id || analyticsStartedLessonRef.current === lessonCover.id) {
+      return;
+    }
+    analyticsStartedLessonRef.current = lessonCover.id;
+    posthog.capture('lesson_started', {
+      lesson_id: lessonCover.id,
+      lesson_external_id: lessonCover.lesson_external_id ?? null,
+      is_guest: isGuestLessonSession,
+    });
+  }, [hasStartedLesson, isGuestLessonSession, lessonCover?.id, lessonCover?.lesson_external_id]);
   const isLessonReady = Boolean(lesson);
   const pageLanguage = hasStartedLesson || showOverview ? contentLang : uiLanguage;
 
@@ -6841,6 +6855,11 @@ export default function LessonDetailShellScreen() {
       await upsertLessonCompletion({ lessonId: lessonCover.id, completed: true });
       bumpLessonLibraryProgressRefreshToken();
       setIsLessonCompleted(true);
+      posthog.capture('lesson_completed', {
+        lesson_id: lessonCover.id,
+        lesson_external_id: lessonCover.lesson_external_id ?? null,
+        is_guest: false,
+      });
       openLessonCompletePage();
     } catch (error) {
       setLessonCompletionError(error instanceof Error ? error.message : pageCopy.completionSavedError);
@@ -6867,6 +6886,11 @@ export default function LessonDetailShellScreen() {
     }
 
     setIsLessonCompleted(true);
+    posthog.capture('lesson_completed', {
+      lesson_id: lessonCover.id,
+      lesson_external_id: lessonCover.lesson_external_id ?? null,
+      is_guest: true,
+    });
     openLessonCompletePage();
   }, [lessonCover?.id, openLessonCompletePage]);
 
@@ -6927,6 +6951,12 @@ export default function LessonDetailShellScreen() {
         await upsertLessonCompletion({ lessonId: lessonCover.id, completed });
       }
       bumpLessonLibraryProgressRefreshToken();
+      posthog.capture(completed ? 'lesson_completed' : 'lesson_marked_incomplete', {
+        lesson_id: lessonCover.id,
+        lesson_external_id: lessonCover.lesson_external_id ?? null,
+        is_guest: isGuestLessonSession,
+        source: 'lesson_overview',
+      });
     } catch (error) {
       setIsLessonCompleted(previousCompleted);
       const message = error instanceof Error ? error.message : pageCopy.completionSavedError;

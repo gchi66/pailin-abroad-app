@@ -223,6 +223,20 @@ export function AppSessionProvider({ children }: AppSessionProviderProps) {
   const guestConversionShouldCarryMembershipRef = useRef(false);
   const hasConfiguredGoogleSignInRef = useRef(false);
 
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    posthog.identify(profile.id, {
+      $set: {
+        is_admin: profile.is_admin === true,
+        is_paid: profile.is_paid === true,
+        onboarding_completed: profile.onboarding_completed === true,
+      },
+    });
+  }, [profile]);
+
   const redirectTo = makeRedirectUri({
     scheme: 'pailinabroadmobile',
     path: 'auth/callback',
